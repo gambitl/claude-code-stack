@@ -1,0 +1,285 @@
+{
+  "env": {
+    "ENABLE_TOOL_SEARCH": "true"
+  },
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "allow": [
+      "Edit(/Users/distefano/.claude/*)",
+      "Write(/Users/distefano/.claude/*)",
+      "Bash(conda run *)",
+      "Bash(conda info *)",
+      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/pip install *)",
+      "WebFetch(domain:app.kardinal.ai)",
+      "Bash(find /Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD -name \"*.py\" | xargs grep -l \"kardinal\\\\|api/v2\\\\|plans\\\\|submit\" 2>/dev/null | head -10)",
+      "Read(//Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD/**)",
+      "Bash(grep -rn \"get_plan_status\\\\|isRunning\\\\|sleep\" \\\\ *)",
+      "Read(//Users/distefano/Desktop/dev_projects/solution_engineering/**)",
+      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python3 -c \"import requests; print\\(requests.__version__\\)\")",
+      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python3 -c ' *)",
+      "Bash(python -c \"import shapely, requests, folium; print\\('OK'\\)\")",
+      "Bash(python -m pip list)",
+      "Bash(conda install *)",
+      "Bash(conda env *)",
+      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python -c \"import shapely, requests, folium; print\\('OK'\\)\")",
+      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python -c ' *)",
+      "Bash(git commit -m 'Add PBF conversion caching for faster repeated extractions *)",
+      "Bash(python3 -c \"import klient; print\\(klient.__file__\\); print\\(dir\\(klient\\)\\)\")",
+      "Bash(ssh Airflow *)",
+      "Bash(ssh -o BatchMode=yes Airflow *)",
+      "Bash(scp * Airflow:*)"
+    ],
+    "defaultMode": "auto"
+  },
+  "model": "opus",
+  "hooks": {
+    "Notification": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: notification\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: stop\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"STYLE REMINDER, applies to EVERY piece of text you produce this turn that the user or their teammates will read - not only this chat reply, but also git commit messages, everything on GitHub or GitLab (pull request titles and descriptions, issues, review comments), Notion pages, Linear issues and comments, release notes, and documentation files. The user reads English as a second language. Write complete natural sentences in plain everyday English. No telegraphic fragments, no arrow chains, no invented shorthand labels. Explain technical terms on first use. Lead with the outcome, details after. Full rules are in ~/.claude/CLAUDE.md.\"},\"suppressOutput\":true}'"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: start\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Grep|Glob|Read|Edit|Write|mcp__.*[Rr]epowise.*__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Checking codebase context..."
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Checking codebase context..."
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
+            "timeout": 10,
+            "statusMessage": "Loading repowise context..."
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: session-start\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "pyright-lsp@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "github@claude-plugins-official": true,
+    "repowise@repowise": true
+  },
+  "extraKnownMarketplaces": {
+    "repowise": {
+      "source": {
+        "source": "github",
+        "repo": "repowise-dev/repowise"
+      }
+    }
+  },
+  "effortLevel": "high",
+  "modelSettings": {
+    "claude-opus-5": {
+      "effortLevel": "xhigh"
+    },
+    "claude-opus-5-5": {
+      "effortLevel": "xhigh"
+    }
+  },
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark",
+  "skipAutoPermissionPrompt": true,
+  "autoMode": {
+    "allow": [
+      "$defaults",
+      "Bash(uv run pytest:*) in owlaris-app",
+      "Bash(uv sync) in owlaris-app",
+      "Bash(gh pr checks:*) in owlaris-app"
+    ],
+    "soft_deny": [
+      "$defaults",
+      "Bash(uv run python -m data.provisioning.migrate_all_tenants:*) against non-local DSNs",
+      "Writes to docker-compose.prod.yml or scripts/initdb-prod.sql"
+    ],
+    "environment": [
+      "### Org-wide",
+      "**Organization**: Owlaris (GitHub org/user `gambitl`) — repo `gambitl/owlaris-app`",
+      "**Cloud provider(s)**: S3-compatible object storage (MinIO locally, S3-compatible in prod) + MLflow model registry; no specific cloud provider (AWS/GCP/Azure) confirmed as the org's provider",
+      "**Repository visibility**: Private — confirmed via gh (`gambitl/owlaris-app`, private)",
+      "**Internal sharing / snippet hosting**: Notion (`notion-local` connection, workspace \"Victor Di Stefano's Space\") is the canonical Owlaris docs/spec/ADR host for this repo; the `claude_ai_Notion` connection is a separate employer (Kardinal) workspace and must never be used for Owlaris work",
+      "**Secrets management**: Environment variables only (`.env`, gitignored), e.g. AUTH_JWT_SECRET, OBJSTORE_ACCESS_KEY/SECRET_KEY, OBJSTORE_KMS_SECRET_KEY — no secret-manager service configured",
+      "**Default / protected branches**: Default branch `main`; no protected branches or rulesets returned by gh (private repo on GitHub Free plan — CLAUDE.md notes branch protection can't be enforced technically here, so CI-green-before-merge is a manual/instructional gate, not an enforced one)",
+      "**CI/CD deploy targets**: GitHub Actions workflows in `.github/workflows` (ci-python.yml / ci-go.yml / ci-front.yml / full-suite.yml); deploy via `scripts/release.sh` and `docker-compose.prod.yml` — no external cloud deploy target confirmed",
+      "**Network posture**: None configured",
+      "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine with open internet",
+      "**Source control**: The trusted repo (`gambitl/owlaris-app`, private) and its `origin` remote only",
+      "**Trusted internal domains**: None configured",
+      "**Trusted cloud buckets**: `owlaris-imports` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation), `owlaris-mlflow` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation)",
+      "**Key internal services**: Notion MCP (`notion-local` workspace only), Linear MCP (OWL team), MLflow tracking server (local dev: http://localhost:5001 / in-network: http://mlflow:5000), MinIO/object storage (local dev: http://localhost:9000)",
+      "**Internal package registry**: None configured",
+      "**Sensitive data locations & audiences**: `.env` (gitignored, holds AUTH_JWT_SECRET, OBJSTORE_* credentials, OBJSTORE_KMS_SECRET_KEY); `data/tests/test_import_pii.py`; `docker-compose.prod.yml`; `scripts/initdb-prod.sql`; the `owlaris-imports` object-storage bucket (holds uploaded PII subject to OWL-43 erasure purge) — share only with audiences cleared at the [named+specifics] bar",
+      "**Data retention / declassification**: None configured",
+      "**Sensitive remote targets**: any namespace/host/container carrying `prod` or `production` as a whole word/segment — includes `docker-compose.prod.yml`, `scripts/initdb-prod.sql`, prod object-storage buckets, prod MLflow artifact root",
+      "**Protected deployment namespaces / environments**: `docker-compose.prod.yml`-driven prod stack (requires AUTH_JWT_SECRET, gates on migrate-first via `scripts/release.sh`); any tenant domain DB or control-plane DB reached through a prod DSN",
+      "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word/segment",
+      "### User-specific",
+      "**Primary use of Claude Code**: software development (full-stack monorepo — Next.js front, Go back, Python/uv data-ML — plus Notion/Linear-driven planning workflows)",
+      "**Trusted repo**: `gambitl/owlaris-app` (private) — the working directory and its `origin` remote",
+      "**Org-specific CLIs**: `uv` (Python env/deps — mandatory, never raw pip/venv), `gh` (GitHub CLI, PR/issue workflows), `repowise` (local codebase-intelligence index, index-only mode)",
+      "**Routine under this repo's paths**: routine test/dev commands scoped to `owlaris-app/` — `uv run pytest`, `go test ./...` from `back/`, `npm test` from `front/`, `./scripts/dev-up.sh`, `./dev.sh` — are within the trusted-repo working pattern"
+    ]
+  },
+  "mcpServers": {
+    "repowise": {
+      "command": "/Users/distefano/.local/share/uv/tools/repowise/bin/repowise",
+      "args": [
+        "mcp",
+        "/Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD/dpd_dag",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence — docs, graph, git signals, dead code, decisions"
+    }
+  }
+}
