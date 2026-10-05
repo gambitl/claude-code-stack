@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Part of the resolve-issue skill. Use only when the resolve-issue workflow asks for a code review with the conventions focus or the simplicity focus; never for anything else.
+description: Part of the resolve-issue skill. Use only when the resolve-issue workflow asks for a code review with the conventions focus; never for anything else.
 model: sonnet
 effort: medium
 ---

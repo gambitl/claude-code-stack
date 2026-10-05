@@ -18,7 +18,7 @@ You are reviewing a finished branch you know nothing about. Its pull request doe
 ## What to do
 
 1. Read the ticket and the acceptance criteria from the plan file. Read the conventions file. Do not read the rest of the plan yet; form your own view of the code first.
-2. Read the full diff of the local branch against its target. If the repository has a repowise index, first ask `get_change_risk` for the score of the branch range and `get_risk` in pull-request mode for the directive block, and check what it says will break outside the diff and which co-changing files were left untouched; run the tests it names as proven to exercise the change in addition to the full suite.
+2. Read the full diff of the local branch against its target. If the repository has a Graphify code graph (a `graphify-out/` folder), first run `graphify update .` so the graph describes the branch, then run `graphify affected "<symbol>"` on each symbol the diff changes or deletes. Check that what depends on them outside the diff still works, and run the tests those lists name in addition to the full suite. For each changed file, `git log --full-diff --format= --name-only -n 30 -- <file> | sort | uniq -c | sort -rn` lists the files that usually change with it; check the ones the branch left untouched.
 3. Check, one by one, that every acceptance criterion is met, with a test that proves it. Note any criterion without a test or without an implementation.
 4. Check the diff against the conventions file: test-first policy, layer boundaries, commit format, naming, error handling, logging.
 5. Look for real bugs, security problems (authorization on new endpoints, unparameterised SQL, secrets, stack traces in error responses), and dead or duplicated code introduced by the change.
