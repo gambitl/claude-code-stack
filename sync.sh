@@ -14,6 +14,18 @@ REPO="$(cd "$(dirname "$0")" && pwd)"
 COMMIT=false
 [ "${1:-}" = "--commit" ] && COMMIT=true
 
+# The two helper scripts below need Python. macOS and Linux install it as
+# python3, while a Windows install usually only provides python, so take
+# whichever one is on PATH.
+if command -v python3 >/dev/null 2>&1; then
+  PYTHON=python3
+elif command -v python >/dev/null 2>&1; then
+  PYTHON=python
+else
+  echo "Stopped: neither python3 nor python is on PATH." >&2
+  exit 1
+fi
+
 cd "$REPO"
 
 # 1. Global config files.
@@ -26,7 +38,7 @@ cp "$SRC/plugins/installed_plugins.json" config/installed-plugins.json
 # 2. MCP servers declared at user level live in ~/.claude.json, next to
 #    login state we must never publish. Export only the server list, with
 #    every env and header value replaced by a placeholder.
-python3 scripts/export_mcp_servers.py "$HOME/.claude.json" > config/mcp-servers.json
+"$PYTHON" scripts/export_mcp_servers.py "$HOME/.claude.json" > config/mcp-servers.json
 
 # 3. My own skills. Skills installed by other tools are skipped:
 #    "synced" comes from claude.ai, folders marked .superset-managed come
@@ -44,7 +56,7 @@ done
 find skills -name .DS_Store -delete
 
 # 4. Human-readable summary of hooks, plugins, MCP servers and skills.
-python3 scripts/build_inventory.py "$SRC" > INVENTORY.md
+"$PYTHON" scripts/build_inventory.py "$SRC" > INVENTORY.md
 
 # 5. Safety net: refuse to continue if anything looks like a token or key.
 if grep -rEn \

@@ -8,24 +8,19 @@
   },
   "permissions": {
     "allow": [
-      "Edit(/Users/distefano/.claude/*)",
-      "Write(/Users/distefano/.claude/*)",
+      "Edit(~/.claude/*)",
+      "Write(~/.claude/*)",
+      "mcp__claude_ai_Notion__notion-fetch",
+      "mcp__claude_ai_Notion__notion-create-pages",
+      "mcp__claude_ai_Notion__notion-update-page",
       "Bash(conda run *)",
       "Bash(conda info *)",
-      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/pip install *)",
       "WebFetch(domain:app.kardinal.ai)",
-      "Bash(find /Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD -name \"*.py\" | xargs grep -l \"kardinal\\\\|api/v2\\\\|plans\\\\|submit\" 2>/dev/null | head -10)",
-      "Read(//Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD/**)",
       "Bash(grep -rn \"get_plan_status\\\\|isRunning\\\\|sleep\" \\\\ *)",
-      "Read(//Users/distefano/Desktop/dev_projects/solution_engineering/**)",
-      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python3 -c \"import requests; print\\(requests.__version__\\)\")",
-      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python3 -c ' *)",
       "Bash(python -c \"import shapely, requests, folium; print\\('OK'\\)\")",
       "Bash(python -m pip list)",
       "Bash(conda install *)",
       "Bash(conda env *)",
-      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python -c \"import shapely, requests, folium; print\\('OK'\\)\")",
-      "Bash(/Users/distefano/anaconda3/envs/omniva/bin/python -c ' *)",
       "Bash(git commit -m 'Add PBF conversion caching for faster repeated extractions *)",
       "Bash(python3 -c \"import klient; print\\(klient.__file__\\); print\\(dir\\(klient\\)\\)\")",
       "Bash(ssh Airflow *)",
@@ -36,12 +31,30 @@
   },
   "model": "opus",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cmd.exe /d /c set EMDASH_HOOK_MARKER=EMDASH_HOOK_CONFIG_VERSION=1 EMDASH_HOOK_PORT&&powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQAgAD0AIAAnAFMAaQBsAGUAbgB0AGwAeQBDAG8AbgB0AGkAbgB1AGUAJwA7ACAAaQBmACAAKAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8ASABPAE8ASwBfAFAATwBSAFQAIAAtAG8AcgAgAC0AbgBvAHQAIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFACAALQBvAHIAIAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAKQAgAHsAIABlAHgAaQB0ACAAMAAgAH0AOwAgACQAcABhAHkAbABvAGEAZAAgAD0AIABbAEMAbwBuAHMAbwBsAGUAXQA6ADoASQBuAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsAIAB0AHIAeQAgAHsAIABJAG4AdgBvAGsAZQAtAFcAZQBiAFIAZQBxAHUAZQBzAHQAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAALQBNAGUAdABoAG8AZAAgAFAATwBTAFQAIAAtAFUAcgBpACAAKAAnAGgAdAB0AHAAOgAvAC8AMQAyADcALgAwAC4AMAAuADEAOgAnACAAKwAgACQAZQBuAHYAOgBFAE0ARABBAFMASABfAEgATwBPAEsAXwBQAE8AUgBUACAAKwAgACcALwBoAG8AbwBrACcAKQAgAC0ASABlAGEAZABlAHIAcwAgAEAAewAgACcAQwBvAG4AdABlAG4AdAAtAFQAeQBwAGUAJwAgAD0AIAAnAGEAcABwAGwAaQBjAGEAdABpAG8AbgAvAGoAcwBvAG4AJwA7ACAAJwBYAC0ARQBtAGQAYQBzAGgALQBUAG8AawBlAG4AJwAgAD0AIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFADsAIAAnAFgALQBFAG0AZABhAHMAaAAtAFAAdAB5AC0ASQBkACcAIAA9ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAOwAgACcAWAAtAEUAbQBkAGEAcwBoAC0ARQB2AGUAbgB0AC0AVAB5AHAAZQAnACAAPQAgACcAcwB0AGEAcgB0ACcAIAB9ACAALQBCAG8AZAB5ACAAJABwAGEAeQBsAG8AYQBkACAAfAAgAE8AdQB0AC0ATgB1AGwAbAAgAH0AIABjAGEAdABjAGgAIAB7ACAAZQB4AGkAdAAgADAAIAB9AA=="
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"STYLE REMINDER, applies to EVERY piece of text you produce this turn that the user or their teammates will read - not only this chat reply, but also git commit messages, everything on GitHub or GitLab (pull request titles and descriptions, issues, review comments), Notion pages, Linear issues and comments, release notes, and documentation files. The user reads English as a second language. Write complete natural sentences in plain everyday English. No telegraphic fragments, no arrow chains, no invented shorthand labels. Explain technical terms on first use. Lead with the outcome, details after. Full rules are in ~/.claude/CLAUDE.md.\"},\"suppressOutput\":true}'"
+          }
+        ]
+      }
+    ],
     "Notification": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: notification\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
+            "command": "cmd.exe /d /c set EMDASH_HOOK_MARKER=EMDASH_HOOK_CONFIG_VERSION=1 EMDASH_HOOK_PORT&&powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQAgAD0AIAAnAFMAaQBsAGUAbgB0AGwAeQBDAG8AbgB0AGkAbgB1AGUAJwA7ACAAaQBmACAAKAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8ASABPAE8ASwBfAFAATwBSAFQAIAAtAG8AcgAgAC0AbgBvAHQAIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFACAALQBvAHIAIAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAKQAgAHsAIABlAHgAaQB0ACAAMAAgAH0AOwAgACQAcABhAHkAbABvAGEAZAAgAD0AIABbAEMAbwBuAHMAbwBsAGUAXQA6ADoASQBuAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsAIAB0AHIAeQAgAHsAIABJAG4AdgBvAGsAZQAtAFcAZQBiAFIAZQBxAHUAZQBzAHQAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAALQBNAGUAdABoAG8AZAAgAFAATwBTAFQAIAAtAFUAcgBpACAAKAAnAGgAdAB0AHAAOgAvAC8AMQAyADcALgAwAC4AMAAuADEAOgAnACAAKwAgACQAZQBuAHYAOgBFAE0ARABBAFMASABfAEgATwBPAEsAXwBQAE8AUgBUACAAKwAgACcALwBoAG8AbwBrACcAKQAgAC0ASABlAGEAZABlAHIAcwAgAEAAewAgACcAQwBvAG4AdABlAG4AdAAtAFQAeQBwAGUAJwAgAD0AIAAnAGEAcABwAGwAaQBjAGEAdABpAG8AbgAvAGoAcwBvAG4AJwA7ACAAJwBYAC0ARQBtAGQAYQBzAGgALQBUAG8AawBlAG4AJwAgAD0AIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFADsAIAAnAFgALQBFAG0AZABhAHMAaAAtAFAAdAB5AC0ASQBkACcAIAA9ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAOwAgACcAWAAtAEUAbQBkAGEAcwBoAC0ARQB2AGUAbgB0AC0AVAB5AHAAZQAnACAAPQAgACcAbgBvAHQAaQBmAGkAYwBhAHQAaQBvAG4AJwAgAH0AIAAtAEIAbwBkAHkAIAAkAHAAYQB5AGwAbwBhAGQAIAB8ACAATwB1AHQALQBOAHUAbABsACAAfQAgAGMAYQB0AGMAaAAgAHsAIABlAHgAaQB0ACAAMAAgAH0A"
           }
         ]
       }
@@ -51,145 +64,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: stop\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
-          }
-        ]
-      }
-    ],
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"UserPromptSubmit\",\"additionalContext\":\"STYLE REMINDER, applies to EVERY piece of text you produce this turn that the user or their teammates will read - not only this chat reply, but also git commit messages, everything on GitHub or GitLab (pull request titles and descriptions, issues, review comments), Notion pages, Linear issues and comments, release notes, and documentation files. The user reads English as a second language. Write complete natural sentences in plain everyday English. No telegraphic fragments, no arrow chains, no invented shorthand labels. Explain technical terms on first use. Lead with the outcome, details after. Full rules are in ~/.claude/CLAUDE.md.\"},\"suppressOutput\":true}'"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: start\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Grep|Glob|Read|Edit|Write|mcp__.*[Rr]epowise.*__.*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
-            "timeout": 10,
-            "statusMessage": "Checking codebase context..."
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      }
-    ],
-    "PostToolUseFailure": [
-      {
-        "matcher": "Read|Edit|Write|Grep|Glob|NotebookEdit",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
-            "timeout": 10,
-            "statusMessage": "Checking codebase context..."
-          }
-        ]
-      },
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      }
-    ],
-    "PermissionRequest": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if command -v repowise-augment >/dev/null 2>&1; then exec repowise-augment; fi",
-            "timeout": 10,
-            "statusMessage": "Loading repowise context..."
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "EMDASH_HOOK_CONFIG_VERSION=1; if [ -z \"${EMDASH_HOOK_PORT:-}\" ] || [ -z \"${EMDASH_HOOK_NONCE:-}\" ] || [ -z \"${EMDASH_PTY_ID:-}\" ]; then exit 0; fi; curl -sf -X POST -H \"Content-Type: application/json\" -H \"X-Emdash-Token: $EMDASH_HOOK_NONCE\" -H \"X-Emdash-Pty-Id: $EMDASH_PTY_ID\" -H \"X-Emdash-Event-Type: session-start\" -d @- \"http://127.0.0.1:$EMDASH_HOOK_PORT/hook\" || true"
-          }
-        ]
-      }
-    ],
-    "SessionEnd": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
-          }
-        ]
-      }
-    ],
-    "StopFailure": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "[ -n \"$SUPERSET_HOME_DIR\" ] && [ -x \"$SUPERSET_HOME_DIR/hooks/notify.sh\" ] && SUPERSET_AGENT_ID=claude \"$SUPERSET_HOME_DIR/hooks/notify.sh\" || true"
+            "command": "cmd.exe /d /c set EMDASH_HOOK_MARKER=EMDASH_HOOK_CONFIG_VERSION=1 EMDASH_HOOK_PORT&&powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand JABFAHIAcgBvAHIAQQBjAHQAaQBvAG4AUAByAGUAZgBlAHIAZQBuAGMAZQAgAD0AIAAnAFMAaQBsAGUAbgB0AGwAeQBDAG8AbgB0AGkAbgB1AGUAJwA7ACAAaQBmACAAKAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8ASABPAE8ASwBfAFAATwBSAFQAIAAtAG8AcgAgAC0AbgBvAHQAIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFACAALQBvAHIAIAAtAG4AbwB0ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAKQAgAHsAIABlAHgAaQB0ACAAMAAgAH0AOwAgACQAcABhAHkAbABvAGEAZAAgAD0AIABbAEMAbwBuAHMAbwBsAGUAXQA6ADoASQBuAC4AUgBlAGEAZABUAG8ARQBuAGQAKAApADsAIAB0AHIAeQAgAHsAIABJAG4AdgBvAGsAZQAtAFcAZQBiAFIAZQBxAHUAZQBzAHQAIAAtAFUAcwBlAEIAYQBzAGkAYwBQAGEAcgBzAGkAbgBnACAALQBNAGUAdABoAG8AZAAgAFAATwBTAFQAIAAtAFUAcgBpACAAKAAnAGgAdAB0AHAAOgAvAC8AMQAyADcALgAwAC4AMAAuADEAOgAnACAAKwAgACQAZQBuAHYAOgBFAE0ARABBAFMASABfAEgATwBPAEsAXwBQAE8AUgBUACAAKwAgACcALwBoAG8AbwBrACcAKQAgAC0ASABlAGEAZABlAHIAcwAgAEAAewAgACcAQwBvAG4AdABlAG4AdAAtAFQAeQBwAGUAJwAgAD0AIAAnAGEAcABwAGwAaQBjAGEAdABpAG8AbgAvAGoAcwBvAG4AJwA7ACAAJwBYAC0ARQBtAGQAYQBzAGgALQBUAG8AawBlAG4AJwAgAD0AIAAkAGUAbgB2ADoARQBNAEQAQQBTAEgAXwBIAE8ATwBLAF8ATgBPAE4AQwBFADsAIAAnAFgALQBFAG0AZABhAHMAaAAtAFAAdAB5AC0ASQBkACcAIAA9ACAAJABlAG4AdgA6AEUATQBEAEEAUwBIAF8AUABUAFkAXwBJAEQAOwAgACcAWAAtAEUAbQBkAGEAcwBoAC0ARQB2AGUAbgB0AC0AVAB5AHAAZQAnACAAPQAgACcAcwB0AG8AcAAnACAAfQAgAC0AQgBvAGQAeQAgACQAcABhAHkAbABvAGEAZAAgAHwAIABPAHUAdAAtAE4AdQBsAGwAIAB9ACAAYwBhAHQAYwBoACAAewAgAGUAeABpAHQAIAAwACAAfQA="
           }
         ]
       }
@@ -206,17 +81,9 @@
     "claude-md-management@claude-plugins-official": true,
     "typescript-lsp@claude-plugins-official": true,
     "skill-creator@claude-plugins-official": true,
-    "github@claude-plugins-official": true,
-    "repowise@repowise": true
+    "github@claude-plugins-official": true
   },
-  "extraKnownMarketplaces": {
-    "repowise": {
-      "source": {
-        "source": "github",
-        "repo": "repowise-dev/repowise"
-      }
-    }
-  },
+  "extraKnownMarketplaces": {},
   "effortLevel": "high",
   "modelSettings": {
     "claude-opus-5": {
@@ -226,6 +93,7 @@
       "effortLevel": "xhigh"
     }
   },
+  "autoUpdatesChannel": "latest",
   "tui": "fullscreen",
   "skipDangerousModePermissionPrompt": true,
   "theme": "dark",
@@ -266,20 +134,8 @@
       "### User-specific",
       "**Primary use of Claude Code**: software development (full-stack monorepo — Next.js front, Go back, Python/uv data-ML — plus Notion/Linear-driven planning workflows)",
       "**Trusted repo**: `gambitl/owlaris-app` (private) — the working directory and its `origin` remote",
-      "**Org-specific CLIs**: `uv` (Python env/deps — mandatory, never raw pip/venv), `gh` (GitHub CLI, PR/issue workflows), `repowise` (local codebase-intelligence index, index-only mode)",
+      "**Org-specific CLIs**: `uv` (Python env/deps — mandatory, never raw pip/venv), `gh` (GitHub CLI, PR/issue workflows), `graphify` (local code graph of each checkout in gitignored `graphify-out/`, refreshed by the repo's own Claude Code hooks, no AI model)",
       "**Routine under this repo's paths**: routine test/dev commands scoped to `owlaris-app/` — `uv run pytest`, `go test ./...` from `back/`, `npm test` from `front/`, `./scripts/dev-up.sh`, `./dev.sh` — are within the trusted-repo working pattern"
     ]
-  },
-  "mcpServers": {
-    "repowise": {
-      "command": "/Users/distefano/.local/share/uv/tools/repowise/bin/repowise",
-      "args": [
-        "mcp",
-        "/Users/distefano/Desktop/dev_projects/solution_engineering/client/DPD/dpd_dag",
-        "--transport",
-        "stdio"
-      ],
-      "description": "repowise: codebase intelligence — docs, graph, git signals, dead code, decisions"
-    }
   }
 }

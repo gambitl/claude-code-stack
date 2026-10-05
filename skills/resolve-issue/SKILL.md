@@ -29,7 +29,8 @@ Each prompt in `agents/` starts with a header that names the model and the think
 | Executor (phases 6 to 10 and phase 12, including documenting and publishing) | `executor.md` | Sonnet | medium |
 | One implementation unit | `implementer.md` | Sonnet | medium |
 | Second attempt at a unit that got stuck | `implementer-escalation.md` | Opus | high |
-| Code review, conventions focus and simplicity focus | `code-reviewer.md` | Sonnet | medium |
+| Code review, conventions focus | `code-reviewer.md` | Sonnet | medium |
+| Code review, simplicity focus | `code-reviewer-simplicity.md` | Sonnet | medium |
 | Code review, correctness focus and security focus | `code-reviewer-deep.md` | Opus | high |
 | Independent review of the finished branch | `pr-reviewer.md` | Opus | high |
 | CTO advisor, at all three moments | `cto-review.md` | Opus | high |
@@ -75,16 +76,16 @@ If nothing blocks the ticket, write "Dependencies: clear" in the plan file and c
 
 Consumes: **Where things are today** and **Scope**.
 
-Repowise, the codebase documentation engine indexed for the repository, is the first and main source. Use it through its MCP server or the `repowise` command line, and open a source file only when repowise cannot answer. If the repository has no repowise index, tell the user and suggest they run `repowise init --yes`; do not run it yourself.
+Graphify, the code graph built for the repository, is the first and main source. It knows every symbol, its source file and line, what calls it and what depends on it, and it answers with the few symbols that matter instead of whole files. Use its command line, and open a source file only to read the lines the graph pointed you to. If `graphify-out/graph.json` is missing, run `graphify update .` once and wait for it: it parses the code locally, with no AI model, in about a minute. If the `graphify` command itself is missing, tell the user, suggest `uv tool install graphifyy`, and map the code with search and file reads instead.
 
 Work from the cheapest call to the most expensive:
 
-1. **Orientation**, only if the area is unfamiliar: the overview (`get_overview`), once.
-2. **Questions**: for every "how does X work", "where is Y handled" or "why is Z like this" that the ticket raises, ask `get_answer`. A high-confidence answer is cited directly and already carries the bodies of the functions it names; a medium or low one points at the files to open next.
-3. **The files the ticket names, and the ones you expect to modify**: one batched `get_context` call for their triage cards (summary, signatures with line numbers, hotspot flag, callers and callees, governing decisions), and one batched `get_risk` call for what history says about touching them (dependents, files that change together, bug-fix history, test gaps). A bug-magnet flag or many dependents goes into the plan as a risk.
-4. **Governing decisions**: `get_why` on the files to modify returns the architecture decisions recorded in the code and history. They count as decisions already taken (phase 4).
-5. **Source, only what is needed**: `get_context` with `include=["skeleton"]` gives a whole file with bodies removed and lines verified in one call; `get_symbol` gives the body of one symbol, with the bodies it calls when you ask for depth. Never read a file end to end when a skeleton or a symbol answers the question, and never walk a file symbol by symbol.
-6. **Wider exploration**, only when the ticket has no file map or the area is large: one to three fresh sub-agents with `agents/code-explorer.md`, each with a different angle (the most similar existing feature, the architecture of the area, the testing patterns around it). They follow the same repowise path and return the symbols and files that matter.
+1. **Orientation**, only if the area is unfamiliar: the top of `graphify-out/GRAPH_REPORT.md`, which lists the most-connected symbols and the subsystems, once.
+2. **Questions**: for every "how does X work" or "where is Y handled" that the ticket raises, run `graphify query "<question>"`. It returns the symbols and files involved, each with its source line; open only the ones that answer the question. A "why is Z like this" question goes to step 4.
+3. **The symbols the ticket names, and the ones you expect to modify**: `graphify explain "<symbol>"` for each one gives its source line, its callers and what it calls, and `graphify affected "<symbol>"` lists everything that depends on it, tests included. When a name matches several symbols, use the node ID that `graphify explain` prints. The graph holds no history, so run `git log --oneline -n 10 -- <file>` on each file to modify for its recent changes and earlier bug fixes, and `git log --full-diff --format= --name-only -n 30 -- <file> | sort | uniq -c | sort -rn` for the files that usually change with it. Many dependents, or a file fixed again and again, goes into the plan as a risk.
+4. **Governing decisions**: the decisions already taken upstream, the ADRs they name, and the `WHY:` and `DECISION:` comments and ADR references in the files to modify. `graphify explain` shows the ones the graph linked to a symbol; a text search finds the rest. They count as decisions already taken (phase 4).
+5. **Source, only what is needed**: read the symbols the graph pointed to, from the line it gives, with an offset and a limit. Never read a file end to end when a few symbols answer the question.
+6. **Wider exploration**, only when the ticket has no file map or the area is large: one to three fresh sub-agents with `agents/code-explorer.md`, each with a different angle (the most similar existing feature, the architecture of the area, the testing patterns around it). They follow the same graph-first path and return the symbols and files that matter.
 
 If a later phase raises a question about the code, come back to these tools instead of guessing. Write the patterns, entry points, constraints, risks and governing decisions you found into the plan file under "Code mapping".
 
@@ -96,7 +97,7 @@ The user does not master most of the stack, so everything they need to decide we
 
 ### 4.1 Draft the open questions
 
-Compare the ticket with the code and list what is genuinely undecided: edge cases, error handling, integration points, scope boundaries, backward compatibility, performance needs. Filter hard: drop anything the ticket answers, anything locked in its CTO review block or its Contract line, in the parent project's decisions, in a linked ADR or in a decision recorded in the code that repowise returned, and anything with an obvious default, writing that default into the plan file as an assumption. If the conventions file named no documentation tool, add the question of where decisions and documentation should be written. Write the surviving questions under "Open questions and answers", each with your recommended answer.
+Compare the ticket with the code and list what is genuinely undecided: edge cases, error handling, integration points, scope boundaries, backward compatibility, performance needs. Filter hard: drop anything the ticket answers, anything locked in its CTO review block or its Contract line, in the parent project's decisions, in a linked ADR or in a decision recorded in the code that the code mapping found, and anything with an obvious default, writing that default into the plan file as an assumption. If the conventions file named no documentation tool, add the question of where decisions and documentation should be written. Write the surviving questions under "Open questions and answers", each with your recommended answer.
 
 ### 4.2 Call the CTO advisor
 
@@ -178,7 +179,7 @@ The choices below were settled by the user on purpose. The `digest-retros` skill
 - One approval gate, in phase 5.3, with explicit approval only. It protects the user from a build started on a half-understood plan.
 - The executor hand-off of phase 5.4, with three reports and no conversation with the user. It protects the main context from filling up, because a skill cannot compact the conversation on its own.
 - The hard stop on hand-written tickets that miss a section, in phase 1. It protects the plan from guesses nobody reviewed.
-- Repowise first in code mapping, in phase 3. It protects the context budget and keeps the recorded decisions in view.
+- Graphify first in code mapping, in phase 3 (settled 2026-10-05, replacing repowise). It protects the context budget, because the graph answers with the few symbols that matter instead of whole files.
 - Tool-agnostic wording: the conventions file, the tracker, the forge, a fresh sub-agent, the harness's question tool. It protects the portability of the skill across harnesses and trackers.
 - Two blocks always shown in full, "Questions you may not be asking" and "What you should know about what was built". They protect a user who does not master the stack.
 - The ticket is copied verbatim into the plan file, never summarised. It protects the plan from a lossy reading of the ticket.

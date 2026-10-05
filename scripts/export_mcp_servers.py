@@ -10,7 +10,7 @@ import sys
 
 REDACTED = "<redacted>"
 
-with open(sys.argv[1]) as f:
+with open(sys.argv[1], encoding="utf-8") as f:
     servers = json.load(f).get("mcpServers", {})
 
 for config in servers.values():
