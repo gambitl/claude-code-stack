@@ -12,10 +12,15 @@ import sys
 src = sys.argv[1]
 home = os.path.expanduser("~")
 
+# Every file read below is UTF-8, and so is this script's output. Windows
+# would otherwise assume the local code page and fail on the accents and
+# dashes that the skill descriptions contain.
+sys.stdout.reconfigure(encoding="utf-8")
+
 
 def load(path, default):
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             return json.load(f)
     except (FileNotFoundError, NotADirectoryError):
         return default
@@ -24,7 +29,7 @@ def load(path, default):
 def skill_description(skill_md):
     """Return the description line from a SKILL.md front matter, or ''."""
     try:
-        with open(skill_md) as f:
+        with open(skill_md, encoding="utf-8") as f:
             lines = f.read().split("\n")
     except FileNotFoundError:
         return ""

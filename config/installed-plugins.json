@@ -1,113 +1,74 @@
 {
   "version": 2,
   "plugins": {
-    "frontend-design@claude-plugins-official": [
-      {
-        "scope": "project",
-        "projectPath": "/Users/distefano/Desktop/dev_projects/solution_engineering/shared_ressources/middle-mile-platform",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/frontend-design/unknown",
-        "version": "unknown",
-        "installedAt": "2026-04-05T06:40:20.583Z",
-        "lastUpdated": "2026-07-16T12:13:22.531Z"
-      },
+    "pyright-lsp@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/frontend-design/d182ca456ca0",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\pyright-lsp\\1.0.0",
+        "version": "1.0.0",
+        "installedAt": "2026-10-05T08:49:27.362Z",
+        "lastUpdated": "2026-10-05T08:49:27.362Z",
+        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
+      }
+    ],
+    "frontend-design@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\frontend-design\\d182ca456ca0",
         "version": "d182ca456ca0",
-        "installedAt": "2026-04-20T06:16:08.245Z",
-        "lastUpdated": "2026-10-03T15:26:55.907Z",
+        "installedAt": "2026-10-05T08:49:29.898Z",
+        "lastUpdated": "2026-10-05T08:49:29.898Z",
         "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
       }
     ],
     "claude-md-management@claude-plugins-official": [
       {
-        "scope": "project",
-        "projectPath": "/Users/distefano/Desktop/dev_projects/solution_engineering/shared_ressources/middle-mile-platform",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/claude-md-management/1.0.0",
-        "version": "1.0.0",
-        "installedAt": "2026-04-05T06:43:04.486Z",
-        "lastUpdated": "2026-04-05T06:43:04.486Z"
-      },
-      {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/claude-md-management/1.0.0",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\claude-md-management\\1.0.0",
         "version": "1.0.0",
-        "installedAt": "2026-04-20T06:19:37.018Z",
-        "lastUpdated": "2026-04-20T06:19:37.018Z"
-      }
-    ],
-    "pyright-lsp@claude-plugins-official": [
-      {
-        "scope": "project",
-        "projectPath": "/Users/distefano/Desktop/dev_projects/solution_engineering/shared_ressources/middle-mile-platform",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/pyright-lsp/1.0.0",
-        "version": "1.0.0",
-        "installedAt": "2026-04-05T06:46:46.304Z",
-        "lastUpdated": "2026-04-05T06:46:46.304Z"
-      },
-      {
-        "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/pyright-lsp/1.0.0",
-        "version": "1.0.0",
-        "installedAt": "2026-04-16T05:29:57.001Z",
-        "lastUpdated": "2026-04-16T05:29:57.001Z"
+        "installedAt": "2026-10-05T08:49:32.310Z",
+        "lastUpdated": "2026-10-05T08:49:32.310Z",
+        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
       }
     ],
     "typescript-lsp@claude-plugins-official": [
       {
-        "scope": "project",
-        "projectPath": "/Users/distefano/Desktop/dev_projects/solution_engineering/shared_ressources/middle-mile-platform",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/typescript-lsp/1.0.0",
-        "version": "1.0.0",
-        "installedAt": "2026-04-05T07:19:44.927Z",
-        "lastUpdated": "2026-04-05T07:19:44.927Z"
-      },
-      {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/typescript-lsp/1.0.0",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\typescript-lsp\\1.0.0",
         "version": "1.0.0",
-        "installedAt": "2026-04-20T06:20:31.886Z",
-        "lastUpdated": "2026-04-20T06:20:31.886Z"
-      }
-    ],
-    "chrome-devtools-mcp@claude-plugins-official": [
-      {
-        "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/chrome-devtools-mcp/1.9.0",
-        "version": "1.9.0",
-        "installedAt": "2026-04-08T09:19:06.220Z",
-        "lastUpdated": "2026-09-15T08:36:18.985Z",
-        "gitCommitSha": "c2d8009ff75f76bce1ec4cf79c2467b50d81725e"
+        "installedAt": "2026-10-05T08:49:34.713Z",
+        "lastUpdated": "2026-10-05T08:49:34.713Z",
+        "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
       }
     ],
     "skill-creator@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/skill-creator/d182ca456ca0",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\skill-creator\\d182ca456ca0",
         "version": "d182ca456ca0",
-        "installedAt": "2026-05-09T09:39:28.983Z",
-        "lastUpdated": "2026-10-03T15:26:55.911Z",
+        "installedAt": "2026-10-05T08:49:37.255Z",
+        "lastUpdated": "2026-10-05T08:49:37.255Z",
         "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
       }
     ],
     "github@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/claude-plugins-official/github/d182ca456ca0",
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\github\\d182ca456ca0",
         "version": "d182ca456ca0",
-        "installedAt": "2026-05-09T13:49:01.407Z",
-        "lastUpdated": "2026-10-03T15:26:55.909Z",
+        "installedAt": "2026-10-05T08:49:40.830Z",
+        "lastUpdated": "2026-10-05T08:49:40.830Z",
         "gitCommitSha": "d182ca456ca09d31d139f7d3818d1d333b103cce"
       }
     ],
-    "repowise@repowise": [
+    "chrome-devtools-mcp@claude-plugins-official": [
       {
         "scope": "user",
-        "installPath": "/Users/distefano/.claude/plugins/cache/repowise/repowise/0.53.0",
-        "version": "0.53.0",
-        "installedAt": "2026-08-15T05:36:42.347Z",
-        "lastUpdated": "2026-09-24T13:40:05.471Z",
-        "gitCommitSha": "669917156d2ce6fccbd2f62b15aa553b4e857daf"
+        "installPath": "C:\\Users\\victo\\.claude\\plugins\\cache\\claude-plugins-official\\chrome-devtools-mcp\\1.9.0",
+        "version": "1.9.0",
+        "installedAt": "2026-10-05T08:50:32.961Z",
+        "lastUpdated": "2026-10-05T08:50:32.961Z",
+        "gitCommitSha": "1cec9cd1a3bbf1895c98fa4b4e0e2da5a36e4075"
       }
     ]
   }
