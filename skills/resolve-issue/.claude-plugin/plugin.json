@@ -1,0 +1,4 @@
+{
+  "name": "resolve-issue",
+  "description": "Loads the prompts of the resolve-issue skill as named sub-agents, so each role runs with its own model and thinking level."
+}
