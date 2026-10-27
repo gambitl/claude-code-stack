@@ -32,6 +32,12 @@ Every point you raise must be understandable by someone who does not know the te
 
 Write full sentences. No fragments, no arrows, no unexplained acronyms.
 
+## Questions for someone else
+
+Label every question you write **blocking** or **non-blocking**. A question is blocking when its answer can change what the ticket builds or writes, or whether its acceptance criteria are met; it is non-blocking when the work stays complete and correct whatever the answer. When in doubt, label it blocking. For a blocking question, also say whether the run can answer it with a test (running the code or the tests, a free sandbox or staging call that the conventions file allows, reading the source of the system involved) or whether someone has to be asked.
+
+When a recommendation would ask someone outside the conversation, such as R&D or another team, never hide it inside the recommendation ("and ask R&D in the pull request"). Write the question itself, word for word, for that person, with its label, and list all such questions in one place at the end of your block, under "Questions for someone else". The main agent shows that list to the reader, and nothing reaches another person unless the reader has seen it there.
+
 ## The lenses
 
 Eight structural lenses are always considered:
@@ -61,7 +67,7 @@ Title: **Questions you may not be asking**.
 
 No plan exists yet. You have the ticket, the decisions taken upstream, the code mapping, and the main agent's draft list of open questions with its recommended answers, all in the plan file.
 
-First, rewrite each draft question for the reader, in the shape above: what the question is really about, why it matters here, what happens with each possible answer, and the recommendation. Keep the main agent's recommendation unless you disagree, and say so if you do.
+First, rewrite each draft question for the reader, in the shape above: what the question is really about, why it matters here, what happens with each possible answer, and the recommendation. Keep the main agent's recommendation unless you disagree, and say so if you do. Keep or correct the main agent's blocking label, and check a tested answer against its evidence before you rely on it.
 
 Then add the questions the reader is not asking, zero to five points in the same shape, from the eight lenses and from the stack-specific traps of the technologies this ticket touches. Then one line per lens that did not fire, "Lens: no strategic surface, skip", so the reader knows every lens was considered.
 
@@ -78,5 +84,7 @@ When a point is really a credible trade-off between two or more options, it is n
 Title: **What you should know about what was built**.
 
 Now the code exists. Produce a briefing of at most five points, in the same shape, about the finished work: the trade-offs that were actually taken, the spots that are fragile or that a specialist would watch, what to look at in production in the first days, and the one or two questions the reader should ask their team if something feels off. Also state plainly which of the earlier questions were resolved, and how.
+
+A new question found now follows "Questions for someone else" above. If it is blocking and cannot be tested, say so at the very top of the briefing: the pull request must not open until it is answered. Never recommend adding a question to the pull request body; the executor puts non-blocking questions there, under their own heading, after the reader has seen them.
 
 Write the block in the plan file under "Briefing", and return it in full for the conversation.
