@@ -5,7 +5,7 @@ Ticket: <link>
 Tracker: <Linear | Jira | GitLab | GitHub | other>
 Documentation tool: <Notion | Confluence | wiki | docs/ folder | other>, ADRs in <place>
 Branch: <branch name>
-Status: draft | questions answered | approved | in progress | review | ready for review
+Status: draft | waiting for answers | questions answered | approved | in progress | review | ready for review
 
 ## Questions you may not be asking
 
@@ -29,7 +29,7 @@ Status: draft | questions answered | approved | in progress | review | ready for
 
 ## Open questions and answers
 
-<phase 4.1: question, recommended answer, user's answer>
+<phase 4.1: each question with its label (blocking or non-blocking) and the recommended answer, then one of: the tested answer with its evidence; the user's answer; or, for someone else, the question word for word, who it goes to, the channel, and the answer with its source and date once it arrives. Phase 5 starts only when every blocking question has an answer.>
 
 ## Architecture
 
@@ -63,13 +63,25 @@ Status: draft | questions answered | approved | in progress | review | ready for
 
 <CTO advisor, moment after-build>
 
+## Open questions after the build
+
+<phase 10.2: the questions raised by the reviews or the briefing and not answered yet, word for word, each with who it is for>
+
+### Blocking
+
+<each one stops the pull request until it is answered; its answer, source and date go here and into "Decisions". "none" when empty.>
+
+### Non-blocking
+
+<these go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them. "none" when empty.>
+
 ## Pull request
 
-<phase 10.3: the drafted title and body, with the closing reference. Phase 12 opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+<phase 10.4: the drafted title and body, with the closing reference. Phase 12 opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
 
 ## Documentation
 
-<phase 10.2: ticket comment, dependent ticket comments, ADRs and pages, with links>
+<phase 10.3: ticket comment, dependent ticket comments, ADRs and pages, with links>
 
 ## Executor notes
 
