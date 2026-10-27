@@ -65,7 +65,17 @@ None of the work below needs the pull request, and none of it pushes anything.
 
 Launch a fresh sub-agent with `agents/cto-review.md`, moment `after-build`, with the plan file path and the conventions file path. It writes the block "What you should know about what was built" into the plan file under "Briefing" and returns it in full.
 
-### 10.2 Document, always
+### 10.2 Questions found after the build
+
+Collect every question that the reviews of phases 7 and 8 and the briefing raised and that nobody has answered yet, including every "ask R&D" or "ask the other team" that a reviewer or the advisor recommends. Label each one with the plan's definition: **blocking** if its answer can change what was built or written, or whether the acceptance criteria are met; **non-blocking** if the work stays complete and correct whatever the answer. When in doubt, it is blocking.
+
+- **A blocking question you can test** (running the code or the tests, a free sandbox or staging call that the conventions file allows, reading the source of the system involved): test it, record the evidence in the review log, apply the result with a commit, and it is no longer open. Never make a paid or production call for this.
+- **A blocking question you cannot test**: write it into the plan file's "Open questions after the build", under "Blocking", word for word for the person who can answer it, with its context and who that person is. Finish every part of phase 10 that does not depend on the answer, but do not draft the pull request as final and do not set the Status to "ready for review". Return a needs-decision report that lists these questions.
+- **A non-blocking question**: write it under "Non-blocking" in the same section, word for word, with who it is for. It goes into the pull request body only under the heading of 10.4, and into your done report.
+
+Never add a question for someone else to the pull request body, the ticket comment or a decision record in any other way.
+
+### 10.3 Document, always
 
 Three things are always done, through the direct connections, before the ticket is reported done. They are written in the tracker and the documentation tool, not committed, so they do not start the checks.
 
@@ -77,9 +87,13 @@ Three things are always done, through the direct connections, before the ticket 
 
 Record every place written, with links, in the plan file under "Documentation".
 
-### 10.3 Ready for review
+### 10.4 Ready for review
+
+Run this step only when "Open questions after the build" holds no blocking question without an answer.
 
 Draft the pull request into the plan file's "Pull request" section: a title in the repository's commit format, and a body written in plain sentences for a reviewer who did not follow the session. The body says what was built, the key decisions and why, the files touched, any risk accepted at the dependency gate, the judgment calls from the independent review, the review findings left as follow-ups, the plan file path, and the closing reference the tracker understands (`Fixes TICKET-123` for Linear and GitHub, `Closes #123` for GitLab). If the conventions file says the closing reference does not fire on the target branch, note that the ticket must be closed by hand after the merge.
+
+When non-blocking questions stay open, the body carries them under one heading, "Open questions, not needed for this pull request", written with the forge's own word ("merge request" on GitLab). One sentence under the heading says that the pull request can be merged without their answers. Each question is copied from "Open questions after the build", with who it is for. If there is none, leave the heading out.
 
 Write the executor notes (see below), update the plan file's Status to "ready for review", commit it, and return the done report. Do not push: the main conversation writes the retrospective next, then launches you again for phase 12.
 
@@ -87,12 +101,13 @@ Write the executor notes (see below), update the plan file's Status to "ready fo
 
 You run this phase when you are launched with the plan's Status at "ready for review". The retrospective is committed on the branch by then.
 
+0. Read "Open questions after the build" in the plan file. If a blocking question there has no answer, push nothing and return a needs-decision report that lists it.
 1. Ask the forge whether this branch already has a pull request. If it does, a previous run already published: do not open a second one, and continue from step 5.
 2. Fetch the target branch. If it moved since phase 9, rebase onto it again and rerun the tests. On a semantically ambiguous conflict, return a needs-decision report as in phase 9.
 3. Push the branch. This is its first push.
 4. Open the pull request or merge request through the forge's direct connection, with the title and body drafted in the plan file. Move the ticket to the tracker's "in review" state if its integration did not.
 5. Wait for the pipeline on this push. If a check fails, fix it test-first in a new commit. In that same commit, add one line about it to the plan file's "Executor notes" and one item to the retrospective's "Improve" heading, following the rules written in the retrospective template. Then push and wait again. Fix real security findings the same way, and document false positives in the pull request body. If you cannot make a check green, return a failed report that names it.
-6. Add the pull request link to every decision record written in phase 10.2. These are edits in the documentation tool, not commits.
+6. Add the pull request link to every decision record written in phase 10.3. These are edits in the documentation tool, not commits.
 
 In this phase, write to the plan file only inside a fix commit that you push. Any other edit would sit unpushed after the run.
 
@@ -104,9 +119,9 @@ Before returning a report from phases 6 to 10, append a section "Executor notes"
 
 You end with exactly one report, in plain sentences. A report from phases 6 to 10 is also appended to the plan file under "Hand-off log" with the date and time; a report from phase 12 is not, for the reason given in phase 12.
 
-- **done**, at the end of phase 10: what was built in two sentences, what the independent reviewer changed, the briefing in full, the places documented, and anything the user still needs to decide. Never report done before phase 10.2 is complete: an undocumented ticket is not done.
+- **done**, at the end of phase 10: what was built in two sentences, what the independent reviewer changed, the briefing in full, the places documented, the non-blocking open questions word for word (or "none"), and anything the user still needs to decide. Never report done before phase 10.3 is complete: an undocumented ticket is not done. Never report done while a blocking question is open.
 - **published**, at the end of phase 12: the pull request link, the pipeline result on the last push, and every extra push with its reason.
-- **needs-decision**: the question, the context needed to answer it in a few sentences, the options you see with your recommendation, and which units are done. Finish every unit that does not depend on the answer before reporting.
+- **needs-decision**: the question, the context needed to answer it in a few sentences, the options you see with your recommendation, and which units are done. Finish every unit that does not depend on the answer before reporting. For blocking questions found after the build (10.2), say so at the start of the report, and give each question word for word with who can answer it.
 - **failed**: what happened, what you tried, and where the plan file and the branch stand.
 
 Keep the report under thirty lines apart from the briefing.
