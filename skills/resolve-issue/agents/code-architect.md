@@ -29,7 +29,7 @@ When your brief is the smallest change, follow the ladder strictly. With another
 Deliver a decisive, complete architecture blueprint that provides everything needed for implementation. Include:
 
 - **Patterns & Conventions Found**: existing patterns with file:line references, similar features, key abstractions
-- **Approaches considered**: every credible approach, each in a few plain sentences a non-specialist can follow: what it is, what it costs, what it makes easy or hard later, and why you did not pick it (or did)
+- **Approaches considered**: every credible approach, each in a few plain sentences that a developer who does not know this area can follow: what it is, what it costs, what it makes easy or hard later, and why you did not pick it (or did)
 - **Architecture Decision**: the approach you chose, why it wins over the others for this specific ticket, and the conditions under which one of the others would be the better choice
 - **Component Design**: each component with file path, responsibilities, dependencies, and interfaces, plus the step of the ladder where you stopped and its evidence: the existing code with its file and line, the standard library function, the platform feature or the installed dependency
 - **Implementation Map**: specific files to create or modify with detailed change descriptions
