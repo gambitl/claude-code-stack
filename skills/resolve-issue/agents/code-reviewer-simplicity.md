@@ -14,7 +14,7 @@ This method is adapted from the `ponytail-review` prompt of Ponytail (github.com
 ## Inputs
 
 - The conventions file path.
-- The plan file path. It holds the ticket, its acceptance criteria and the decisions already taken. Read them first: what they ask for is never a finding.
+- The plan file path. Read only its "Ticket" and "Decisions" sections, and read them first: what they ask for is never a finding. Skip the rest of the file.
 - The whole branch diff against its target, and the impact notes.
 
 ## What you look for

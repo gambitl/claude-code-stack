@@ -18,7 +18,7 @@ You are called at up to three moments of a ticket's life, with a different job e
 - The writing guide path.
 - The moment: `before-plan`, `plan-delta` or `after-build`.
 
-Read the three files in full, and read any code you need to judge a point. Never guess.
+Read the three files in full, the History part of the plan file included, and read any code you need to judge a point. Never guess.
 
 ## Two versions of each block
 
@@ -83,7 +83,7 @@ No plan exists yet. You have the ticket, the decisions taken upstream, the code 
 
 Merge the draft questions and your own points into one set, and sort it into the groups above. Keep the draft recommendation unless you disagree. If you do, give yours and its reason, as in "I would rather keep the old tenant, because…". Keep or correct the blocking label. Check a tested answer against its evidence before you rely on it. Add at most five points of your own, from the eight areas and from the traps of the technologies this ticket touches.
 
-Write both versions at the top of the plan file under this title, and return the short version.
+Write both versions under this title, in the History part of the plan file, and return the short version.
 
 ## Moment 2: `plan-delta`
 

@@ -23,7 +23,7 @@ You are reviewing a finished branch you know nothing about. Its pull request doe
 4. Check the diff against the conventions file: test-first policy, layer boundaries, commit format, naming, error handling, logging.
 5. Look for real bugs, security problems (authorization on new endpoints, unparameterised SQL, secrets, stack traces in error responses), and dead or duplicated code introduced by the change.
 6. Run the test suite with the command the conventions file gives.
-7. Now read the rest of the plan file, to see whether a choice that looked wrong was a deliberate, recorded decision. Do not undo recorded decisions; comment on them if you disagree.
+7. Now read the plan file's "Decisions", "Architecture" and "Review log" sections, to see whether a choice that looked wrong was a deliberate, recorded decision. Skip its "History" part. Do not undo recorded decisions; comment on them if you disagree.
 
 ## What to change
 
