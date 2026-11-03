@@ -5,11 +5,12 @@ Ticket: <link>
 Tracker: <Linear | Jira | GitLab | GitHub | other>
 Documentation tool: <Notion | Confluence | wiki | docs/ folder | other>, ADRs in <place>
 Branch: <branch name>
+Conversation language: <the language the user writes in; the conversation uses it, and every record stays in English>
 Status: draft | waiting for answers | questions answered | approved | in progress | review | ready for review
 
 ## Questions you may not be asking
 
-<CTO advisor, moment before-plan; plan-delta points appended under "Added after the plan was drafted">
+<CTO advisor, moment before-plan: the short version shown to the user, then "Details". Plan-delta points are appended under "Added after the plan was drafted".>
 
 ## Ticket
 
@@ -61,7 +62,7 @@ Status: draft | waiting for answers | questions answered | approved | in progres
 
 ## Briefing
 
-<CTO advisor, moment after-build>
+<CTO advisor, moment after-build: the short version shown to the user, then "Details">
 
 ## Open questions after the build
 

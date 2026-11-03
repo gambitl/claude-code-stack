@@ -20,6 +20,7 @@ Phases 0 to 5 run in this conversation and end with an approved plan. Phases 6 t
 - **The documentation tool**: where the team keeps long-lived documentation outside the code (Notion, Confluence, a wiki, or a `docs/` folder when there is nothing else).
 - **A blocking question**: a question whose answer can change what the ticket builds or writes, or whether its acceptance criteria are met. A question whose answer leaves the ticket complete and correct either way is **non-blocking**. When in doubt, treat the question as blocking.
 - **A tested answer**: an answer the run produces itself, with evidence, instead of asking someone: running the code or the tests, a free sandbox or staging call that the conventions file allows, or reading the source of the system involved. A paid or production call is never a test the run may do on its own; it needs the user's go.
+- **The writing guide**: `writing.md`, next to this file. It says how to write anything a person reads, in the conversation and in the records: who the reader is, which language to use, how long a text may be, and which words of this skill never reach the reader. Every message you write to the user follows it. Pass its path to every helper that writes for a person, which means the CTO advisor and the executor.
 - **The retrospective file**: the short markdown file written at the end of every run under `docs/retros/` in the repository, from `templates/retro.md`. It records evidence about how the run went, never opinions, and the `digest-retros` skill reads it later to propose changes to this skill or to the conventions file.
 
 ## Models and thinking levels
@@ -48,9 +49,11 @@ The reason is cost. On many forges, every push to a branch with an open pull req
 
 Two exceptions push again or earlier. A red check on the open pull request is fixed and pushed right away. And when the approved plan needs a pipeline run as evidence, for example to prove that a new check fails on a real mistake, the plan says so and the push happens then. The conventions file can override this section, for example in a repository that requires a push after every commit.
 
-## Phase 0: Read the conventions
+## Phase 0: Read the conventions and the writing guide
 
 Read the conventions file: test policy, layer split, commit format, test commands, and repository-specific traps (ports, worktrees, files that conflict often, deploy-on-push). This skill applies those rules; it never restates them. Note the documentation tool it names and where architecture decision records (ADRs) live.
+
+Then read the writing guide in full, before your first message to the user.
 
 ## Phase 1: Fetch the ticket
 
@@ -62,7 +65,7 @@ Fetch the ticket through the direct connection. Capture its title, full body, st
 
 **Hand-written tickets.** If the body does not have those sections, have a fresh sub-agent reshape it into them, except the optional CTO review block, quoting the original wording and marking every section it could not fill or had to guess. Then, with no exception: if any section is missing or the sub-agent had any doubt about what the ticket means, stop. Tell the user which sections are missing or unclear and ask them to fix the ticket in the tracker before running this skill again. Do not fill the gaps yourself, do not ask the user to fill them in the conversation, and do not continue with a partial ticket.
 
-**The plan file.** Create it from `templates/plan.md` at `docs/plans/<YYYY-MM-DD>-<ticket-id>-<short-slug-of-the-title>.md`. Copy the ticket into it verbatim, and add under "Decisions already taken upstream" the parent project's decisions block and the titles and links of the ADRs it names. From here on every phase writes its results into this file and every helper reads from it. If the workflow stops before phase 6, delete it.
+**The plan file.** Create it from `templates/plan.md` at `docs/plans/<YYYY-MM-DD>-<ticket-id>-<short-slug-of-the-title>.md`. Write the language the user writes in on its "Conversation language" line. Copy the ticket into it verbatim, and add under "Decisions already taken upstream" the parent project's decisions block and the titles and links of the ADRs it names. From here on every phase writes its results into this file and every helper reads from it. If the workflow stops before phase 6, delete it.
 
 ## Phase 2: Dependency gate
 
@@ -95,7 +98,7 @@ If a later phase raises a question about the code, come back to these tools inst
 
 Consumes: **Goal**, **Scope**, the decisions already taken upstream, the decisions recorded in the code, and the code mapping.
 
-The user does not master most of the stack, so everything they need to decide well is given to them here, in the conversation, once.
+The user is a developer of the team. They know the stack, but they have not read what this run read. So everything they need to decide well is given to them here, once, in a message short enough to read to the end.
 
 ### 4.1 Draft the open questions
 
@@ -110,15 +113,17 @@ A non-blocking question stays in the list with its label. It is either answered 
 
 ### 4.2 Call the CTO advisor
 
-Launch a fresh sub-agent with `agents/cto-review.md`, moment `before-plan`, with the plan file path and the conventions file path. It rewrites your draft questions for a reader who does not know the technology and adds the blind spots the user is not asking about; its prompt defines the rest. It writes the block "Questions you may not be asking" at the top of the plan file and returns it in full.
+Launch a fresh sub-agent with `agents/cto-review.md`, moment `before-plan`, with the plan file path, the conventions file path and the writing guide path. It merges your draft questions with the blind spots the user is not asking about, and sorts them by what the user has to do with each one. Its prompt defines the rest. It writes the block "Questions you may not be asking" at the top of the plan file, with a short version and the details, and returns the short version in the conversation language.
 
 ### 4.3 Ask, once
 
-Show the block to the user unabridged and wait. Before the block, list the blocking questions in a few lines, each with its state: answered by a test (with the answer), to be answered by the user, or to be asked to someone else (with the drafted question, who it goes to and through which channel). If the user says "whatever you think is best", state your recommendations and get an explicit yes. Write every answer into the plan file next to its question. If there is no question at all, write "No open questions", show the advisor's skip lines, and continue without stopping.
+Show the short version to the user unabridged, as the advisor returned it, and wait. Add at most one sentence of your own before it. Do not list the questions again, before or after it: the block already holds every question once, sorted into what needs the user's answer, what you will do unless they say no, what was checked by a test, and what can wait. A blocking question that someone else must answer appears in it with the drafted question, who it goes to and through which channel.
+
+If the user says "whatever you think is best", state your recommendations and get an explicit yes. An item under "I will do this unless you say no" counts as answered with its recommendation when the user's reply does not object to it; write "accepted by default" next to it in the plan file. Write every answer into the plan file next to its question. If there is no question at all, show the short version, which then says so in a sentence or two, and continue without stopping.
 
 **No plan on an open blocking question.** Phase 5 starts only when every blocking question has an answer. When one must come from someone else, the user sends the drafted question, or approves sending it through the channel named, and the run waits. Write "waiting for answers" in the plan file's Status line. When the user brings the answer back, write it next to its question with its source and date, check whether it changes other answers or assumptions, and only then go on to phase 5. If the session has to end before the answer arrives, treat it like a stop in phase 2: say plainly what is waiting and for whom, record the question where the conventions file says open questions are tracked, delete the plan file, and run phase 11.
 
-**Every question meant for someone else is shown here, labelled.** A question to another person or team, blocking or not, reaches a pull request, a ticket or a message only if the user saw it word for word in this round, with its label. The same holds for the questions that the build raises later (phase 5.4). Never let such a question appear for the first time inside a recommendation, a briefing or a pull request body.
+**Every question meant for someone else is shown here.** A question to another person or team, blocking or not, reaches a pull request, a ticket or a message only if the user saw it word for word in this round, and saw whether it must be answered before the plan or can wait. The same holds for the questions that the build raises later (phase 5.4). Never let such a question appear for the first time inside a recommendation, a briefing or a pull request body.
 
 ## Phase 5: Write the plan and get it approved
 
@@ -141,9 +146,9 @@ Write the implementation as numbered units in the plan file. Each unit is small 
 
 ### 5.3 The approval gate
 
-This is a mandatory stop that overrides any auto, accept-edits or "no questions" mode of the harness. Tell the user the plan file path. Show any `plan-delta` points in full. Then give a digest of at most ten lines: how the phase 4 answers shaped the plan, the number of units, the blocked units, and your recommendation where alternatives exist. If non-blocking questions stay open, name them in the digest and say that they will appear in the pull request under the heading "Open questions, not needed for this pull request". Do not paste the rest of the plan; the user reads the file. Never open the gate while a blocking question has no answer.
+This is a mandatory stop that overrides any auto, accept-edits or "no questions" mode of the harness. Tell the user the plan file path. Show the short version of any `plan-delta` points in full. Then give a digest of at most ten lines, written as the writing guide asks: how the phase 4 answers shaped the plan, the number of units, the blocked units, and your recommendation where alternatives exist. If non-blocking questions stay open, name them in the digest and say that they will appear in the pull request under the heading "Open questions, not needed for this pull request". Do not paste the rest of the plan; the user reads the file. Never open the gate while a blocking question has no answer.
 
-Ask for approval with the harness's question tool, or in plain chat. Accept explicit approval only, in English: "go", "ok", "approved", "ship it". The whole workflow, including the plan file, the pull request and every question to the user, is in English. Every answer the user gives is written into the plan file's "Decisions" section. Do not proceed on your own judgment, even if the harness tells you to keep going.
+Ask for approval with the harness's question tool, or in plain chat. Accept explicit approval only, such as "go", "ok", "approved", "ship it", or the same in the conversation language, such as "vas-y" or "c'est bon". You talk to the user in the language they write in. Everything that stays is in English, unless the conventions file says otherwise. That means the plan file, commits, the pull request, ticket comments, decision records and the retrospective. Every answer the user gives is written into the plan file's "Decisions" section. Do not proceed on your own judgment, even if the harness tells you to keep going.
 
 In this phase you may only present, ask, answer follow-ups, and edit the plan file. You may not create branches, other files or commits, spawn implementation sub-agents, or run any command that changes state.
 
@@ -151,8 +156,8 @@ In this phase you may only present, ask, answer follow-ups, and edit the plan fi
 
 Once the user has approved, write "approved" in the plan file's Status line. Launch a fresh sub-agent with `agents/executor.md` and the inputs its prompt lists. Pass nothing from the conversation, then wait and do not touch the repository while it runs. It cannot talk to the user and ends with one of three reports:
 
-- **done**: show the briefing it returns to the user unabridged, then what the independent reviewer changed and what remains to decide, in a few sentences. Then list, word for word, the non-blocking questions that the build raised and that will appear in the pull request under the heading "Open questions, not needed for this pull request", each with who it is for, or say that there are none. Then run phase 11 and phase 12. Nothing is pushed yet at this point.
-- **needs-decision**: ask the user the question it returns, write the answer into the plan file's "Decisions" section, and relaunch the executor with the same inputs; it resumes from the plan file.
+- **done**: show the user the short briefing it returns, unabridged. Then say in two or three sentences what the independent reviewer changed and where the work was documented, with links. Then list once, word for word, the non-blocking questions that the build raised and that will appear in the pull request under the heading "Open questions, not needed for this pull request", each with who it is for. If there are none, say so in one sentence. Do not repeat anything the briefing already says. Then run phase 11 and phase 12. Nothing is pushed yet at this point.
+- **needs-decision**: ask the user the question it returns, the way the writing guide asks: the decision first, then your recommendation, then only the context that changes the answer. Write the answer into the plan file's "Decisions" section, and relaunch the executor with the same inputs; it resumes from the plan file.
 - **needs-decision, for blocking questions found after the build**: the reviews or the briefing raised a question that can change what was built, and that the executor could not answer with a test. The pull request is not opened. Show each question to the user, word for word, with its context and who can answer it. When the answer must come from someone else, the user sends the question, or approves sending it through the channel the conventions file names, and the run waits, as in phase 4.3. Write each answer into the plan file's "Decisions" section with its source and date, then relaunch the executor with the same inputs: it applies the answers to the units concerned, reruns the reviews that the change calls for, and reports again. Phase 12 runs only when no blocking question is left open.
 - **failed**: report what it returns to the user plainly and stop.
 
@@ -195,10 +200,11 @@ The choices below were settled by the user on purpose. The `digest-retros` skill
 - The hard stop on hand-written tickets that miss a section, in phase 1. It protects the plan from guesses nobody reviewed.
 - Graphify first in code mapping, in phase 3 (settled 2026-10-05, replacing repowise). It protects the context budget, because the graph answers with the few symbols that matter instead of whole files.
 - Tool-agnostic wording: the conventions file, the tracker, the forge, a fresh sub-agent, the harness's question tool. It protects the portability of the skill across harnesses and trackers.
-- Two blocks always shown in full, "Questions you may not be asking" and "What you should know about what was built". They protect a user who does not master the stack.
+- Two blocks always shown in full, "Questions you may not be asking" and "What you should know about what was built". Each block has a short version of about 400 words, which is the one shown, and its details stay in the plan file (settled 2026-11-03, after the team said they could not read the long blocks to the end). They protect a developer who has not read what the run read. Showing a block in full only protects anyone when it is short enough to be read to the end.
 - The ticket is copied verbatim into the plan file, never summarised. It protects the plan from a lossy reading of the ticket.
 - Front-end units need an approved design specification or are blocked. It protects the product from designs invented by the agent.
-- English only, everywhere: plan file, pull request, questions. It protects the readability of the record for the whole team.
+- The conversation follows the user's language, and everything that stays is in English, such as the plan file, the pull request and ticket comments (settled 2026-11-03, replacing "English only, everywhere"). It protects the readability of the record for the whole team, and it lets each developer read the questions in their own language.
+- Every text a person reads follows the writing guide, `writing.md` (settled 2026-11-03). It protects the team from texts too long and too formal to be read, which was the main complaint after heavy use of this skill. A change to the guide is an ordinary change for the digest, but removing it is not.
 - The model and thinking level of each role, set in the headers of `agents/` and listed under "Models and thinking levels" (settled 2026-10-04). It protects quality where a miss would ship or where the user reads the output, while keeping routine work fast and cheap. Retrospectives that show a faster role repeatedly missing what a later step caught are the evidence for raising that one role.
 - Blocking questions are answered before the plan, by a test when the run can do one and by asking otherwise, and the plan waits for the answers. A blocking question found after the build stops the run before the pull request opens. A non-blocking question appears in the pull request only under the heading "Open questions, not needed for this pull request", after the user has seen it (settled 2026-10-22, after ticket mintlify#12, whose merge request carried seven questions to R&D that the user had never seen as such). It protects the user from questions sent in their name without their knowledge, and the plan from being built on an unanswered question.
 - Every commit stays on the local branch until phase 12, which makes one push that opens a pull request that is already final, as described under "Pushes" (settled 2026-10-05). The independent review therefore reviews the local branch, and the retrospective is written before the push. It protects the forge's CI minutes, because every push to an open pull request starts the checks again for the whole pull request.
