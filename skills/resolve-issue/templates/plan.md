@@ -5,11 +5,10 @@ Ticket: <link>
 Tracker: <Linear | Jira | GitLab | GitHub | other>
 Documentation tool: <Notion | Confluence | wiki | docs/ folder | other>, ADRs in <place>
 Branch: <branch name>
+Conversation language: <the language the user writes in; the conversation uses it, and every record stays in English>
 Status: draft | waiting for answers | questions answered | approved | in progress | review | ready for review
 
-## Questions you may not be asking
-
-<CTO advisor, moment before-plan; plan-delta points appended under "Added after the plan was drafted">
+<!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
 ## Ticket
 
@@ -27,13 +26,13 @@ Status: draft | waiting for answers | questions answered | approved | in progres
 
 <phase 3>
 
-## Open questions and answers
+## Decisions
 
-<phase 4.1: each question with its label (blocking or non-blocking) and the recommended answer, then one of: the tested answer with its evidence; the user's answer; or, for someone else, the question word for word, who it goes to, the channel, and the answer with its source and date once it arrives. Phase 5 starts only when every blocking question has an answer.>
+<The one place where every helper learns what was decided for this ticket. Write one line per decision, as a rule that someone can apply without reading anything else in this file. Include the changes of scope from the ticket comments and the upstream decisions this ticket must respect, because implementers do not read those parts. Never write "as in question 3", "A2" or "Part 2, point 2". End each line with its date and its source: the user's answer, an assumption not asked, a tested answer, or the answer of someone else. When a later answer changes a decision, rewrite its line in place with the new date, and do not keep the old wording here. What happened during a run is not a decision; it goes in the Hand-off log.>
 
 ## Architecture
 
-<phase 5.1>
+<the approach the plan follows, in a few sentences, or one line saying the approach is locked or the change is small. The full blueprints go in "History".>
 
 ## Implementation units
 
@@ -51,17 +50,13 @@ Status: draft | waiting for answers | questions answered | approved | in progres
 
 <phase 5.2: each duty "applies, written to <place>" or "does not apply">
 
-## Decisions
-
-<every answer the user gave, dated>
-
 ## Review log
 
 <phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
 
 ## Briefing
 
-<CTO advisor, moment after-build>
+<CTO advisor, moment after-build: the short version shown to the user, then "Details">
 
 ## Open questions after the build
 
@@ -69,7 +64,7 @@ Status: draft | waiting for answers | questions answered | approved | in progres
 
 ### Blocking
 
-<each one stops the pull request until it is answered; its answer, source and date go here and into "Decisions". "none" when empty.>
+<each one stops the pull request until it is answered. Once answered, write "answered on <date>" next to it, and write the answer itself in "Decisions". "none" when empty.>
 
 ### Non-blocking
 
@@ -89,4 +84,20 @@ Status: draft | waiting for answers | questions answered | approved | in progres
 
 ## Hand-off log
 
-<one entry per executor run, dated, with the user's answer for needs-decision>
+<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+
+## History
+
+<!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
+
+### Questions you may not be asking
+
+<CTO advisor, moment before-plan: the short version shown to the user, then "Details". Plan-delta points are appended under "Added after the plan was drafted".>
+
+### Open questions and answers
+
+<phase 4.1: each question with its label (blocking or non-blocking) and the recommended answer, then one of: the tested answer with its evidence; the user's answer; or, for someone else, the question word for word, who it goes to, the channel, and the answer with its source and date once it arrives. Phase 5 starts only when every blocking question has an answer. Each final answer is also written as a rule in "Decisions" when the plan is written.>
+
+### Architecture options
+
+<phase 5.1: the architecture blueprints, with the recommendation marked and the approach the user chose, or nothing when there was no real choice>
