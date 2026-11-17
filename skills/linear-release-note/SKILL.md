@@ -7,11 +7,11 @@ description: Generate a technical release-notes page in Notion from a closed/shi
 
 Aggregate every completed issue of a **Linear project**, resolve the GitHub PR that closed each one (via Linear's auto-linked attachments), cross-reference with the project's Notion spec page, diff against the previous release-notes page, and publish a **technical release-notes page** in Notion under the project's "Releases & changelog" section.
 
-This skill enumerates completed **issues of a Linear project**. It assumes the ticket store is Linear (<private> since the Linear-first shift: Linear = single ticket store, Notion = prose/ADR, GitHub = code only — PRs link back via `Fixes PROJ-NN`, not labels).
+This skill enumerates completed **issues of a Linear project**. It assumes the ticket store is Linear (the team has used Linear since the Linear-first shift: Linear = single ticket store, Notion = prose/ADR, GitHub = code only — PRs link back via `Fixes PROJ-NN`, not labels).
 
 The skill is **conversational and gated** — 5 phases, each ending with explicit user approval. Don't run the next phase until the current one is signed off. Release notes are a public commitment; publishing wrong or partial notes is more expensive to fix than to delay.
 
-Output language: **French** by default (<private> convention); auto-detect from the previous release-notes page if it's in another language and confirm.
+Output language: **French** by default (the team's convention); auto-detect from the previous release-notes page if it's in another language and confirm.
 
 ## When this skill runs
 
@@ -31,8 +31,8 @@ The skill is global; it adapts to the project it runs in. Read **once** at start
 
 1. `CLAUDE.md` at the repo root (cwd) — extract:
    - **Documentation-of-record** — Notion vs `.md`. Default for this skill: **Notion** when MCP is connected, otherwise abort (this skill does not produce `.md` release notes — release notes are a publication artefact, not a draft).
-   - **Which Notion connection** — honour any guardrail in `CLAUDE.md` (<private>: use `notion-local` / "<workspace>" for all <private> docs, **never** `claude_ai_Notion`; the §9.3 ADR DB is `d6b16a40-c021-46d8-ae9e-1f46c7e9c1d9`). If an ADR/spec search surfaces unrelated content, you're on the wrong connection — switch.
-   - **Release-notes parent page** — where releases live (<private>: §9.7 Releases & Changelog under `📚 <private>-docs`). If unclear, ask the user once for the parent (URL or ID).
+   - **Which Notion connection** — honour any guardrail in `CLAUDE.md` (for example: use `notion-local` / "<your workspace>" for all of the project's docs, **never** `claude_ai_Notion`; the §9.3 ADR DB is `d6b16a40-c021-46d8-ae9e-1f46c7e9c1d9`). If an ADR/spec search surfaces unrelated content, you're on the wrong connection — switch.
+   - **Release-notes parent page** — where releases live (see §9.7 Releases & Changelog under `📚 <project>-docs`). If unclear, ask the user once for the parent (URL or ID).
    - **Releases / Specs / ADR databases** — title keywords `releases`, `changelog`, `specs`, `ADR` under the engineering parent. Cache their `data_source_id` for Phase 5 + the §Liens queries.
 2. **Linear MCP preflight** — verify a Linear MCP tool is callable (`mcp__linear__list_projects` / `mcp__linear__get_project`). If absent, **abort**: the skill needs to enumerate the project's issues. The repo host (GitHub via `gh`) is still needed for PR bodies — `which gh`; if absent, degrade (PR titles come from Linear attachment names, bodies are skipped).
 3. **Notion MCP preflight** — if a `mcp__*Notion*` search/fetch tool is callable, Notion mode is ready. Else if only an `authenticate` tool is visible, run the OAuth flow. Else abort with "Notion MCP unavailable — release notes require Notion. Connect it and re-run."
@@ -48,7 +48,7 @@ The skill is global; it adapts to the project it runs in. Read **once** at start
 
 **Resolve the structural reference** (a *previous* release-notes page — for tone/structure only):
 
-- Search the release-notes parent (<private>: §9.7) for the **most recent existing** `Release Notes — …` page. Its sole roles: (a) mirror its section order / tone / detail level for cross-release consistency, and (b) receive the forward backlink in Phase 5. It is **not** the diff baseline.
+- Search the release-notes parent (see §9.7) for the **most recent existing** `Release Notes — …` page. Its sole roles: (a) mirror its section order / tone / detail level for cross-release consistency, and (b) receive the forward backlink in Phase 5. It is **not** the diff baseline.
 - If none exists (first release ever), that's fine — no structural template to mirror, no forward backlink to write. The Diff section is unaffected (it's git-derived regardless).
 
 Read-back in 4-6 lines: Linear project (+ state), release tag (if any), Notion spec page URL, structural-reference RN page URL (or "first release"), parent page where the new note will live, FR/other language. User confirms before Phase 2.
@@ -75,7 +75,7 @@ Parallelise the independent queries:
 
 Build an in-memory join table: `PROJ-NN | issue title | milestone | PR # | PR title | layer | labels | completedAt`. **The join key is `PROJ-NN ↔ PR`** — there is no `T-NN ↔ #issue` indirection anymore. Keep the scope change-set (step 8) as a separate net-status-per-path map.
 
-**Layer inference** (Front / Back / Data-ML / Infra-Tools), in priority order: (a) Linear label if the team uses a layer taxonomy (<private> PROJ team labels, cf. the product-structuring convention); else (b) the dominant top-level directory of the PR's changed files (`front/` → Front, `back/` → Back, `data/` → Data-ML, root configs/scripts → Infra-Tools); else (c) ask in Phase 4.
+**Layer inference** (Front / Back / Data-ML / Infra-Tools), in priority order: (a) Linear label if the team uses a layer taxonomy (the team's layer labels, cf. the product-structuring convention); else (b) the dominant top-level directory of the PR's changed files (`front/` → Front, `back/` → Back, `data/` → Data-ML, root configs/scripts → Infra-Tools); else (c) ask in Phase 4.
 
 ## Phase 3 — Categorize & draft
 
@@ -110,9 +110,9 @@ The page is **technical** (single audience: devs / lead / future-me). Section st
    - Notion project spec page (URL captured Phase 1).
    - Baseline release notes (URL captured Phase 1).
    - GitHub PR search for the release: `https://github.com/<owner>/<repo>/pulls?q=is%3Apr+is%3Amerged+PROJ-NN…` (or a date-windowed merged-PR query).
-   - **ADRs created during this release** — query the ADR DB (<private>: §9.3) filtered by `Date` within the release window (start = first issue's `completedAt`; end = ship date), or by string-search on the project name / `PROJ-NN` ids. Enumerate by ID + Title + Notion URL. None → `(aucune ADR sur cette release)`.
-   - **Post-mortems referenced** — query the Incidents DB (<private>: §9.8) for posts in the release window or mentioning any issue/PR of this release. None → `(aucun incident)`.
-   - **Specs DB filter** — direct Notion query URL for the spec(s) of this project in the Specs DB (<private>: §9.6).
+   - **ADRs created during this release** — query the ADR DB (see §9.3) filtered by `Date` within the release window (start = first issue's `completedAt`; end = ship date), or by string-search on the project name / `PROJ-NN` ids. Enumerate by ID + Title + Notion URL. None → `(aucune ADR sur cette release)`.
+   - **Post-mortems referenced** — query the Incidents DB (see §9.8) for posts in the release window or mentioning any issue/PR of this release. None → `(aucun incident)`.
+   - **Specs DB filter** — direct Notion query URL for the spec(s) of this project in the Specs DB (see §9.6).
 
 **Drafting rules**:
 
@@ -154,8 +154,8 @@ Options:
    - **Notion project spec page** → append a "Release notes → [Release Notes — `<tag>`](url)" line in its header/metadata section.
    - **Linear project** → add a comment (`mcp__linear__save_comment` on the project, or update the project description's links block) pointing at the release-notes page. Do **not** create a duplicate GitHub-URL attachment (cf. the auto-link guardrail — manual same-URL attachment dedups against and blocks the native link).
 4. **Project-side artefacts — Notion documentation harness** — non-negotiable when CLAUDE.md flags Notion as documentation-of-record. These flip the release to "shipped" across the docset:
-   - **Releases-DB entry** (<private>: §9.7) — find the row matching the release tag / project. For a Linear project there's usually **no pre-existing `In Dev` row** (the old GitHub ticketing skill that created them isn't in the Linear-first flow), so you'll typically **create the row fresh** — the release-notes page you just made under the §9.7 data source *is* that row. Set `Statut = Shipped`, `Date cible` (start/end = ship window), `Notes DB = <release-notes-URL>`, and the Linear-native `Ticket range` / GH-range fields per the Phase 1 schema-mismatch note. If a matching row already exists, update it in place rather than duplicating.
-   - **Specs-DB bulk-update** (<private>: §9.6) — query specs for this project/release; flip `Statut → Shipped`; fill an empty `GH PR` from the join table (never overwrite a non-empty value). Use the `userDefined:` prefix only for columns literally named `id`/`url` (cf. Notion column convention).
+   - **Releases-DB entry** (see §9.7) — find the row matching the release tag / project. For a Linear project there's usually **no pre-existing `In Dev` row** (the old GitHub ticketing skill that created them isn't in the Linear-first flow), so you'll typically **create the row fresh** — the release-notes page you just made under the §9.7 data source *is* that row. Set `Statut = Shipped`, `Date cible` (start/end = ship window), `Notes DB = <release-notes-URL>`, and the Linear-native `Ticket range` / GH-range fields per the Phase 1 schema-mismatch note. If a matching row already exists, update it in place rather than duplicating.
+   - **Specs-DB bulk-update** (see §9.6) — query specs for this project/release; flip `Statut → Shipped`; fill an empty `GH PR` from the join table (never overwrite a non-empty value). Use the `userDefined:` prefix only for columns literally named `id`/`url` (cf. Notion column convention).
    - **Documentary index** (optional) — add one row for the release-notes page if a transverse index DB exists.
 5. **Linear-side project closure** — closing a project on Linear is a ritual, not just a state flip. Run it as one gated block (the user can opt out of the whole block and keep the project open). Order matters — reconcile issues **before** flipping state:
 
@@ -192,7 +192,7 @@ Options:
 - **Project's PRs can't be enumerated** (no `gh`, or no merged PRs auto-linked) → §4 Diff degrades to capability-level only, sourced from the spec's impact section; mark it `(périmètre fichier non calculé — gh indisponible)`. Don't silently emit an empty Diff.
 - **A completed issue has no PR** (closed manually, or PR not auto-linked and `PROJ-NN` search empty) → keep it, mark `(sans PR)`. Don't drop silently.
 - **A PR closes multiple issues** → list under the primary `PROJ-NN`; mention the others as "lié à PROJ-XX, PROJ-YY".
-- **Wrong Notion connection** (<private>: an ADR/spec query returns <private> content) → switch to `notion-local`; the §9.3 ADR DB 404 is the tell. Never read/write `claude_ai_Notion` for <private>.
+- **Wrong Notion connection** (for example: an ADR/spec query returns unrelated content) → switch to `notion-local`; the §9.3 ADR DB 404 is the tell. Never read/write `claude_ai_Notion` for this project.
 - **Notion API failure mid-write** → surface the partial page URL; offer retry-append, archive-and-restart, or abort.
 
 ## Anti-patterns to avoid
@@ -216,7 +216,7 @@ Options:
 
 Final state after a successful Phase 5:
 
-- A Notion page `Release Notes — <project/tag> — <YYYY-MM-DD>` exists under the project's "Releases & changelog" parent (<private>: §9.7).
+- A Notion page `Release Notes — <project/tag> — <YYYY-MM-DD>` exists under the project's "Releases & changelog" parent (see §9.7).
 - The page is structured per the 10 sections above, each filled or explicitly marked "rien à signaler".
 - The previous release-notes page (if any) links forward to it; the Notion spec page and the Linear project both link to it.
 - **The Releases-DB entry** is `Statut: Shipped`, `Date cible:end` set, `Notes DB` linking to the page.
@@ -224,4 +224,4 @@ Final state after a successful Phase 5:
 - **Linear closure ritual** (gated, opt-out as a block): leftover issues reconciled (default → backlog/successor project, never silently canceled) and consistent with §Reporté; a final project update posted linking the release notes; project state set to `Completed` on explicit opt-in.
 - (Optional) A documentary-index entry exists for the page.
 - (Optional) A GitHub Release of the same name exists, if the user opted in.
-- The user has a chat summary: page URL, OWL issue count, layers covered, reporté count + their disposition, specs flipped to Shipped, Linear project state + final-update posted y/n, GH release y/n.
+- The user has a chat summary: page URL, issue count, layers covered, reporté count + their disposition, specs flipped to Shipped, Linear project state + final-update posted y/n, GH release y/n.
