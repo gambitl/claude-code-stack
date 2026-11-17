@@ -28,4 +28,32 @@ describe("run", () => {
     expect(out.stderr).toBe("");
     expect(code).toBe(0);
   });
+
+  it("prints the usage and returns 2 with no argument", async () => {
+    const { out, io } = collect();
+    const code = await run([], io);
+    expect(out.stderr.startsWith("Usage: cstack")).toBe(true);
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("names an unknown command, prints the usage and returns 2", async () => {
+    const { out, io } = collect();
+    const code = await run(["nope"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toContain("nope");
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("names an unknown option, prints the usage and returns 2", async () => {
+    const { out, io } = collect();
+    const code = await run(["--nope"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toContain("--nope");
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
 });
