@@ -112,7 +112,7 @@ if [ "$PUSH" = true ]; then
   while read -r oid ref; do
     [ -n "$ref" ] && LEASES+=("--force-with-lease=$ref:$oid")
   done <<<"$REFS_BEFORE"
-  git -C "$CLONE" push --atomic ${LEASES[@]+"${LEASES[@]}"} -- "$SOURCE" '+refs/heads/*:refs/heads/*' '+refs/tags/*:refs/tags/*'
+  git -C "$CLONE" push --atomic ${LEASES[@]+"${LEASES[@]}"} -- "$SOURCE" 'refs/heads/*:refs/heads/*' 'refs/tags/*:refs/tags/*'
   # The push never deletes, so a ref that only the source has would keep the old history.
   CLONE_REFS="$(git -C "$CLONE" for-each-ref --format='%(objectname) %(refname)' refs/heads refs/tags | sort -k2)"
   EXTRA="$(comm -13 <(printf '%s\n' "$CLONE_REFS" | sort) <(remote_refs | sort))"
