@@ -98,5 +98,14 @@ expect "a missing list stops the script" [ $? -ne 0 ]
 expect "an empty list stops the script" [ $? -ne 0 ]
 expect "the source is unchanged after the refusals" [ "$BEFORE" = "$(refs)" ]
 
+# 4. a branch whose name holds the name is never printed, even though the
+#    script stops because of it
+SRC2="$T/source2.git"
+git init -q --bare "$SRC2"
+git -C "$W" branch acme-feature main
+git -C "$W" push -q "$SRC2" main acme-feature 2>/dev/null
+OUT="$("$SCRIPT" --source "$SRC2" --list "$LIST" 2>&1)"
+expect "the output never shows a branch name that holds Acme" bash -c "! grep -qi acme <<<\"\$1\"" _ "$OUT"
+
 echo
 if [ "$FAILS" -eq 0 ]; then echo "All checks passed."; else echo "$FAILS check(s) failed."; exit 1; fi
