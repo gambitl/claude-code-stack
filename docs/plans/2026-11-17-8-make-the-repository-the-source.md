@@ -252,7 +252,7 @@ The approach is locked by the ticket and the answers above, and the change is sm
 - Commit message: `feat: make pull-skills.sh install the prose skills frozen at prose-skills-final`
 - Depends on: none
 
-### Unit 5: The inventory knows `cstack` skills — status: todo
+### Unit 5: The inventory knows `cstack` skills — status: done (f3fa430)
 - Failing test: a new case in `scripts/test_sync.sh`. The fake home holds a skill folder with `.cstack-managed`. After the sync, `INVENTORY.md` has the heading "My own skills", does not list that folder there, and lists it under "Skills installed by other tools" as installed and updated by `cstack`.
 - Minimum code: change the heading at line 128 of `scripts/build_inventory.py` and treat `.cstack-managed` like `.superset-managed`.
 - Refactor: none expected.
@@ -266,14 +266,14 @@ The approach is locked by the ticket and the answers above, and the change is sm
 - Commit message: `docs: replace the work references in the prose skills and the copied configuration`
 - Depends on: 1
 
-### Unit 7: The README describes the new role — status: todo
+### Unit 7: The README describes the new role — status: done (e7c5f59)
 - Failing test: no test, documentation only.
 - Minimum code: as "Decisions" says under "README and decision record".
 - Refactor: none.
 - Commit message: `docs: describe the repository as the public source of cstack and the frozen prose skills`
 - Depends on: 2, 3, 4, 5
 
-### Unit 8: ADR-SIC-E and the link from the specification — status: todo
+### Unit 8: ADR-SIC-E and the link from the specification — status: done (5aafa08)
 - Failing test: no test, documentation only.
 - Minimum code: as "Decisions" says under "README and decision record".
 - Refactor: none.
@@ -295,6 +295,10 @@ Units 1 and 4 can start at the same time. Units 2, 3 and 6 can run in parallel o
 - Runbooks and glossary: do not apply; the repository has none.
 
 ## Review log
+
+### Impact notes (phase 7)
+
+Graphify is not installed, so impact was checked with search. `sync.sh` is called by no other script. The README and ADR-SIC-E describe it, and both were updated. `scripts/build_inventory.py` is called only by `sync.sh`, and `scripts/test_sync.sh` covers it. `scripts/private_names.py` is called by `sync.sh` and `scripts/rewrite_history.sh`, and has its own test. `pull-skills.sh` is described by the README, which was updated. Usual companions of `sync.sh` (README, INVENTORY.md) were checked: INVENTORY.md is generated at the next sync and was redacted by unit 6. All four test scripts pass after units 1 to 8. The private-name check finds nothing in the files, commit messages and authorship of origin/main..HEAD (all 11 commits use the no-reply address).
 
 ## Briefing
 
