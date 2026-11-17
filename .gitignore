@@ -1,2 +1,4 @@
 .DS_Store
 .repowise/
+cstack/node_modules/
+cstack/dist/
