@@ -10,11 +10,16 @@ uses <private>. Entries apply from top to bottom. Matching ignores case.
 Usage: private_names.py [--list PATH] <command> [arguments]
 
   redact FILE...      replace the names in each file, in place
-  check PATH...       exit 1 if a name is left in a file or path (files or folders)
+  check PATH...       exit 1 if a name is left in a file or path (files or folders);
+                      paths are printed with the names replaced
   expressions OUT     write the git filter-repo expressions file
   mailmap OUT         write the git mailmap file
-  scan REPO           count matches per list line in every reachable object and
-                      ref name of a git repository, exit 1 if any
+  filename-callback OUT
+                      write the body of a git filter-repo --filename-callback
+                      that renames paths holding a name
+  scan REPO           count matches per list line in every reachable object,
+                      every path of the history and every ref name of a git
+                      repository, exit 1 if any
 
 This script never prints a name or the text it matched. It prints the
 line number of the list entry and where the match was found.
@@ -52,7 +57,7 @@ def load(path):
         f"Then run: chmod 600 {path}"
     )
     try:
-        with open(path, encoding="utf-8") as f:
+        with open(path, encoding="utf-8-sig") as f:
             lines = f.read().splitlines()
     except OSError:
         die(hint)
@@ -94,21 +99,26 @@ def cmd_redact(entries, files):
 def cmd_check(entries, paths):
     found = False
     for top in paths:
-        walk = [top] if os.path.isfile(top) else []
         if os.path.isdir(top):
+            walk = []
             for root, dirs, names in os.walk(top):
                 dirs[:] = [d for d in dirs if d != ".git"]
                 walk.append(root)
                 walk.extend(os.path.join(root, n) for n in names)
+        else:
+            walk = [top]
         for path in walk:
-            for line in matching_lines(path.encode("utf-8", "surrogateescape"), entries):
-                print(f"Found a name of the private list (line {line}) in the path {path}")
+            raw = os.fsencode(path)
+            # Never print a path as it is: it may hold a name.
+            shown = os.fsdecode(redact_bytes(raw, entries))
+            for line in matching_lines(raw, entries):
+                print(f"Found a name of the private list (line {line}) in the path {shown}")
                 found = True
             if os.path.isfile(path):
                 with open(path, "rb") as f:
                     data = f.read()
                 for line in matching_lines(data, entries):
-                    print(f"Found a name of the private list (line {line}) in {path}")
+                    print(f"Found a name of the private list (line {line}) in {shown}")
                     found = True
     return 1 if found else 0
 
@@ -127,6 +137,15 @@ def cmd_mailmap(entries, out):
                 f.write(f"<{e.replacement}> <{e.name}>\n")
 
 
+def cmd_filename_callback(entries, out):
+    rules = [(e.name.encode("utf-8"), e.replacement.encode("utf-8")) for e in entries]
+    with open(out, "w", encoding="utf-8") as f:
+        f.write("import re\n")
+        f.write(f"for name, replacement in {rules!r}:\n")
+        f.write("    filename = re.sub(re.escape(name), lambda _m, r=replacement: r, filename, flags=re.IGNORECASE)\n")
+        f.write("return filename\n")
+
+
 def git(repo, *args):
     return subprocess.run(
         ["git", "-C", repo, *args], check=True, stdout=subprocess.PIPE
@@ -142,18 +161,21 @@ def cmd_scan(entries, repo):
 
     for ref in git(repo, "for-each-ref", "--format=%(refname)").splitlines():
         add(ref)
-    listing = git(repo, "rev-list", "--objects", "--all").splitlines()
+    # rev-list shows each object under one path only. The log lists every path
+    # of every commit, so it also covers renamed and deleted files.
+    paths = set(git(repo, "log", "--all", "--name-only", "--format=", "-z").split(b"\0"))
     ids = []
-    for row in listing:
+    for row in git(repo, "rev-list", "--objects", "--all").splitlines():
         oid, _, path = row.partition(b" ")
         ids.append(oid)
-        if path:
-            add(path)  # file and folder names
+        paths.add(path)
+    for path in paths:
+        add(path)  # file and folder names
     proc = subprocess.Popen(
         ["git", "-C", repo, "cat-file", "--batch"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE,
     )
-    # Write the ids from a thread-free loop: feed all, then read all, in chunks.
+    # Feed the ids in chunks, so that the pipe never fills up while we read.
     for start in range(0, len(ids), 500):
         chunk = ids[start:start + 500]
         proc.stdin.write(b"\n".join(chunk) + b"\n")
@@ -176,13 +198,13 @@ def main(argv):
     list_path = DEFAULT_LIST
     if len(argv) >= 2 and argv[0] == "--list":
         list_path, argv = argv[1], argv[2:]
-    if len(argv) < 2 and not (argv and argv[0] in ("-h", "--help")):
-        die(__doc__)
-    if argv[0] in ("-h", "--help"):
+    if argv and argv[0] in ("-h", "--help"):
         print(__doc__)
         return 0
+    if len(argv) < 2:
+        die(__doc__)
     command, args = argv[0], argv[1:]
-    if command not in ("redact", "check", "expressions", "mailmap", "scan"):
+    if command not in ("redact", "check", "expressions", "mailmap", "filename-callback", "scan"):
         die(f"Unknown command '{command}'.\n{__doc__}")
     entries = load(list_path)
     if command == "redact":
@@ -193,6 +215,8 @@ def main(argv):
         cmd_expressions(entries, args[0])
     elif command == "mailmap":
         cmd_mailmap(entries, args[0])
+    elif command == "filename-callback":
+        cmd_filename_callback(entries, args[0])
     elif command == "scan":
         return cmd_scan(entries, args[0])
     return 0
