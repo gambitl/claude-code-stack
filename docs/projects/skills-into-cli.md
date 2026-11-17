@@ -322,6 +322,7 @@ This project has no design surface. It builds a command-line tool and prose only
 - **ADR-SIC-E, the new role of the repository.** The repository becomes the source of the skills and of `cstack`. The personal configuration is still copied from `~/.claude`.
 - **ADR-SIC-F, how `cstack` reaches trackers and forges.** `cstack` uses command-line clients that are already logged in, or data that Claude hands over in a file. It never holds credentials.
 - **ADR-SIC-G, continue or stop.** Milestone 4 creates this record with the results of the comparison.
+- **ADR-SIC-H, how a `cstack` command starts and ends.** The options are one entry file that does everything, or a separate entry file with an asynchronous `run` function that other code and tests can call. Ticket #7 chose the separate entry file. The record is `docs/decisions/ADR-SIC-H-how-a-cstack-command-starts-and-ends.md`.
 
 ## 10. Challenged choices
 

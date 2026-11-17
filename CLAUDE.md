@@ -14,3 +14,13 @@ This file tells Claude and the skills how work is organised in this repository. 
 ## Public text rule
 
 This repository is public. Never write the name of an employer or a client in it or in its issues. Never quote a ticket key from work. Never give a count taken from work retrospectives. The token and time results of a comparison are the only figures from work that you may publish. Keep any copy of a work ticket in a private repository.
+
+## Commands
+
+You run these commands from the `cstack/` folder. `npm ci` installs the packages. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
+
+The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
+
+The minimum Node version is written in one place only, which is `engines.node` in `cstack/package.json`. Do not copy that number into any other file.
+
+A command prints through the `io` argument of `run` and returns its exit code. No code calls `process.exit()`, because on macOS it can cut output that goes into a pipe. Set `process.exitCode` instead.
