@@ -36,6 +36,13 @@ echo "side" > "$W/c.txt"
 git -C "$W" add . && git -C "$W" commit -q -m "third"
 git -C "$W" tag -a v1 -m "tag of acme"
 git -C "$W" checkout -q main
+# a file renamed with the same content, a file name that holds the name, and a
+# commit that only changes the case of the name (empty after the rewrite)
+echo "plan" > "$W/Acme-plan.txt"; echo "doc" > "$W/doc-acme.txt"
+git -C "$W" add . && git -C "$W" commit -q -m "fourth"
+git -C "$W" mv Acme-plan.txt plan.txt && git -C "$W" commit -q -m "fifth, a move"
+echo "ACME secret" > "$W/b.txt"
+git -C "$W" commit -q -am "sixth"
 git init -q --bare "$SRC"
 git -C "$W" push -q "$SRC" main side v1 2>/dev/null
 
@@ -74,6 +81,13 @@ expect "the commit count is the same" [ "$COUNT" = "$(git -C "$SRC" rev-list --a
 expect "the files hold <private>" bash -c "git -C '$SRC' show main:b.txt | grep -q '<private>'"
 expect "the author email is the no-reply one" bash -c "git -C '$SRC' log --all --format=%ae | grep -q '^dev@users.noreply.example$'"
 expect "the branches and the tag are still there" bash -c "git -C '$SRC' rev-parse -q --verify refs/heads/side >/dev/null && git -C '$SRC' rev-parse -q --verify refs/tags/v1 >/dev/null"
+
+expect "a renamed file ends clean, with the same content" bash -c "git -C '$SRC' show main:plan.txt | grep -qx plan && git -C '$SRC' show main:doc-'<private>'.txt | grep -qx doc"
+
+# 2b. a source that starts with a dash is refused
+"$SCRIPT" --source "-oops" --list "$LIST" >/dev/null 2>&1
+expect "a source that starts with a dash is refused" [ $? -ne 0 ]
+expect "the bundle is not readable by others" bash -c "[ \"\$(stat -f %Lp \"\$1\" 2>/dev/null || stat -c %a \"\$1\")\" = 600 ]" _ "$(ls "$HOME"/claude-code-stack-old-history-*.bundle | head -1)"
 
 # 3. a missing list, then an empty list, stop before any change
 BEFORE="$(refs)"
