@@ -179,7 +179,7 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 
 ## Implementation units
 
-### Unit 1: Package, toolchain and `--version` — status: todo
+### Unit 1: Package, toolchain and `--version` — status: done
 - Files: `cstack/package.json`, `cstack/package-lock.json`, `cstack/tsconfig.json`, `cstack/tsconfig.build.json`, `cstack/src/io.ts`, `cstack/src/cli.ts`, `cstack/src/commands/version.ts`, `cstack/test/cli.test.ts`, `.gitignore`
 - Failing test: `cstack/test/cli.test.ts`: `await run(["--version"], io)` collects the `version` field of `cstack/package.json` plus a newline on standard output, nothing on standard error, and returns 0. Write the package files and the test first, run `npm install` then `npm test` in `cstack/`, and see it fail because `src/cli.ts` does not exist.
 - Minimum code: `package.json`, both `tsconfig` files, the lockfile from `npm install`, `src/io.ts`, `src/commands/version.ts`, and a `run` in `src/cli.ts` that handles `--version`, all as "Decisions" says. Add the two lines to `.gitignore`. Check that `npm test`, `npm run typecheck` and `npm run build` pass, and that `git status` shows no file under `cstack/node_modules/` or `cstack/dist/`.
@@ -187,7 +187,7 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 - Commit message: `feat(cli): add the cstack package with a working --version flag`
 - Depends on: none
 
-### Unit 2: Usage and exit code 2 — status: todo
+### Unit 2: Usage and exit code 2 — status: done
 - Files: `cstack/src/cli.ts`, `cstack/test/cli.test.ts`
 - Failing test: `cstack/test/cli.test.ts`: three cases, written first and seen failing. With no argument, `run([], io)` collects text that starts with `Usage: cstack` on standard error, nothing on standard output, and returns 2. With `["nope"]`, it collects a first line that names `nope`, then the usage, on standard error, nothing on standard output, and returns 2. With `["--nope"]`, it does the same and names `--nope`.
 - Minimum code: the usage constant and the top-level reading of `run`, as "Decisions" says. A command name that does not start with `-` is unknown; anything else goes through `parseArgs` in strict mode, and its errors become the usage and exit code 2.
@@ -195,7 +195,7 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 - Commit message: `feat(cli): print the usage and exit with code 2 on a missing or unknown command`
 - Depends on: 1
 
-### Unit 3: The command's entry file — status: todo
+### Unit 3: The command's entry file — status: done
 - Files: `cstack/src/bin.ts`, `cstack/package.json` (only if `bin` is not already `dist/bin.js`)
 - Failing test: no test. `bin.ts` only connects the process to `run`, and tests cannot start it before the build. The CI step `node dist/bin.js --version` checks it on every pull request. Instead, run `npm run build` in `cstack/`, then check by hand that the first line of `dist/bin.js` is `#!/usr/bin/env node`, that `node dist/bin.js --version` prints `0.1.0` with exit code 0, and that `node dist/bin.js` and `node dist/bin.js nope` exit with code 2. Write those outputs into the unit's report.
 - Minimum code: `src/bin.ts` as "Decisions" says: shebang, `process.exitCode = await run(process.argv.slice(2))`, and a `catch` that prints `cstack: <message>` and sets exit code 1. No `process.exit()`.
@@ -203,7 +203,7 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 - Commit message: `feat(cli): add the entry file that starts the cstack command`
 - Depends on: 2
 
-### Unit 4: The CI workflow — status: todo
+### Unit 4: The CI workflow — status: done
 - Files: `.github/workflows/ci.yml`
 - Failing test: no test. A workflow only runs on GitHub, and the pull request's check is the evidence the ticket asks for. Instead, in `cstack/`, delete `node_modules` and `dist`, then run the same commands in the same order as the workflow: `npm ci`, `npm run typecheck`, `npm test`, `npm run build`, `node dist/bin.js --version`. All must succeed. If `actionlint` is installed, run it on the file; if not, say so in the report.
 - Minimum code: the workflow exactly as "Decisions" says.
@@ -211,7 +211,7 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 - Commit message: `ci(tests): run the cstack type check, tests and build on every pull request`
 - Depends on: 3
 
-### Unit 5: The "Commands" section of the conventions file — status: todo
+### Unit 5: The "Commands" section of the conventions file — status: done
 - Files: `CLAUDE.md`
 - Failing test: no test. This unit changes prose only.
 - Minimum code: the `## Commands` section at the end of `CLAUDE.md`, as "Decisions" says. Change no other line of the file.
@@ -230,6 +230,10 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 - The specification page, beyond the ADR line: does not apply. Its section 7 describes the repository as it was when the project was designed.
 
 ## Review log
+
+### Impact notes
+
+Graphify is not installed, so `graphify update` and `graphify affected` were not run. Every changed symbol is new, so nothing outside the diff depends on it. The only existing files changed are `.gitignore` and `CLAUDE.md`, which have no code dependents. Usual companions (git log of those two files): none that this ticket should touch; `README.md` is owned by #8 and the plan forbids editing it. The `WHY:`/`DECISION:` comments and ADRs in the repository: none exist yet; ADR-SIC-H is written in phase 10.3.
 
 ## Briefing
 
