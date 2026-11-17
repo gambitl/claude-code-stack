@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# WHY: ADR-SIC-E. The prose skills are frozen at the tag prose-skills-final.
 # Install the prose skills that the repository froze at the tag
 # prose-skills-final into ~/.claude/skills. Use it on a computer whose skills
 # are older than the frozen ones.

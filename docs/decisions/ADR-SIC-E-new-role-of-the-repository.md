@@ -31,7 +31,7 @@ The prose skills in `skills/` are frozen at the tag `prose-skills-final`. They a
 
 ## Marker file
 
-A skill that `cstack` installs carries the marker file `.cstack-managed`. The inventory lists such a skill under "Skills installed by other tools", the same way it treats `.superset-managed`. The ticket that ships the skills uses the same name.
+A skill that `cstack` installs carries the marker file `.cstack-managed`. The inventory lists such a skill under "Skills installed by other tools", the same way it treats `.superset-managed`. Ticket #9, which ships the skills, uses the same name.
 
 ## The history rewrite
 
