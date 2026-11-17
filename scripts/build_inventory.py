@@ -125,7 +125,7 @@ w("")
 w("A skill is a folder with a `SKILL.md` file of instructions that Claude "
   "loads when a task matches it.")
 w("")
-w("### My own skills (copied into `skills/`)")
+w("### My own skills")
 w("")
 skills_dir = os.path.join(src, "skills")
 third_party = []
@@ -137,6 +137,9 @@ for name in sorted(os.listdir(skills_dir)):
         continue
     if os.path.exists(os.path.join(path, ".superset-managed")):
         third_party.append(f"`{name}`, installed and updated by the Superset app")
+        continue
+    if os.path.exists(os.path.join(path, ".cstack-managed")):
+        third_party.append(f"`{name}`, installed and updated by `cstack`")
         continue
     if name.endswith("-workspace"):
         continue
