@@ -22,16 +22,19 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
     return 2;
   }
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
+  let values: { version?: boolean };
   try {
-    const { values } = parseArgs({
+    ({ values } = parseArgs({
       args,
       options: { version: { type: "boolean" } },
       strict: true,
       allowPositionals: false,
-    });
-    if (values.version) return version(io);
-    return fail(io, "no command given");
+    }));
   } catch (error) {
     return fail(io, error instanceof Error ? error.message : String(error));
   }
+  // The command runs outside the try block, so a crash in it reaches bin.ts
+  // (exit code 1) and is not mistaken for a usage error (exit code 2).
+  if (values.version) return version(io);
+  return fail(io, "no command given");
 }
