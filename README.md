@@ -48,7 +48,7 @@ The `config` folder holds the raw files:
 
 The `skills` folder holds the frozen prose skills I wrote, with their agent prompts and templates.
 
-The `cstack` folder holds the code of the command-line tool and the skills that it ships. It arrives with its own pull request.
+The `cstack` folder holds the code of the command-line tool and the skills that it ships.
 
 The `docs` folder holds the project specifications in `docs/projects`, the plans in `docs/plans`, and the architecture decision records in `docs/decisions`. An architecture decision record is a short page that explains one technical choice and its reasons.
 
