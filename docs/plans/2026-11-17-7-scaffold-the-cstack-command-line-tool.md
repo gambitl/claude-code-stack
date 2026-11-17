@@ -235,6 +235,14 @@ The approach is locked by the ticket and the question round. `cstack/` is a smal
 
 Graphify is not installed, so `graphify update` and `graphify affected` were not run. Every changed symbol is new, so nothing outside the diff depends on it. The only existing files changed are `.gitignore` and `CLAUDE.md`, which have no code dependents. Usual companions (git log of those two files): none that this ticket should touch; `README.md` is owned by #8 and the plan forbids editing it. The `WHY:`/`DECISION:` comments and ADRs in the repository: none exist yet; ADR-SIC-H is written in phase 10.3.
 
+### Phase 7 review (four reviewers)
+
+- Correctness: no bug. One fragile spot: `version(io)` was inside the `try` of `run`, so a later `await` there would turn a crash into a usage error. Fixed: the call now sits outside the `try`, with a comment.
+- Security: no finding at 80 or more. Fixed the optional hardening: `persist-credentials: false` on checkout. `npm audit` could not run in the sandbox; CI or the maintainer can run it once.
+- Conventions: the comments cite ADR-SIC-H, which does not exist yet. Expected; phase 10.3 writes it and the line in section 9 of the specification page.
+- Simplicity: two suggestions, not applied. Folding the top level into one `parseArgs` call with `allowPositionals: true` contradicts the Decisions (a command parses its own options; only a first argument that starts with `-` goes to `parseArgs`). Making `run` and `version` synchronous contradicts the Decisions (later commands are asynchronous). `"private": true` stays on purpose.
+- Tests rerun after the fixes: typecheck, 4 tests and build pass.
+
 ## Briefing
 
 ## Open questions after the build
