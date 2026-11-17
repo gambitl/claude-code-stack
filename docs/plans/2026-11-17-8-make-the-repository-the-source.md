@@ -231,14 +231,14 @@ The approach is locked by the ticket and the answers above, and the change is sm
 - Commit message: `feat: add a helper that reads the private list of names to hide`
 - Depends on: none
 
-### Unit 2: `sync.sh` copies the personal configuration only — status: todo
+### Unit 2: `sync.sh` copies the personal configuration only — status: done (07eeb4e)
 - Failing test: `scripts/test_sync.sh` (new), with every case of the ticket's acceptance for `sync.sh`. It clones the repository into a temporary folder, adds a sentinel file in `skills/` and in `cstack/`, stages one more sentinel in `cstack/`, and runs `sync.sh` with `HOME` set to a fake home that holds `.claude/CLAUDE.md`, `.claude/settings.json`, `.claude/statusline-command.sh`, `.claude/plugins/installed_plugins.json`, `.claude/skills/` with content that differs from the clone, `.claude.json`, and `.config/claude-code-stack/private-names.txt` naming `Acme`. It checks that both sentinels survive, that `skills/` matches the clone byte for byte, that `config/` holds the fake `CLAUDE.md` and `settings.json`, that the files staged by the sync are only under `config/` and `INVENTORY.md`, that the staged `cstack/` sentinel is still staged and untouched, that `config/settings.json` holds `<private>` and no `Acme` in any case, that a fake token stops the script with a non-zero exit code and leaves `config/` unchanged, and that a missing list, then an empty list, stop the script and leave `config/` unchanged. Watch it fail on today's `sync.sh`.
 - Minimum code: change `sync.sh` as "Decisions" says: list check first, temporary folder, redaction, both checks, copy into place, staging and commit limited to `config` and `INVENTORY.md`, new header comment, step 3 removed.
 - Refactor: none expected.
 - Commit message: `feat: make sync.sh copy the personal configuration only and hide private names`
 - Depends on: 1
 
-### Unit 3: The history rewrite script — status: todo
+### Unit 3: The history rewrite script — status: done (e08a7d4)
 - Failing test: `scripts/test_rewrite_history.sh` (new). It builds a throwaway repository in a temporary folder with three commits, a second branch and an annotated tag. `Acme` appears in a file of the first commit, in the message of the second commit, and in the author email of one commit (such as `dev@acme.example`). The fake list maps that full email to `dev@users.noreply.example` on its first line and names `Acme` on its second line. `HOME` points to a temporary folder. Without `--push`, the throwaway repository is unchanged (same refs and hashes), a bundle exists in the fake home, and the output shows a count per list line. With `--push`, no commit content, message, author, committer, branch name or tag holds `Acme` in any case, the files hold `<private>`, the author email is the no-reply one, and the number of commits is the same. A missing list, then an empty list, stop the script with a non-zero exit code before any change. No output of any run shows `Acme` in any case. Watch it fail, because the script does not exist yet.
 - Minimum code: `scripts/rewrite_history.sh` as "Decisions" says.
 - Refactor: none expected.
@@ -259,7 +259,7 @@ The approach is locked by the ticket and the answers above, and the change is sm
 - Commit message: `feat: list the skills that cstack installs as installed by another tool`
 - Depends on: 2
 
-### Unit 6: Remove the work references from `skills/`, `config/` and `INVENTORY.md` — status: todo
+### Unit 6: Remove the work references from `skills/`, `config/` and `INVENTORY.md` — status: done (35cbed6)
 - Failing test: no test file, because this unit changes content only. The check is the helper run with the real private list on `skills`, `config` and `INVENTORY.md`: it must report matches before the change and nothing after.
 - Minimum code: as "Decisions" says under "Cleanup of the work references".
 - Refactor: none.
