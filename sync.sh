@@ -59,14 +59,20 @@ cp "$SRC/plugins/installed_plugins.json" "$TMP/config/installed-plugins.json"
 # 3. Human-readable summary of hooks, plugins, MCP servers and skills.
 "$PYTHON" scripts/build_inventory.py "$SRC" > "$TMP/INVENTORY.md"
 
-# 4. Replace the names of the private list.
+# 4. Secret check on the raw files. The redaction below can break a token
+#    that holds a name, so the check also runs after it.
+SECRETS='gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[abpr]-[A-Za-z0-9-]+|lin_api_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY'
+if grep -rEn "$SECRETS" "$TMP" >/dev/null; then
+  echo "Stopped: the generated files look like they hold secrets. Nothing was changed." >&2
+  exit 1
+fi
+
+# 5. Replace the names of the private list.
 "$PYTHON" scripts/private_names.py redact "$TMP"/config/* "$TMP/INVENTORY.md"
 
-# 5. Safety nets: refuse to continue if anything looks like a token or key,
+# 5b. Safety nets: refuse to continue if anything looks like a token or key,
 #    or if a name of the private list is left.
-if grep -rEn \
-  'gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[abpr]-[A-Za-z0-9-]+|lin_api_[A-Za-z0-9]+|glpat-[A-Za-z0-9_-]+|AKIA[0-9A-Z]{16}|BEGIN [A-Z ]*PRIVATE KEY' \
-  "$TMP" >/dev/null; then
+if grep -rEn "$SECRETS" "$TMP" >/dev/null; then
   echo "Stopped: the generated files look like they hold secrets. Nothing was changed." >&2
   exit 1
 fi
@@ -80,16 +86,20 @@ mkdir -p config
 cp "$TMP"/config/* config/
 cp "$TMP/INVENTORY.md" INVENTORY.md
 
-git add -A -- config INVENTORY.md
-if git diff --cached --quiet -- config INVENTORY.md; then
+# Stage and commit only the files this run wrote, never a stray file in config/.
+FILES=(INVENTORY.md)
+for f in "$TMP"/config/*; do FILES+=("config/$(basename "$f")"); done
+
+git add -- "${FILES[@]}"
+if git diff --cached --quiet -- "${FILES[@]}"; then
   echo "Nothing changed since the last sync."
   exit 0
 fi
 
-git diff --cached --stat -- config INVENTORY.md
+git diff --cached --stat -- "${FILES[@]}"
 
 if $COMMIT; then
-  git commit -q -m "Sync my Claude Code setup on $(date +%Y-%m-%d)" -- config INVENTORY.md
+  git commit -q -m "Sync my Claude Code setup on $(date +%Y-%m-%d)" -- "${FILES[@]}"
   git push -q
   echo "Committed and pushed."
 else

@@ -26,6 +26,7 @@ mkclone() { # mkclone <dir>
   echo "unfinished work" > "$1/cstack/sentinel.txt"
   echo "staged work" > "$1/cstack/staged.txt"
   g -C "$1" add cstack/staged.txt
+  echo "a stray unchecked file" > "$1/config/stray.txt"
 }
 
 mkhome() { # mkhome <dir>
@@ -69,8 +70,9 @@ staged="$(g -C $WORK/repo diff --cached --name-only | sort)"
 check "sync stages only config, INVENTORY.md and the earlier cstack file" \
   "! echo \"\$staged\" | grep -v -E '^(config/|INVENTORY.md\$|cstack/staged.txt\$)' | grep -q ."
 check "the staged cstack file is still staged" "echo \"\$staged\" | grep -qx cstack/staged.txt"
+check "a stray file in config is not staged" "! echo \"\$staged\" | grep -q stray"
 check "the unstaged sentinels are not staged" "! echo \"\$staged\" | grep -q sentinel"
-extra="$(g -C "$WORK/repo" status --short | grep '^??' | grep -v -E 'cstack/|skills/|scripts/')"
+extra="$(g -C "$WORK/repo" status --short | grep '^??' | grep -v -E 'cstack/|skills/|scripts/|config/stray.txt')"
 check "the sync leaves no untracked file outside cstack, skills and scripts" "[ -z \"\$extra\" ]"
 
 # A fake token stops the script and leaves config unchanged.
@@ -82,6 +84,12 @@ out="$(cd "$WORK/repo2" && HOME="$WORK/home2" bash ./sync.sh 2>&1)"; code=$?
 check "a fake token stops the script" "[ $code -ne 0 ]"
 check "a fake token leaves config unchanged" "[ \"\$snap\" = \"\$(snapshot $WORK/repo2)\" ]"
 check "the message does not print the token" "! echo \"\$out\" | grep -q ghp_"
+
+# A token that only the redaction would hide still stops the script.
+mkclone "$WORK/repo4"; mkhome "$WORK/home4"
+echo "key ghp_abcdefghijAcmeklmnopqrstuvwxyz0123456789" >> "$WORK/home4/.claude/CLAUDE.md"
+(cd "$WORK/repo4" && HOME="$WORK/home4" bash ./sync.sh >/dev/null 2>&1); code=$?
+check "a token that the redaction would break still stops the script" "[ $code -ne 0 ]"
 
 # A missing list, then an empty list, stop the script and leave config unchanged.
 mkclone "$WORK/repo3"; mkhome "$WORK/home3"
