@@ -300,6 +300,12 @@ Units 1 and 4 can start at the same time. Units 2, 3 and 6 can run in parallel o
 
 Graphify is not installed, so impact was checked with search. `sync.sh` is called by no other script. The README and ADR-SIC-E describe it, and both were updated. `scripts/build_inventory.py` is called only by `sync.sh`, and `scripts/test_sync.sh` covers it. `scripts/private_names.py` is called by `sync.sh` and `scripts/rewrite_history.sh`, and has its own test. `pull-skills.sh` is described by the README, which was updated. Usual companions of `sync.sh` (README, INVENTORY.md) were checked: INVENTORY.md is generated at the next sync and was redacted by unit 6. All four test scripts pass after units 1 to 8. The private-name check finds nothing in the files, commit messages and authorship of origin/main..HEAD (all 11 commits use the no-reply address).
 
+### Review findings (phase 7, four reviewers)
+
+Fixed: the scan after the rewrite missed a path name that held a private name when the same content sat under two paths (critical). The rewrite now also renames such paths, keeps the commit count stable, and pushes atomically with one lease per ref, after checking that the source did not change. `check` no longer prints a path that holds a name. The list is read with `utf-8-sig`. `sync.sh` stages only the files it wrote and also runs the secret check before redaction. A first cleanup missed a work ticket prefix, a workspace name and a database id in `config/settings.json` and the `linear-release-note` skill; they are now removed (commit 67a43fe). Small simplifications were applied to the helper.
+
+Follow-ups, not done: the four test scripts use two slightly different styles (`check` with `eval` against `expect`). The name check cannot catch accented names in a different case, and spelling variants, because it uses the same pattern as the redaction. Two paths that collide after renaming are not handled by the rewrite. The lease rejection and the race were not exercised by a test. The private list lacks entries for the work ticket prefix and the workspace name that the first cleanup missed; the maintainer should add them (the list entries cannot be named here). One sentence of `skills/resolve-issue/SKILL.md` still describes the original incident in neutral words; it was left as is.
+
 ## Briefing
 
 ## Open questions after the build
