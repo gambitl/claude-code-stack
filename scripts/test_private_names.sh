@@ -50,9 +50,22 @@ expect "check exits non-zero on a remaining name" test "$RC" -ne 0
 expect "check prints the list line number" bash -c "grep -q 'line 4' <<<'$OUT'"
 expect "check prints the file path" bash -c "grep -q 'bad.txt' <<<'$OUT'"
 expect "check never prints the name" bash -c "! grep -qi acme <<<'$OUT'"
+expect "check prints the path with the name redacted" bash -c "grep -q 'sub/bad.txt' <<<'$OUT'"
 rm "$T/tree/sub/bad.txt"
+printf 'clean\n' > "$T/tree/Acme-file.txt"
+OUT="$($H --list "$LIST" check "$T/tree" 2>&1)"; RC=$?
+expect "check exits non-zero when only a file name holds a name" test "$RC" -ne 0
+expect "check shows a redacted path for a file name that holds a name" bash -c "grep -q '<private>-file.txt' <<<'$OUT'"
+expect "check never prints the name of a path" bash -c "! grep -qi acme <<<'$OUT'"
+rm "$T/tree/Acme-file.txt"
 $H --list "$LIST" check "$T/tree" >/dev/null 2>&1; RC=$?
 expect "check exits zero on clean files" test "$RC" -eq 0
+
+# 3b. a list that starts with a byte order mark still works
+printf '\xef\xbb\xbfAcme\n' > "$T/bom.txt"
+printf 'an Acme here\n' > "$T/bom-target.txt"
+$H --list "$T/bom.txt" redact "$T/bom-target.txt"
+expect "a list with a byte order mark is read" grep -qx 'an <private> here' "$T/bom-target.txt"
 
 # 4. missing and empty list
 OUT="$($H --list "$T/nope.txt" check "$T/tree" 2>&1)"; RC=$?
@@ -90,6 +103,19 @@ expect "scan exits non-zero when a name is found" test "$RC" -ne 0
 expect "scan prints a count for list line 4" bash -c "grep -q 'line 4: [1-9]' <<<'$OUT'"
 expect "scan prints a zero count for an unmatched line" bash -c "grep -q 'line 5: 0' <<<'$OUT'"
 expect "scan never prints the name" bash -c "! grep -qi acme <<<'$OUT'"
+# a name only in an old path of a renamed file, with the same content
+REN="$T/renamed"
+git init -q "$REN"
+( cd "$REN"; git config user.email t@example.com; git config user.name t
+  echo same > Acme-old.txt; git add .; git commit -q -m "add"
+  git mv Acme-old.txt new.txt; git commit -q -m "move" ) >/dev/null 2>&1
+OUT="$($H --list "$LIST" scan "$REN" 2>&1)"; RC=$?
+expect "scan finds a name that is only in an old path of a renamed file" test "$RC" -ne 0
+expect "scan counts it on list line 4" bash -c "grep -q 'line 4: [1-9]' <<<'$OUT'"
+expect "scan does not print the name of the old path" bash -c "! grep -qi acme <<<'$OUT'"
+# the filename callback renames a path and keeps the others
+$H --list "$LIST" filename-callback "$T/callback.py"
+expect "the filename callback file is written" test -s "$T/callback.py"
 CLEAN="$T/clean"
 git init -q "$CLEAN"
 ( cd "$CLEAN"; git config user.email t@example.com; git config user.name t
