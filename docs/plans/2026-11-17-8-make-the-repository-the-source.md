@@ -357,7 +357,7 @@ none
 
 ### Non-blocking
 
-- For the maintainer, before the next `./sync.sh` and before the rewrite: add to the private list the two references that the first cleanup missed, a work ticket prefix (write it with its dash) and a workspace name. Without them, a sync puts them back into `config/settings.json`, and the rewrite leaves them in the old commits. The list has eight entries today.
+- For the maintainer, before the next `./sync.sh` and before the rewrite: add to the private list the two references that the first cleanup missed. The first one is the work ticket prefix when a space and the word "team" follow it, which the entry for the prefix with its dash does not catch. Write that longer form, because the three letters alone also match ordinary words. The second one is a workspace name. Without these entries, a sync puts them back into `config/settings.json`, and the rewrite leaves them in the old commits. The list has eight entries today. (Wording corrected on 2026-11-17 after a test of the redaction on a copy of the live settings.)
 - For GitHub Support, after the rewrite push: the request text in the Briefing, with the numbers of pull requests #1 to #5, #34 and this pull request, and the commit hashes. The work is complete whatever the answer.
 
 ## Pull request
@@ -380,7 +380,7 @@ This pull request changes the role of the repository. It is now the source of `c
 
 **After the merge, the maintainer runs these steps in order.** First, reset the local `main` to the merged one, because Orca starts new worktrees from it. Second, delete the old branches whose pull requests are closed, after checking that nothing on them is missing from `main`. Third, rebase every branch still in progress with `git rebase --onto`. Fourth, run `scripts/rewrite_history.sh`, read the count per list line, then run it again with `--push`. Fifth, create the annotated tag `prose-skills-final` on the last commit that changed `skills/`, and push it. Sixth, edit the descriptions of pull requests #1, #3 and #4, then delete their old revisions from the edit history. Seventh, ask GitHub Support to remove the cached views and hidden pull request references, with commit hashes and pull request numbers (#1 to #5, #34 and this one), never a name. If Support refuses, recreate the repository under the same name, still public, after moving the issues with `gh issue transfer`. Milestones and sub-issue links then need rebuilding, and deleting the old repository cannot be undone. Eighth, reset every local copy, including every Orca worktree, with `git fetch` and `git reset --hard origin/main`. Last, delete the bundle. The merge commits lose their "Verified" badge after the rewrite.
 
-**Open questions, not needed for this pull request.** This pull request can be merged without their answers. For the maintainer: add to the private list the work ticket prefix (with its dash) and the workspace name that the first cleanup missed. For GitHub Support: the request text, after the rewrite push.
+**Open questions, not needed for this pull request.** This pull request can be merged without their answers. For the maintainer: add to the private list the two references that the first cleanup missed, which are the work ticket prefix followed by a space and the word "team", and a workspace name. For GitHub Support: the request text, after the rewrite push.
 
 Plan file: `docs/plans/2026-11-17-8-make-the-repository-the-source.md`.
 
