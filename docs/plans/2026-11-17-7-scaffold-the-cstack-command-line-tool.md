@@ -339,6 +339,8 @@ Fixes #7
 
 ## Hand-off log
 
+2026-11-17: phases 6 to 10 done. Five units built, two review rounds, ADR-SIC-H written, tickets #7 to #11, #13 and #14 commented. No blocking question. Not pushed; waiting for the retrospective, then phase 12.
+
 ## History
 
 <!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
