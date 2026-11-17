@@ -1,5 +1,7 @@
 # Skills into CLI
 
+Epic: https://github.com/gambitl/claude-code-stack/issues/6
+
 ## 1. Context and problem
 
 This project moves the mechanical steps of two Claude Code skills out of long prose and into a tested command-line tool. A skill is a markdown file of instructions that Claude loads when a task matches it. The two skills are `resolve-issue`, first, and `create-tickets`, second. The tool is called `cstack`. Claude keeps every step that needs judgment, such as asking questions, planning, writing code, reviewing and documenting. `cstack` takes the steps whose correct result is fully decided by their inputs. Checking that a file has all its sections and pushing a branch only once are examples of such steps.
