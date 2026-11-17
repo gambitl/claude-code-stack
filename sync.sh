@@ -6,6 +6,9 @@
 # before it writes a file. It never touches cstack/ or skills/. A sync commit
 # holds only config/ and INVENTORY.md.
 #
+# WHY: ADR-SIC-E. This repository is public and is now the source of cstack and
+# of the skills, so a sync may only write the personal configuration.
+#
 # Usage:
 #   ./sync.sh            copy the files, rebuild INVENTORY.md, show what changed
 #   ./sync.sh --commit   same, then commit and push if anything changed

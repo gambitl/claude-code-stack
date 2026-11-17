@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# WHY: ADR-SIC-E. The repository stays public, so the private names are removed
+# from the whole history once, after the merge.
 # Remove the names of the private list from the whole git history.
 #
 # Usage:
