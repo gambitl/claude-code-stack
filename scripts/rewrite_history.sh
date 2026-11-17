@@ -77,6 +77,10 @@ echo "Saved the old history in $BUNDLE"
 echo "Matches per line of the list, before the rewrite:"
 "${NAMES[@]}" scan "$CLONE" || true
 
+# filter-repo removes the origin remote itself, and git then prints the name of
+# every branch, which may hold a name. Remove it first, without any output.
+git -C "$CLONE" remote remove origin >/dev/null 2>&1
+
 git -C "$CLONE" filter-repo --quiet --force \
   --prune-empty never --prune-degenerate never \
   --filename-callback "$TMP/filename_callback.py" \
