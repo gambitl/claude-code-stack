@@ -243,6 +243,14 @@ Graphify is not installed, so `graphify update` and `graphify affected` were not
 - Simplicity: two suggestions, not applied. Folding the top level into one `parseArgs` call with `allowPositionals: true` contradicts the Decisions (a command parses its own options; only a first argument that starts with `-` goes to `parseArgs`). Making `run` and `version` synchronous contradicts the Decisions (later commands are asynchronous). `"private": true` stays on purpose.
 - Tests rerun after the fixes: typecheck, 4 tests and build pass.
 
+### Phase 8: independent review
+
+No code change. Judgment calls: (1) the crash path had no test; a test was added after the review. (2) ADR-SIC-H is cited by two comments and is written in phase 10.3. (3) If the reader of the output closes the pipe early, Node crashes with a stack trace on the write error; a later ticket may handle it. (4) `npm ci` warns that the `fsevents` install script is blocked; harmless. (5) The plan commits use `docs:` with no scope.
+
+### Phase 9
+
+`origin/main` is still at c4becce, so no rebase was needed. The repository asks for no formatter or linter before a push. Typecheck, 5 tests and build pass.
+
 ## Briefing
 
 ## Open questions after the build
