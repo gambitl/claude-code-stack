@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in `docs/projects/`), ADRs in `docs/decisions/`
 Branch: gambitl/cstack-scaffold
 Conversation language: French; the conversation uses it, and every record stays in English
-Status: in progress (phase 6)
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -297,13 +297,45 @@ I checked data model lock-in, scale and performance, security beyond the workflo
 
 ### Blocking
 
+None.
+
 ### Non-blocking
+
+None.
 
 ## Pull request
 
+Title: feat(cli): scaffold the cstack command-line tool with tests and CI
+
+Body:
+
+This pull request creates the `cstack` command-line tool as an empty shell. It has one working command, its tests and a CI check. It is the first ticket of the "Skills into CLI" project.
+
+**What was built.** The package lives in `cstack/`. `cstack --version` prints the version from `package.json` and exits with code 0. Running `cstack` with no command, or with an unknown one, prints the usage on standard error and exits with code 2. The workflow `.github/workflows/ci.yml` runs on `macos-latest` for every pull request and every push to `main`. It checks types, runs the tests, builds, and starts the built command. `CLAUDE.md` has a new "Commands" section.
+
+**Key decisions, and why.** A small entry file, `src/bin.ts`, is the only file that touches the process. The command starts from `dist/bin.js`, not `dist/cli.js` as the ticket said. This keeps `run` in `src/cli.ts` easy to test. No code calls `process.exit()`, because on macOS it cut piped output at 65,536 bytes. The package is `"private": true`, because the npm name `cstack` belongs to an unrelated package. `engines.node` is `">=26"`, and the number is written nowhere else. The CI uses `lts/*`. The record is `docs/decisions/ADR-SIC-H-how-a-cstack-command-starts-and-ends.md`, and its line is added to section 9 of the specification page.
+
+**Files touched.** `cstack/` (new), `.github/workflows/ci.yml` (new), `docs/decisions/ADR-SIC-H-...md` (new), `docs/projects/skills-into-cli.md` (one line), `CLAUDE.md`, `.gitignore`, and the plan file `docs/plans/2026-11-17-7-scaffold-the-cstack-command-line-tool.md`.
+
+**Review.** Four reviewers and one independent reviewer found no bug. Two changes came from them: the checkout step no longer keeps the git token, and a crash inside a command now gives exit code 1 and not a usage error, with a test. Judgment calls: if the reader of the output closes the pipe early, Node prints a stack trace. This is left to ticket #13, which has a comment about it. `npm ci` prints a harmless warning about a blocked install script of `fsevents`. The plan commits use `docs:` with no scope. No risk was accepted at the dependency gate.
+
+**After the merge.** Merge this pull request before the history rewrite of ticket #8, and add its number to the request to GitHub Support. Then make the check named `cstack` required on `main`, and keep the job name. The closing line below fires only when the pull request merges into the default branch, which is `main`.
+
+Fixes #7
+
 ## Documentation
 
+- Ticket comment on #7: https://github.com/gambitl/claude-code-stack/issues/7#issuecomment-6953961463
+- Dependent tickets: #9 https://github.com/gambitl/claude-code-stack/issues/9#issuecomment-6953963340, #10 https://github.com/gambitl/claude-code-stack/issues/10#issuecomment-6953964255, #11 https://github.com/gambitl/claude-code-stack/issues/11#issuecomment-6953964784, #13 https://github.com/gambitl/claude-code-stack/issues/13#issuecomment-6953965443 (with the broken pipe sentence), #14 https://github.com/gambitl/claude-code-stack/issues/14#issuecomment-6953966049
+- Related ticket #8: https://github.com/gambitl/claude-code-stack/issues/8#issuecomment-6953961945
+- ADR: `docs/decisions/ADR-SIC-H-how-a-cstack-command-starts-and-ends.md`, with its line in section 9 of `docs/projects/skills-into-cli.md`; `WHY: ADR-SIC-H` comments in `cstack/src/bin.ts` and `cstack/tsconfig.build.json`. Phase 12 adds the pull request link to the ADR (committed in a fix push only if a check fails; otherwise the link is not added to avoid a second push, stated in the published report).
+- Conventions file: `CLAUDE.md`, section "Commands".
+
 ## Executor notes
+
+- `graphify` and `actionlint` are not installed, so the impact check and the workflow lint were skipped; the first CI run is the first syntax check of the workflow.
+- Two edits ran in the same worktree while a reviewer was reading it; one reviewer noticed an uncommitted change. No harm, but reviewers and edits should not overlap.
+- The deep reviewer could not run `npm audit` (no network in its sandbox).
 
 ## Hand-off log
 
