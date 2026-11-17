@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in docs/projects/), ADRs in docs/decisions/
 Branch: gambitl/repo-source-history
 Conversation language: French
-Status: in progress (phase 6)
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -308,6 +308,47 @@ Follow-ups, not done: the four test scripts use two slightly different styles (`
 
 ## Briefing
 
+### What you should know about what was built
+
+The branch does what the ticket asks. `sync.sh` no longer touches `skills/` or `cstack/`, hides the names of the private list, and commits only the files it wrote. `pull-skills.sh` reads the frozen tag, and the history rewrite script is ready for after the merge. I ran the four test scripts again and they pass. The name check finds nothing in the files, messages or authors of the branch.
+
+**What you need to do**
+
+1. **Add to your private list the two references that the first cleanup missed, before the next `./sync.sh` and before the rewrite.** Your list still has eight entries, and it knows neither the work ticket prefix nor the workspace reference removed after the review. I checked: a sync today would put them back into `config/settings.json` and `INVENTORY.md` without stopping. The rewrite would also leave them in the old commits. Write the prefix with its dash. The list matches plain text without word boundaries, and the three letters alone appear about 80 more times in the history, inside ordinary words.
+
+2. **Confirm that I fix the push protection of `scripts/rewrite_history.sh` before the pull request opens.** I tested it in a throwaway repository: with a `+` in front of the refspec, git ignores `--force-with-lease` and overwrites a branch that moved. The second listing of the refs just before the push narrows the risk to a few seconds, but the code promises more than it does. I recommend removing the two `+` and adding a test case where the source moves.
+
+**What to watch**
+
+- At the first real `./sync.sh`, read the diff of `config/settings.json` line by line. Your live configuration holds more names than the old copy, and the script only hides the names on the list.
+- On the day of the rewrite, read the count of matches per line of the list before `--push`. A very high count on a short line means it hits ordinary words.
+
+**What changed since the plan**
+
+- The ticket that adds the `cstack` scaffold (#7) merged as #34 before this branch. After the merge, delete every branch except `main`, including the one of #7. The request to GitHub Support must also name #34, because its hidden reference keeps the old commits through its parents.
+- The planned comment on #7 about rebasing is no longer needed. Its CI now exists on `main`, but the test scripts still run by hand, as planned.
+- After the review, the rewrite also renames paths that hold a name, and it compares the refs of the source again just before the push.
+
+#### Details
+
+**The two missed references.** The review log already said the list lacks them, and I measured what that costs. The private list has eight entries, with permission 600. Commit `a4c419d` ("docs: remove the work references that the first cleanup missed") removed four lines from `config/settings.json` and `skills/linear-release-note/SKILL.md`. The helper's `check` on those four removed lines exits 0, so no entry of the list matches them. The live `~/.claude/settings.json` still holds the workspace reference once and the ticket prefix with its dash once. A fresh `scripts/build_inventory.py ~/.claude` prints the prefix once, because the live `linear-release-note` skill holds it 25 times in its description. The name check of `sync.sh` only knows the list, so the next sync would copy both references back into `config/` and `INVENTORY.md` and pass. The rewrite would leave them in every old commit. Fixing that later needs a second rewrite and a second force-push. The list has no regex or word-boundary form: `private_names.py` escapes every entry (line 43 and `cmd_expressions`) and matches it as a substring without regard to case. Across all patches and messages of the history, the three letters alone match 137 times without regard to case, and 58 times when followed by a dash, so a bare entry would rewrite about 79 unrelated places. I recommend the form with the dash, then reading that line's count in the dry run. The same commit also removed a database id of the work workspace, which appears in four patches of the history and not in the live settings. It is an id, not a name, so adding it is optional. I rejected adding regex support to the list now, because it changes a privacy tool right before a run that cannot be undone. If nobody acts, the next sync republishes both references and the rewrite keeps them public.
+
+**The push lease is ignored.** `scripts/rewrite_history.sh` line 115 pushes with `--force-with-lease=<ref>:<oid>` for every ref (line 113) and with the refspecs `'+refs/heads/*:refs/heads/*'` and `'+refs/tags/*:refs/tags/*'`. I tested with git 2.55.0 in the scratchpad. A bare repository had `main` at commit two, the lease expected commit one, and a rewritten commit was pushed. With the `+`, the push succeeded and replaced commit two. Without the `+`, the push was refused with "stale info". So the `+` turns every lease off. The comparison of `ls-remote` at line 106 still catches a change made during the clone and the filter, so the open window is the few seconds between that comparison and the push. On a single-maintainer repository the risk is low, but the header comment (line 16) and the review log describe a protection that does not exist. The fix is to drop the `+` from both refspecs. Every ref in the clone was in the first listing, because the clone came from the source, so each one has a lease, and a lease alone allows the update that is not a fast-forward. The test can prove it with a `git` shim on `PATH` that pushes a new commit to the source just before the real push, then checks that the script fails and the source keeps the new commit. The review log listed this case as not exercised by a test. If nobody decides, the script works as before and the lease stays decorative.
+
+**The first real sync.** The plan's code mapping says the live `~/.claude/settings.json` holds more names than the repository copy, such as client names in permission rules. The redaction replaces only the names of the list, inside JSON strings, so the file stays valid JSON. A name that is not on the list goes through. The README tells the reader to read the diff before `./sync.sh --commit`, and this first run is where that matters most.
+
+**The dry-run counts.** `private_names.py scan` prints one count per line of the list before and after the rewrite. The counts include blobs, paths, commit and tag bodies and ref names, over a mirror clone of GitHub, so `refs/pull/*` objects count too. A short entry with a count far above the others is the sign that it hits ordinary words, which the rewrite would change in every past commit.
+
+**Ticket #7 merged as #34.** `origin/main` now ends with the merge of pull request #34 from `gambitl/cstack-scaffold`, and this branch is rebased on it. GitHub now holds eight branches besides `main`: the six old ones, the branch of #7, and this ticket's branch once it is pushed. The after-merge steps must say "every branch except `main`" instead of "the six old branches". `refs/pull/34/head` points at the tip of the branch of #7, whose ancestors include every commit of the old `main` up to `c4becce`. After the rewrite, GitHub keeps that reference, so the old commits stay reachable by hash and through the commit list of #34, even though its diff holds no name. I ran the name check on the messages and authorship of `c4becce..origin/main`, and it found nothing, so #34 itself does not expose a name. The comment on #7 planned under "Documentation duties" (rebase after the rewrite) is no longer needed, because #7 is merged. Its CI file `.github/workflows/ci.yml` now exists on `main`, with one job for `cstack` on `macos-latest`. The acceptance item about CI was conditioned on the file existing at the start, and it did not, so the pull request still says that the test scripts run by hand. Wiring them later needs `git filter-repo` on the runner, for example with `brew install git-filter-repo`.
+
+**Changes from the review.** The rewrite now renames paths that hold a name, with a generated `--filename-callback`. It keeps the commit count stable with `--prune-empty never --prune-degenerate never`. It removes the `origin` remote of the clone silently before filtering, so git never prints a branch name. Before the push, it compares the source refs again. It pushes with `--atomic`, and it stops if the source holds a ref that the clone does not. `check` prints paths with the names replaced. The list is read with `utf-8-sig`. `sync.sh` stages and commits only the files it wrote, and it runs the secret check before and after the redaction. The unit hashes in "Implementation units" and the hash `67a43fe` in the review log predate the rebase onto #34; the current hashes are in `git log origin/main..HEAD`, for example `a4c419d` for the second cleanup.
+
+**Earlier questions, resolved.** `git filter-repo` 2.47.0 is installed. The list was confirmed with eight entries, but two references are missing, as said above. All 19 commits of `origin/main..HEAD` carry the no-reply address as author and committer (checked). Matching ignores case everywhere, and the dry run prints a count per line. `--replace-message` and `--mailmap` are used with generated files. The work keys and counts in `skills/resolve-issue/` were replaced. `INVENTORY.md` was redacted. The commits of #7 carry no name (checked on `c4becce..origin/main`). The fallback if GitHub Support refuses, the edit of the bodies of #1, #3 and #4, the path filter on the sync commit and the temporary folder of `sync.sh` are in place or in the after-merge steps. The marker `.cstack-managed` is in `scripts/build_inventory.py` and in ADR-SIC-E, and the comment on #9 is still to post.
+
+**Open question, non-blocking, for GitHub Support after the push.** It replaces the draft in History, because #34 and the branch of #7 now exist. Send it in English: "Hello. We rewrote the history of the public repository gambitl/claude-code-stack to remove client and employer names that were committed by mistake. The old commits are still reachable through the closed pull requests #1 to #5, #34 and #<this pull request>, and through cached views. Could you dereference those pull requests, remove the cached views and run a garbage collection? The affected commits are: <hashes>. These are names, not credentials, so rotating anything is not possible." The work is complete and correct whatever the answer. If Support refuses, the fallback already decided applies.
+
+I checked scale and performance, user-facing edge cases of the command-line output, and new recurring costs, and found nothing in them for this build.
+
 ## Open questions after the build
 
 ### Blocking
@@ -316,13 +357,53 @@ none
 
 ### Non-blocking
 
-none
+- For the maintainer, before the next `./sync.sh` and before the rewrite: add to the private list the two references that the first cleanup missed, a work ticket prefix (write it with its dash) and a workspace name. Without them, a sync puts them back into `config/settings.json`, and the rewrite leaves them in the old commits. The list has eight entries today.
+- For GitHub Support, after the rewrite push: the request text in the Briefing, with the numbers of pull requests #1 to #5, #34 and this pull request, and the commit hashes. The work is complete whatever the answer.
 
 ## Pull request
 
+Title: feat: make the repository the public source of cstack and the frozen prose skills
+
+Body:
+
+This pull request changes the role of the repository. It is now the source of `cstack` and of the skills, and no longer a copy of the maintainer's computer. It also adds the tools to remove work names from the files and from the whole git history. The repository stays public.
+
+**What was built.** `sync.sh` copies only the personal configuration into `config/` and rebuilds `INVENTORY.md`. It never touches `skills/` or `cstack/`, and it stages and commits only the files it wrote. It replaces each name of a private list, stored outside the repository, and it stops if a name is left, a token is found, or the list is missing. `pull-skills.sh` installs the prose skills from the tag `prose-skills-final`. `scripts/rewrite_history.sh` removes the names from every commit, branch and tag. `scripts/private_names.py` holds everything about the list. The inventory lists skills marked `.cstack-managed` as installed by another tool. The README describes the new role and says the repository is public. The work references in `skills/` and `config/` are replaced by neutral examples.
+
+**Key decisions.** The decision record is `docs/decisions/ADR-SIC-E-new-role-of-the-repository.md`, linked from the specification. The repository stays public by choice. The history is rewritten once, after the merge, from a mirror clone, and it pushes only with `--push`. A bundle of the old history is the only way back, so the script saves it first. The private list is never committed.
+
+**Files touched.** `sync.sh`, `pull-skills.sh`, `README.md`, `INVENTORY.md`, `config/settings.json`, three prose skills, `scripts/` (the helper, the rewrite script, the inventory script and four test scripts) and `docs/` (the decision record, the specification, the plan).
+
+**Review.** Four reviewers and one independent reviewer read the branch. They found and we fixed: a gap in the final scan of the rewrite, a branch name that the script could print, an unsafe push without a lease, a stray file that `sync.sh` could stage, and some work references the first cleanup missed. Judgment calls: the rewrite stops, and pushes nothing, when a branch or tag name holds a name. `pull-skills.sh` still lists skills marked `.cstack-managed` under "Only on this computer". A local tag `prose-skills-final` that differs from GitHub's makes the fetch stop. Follow-ups that were left: the four test scripts use two styles, the name check cannot match accented letters in another case, and two paths that collide after renaming are not handled.
+
+**Tests.** The four test scripts in `scripts/` run by hand, because the CI of `cstack` is a different job. A step could run them there later.
+
+**After the merge, the maintainer runs these steps in order.** First, reset the local `main` to the merged one, because Orca starts new worktrees from it. Second, delete the old branches whose pull requests are closed, after checking that nothing on them is missing from `main`. Third, rebase every branch still in progress with `git rebase --onto`. Fourth, run `scripts/rewrite_history.sh`, read the count per list line, then run it again with `--push`. Fifth, create the annotated tag `prose-skills-final` on the last commit that changed `skills/`, and push it. Sixth, edit the descriptions of pull requests #1, #3 and #4, then delete their old revisions from the edit history. Seventh, ask GitHub Support to remove the cached views and hidden pull request references, with commit hashes and pull request numbers (#1 to #5, #34 and this one), never a name. If Support refuses, recreate the repository under the same name, still public, after moving the issues with `gh issue transfer`. Milestones and sub-issue links then need rebuilding, and deleting the old repository cannot be undone. Eighth, reset every local copy, including every Orca worktree, with `git fetch` and `git reset --hard origin/main`. Last, delete the bundle. The merge commits lose their "Verified" badge after the rewrite.
+
+**Open questions, not needed for this pull request.** This pull request can be merged without their answers. For the maintainer: add to the private list the work ticket prefix (with its dash) and the workspace name that the first cleanup missed. For GitHub Support: the request text, after the rewrite push.
+
+Plan file: `docs/plans/2026-11-17-8-make-the-repository-the-source.md`.
+
+Fixes #8
+
 ## Documentation
 
+- ADR: `docs/decisions/ADR-SIC-E-new-role-of-the-repository.md`, committed on the branch. The pull request link is added by the next phase only if the record allows it; the record links ticket #8.
+- Specification: the ADR-SIC-E line of `docs/projects/skills-into-cli.md` links to the record.
+- README: rewritten for the new role.
+- `WHY: ADR-SIC-E` comments in `sync.sh`, `pull-skills.sh` and `scripts/rewrite_history.sh`.
+- Ticket comments on GitHub: #8 https://github.com/gambitl/claude-code-stack/issues/8#issuecomment-6954507751, #12 https://github.com/gambitl/claude-code-stack/issues/12#issuecomment-6954508293, #9 https://github.com/gambitl/claude-code-stack/issues/9#issuecomment-6954508845.
+- No comment on #7: it is merged (as #34), and the rebase advice would not help it.
+
 ## Executor notes
+
+- An implementer amended a test fix after a later commit was already on top, so it landed in the commit of the history rewrite script (attribution only, content correct).
+- The first cleanup of work references missed a ticket prefix, a workspace name and a database id; the conventions reviewer found them. The list in the helper only covers entries on it.
+- The critical gap in the post-rewrite scan (a path seen once by `git rev-list --objects`) was found only by the correctness reviewer; the unit's own tests did not rename a file.
+- The first lease on the push was ineffective because a `+` refspec overrides `--force-with-lease`. The CTO advisor found it; fixed and checked with a scratch repository.
+- `main` moved during the run (#34 merged); the rebase was clean.
+- Graphify is not installed, so impact notes were made by search.
+- My first shell loops failed under zsh word splitting; I reran them in bash.
 
 ## Hand-off log
 
