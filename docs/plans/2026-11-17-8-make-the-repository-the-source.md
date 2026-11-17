@@ -224,7 +224,7 @@ The approach is locked by the ticket and the answers above, and the change is sm
 
 ## Implementation units
 
-### Unit 1: The private list helper — status: todo
+### Unit 1: The private list helper — status: done (35708ac)
 - Failing test: `scripts/test_private_names.sh` (new). With a fake list in a temporary folder, it checks that comments and blank lines are ignored, that a line without `==>` becomes `<private>`, that `name==>replacement` is honoured, that entries apply top to bottom, that redaction ignores case (`Acme`, `acme`, `ACME`), that the check exits non-zero on a remaining name and prints the list line number but never `Acme`, that a missing or empty list exits non-zero with the path in the message, that the expressions file holds `regex:(?i)` lines in list order, and that the mailmap holds a line only for an email-to-email entry.
 - Minimum code: `scripts/private_names.py` with subcommands for redaction of files, check of paths, writing the expressions file, writing the mailmap, and scanning a git repository (reachable objects and ref names) with counts per list line.
 - Refactor: none expected.
@@ -245,7 +245,7 @@ The approach is locked by the ticket and the answers above, and the change is sm
 - Commit message: `feat: add a script that removes the private names from the whole git history`
 - Depends on: 1
 
-### Unit 4: `pull-skills.sh` reads the frozen tag — status: todo
+### Unit 4: `pull-skills.sh` reads the frozen tag — status: done (2e24972)
 - Failing test: `scripts/test_pull_skills.sh` (new). It builds a throwaway origin with a `skills/` folder, a tag `prose-skills-final`, and a later commit on `main` that changes a skill. It clones it, copies `pull-skills.sh` into the clone, and runs it without `--apply`, with `HOME` set to a fake home. It checks that the output compares against the tagged skills and not `main`, that nothing is written in the fake home, and that a run against an origin without the tag stops with a non-zero exit code and a clear message.
 - Minimum code: fetch tags, read `prose-skills-final`, stop clearly when the tag is missing, rewrite the comments at lines 2 to 13 and 64 to 65.
 - Refactor: none expected.
