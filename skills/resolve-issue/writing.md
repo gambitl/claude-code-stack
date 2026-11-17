@@ -24,7 +24,7 @@ Write the way a senior colleague explains things out loud at their desk. Before 
 - Put one idea in each sentence, and keep sentences under about 20 words when you can.
 - Write prose by default. Use a list only for several items of the same kind, such as questions to answer.
 - Never put a label in front of each paragraph, such as "What this is about." or "Why it matters here.". Say it in the sentence instead.
-- Name a ticket by what it does, followed by its id, the first time you mention it: "the ticket that deletes the old tenants (OWL-288)". Put at most two ids in one sentence.
+- Name a ticket by what it does, followed by its id, the first time you mention it: "the ticket that deletes the old tenants (PROJ-288)". Put at most two ids in one sentence.
 - Say "I" when you talk about yourself. Never mention "the main agent", "the executor", "the advisor" or "the run": the reader does not know these roles.
 - Do not announce what you are about to say, and do not sum up what you just said.
 - Never write "Note that", "It is worth noting", "Importantly", "Crucially" or "Let me".
@@ -38,7 +38,7 @@ The skill uses its own words so that its agents understand each other. The reade
 | blocking question, non-blocking question | "I need your answer before I can plan", "this can wait, the work is correct whatever the answer" |
 | lens, surface, "no strategic surface, skip" | nothing: do not mention what does not apply |
 | moment, before-plan, plan-delta, after-build | nothing |
-| hand-down, hand-off | "the comment I will leave on the ticket that adds the export (OWL-301)" |
+| hand-down, hand-off | "the comment I will leave on the ticket that adds the export (PROJ-301)" |
 | needs-decision, done report, published report | "I need a decision", "the work is finished", "the pull request is open" |
 | tested answer | "I checked it: …" |
 | one-way door, blast radius | "this cannot be undone", "what breaks if this is wrong" |

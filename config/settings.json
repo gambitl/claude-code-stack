@@ -15,14 +15,14 @@
       "mcp__claude_ai_Notion__notion-update-page",
       "Bash(conda run *)",
       "Bash(conda info *)",
-      "WebFetch(domain:app.kardinal.ai)",
+      "WebFetch(domain:app.<private>.ai)",
       "Bash(grep -rn \"get_plan_status\\\\|isRunning\\\\|sleep\" \\\\ *)",
       "Bash(python -c \"import shapely, requests, folium; print\\('OK'\\)\")",
       "Bash(python -m pip list)",
       "Bash(conda install *)",
       "Bash(conda env *)",
       "Bash(git commit -m 'Add PBF conversion caching for faster repeated extractions *)",
-      "Bash(python3 -c \"import klient; print\\(klient.__file__\\); print\\(dir\\(klient\\)\\)\")",
+      "Bash(python3 -c \"import <private>; print\\(<private>.__file__\\); print\\(dir\\(<private>\\)\\)\")",
       "Bash(ssh Airflow *)",
       "Bash(ssh -o BatchMode=yes Airflow *)",
       "Bash(scp * Airflow:*)"
@@ -101,9 +101,9 @@
   "autoMode": {
     "allow": [
       "$defaults",
-      "Bash(uv run pytest:*) in owlaris-app",
-      "Bash(uv sync) in owlaris-app",
-      "Bash(gh pr checks:*) in owlaris-app"
+      "Bash(uv run pytest:*) in <private>-app",
+      "Bash(uv sync) in <private>-app",
+      "Bash(gh pr checks:*) in <private>-app"
     ],
     "soft_deny": [
       "$defaults",
@@ -112,30 +112,30 @@
     ],
     "environment": [
       "### Org-wide",
-      "**Organization**: Owlaris (GitHub org/user `gambitl`) — repo `gambitl/owlaris-app`",
+      "**Organization**: <private> (GitHub org/user `gambitl`) — repo `gambitl/<private>-app`",
       "**Cloud provider(s)**: S3-compatible object storage (MinIO locally, S3-compatible in prod) + MLflow model registry; no specific cloud provider (AWS/GCP/Azure) confirmed as the org's provider",
-      "**Repository visibility**: Private — confirmed via gh (`gambitl/owlaris-app`, private)",
-      "**Internal sharing / snippet hosting**: Notion (`notion-local` connection, workspace \"Victor Di Stefano's Space\") is the canonical Owlaris docs/spec/ADR host for this repo; the `claude_ai_Notion` connection is a separate employer (Kardinal) workspace and must never be used for Owlaris work",
+      "**Repository visibility**: Private — confirmed via gh (`gambitl/<private>-app`, private)",
+      "**Internal sharing / snippet hosting**: Notion (`notion-local` connection, workspace \"Victor Di Stefano's Space\") is the canonical <private> docs/spec/ADR host for this repo; the `claude_ai_Notion` connection is a separate employer (<private>) workspace and must never be used for <private> work",
       "**Secrets management**: Environment variables only (`.env`, gitignored), e.g. AUTH_JWT_SECRET, OBJSTORE_ACCESS_KEY/SECRET_KEY, OBJSTORE_KMS_SECRET_KEY — no secret-manager service configured",
       "**Default / protected branches**: Default branch `main`; no protected branches or rulesets returned by gh (private repo on GitHub Free plan — CLAUDE.md notes branch protection can't be enforced technically here, so CI-green-before-merge is a manual/instructional gate, not an enforced one)",
       "**CI/CD deploy targets**: GitHub Actions workflows in `.github/workflows` (ci-python.yml / ci-go.yml / ci-front.yml / full-suite.yml); deploy via `scripts/release.sh` and `docker-compose.prod.yml` — no external cloud deploy target confirmed",
       "**Network posture**: None configured",
       "**Host containment**: None configured — assume Claude Code runs on an ordinary developer machine with open internet",
-      "**Source control**: The trusted repo (`gambitl/owlaris-app`, private) and its `origin` remote only",
+      "**Source control**: The trusted repo (`gambitl/<private>-app`, private) and its `origin` remote only",
       "**Trusted internal domains**: None configured",
-      "**Trusted cloud buckets**: `owlaris-imports` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation), `owlaris-mlflow` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation)",
+      "**Trusted cloud buckets**: `<private>-imports` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation), `<private>-mlflow` (config-derived — not a confirmed upload destination; uploads of local data still require confirmation)",
       "**Key internal services**: Notion MCP (`notion-local` workspace only), Linear MCP (OWL team), MLflow tracking server (local dev: http://localhost:5001 / in-network: http://mlflow:5000), MinIO/object storage (local dev: http://localhost:9000)",
       "**Internal package registry**: None configured",
-      "**Sensitive data locations & audiences**: `.env` (gitignored, holds AUTH_JWT_SECRET, OBJSTORE_* credentials, OBJSTORE_KMS_SECRET_KEY); `data/tests/test_import_pii.py`; `docker-compose.prod.yml`; `scripts/initdb-prod.sql`; the `owlaris-imports` object-storage bucket (holds uploaded PII subject to OWL-43 erasure purge) — share only with audiences cleared at the [named+specifics] bar",
+      "**Sensitive data locations & audiences**: `.env` (gitignored, holds AUTH_JWT_SECRET, OBJSTORE_* credentials, OBJSTORE_KMS_SECRET_KEY); `data/tests/test_import_pii.py`; `docker-compose.prod.yml`; `scripts/initdb-prod.sql`; the `<private>-imports` object-storage bucket (holds uploaded PII subject to PROJ-43 erasure purge) — share only with audiences cleared at the [named+specifics] bar",
       "**Data retention / declassification**: None configured",
       "**Sensitive remote targets**: any namespace/host/container carrying `prod` or `production` as a whole word/segment — includes `docker-compose.prod.yml`, `scripts/initdb-prod.sql`, prod object-storage buckets, prod MLflow artifact root",
       "**Protected deployment namespaces / environments**: `docker-compose.prod.yml`-driven prod stack (requires AUTH_JWT_SECRET, gates on migrate-first via `scripts/release.sh`); any tenant domain DB or control-plane DB reached through a prod DSN",
       "**Protected IaC scopes**: IAM, RBAC, networking, quota, and node-pool resources; anything whose name or tag carries `prod` or `production` as a whole word/segment",
       "### User-specific",
       "**Primary use of Claude Code**: software development (full-stack monorepo — Next.js front, Go back, Python/uv data-ML — plus Notion/Linear-driven planning workflows)",
-      "**Trusted repo**: `gambitl/owlaris-app` (private) — the working directory and its `origin` remote",
+      "**Trusted repo**: `gambitl/<private>-app` (private) — the working directory and its `origin` remote",
       "**Org-specific CLIs**: `uv` (Python env/deps — mandatory, never raw pip/venv), `gh` (GitHub CLI, PR/issue workflows), `graphify` (local code graph of each checkout in gitignored `graphify-out/`, refreshed by the repo's own Claude Code hooks, no AI model)",
-      "**Routine under this repo's paths**: routine test/dev commands scoped to `owlaris-app/` — `uv run pytest`, `go test ./...` from `back/`, `npm test` from `front/`, `./scripts/dev-up.sh`, `./dev.sh` — are within the trusted-repo working pattern"
+      "**Routine under this repo's paths**: routine test/dev commands scoped to `<private>-app/` — `uv run pytest`, `go test ./...` from `back/`, `npm test` from `front/`, `./scripts/dev-up.sh`, `./dev.sh` — are within the trusted-repo working pattern"
     ]
   }
 }
