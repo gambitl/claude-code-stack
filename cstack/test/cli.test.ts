@@ -56,4 +56,14 @@ describe("run", () => {
     expect(out.stdout).toBe("");
     expect(code).toBe(2);
   });
+
+  it("lets a crash inside a command reach the caller instead of printing the usage", async () => {
+    const io: Io = {
+      stdout: () => {
+        throw new Error("boom");
+      },
+      stderr: () => {},
+    };
+    await expect(run(["--version"], io)).rejects.toThrow("boom");
+  });
 });
