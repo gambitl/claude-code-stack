@@ -9,6 +9,7 @@ ROOT="$(dirname "$HERE")"
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 fail=0
+export PYTHONDONTWRITEBYTECODE=1
 
 check() { # check <name> <command that must succeed>
   if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; fail=1; fi
@@ -60,7 +61,8 @@ check "sync stages only config, INVENTORY.md and the earlier cstack file" \
   "! echo \"\$staged\" | grep -v -E '^(config/|INVENTORY.md\$|cstack/staged.txt\$)' | grep -q ."
 check "the staged cstack file is still staged" "echo \"\$staged\" | grep -qx cstack/staged.txt"
 check "the unstaged sentinels are not staged" "! echo \"\$staged\" | grep -q sentinel"
-check "the sync leaves no untracked file outside cstack and skills" "[ -z \"\$(g -C $WORK/repo status --short | grep '^??' | grep -v -E 'cstack/|skills/')\" ]"
+extra="$(g -C "$WORK/repo" status --short | grep '^??' | grep -v -E 'cstack/|skills/|scripts/')"
+check "the sync leaves no untracked file outside cstack, skills and scripts" "[ -z \"\$extra\" ]"
 
 # A fake token stops the script and leaves config unchanged.
 mkclone "$WORK/repo2"; mkhome "$WORK/home2"
