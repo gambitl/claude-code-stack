@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    // WHY: ADR-SIC-H. Keep rootDir explicit. Without it, TypeScript 7 can write
+    // dist/src/bin.js, and the "bin" entry in package.json then points at a missing file.
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src"]
+}
