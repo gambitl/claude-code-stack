@@ -35,3 +35,17 @@ describe("the implementer prompt", () => {
     expect(implementerProblems(text)).toEqual([]);
   });
 });
+
+describe("the executor prompt", () => {
+  const text = read("../skills/resolve-issue/agents/executor.md");
+
+  it("names cstack next and cstack report submit", () => {
+    expect(text).toContain("cstack next");
+    expect(text).toContain("cstack report submit");
+  });
+
+  it("submits exactly the four kinds of report, and no other", () => {
+    const kinds = new Set([...text.matchAll(/cstack report submit (\S+)/g)].map((m) => m[1]));
+    expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
+  });
+});
