@@ -5,6 +5,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -149,5 +150,76 @@ describe("cstack measure", () => {
       "",
     ]);
     expect(code).toBe(0);
+  });
+
+  describe("which sessions belong to the run", () => {
+    // Writes one hand-made main session whose lines carry the given folder and times.
+    function session(home: string, id: string, cwd: string, times: string[]): void {
+      const dir = join(home, ".claude", "projects", "-some-folder");
+      mkdirSync(dir, { recursive: true });
+      const lines = times.map((timestamp, i) =>
+        JSON.stringify({
+          type: "assistant",
+          cwd,
+          timestamp,
+          message: {
+            id: `${id}_${i}`,
+            model: "claude-opus-5-5",
+            usage: { input_tokens: 1, cache_creation_input_tokens: 2, cache_read_input_tokens: 3, output_tokens: 4 },
+          },
+        }),
+      );
+      writeFileSync(join(dir, `${id}.jsonl`), `${lines.join("\n")}\n`);
+    }
+
+    async function measureWith(setup: (home: string, repo: string) => void) {
+      const repo = realpathSync(makeRepo());
+      commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+      commitPlan(repo, "ready for review", "2026-03-01T11:00:00+00:00");
+      const home = tmp("cstack-home-");
+      setup(home, repo);
+      const { out, io } = collect();
+      const code = await run(["measure", join(repo, "docs/plan.md"), "--home", home], io);
+      return { out, code };
+    }
+
+    const inWindow = ["2026-03-01T10:10:00.000Z", "2026-03-01T10:20:00.000Z"];
+
+    it("counts a session in a subfolder of the root, even one that is gone", async () => {
+      const { out, code } = await measureWith((home, repo) => {
+        session(home, "a", join(repo, "docs"), inWindow);
+        session(home, "b", join(repo, "deleted", "folder"), inWindow);
+      });
+      expect(out.stdout).toContain("main sessions: 2\n");
+      expect(code).toBe(0);
+    });
+
+    it("ignores another folder and a sibling whose name starts with the root's name", async () => {
+      const { out, code } = await measureWith((home, repo) => {
+        session(home, "a", tmp("cstack-other-"), inWindow);
+        session(home, "b", `${repo}-other`, inWindow);
+      });
+      expect(out.stdout).toContain("main sessions: 0\n");
+      expect(out.stdout).toContain("output tokens: 0\n");
+      expect(out.stderr).toBe("cstack measure: no main session of this run was found.\n");
+      expect(code).toBe(1);
+    });
+
+    it("ignores a session after the ready moment and one before the approval", async () => {
+      const { out } = await measureWith((home, repo) => {
+        session(home, "late", repo, ["2026-03-01T11:30:00.000Z", "2026-03-01T11:40:00.000Z"]);
+        session(home, "early", repo, ["2026-03-01T08:00:00.000Z", "2026-03-01T09:59:00.000Z"]);
+        session(home, "span", repo, ["2026-03-01T09:00:00.000Z", "2026-03-01T12:00:00.000Z"]);
+      });
+      expect(out.stdout).toContain("main sessions: 1\n");
+    });
+
+    it("prints zeros and exits with 1 when the projects folder does not exist", async () => {
+      const { out, code } = await measureWith(() => {});
+      expect(out.stdout).toContain("main sessions: 0\n");
+      expect(out.stdout).toContain("unreadable files: 0\n");
+      expect(out.stderr).toBe("cstack measure: no main session of this run was found.\n");
+      expect(code).toBe(1);
+    });
   });
 });

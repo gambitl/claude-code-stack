@@ -51,5 +51,9 @@ export async function measure(args: string[], io: Io): Promise<number> {
   }
   lines.push(`skipped lines: ${result.skippedLines}`, `unreadable files: ${result.unreadableFiles}`);
   io.stdout(`${lines.join("\n")}\n`);
+  if (result.mainSessions === 0) {
+    io.stderr("cstack measure: no main session of this run was found.\n");
+    return 1;
+  }
   return 0;
 }
