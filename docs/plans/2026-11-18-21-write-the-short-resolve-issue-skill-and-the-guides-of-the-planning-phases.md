@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/short-skill-planning
 Conversation language: French
-Status: approved
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -342,15 +342,13 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 
 **Final check of the build.** `npm test` and `npm run typecheck` pass in `cstack/`, and `wc -w` on the entry skill and the `ticket` guide gives less than 1,451 words together.
 
-## Documentation duties
+## Documentation
 
-- Ticket comment on #21: applies, written to GitHub issue #21. It says what was built, where each file is, and the decisions taken in this run that differ from the ticket's text, such as the plan file kept on a stop and `cstack guide retro` after a stop in the `ticket` phase.
-- Dependent ticket comment on #23, which this ticket feeds: applies, written to GitHub issue #23. It gives what the end-to-end run must know: the commands and flags that the planning guides call, the plan file kept on a stop, `cstack next --new` when another run is current, and the single relaunch after `cstack report check` exits with `1`.
-- Comment on #22, which shares the folders: applies, written to GitHub issue #22. It says that the settings test scans `agents/` and the build guides too, that the `ticket` guide skips `cstack next --done retro` after a stop, and that the `plan` guide handles the report of the `publish` phase.
-- ADR-SIC-D: applies, written to `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`. One sentence under "Consequences" says that the amendment is recorded in `cstack/skills/resolve-issue/settled-decisions.md`.
-- New ADR: does not apply. This ticket follows decisions that already exist.
-- Specification page `docs/projects/skills-into-cli.md`: does not apply. Nothing in it changes.
-- `README.md`: does not apply. The new skill is not released before #23.
+- Ticket comment on #21: https://github.com/gambitl/claude-code-stack/issues/21#issuecomment-6978440387
+- Comment on #23, which this ticket feeds: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-6978440875
+- Comment on #22, which shares the folders: https://github.com/gambitl/claude-code-stack/issues/22#issuecomment-6978441439
+- ADR-SIC-D: one sentence added under "Consequences" in `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md` (commit 61b4b25).
+- No new ADR, no specification page change, no README change, as the plan says. No `WHY:` comment applies, because the change holds no code.
 
 ## Review log
 
@@ -378,6 +376,12 @@ Fixed:
 Not done, on purpose:
 - The simplicity reviewer proposed removing the fixture folders and the temp-directory case. The acceptance asks for those fixtures as the first failing case, so they stay.
 - Sharing the file walk between `manifest.test.ts` and `settings-applied.test.ts`, shortening the owned phrase list, and trimming the writing paragraph of the entry skill are cheap but optional. They are follow-ups.
+
+### Independent review (phase 8)
+
+The reviewer fixed one bug in commit cb8ffab: the settings test skipped every path that contained "/templates", so a checkout under such a folder would have skipped everything. It now looks only at the path inside the package. All acceptance criteria were checked and pass. Judgment calls, which go into the pull request: the two departures from the ticket's scope item 4 (ask for an id on an empty argument, `cstack guide retro` after a ticket-phase stop); no `v*` release before #15 and #22 merge; the `plan` guide is the longest planning text at 1,415 words.
+
+Phase 9: `main` did not move since the branch was created, so no rebase was needed. `npm test` (248 tests), `npm run typecheck` and `npm run build` pass.
 
 ## Briefing
 
@@ -417,15 +421,31 @@ No new question came out of the build. I checked security and authorization, dat
 
 ### Blocking
 
-<none yet>
+none
 
 ### Non-blocking
 
-<none yet>
+none
 
 ## Pull request
 
-<phase 10.4>
+Title: feat(skill): write the short resolve-issue skill and the guides of the planning phases
+
+````markdown
+I wrote the short entry skill of `resolve-issue` and the guides of its five planning phases. Fixes #21
+
+The entry skill (`cstack/skills/resolve-issue/SKILL.md`, 798 words) tells Claude to run `cstack next`, follow the guide it prints, and close each phase with `cstack next --done <phase>`. It also says what to do with each exit code, and that the settings printed by `cstack next` win over the guides. The five guides are in `cstack/guides/resolve-issue/`. The entry skill and the `ticket` guide together hold 1,306 words, under the limit of 1,451, which is a fifth of the old prose.
+
+I also copied `writing.md` with the records language taken from the settings and neutral example ids. The settled decisions, the models table and the lessons moved to `settled-decisions.md`, with the model decision amended as ADR-SIC-D says.
+
+Three decisions differ from the ticket's wording. A run that stops before the build keeps its plan file, uncommitted, so that `cstack next` can resume it. A stop in the `ticket` phase runs `cstack guide retro`, because no run exists yet. An empty argument makes Claude ask for a ticket id and go on.
+
+Three new tests check the size (`skill-size.test.ts`), that no text states a value the settings file owns (`settings-applied.test.ts`), and that each planning phase has a guide (`planning-guides.test.ts`). `pack.test.ts` lists the eight new files. I changed `guide.test.ts` because it assumed that `resolve-issue` had no guides. `npm test` and `npm run typecheck` pass in `cstack/`.
+
+The independent review fixed one bug: the settings test skipped any path that contained `/templates`. It also noted that the guides call commands that #15 and #22 have not built, so nobody should cut a `v*` release before those two merge. The settings test also scans the prompts of #22, so the merge order matters, and both branches edit the same list in `pack.test.ts`.
+
+Review findings left as follow-ups: share the file walk between `manifest.test.ts` and `settings-applied.test.ts`, shorten the list of owned phrases, and shorten the writing paragraph of the entry skill. The plan file is `docs/plans/2026-11-18-21-write-the-short-resolve-issue-skill-and-the-guides-of-the-planning-phases.md`.
+````
 
 ## Documentation
 
@@ -433,11 +453,18 @@ No new question came out of the build. I checked security and authorization, dat
 
 ## Executor notes
 
-<executor, before its report>
+- `cstack/test/guide.test.ts` failed after the guides arrived, because it assumed `resolve-issue` had no guides. I fixed it in a32563c.
+- The unit 11 implementer saw one pack test failure while other implementers were still writing tests. A rerun passed.
+- Units 8, 9 and 10 reported that they wrote the check and its test together, so the first failing run was not seen.
+- One docs commit of mine carried a `Cstack-Unit` trailer by mistake. I amended it before anything was pushed.
+- Plan text quoted work ticket keys, and the security reviewer caught it (3d36721).
+- `graphify` is not installed, so impact notes came from search and file reads.
 
 ## Hand-off log
 
 - 2026-11-18: phase 6 started. GitHub issues have no in-progress state, so the ticket stays open with no change. The branch gambitl/short-skill-planning was already checked out.
+
+- 2026-11-18 (done): phases 6 to 10 finished. Eleven units built, four reviewers and the independent review done, briefing and documentation written, pull request drafted. Status set to ready for review. Nothing pushed.
 
 ## History
 
