@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/plan-format
 Conversation language: French
-Status: approved
+Status: in progress
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -384,7 +384,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 
 ## Implementation units
 
-### Unit 1: The command list, its exit codes and the mention check — status: todo
+### Unit 1: The command list, its exit codes and the mention check — status: done
 - Files: `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/fixtures/manifest/guides/example/frobnicate.md`
 - Failing test: In `cstack/test/manifest.test.ts`, write first the scan of the fixture folder `cstack/test/fixtures/manifest/`, whose guide names `cstack frobnicate` in inline code. Check that the scan reports that file and that line. Then add these cases. `cstack unit red 3` matches the entry `cstack unit red <n>`. `cstack next --finish plan` fails because `--finish` is not a flag of `cstack next`. `cstack guide hello --skill=cstack-example` matches. The word cstack in plain prose, `cstack/src/cli.ts`, `gambitl-cstack-<version>.tgz` and `cstack-plan/1` are not mentions. In `cstack plan status --json | jq --raw-output`, the mention stops at `|`. The list holds the four commands of milestone 1 with their flags and exit codes, and they are built. Every entry names a file under `cstack/src/commands/`, every built entry's file exists, and no two entries have the same command words. The real folders `cstack/skills/` and `cstack/guides/` pass.
 - Minimum code: `manifest.ts` exports the exit code constants, the type of an entry, the fifteen entries (four built, eleven not built), a function that returns the command words of an entry, and `matchMention`. The test file scans the folders as the Decisions say.
@@ -392,7 +392,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): add the command list of cstack with its common exit codes`
 - Depends on: none
 
-### Unit 2: The command line reads the command list — status: todo
+### Unit 2: The command line reads the command list — status: done
 - Files: `cstack/src/cli.ts`, `cstack/test/cli.test.ts`
 - Failing test: In `cstack/test/cli.test.ts`, write first the case `cstack next`. It must answer that the command is not built in this version yet, on standard error, with exit code 2. Then add these cases. The usage printed with no argument holds the usage line of every built entry and of no other entry. Every built entry has a handler in `cli.ts`, and every handler has a built entry. Each built command, given the unknown flag `--cstack-unknown-flag`, prints a usage error that contains its usage line from the command list. The existing tests of `cli.test.ts` still pass unchanged.
 - Minimum code: `cli.ts` builds its usage text from the built entries of `manifest.ts`, replaces the `if` chain with a record of handlers keyed by the first word, and answers a not-built command as the Decisions say. It no longer imports `MEASURE_USAGE`.
@@ -400,7 +400,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): find the commands and their usage in the command list`
 - Depends on: 1
 
-### Unit 3: End quietly when the reader of the output closes the pipe — status: todo
+### Unit 3: End quietly when the reader of the output closes the pipe — status: done
 - Files: `cstack/src/io.ts`, `cstack/src/bin.ts`, `cstack/test/io.test.ts`
 - Failing test: In `cstack/test/io.test.ts`, write first the case of a stream that gets the listener and then emits an error with the code `EPIPE`. Nothing is thrown. Then a stream with the listener that emits an error with another code rethrows it.
 - Minimum code: `io.ts` exports a function that adds this `error` listener to a writable stream. `bin.ts` calls it on `process.stdout` before it calls `run`, and keeps setting `process.exitCode` as today. Keep the `WHY: ADR-SIC-H` comment of `bin.ts`, and add one line that says why the listener exists.
@@ -408,7 +408,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `fix(cli): end quietly when the reader of the output closes the pipe`
 - Depends on: none
 
-### Unit 4: Read the header and the sections of a plan file — status: todo
+### Unit 4: Read the header and the sections of a plan file — status: done
 - Files: `cstack/src/plan/read.ts`, `cstack/test/plan/read.test.ts`, `cstack/test/fixtures/plans/`
 - Failing test: In `cstack/test/plan/read.test.ts`, write first the case of a plan file with `Format: cstack-plan/2` and `Written by: cstack 9.0.0`. It is refused. The message says that this cstack reads `cstack-plan/1` and that cstack 9.0.0 can read the file. Then a plan file with no `Format` line is refused with the message about the prose skill. Then add example files under `cstack/test/fixtures/plans/` and their expected results. The valid file `ticket-with-code-block.md` has a ticket with a fenced block that holds a line starting with `#`, and that line is not read as a heading. Its header values, section ranges and filled flags come out as expected. Each broken file fails with its line number and its rule: a ticket heading left at level 2, two sections in the wrong order, a fence that never closes, an unknown Status, a malformed `Approved at`, a `Target branch` that starts with `-`, and a header value left as a placeholder. Also check `isBranchName` on good and bad names.
 - Minimum code: `read.ts` exports `PLAN_FORMAT`, `HEADER_KEYS`, `SECTION_NAMES`, the list of sections a done report needs, `PlanFormatError` with `exitCode` 3 and its list of problems, `isBranchName`, and `readPlan(text)`. At this step it returns the header, the headings and the sections, with their ranges and filled flags.
@@ -416,7 +416,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): read the header and the sections of a cstack-plan/1 file`
 - Depends on: none
 
-### Unit 5: Read the units, the blocking questions and the pull request of a plan file — status: todo
+### Unit 5: Read the units, the blocking questions and the pull request of a plan file — status: done
 - Files: `cstack/src/plan/read.ts`, `cstack/test/plan/read.test.ts`, `cstack/test/fixtures/plans/`
 - Failing test: In `cstack/test/plan/read.test.ts`, write first the valid file `approved.md`, a plan just after approval. It gives its units with their files, test lines, a `No test` reason and their `Depends on` lists. It gives its blocking questions, one open and one answered, and its two timestamps. Then add the valid file `ready-for-review.md`, with every section filled. Its pull request body holds an ordinary fenced code block and a line that starts with `## `, and the reader returns that title and body. Then add one broken file for each of these rules, each failing with its line number and its rule: a unit with neither `Test` nor `No test`, a test file missing from `Files`, a path with a `..` part, a path that starts with `/`, a path that starts with `-`, a path that holds `;`, `$` or a space, a gap in the unit numbers, a `Depends on` line that names a missing unit, a blocking question without an `Answer` line, `none` next to a question, and a pull request section without its four-backtick block.
 - Minimum code: `readPlan` also returns the units, the blocking questions and the pull request, as the Decisions describe.
@@ -424,7 +424,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): read the units, the blocking questions and the pull request of a plan file`
 - Depends on: 4
 
-### Unit 6: The plan template in the cstack-plan/1 format — status: todo
+### Unit 6: The plan template in the cstack-plan/1 format — status: done
 - Files: `cstack/skills/resolve-issue/templates/plan.md`, `cstack/test/template.test.ts`
 - Failing test: In `cstack/test/template.test.ts`, write first the check that the header keys of `cstack/skills/resolve-issue/templates/plan.md` equal `HEADER_KEYS`, in the same order. Then check that its level-2 headings equal `SECTION_NAMES`, in the same order. Check also that its `Format` line is `cstack-plan/1`, that `Written by`, `Approved at` and `Ready for review at` hold `not yet`, and that it has no `### Unit` heading.
 - Minimum code: Write the template from `skills/resolve-issue/templates/plan.md` at `prose-skills-final`, with the changes of ticket scope 1 and of the Decisions. Do not edit the file under `skills/`.
@@ -432,7 +432,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(skill): add the plan template in the cstack-plan/1 format`
 - Depends on: 1, 4
 
-### Unit 7: List the commits of each unit from their trailer — status: todo
+### Unit 7: List the commits of each unit from their trailer — status: done
 - Files: `cstack/src/plan/commits.ts`, `cstack/test/plan/commits.test.ts`
 - Failing test: In `cstack/test/plan/commits.test.ts`, write first, in a temporary git repository, a commit with `Cstack-Unit: 2` on the target branch, which is ignored. Then the same trailer on the current branch is found, and a commit without a trailer is ignored. Then add these cases. With a bare remote and a stale local `main`, the trailer of a commit that is on `origin/main` but not on the local `main` is ignored. A repository without a remote compares with the local branch. A `Cstack-Unit` line followed by a blank line and a `Co-Authored-By` paragraph is not found. A commit with two `Cstack-Unit` lines counts for both units. A trailer value `abc` comes back in the list of invalid values. A target branch named `--output=x` is refused with exit code 3 before any git call. A target branch that does not exist is refused with exit code 3.
 - Minimum code: `commits.ts` exports one function that takes the repository folder and the target branch, and returns the commits of each unit and the invalid values, as the Decisions say.
@@ -440,7 +440,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): list the commits of each unit from their Cstack-Unit trailer`
 - Depends on: 4
 
-### Unit 8: Fix the phase order with its checks — status: todo
+### Unit 8: Fix the phase order with its checks — status: done
 - Files: `cstack/src/phases.ts`, `cstack/test/phases.test.ts`
 - Failing test: In `cstack/test/phases.test.ts`, write first a phase list in which `briefing` does not depend on `document`, and check that the check of the list fails. Then the real list passes. Every dependency names a known phase. The order respects every dependency. There is no cycle. Every name is a valid file name. The names, the order, the phases of today's skill, the places and the dependencies are exactly those of ticket scope 5. Then test the checks with the fixtures of unit 5. The `plan` done check fails while a blocking question is open, and passes on `approved.md`. The `build` done check fails for a unit without a commit and passes when that unit has a `Blocked` line. The `ready` done check needs Pull request and Executor notes. The `publish` start condition fails when `retro` was done before the last accepted done report, and passes when it was done after.
 - Minimum code: `phases.ts` exports the phase type, the fifteen phases, `PLANNING_PHASES`, the context type of the checks, and a function that checks a phase list and returns its problems.
@@ -448,7 +448,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): fix the phase order of the build loop with its checks`
 - Depends on: 5, 7
 
-### Unit 9: Keep the run state under the common git folder — status: todo
+### Unit 9: Keep the run state under the common git folder — status: done
 - Files: `cstack/src/run-state.ts`, `cstack/test/run-state.test.ts`
 - Failing test: In `cstack/test/run-state.test.ts`, write first, in a temporary repository with a linked worktree, the check that the run folder is the same from the main worktree, from a subfolder and from the linked worktree, while the `current-run` file is different in each. Then a state file whose `format` is `cstack-run/2` is refused with exit code 3, and the message names the cstack version that wrote it. Then add these cases. Creating a run for a plan whose `Approved at` is set marks the five planning phases done at that time. Creating a run that already exists keeps it. A write leaves no temporary file behind. A plan file name with a space or without `.md` is refused with exit code 3.
 - Minimum code: `run-state.ts` exports `RUN_FORMAT`, `RunStateError` with `exitCode` 3, the paths, the reading and writing of `current-run` and `state.json`, the atomic write, the creation of a run, and the JSON types of the other run files, as the Decisions say.
@@ -456,7 +456,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 - Commit message: `feat(cli): keep the run state under the common git folder`
 - Depends on: 8
 
-### Unit 10: Write ADR-SIC-B and link it from the specification — status: todo
+### Unit 10: Write ADR-SIC-B and link it from the specification — status: done
 - Files: `docs/decisions/ADR-SIC-B-run-state.md`, `docs/projects/skills-into-cli.md`
 - No test: a decision record and one line of the specification are prose.
 - Minimum code: Write the record in the shape of `docs/decisions/ADR-SIC-H-how-a-cstack-command-starts-and-ends.md` (Status, Ticket, Context, Options, Decision, Consequences), as the Decisions say. Add `WHY: ADR-SIC-B` comments at the top of `run-state.ts` and next to the format check of `read.ts`. In section 9 of `docs/projects/skills-into-cli.md`, change only the ADR-SIC-B line: it says that ticket #13 chose both, and it links the record the way the ADR-SIC-C line does.
@@ -506,7 +506,7 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 
 ## Hand-off log
 
-<one entry per executor run>
+- 2026-11-18 run 1, phase 6: GitHub has no in-progress state for issue #13 (no project board, only labels), so the ticket stays open and nothing was changed in the tracker. Branch `gambitl/plan-format` already existed. Units 1 to 10 are done and committed. Departures: unit 1's implementer wrote test and code together and did not see the red step. Unit 8: `approved.md` has an open Question 2, so the `plan` done check fails on it as shipped. The test replaces that answer and checks the pass. Unit 5 edited the unit 4 fixture `ticket-with-code-block.md` (placeholder lines replaced). Unit 6 made `cstack/test/skills-install.test.ts` break (a second shipped skill), fixed in a separate commit (835c553).
 
 ## History
 
