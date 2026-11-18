@@ -114,4 +114,40 @@ describe("cstack measure", () => {
     ]);
     expect(code).toBe(0);
   });
+
+  it("counts each answer once and ignores the repeated totals", async () => {
+    const repo = makeRepo();
+    commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+    commitPlan(repo, "ready for review", "2026-03-01T11:35:00+00:00");
+    const home = tmp("cstack-home-");
+    copyScenario("traps", home, repo);
+    const { out, io } = collect();
+    const code = await run(["measure", join(repo, "docs/plan.md"), "--home", home], io);
+    expect(out.stderr).toBe("");
+    expect(out.stdout.split("\n")).toEqual([
+      "main sessions: 1",
+      "helper transcripts: 1",
+      "input tokens: 20",
+      "cache creation input tokens: 122",
+      "cache read input tokens: 1203",
+      "output tokens: 65",
+      "input tokens claude-opus-5-5: 16",
+      "cache creation input tokens claude-opus-5-5: 120",
+      "cache read input tokens claude-opus-5-5: 1200",
+      "output tokens claude-opus-5-5: 54",
+      "input tokens claude-sonnet-5-5: 3",
+      "cache creation input tokens claude-sonnet-5-5: 0",
+      "cache read input tokens claude-sonnet-5-5: 0",
+      "output tokens claude-sonnet-5-5: 7",
+      "input tokens other model: 1",
+      "cache creation input tokens other model: 2",
+      "cache read input tokens other model: 3",
+      "output tokens other model: 4",
+      "minutes from approval to ready for review: 95",
+      "skipped lines: 2",
+      "unreadable files: 0",
+      "",
+    ]);
+    expect(code).toBe(0);
+  });
 });

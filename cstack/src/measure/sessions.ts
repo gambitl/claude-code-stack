@@ -74,25 +74,44 @@ export async function measureSessions(
     const resolved = await resolveLoose(cwd);
     return resolved === root || resolved.startsWith(root + sep);
   };
+  const answers: { model: string; totals: Totals }[] = [];
+  const byId = new Map<string, { model: string; totals: Totals }>();
   const add = (line: Record<string, unknown>) => {
     if (line.type !== "assistant") return;
-    const message = line.message as { model?: unknown; usage?: Record<string, unknown> } | undefined;
+    const message = line.message as { id?: unknown; model?: unknown; usage?: Record<string, unknown> } | undefined;
     const usage = message?.usage;
     if (!usage) return;
     const n = (key: string) => (typeof usage[key] === "number" ? (usage[key] as number) : 0);
     const model = typeof message?.model === "string" && MODEL.test(message.model) ? message.model : "other model";
-    let bucket = result.perModel.get(model);
-    if (!bucket) result.perModel.set(model, (bucket = empty()));
-    for (const target of [result.totals, bucket]) {
-      target.input += n("input_tokens");
-      target.cacheCreation += n("cache_creation_input_tokens");
-      target.cacheRead += n("cache_read_input_tokens");
-      target.output += n("output_tokens");
+    const answer = { model, totals: { input: n("input_tokens"), cacheCreation: n("cache_creation_input_tokens"), cacheRead: n("cache_read_input_tokens"), output: n("output_tokens") } };
+    const id = (message as { id?: unknown }).id;
+    if (typeof id !== "string") {
+      answers.push(answer);
+      return;
     }
+    // One answer is written on several lines with the same id. Only output_tokens grows, so keep the largest.
+    const seen = byId.get(id);
+    if (!seen || answer.totals.output > seen.totals.output) byId.set(id, answer);
   };
 
   const folders = await listDir(projects);
   if (!folders) return result;
+  try {
+    return await scan(folders);
+  } finally {
+    for (const answer of [...answers, ...byId.values()]) {
+      let bucket = result.perModel.get(answer.model);
+      if (!bucket) result.perModel.set(answer.model, (bucket = empty()));
+      for (const target of [result.totals, bucket]) {
+        target.input += answer.totals.input;
+        target.cacheCreation += answer.totals.cacheCreation;
+        target.cacheRead += answer.totals.cacheRead;
+        target.output += answer.totals.output;
+      }
+    }
+  }
+
+  async function scan(folders: string[]): Promise<Result> {
   for (const folder of folders) {
     const names = await listDir(join(projects, folder));
     if (!names) {
@@ -133,6 +152,7 @@ export async function measureSessions(
     }
   }
   return result;
+  }
 
   async function addFile(file: string): Promise<void> {
     try {
