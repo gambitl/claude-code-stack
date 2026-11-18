@@ -227,7 +227,9 @@ describe("cstack report submit and report check", () => {
 
   it("refuses more than 64 KB of input and stops reading the stream early", async () => {
     const { dir } = setup();
-    expect((await submit("failed", dir, Buffer.alloc(300_000, "a"))).code).toBe(1);
+    const big = await submit("failed", dir, Buffer.alloc(300_000, "a"));
+    expect(big.code).toBe(1);
+    expect(big.stderr).toBe("The report text is more than 65536 bytes, which is the limit.\n");
     let pulled = 0;
     const stream = new Readable({
       read() {

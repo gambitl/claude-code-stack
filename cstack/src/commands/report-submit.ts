@@ -47,7 +47,8 @@ export async function reportSubmit(
     return 2;
   }
   if (input.length > MAX_BYTES) {
-    io.stderr(`The report text is ${input.length} bytes. The limit is ${MAX_BYTES} bytes.\n`);
+    // readStdin stops reading past the limit, so input.length is not the real size of the text.
+    io.stderr(`The report text is more than ${MAX_BYTES} bytes, which is the limit.\n`);
     return 1;
   }
   let text: string;
