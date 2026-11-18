@@ -1,13 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { lstatSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { withCommitLock } from "../commit-lock.js";
 import type { Io } from "../io.js";
 import { locatePlan, PlanLocationError } from "../plan/locate.js";
-import { PlanFormatError, readPlan, type PlanUnit } from "../plan/read.js";
-import { gitFolders, RunStateError } from "../run-state.js";
+import { listUnitCommits } from "../plan/commits.js";
+import { PlanFormatError, readPlan, type PlanRead, type PlanUnit } from "../plan/read.js";
+import { gitFolders, runFolder, RunStateError } from "../run-state.js";
+import { readSavedRun } from "../saved-runs.js";
 
 export const UNIT_COMMIT_USAGE = "Usage: cstack unit commit <n> [--plan <file>]";
 
@@ -29,20 +31,83 @@ const nulList = (text: string) => text.split("\0").filter((s) => s !== "");
 
 type Outcome = { code: number; stdout?: string; stderr?: string };
 
-function commitUnit(root: string, unit: PlanUnit): Outcome {
+const isLink = (root: string, path: string) => {
+  const parts = path.split("/").slice(0, -1);
+  return parts.some((_, i) => {
+    try {
+      return lstatSync(join(root, ...parts.slice(0, i + 1))).isSymbolicLink();
+    } catch {
+      return false;
+    }
+  });
+};
+
+interface Entry {
+  staged: boolean;
+  path: string;
+}
+
+// Collects every broken rule before anything is staged. A saved run that cannot be read throws a RunStateError.
+function checkUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string): { problems: string[]; entries: Entry[] } {
   const problems: string[] = [];
+  const n = unit.number;
   const own = new Set(unit.files.map((f) => f.toLowerCase()));
+  const committed = new Set(Object.keys(listUnitCommits(root, plan.header["Target branch"]).units).map(Number));
+
+  if (unit.blocked) problems.push(`Unit ${n} is blocked: ${unit.blocked}`);
+
+  if (unit.test) {
+    const red = readSavedRun(runDir, n, "red");
+    const green = readSavedRun(runDir, n, "green");
+    if (!green) problems.push(`Unit ${n} has a Test line but no saved passing run. Run its test and see it pass first.`);
+    else if (red && Date.parse(green.time) <= Date.parse(red.time)) {
+      problems.push(`Unit ${n} has no saved passing run that is newer than its saved failing run.`);
+    }
+  }
+
+  for (const dep of unit.dependsOn.filter((d) => !committed.has(d))) {
+    problems.push(`Unit ${n} depends on unit ${dep}, which has no commit yet.`);
+  }
 
   const staged = nulList(git(root, ["diff", "--cached", "--name-only", "-z", "--no-renames"]).stdout);
   for (const file of staged.filter((f) => !own.has(f.toLowerCase()))) {
-    problems.push(`${file} is staged but is not a file of unit ${unit.number}. cstack never unstages it, because it may be another unit's work.`);
+    problems.push(`${file} is staged but is not a file of unit ${n}. cstack never unstages it, because it may be another unit's work.`);
   }
 
+  for (const other of plan.units) {
+    if (other.number === n || committed.has(other.number)) continue;
+    const shared = other.files.filter((f) => own.has(f.toLowerCase()));
+    if (shared.length > 0 && readSavedRun(runDir, other.number, "red")) {
+      problems.push(`Another unit shares ${shared.join(", ")} with unit ${n} and has started without a commit: unit ${other.number}.`);
+    }
+  }
+
+  const usable = unit.files.filter((f) => {
+    if (isLink(root, f)) {
+      problems.push(`${f} is under a folder that is a symbolic link, so git cannot stage it.`);
+      return false;
+    }
+    if (git(root, ["check-ignore", "-q", "--", f]).ok) {
+      problems.push(`${f} is ignored by git, so it cannot be committed.`);
+      return false;
+    }
+    return true;
+  });
+
   // Each status entry is "XY path". X is the state in the index.
-  const entries = nulList(
-    git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames", "--", ...unit.files]).stdout,
-  ).map((e) => ({ staged: e[0] !== " " && e[0] !== "?", path: e.slice(3) }));
-  if (entries.length === 0) problems.push(`Unit ${unit.number} has no changed file.`);
+  const entries: Entry[] =
+    usable.length === 0
+      ? []
+      : nulList(
+          git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames", "--", ...usable]).stdout,
+        ).map((e) => ({ staged: e[0] !== " " && e[0] !== "?", path: e.slice(3) }));
+  if (entries.length === 0) problems.push(`Unit ${n} has no changed file.`);
+  return { problems, entries };
+}
+
+function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string): Outcome {
+  const own = new Set(unit.files.map((f) => f.toLowerCase()));
+  const { problems, entries } = checkUnit(root, plan, unit, runDir);
 
   if (problems.length > 0) return { code: 1, stderr: `${problems.join("\n")}\n` };
 
@@ -109,7 +174,7 @@ export async function unitCommit(
       return 2;
     }
     const lockPath = join(gitFolders(located.root).gitDir, "cstack", LOCK_FILE);
-    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, unit));
+    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, plan, unit, runFolder(located.root, located.relative)));
     if (!result.ok) {
       io.stderr(`cstack unit commit: ${result.message}\n`);
       return 1;

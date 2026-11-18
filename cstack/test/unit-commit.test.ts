@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -23,6 +23,9 @@ const approved = readFileSync(new URL("./fixtures/plans/approved.md", import.met
 interface U {
   files: string[];
   message?: string;
+  test?: boolean;
+  dependsOn?: number[];
+  blocked?: string;
 }
 
 function planText(units: U[]): string {
@@ -31,7 +34,7 @@ function planText(units: U[]): string {
   const body = units
     .map(
       (u, i) =>
-        `### Unit ${i + 1}: Thing ${i + 1}\n- Files: ${u.files.map((f) => `\`${f}\``).join(", ")}\n- No test: prose only.\n- Minimum code: Write it.\n- Refactor: None.\n- Commit message: \`${u.message ?? `feat(cli): add ${i + 1}`}\`\n- Depends on: none\n`,
+        `### Unit ${i + 1}: Thing ${i + 1}\n- Files: ${u.files.map((f) => `\`${f}\``).join(", ")}\n${u.test ? `- Test: \`${u.files[0]}\`: a case.` : "- No test: prose only."}\n- Minimum code: Write it.\n- Refactor: None.\n- Commit message: \`${u.message ?? `feat(cli): add ${i + 1}`}\`\n- Depends on: ${u.dependsOn?.join(", ") ?? "none"}\n${u.blocked ? `- Blocked: ${u.blocked}\n` : ""}`,
     )
     .join("\n");
   return `${head}## Implementation units\n\n${body}\n${tail}`;
@@ -60,6 +63,13 @@ async function commit(dir: string, n = "1", wait = 300) {
   const io: Io = { stdout: (t) => (out.stdout += t), stderr: (t) => (out.stderr += t) };
   const code = await unitCommit([n, "--plan", "plan.md"], io, dir, wait);
   return { code, ...out };
+}
+
+function saveRun(dir: string, n: number, kind: "red" | "green", time: string) {
+  const folder = join(dir, ".git/cstack/runs/plan/units", String(n));
+  mkdirSync(folder, { recursive: true });
+  const raw = time.startsWith("{") ? time : JSON.stringify({ time, command: "t", exitCode: 0, commit: "x", testFile: "t" });
+  writeFileSync(join(folder, `${kind}.json`), raw);
 }
 
 const two: U[] = [{ files: ["src/a.ts"] }, { files: ["src/b.ts"] }];
@@ -162,5 +172,85 @@ describe("cstack unit commit", () => {
   it("exits with 2 for a unit the plan does not have", async () => {
     const dir = setup(two);
     for (const n of ["3", "0", "x"]) expect((await commit(dir, n)).code).toBe(2);
+  });
+
+  describe("refusals before staging", () => {
+    const tested: U[] = [{ files: ["src/a.ts"], test: true }];
+
+    it("refuses a Test unit with a failing run and no passing run", async () => {
+      const dir = setup(tested);
+      write(dir, "src/a.ts");
+      saveRun(dir, 1, "red", "2026-01-01T10:00:00Z");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("passing run");
+      expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+    });
+
+    it("refuses a passing run older than the failing run, and accepts a newer one", async () => {
+      const dir = setup(tested);
+      write(dir, "src/a.ts");
+      saveRun(dir, 1, "red", "2026-01-01T10:00:00Z");
+      saveRun(dir, 1, "green", "2026-01-01T09:00:00Z");
+      expect((await commit(dir)).code).toBe(1);
+      saveRun(dir, 1, "green", "2026-01-01T11:00:00Z");
+      expect((await commit(dir)).code).toBe(0);
+    });
+
+    it("exits with 3 when a saved run is not valid JSON", async () => {
+      const dir = setup(tested);
+      write(dir, "src/a.ts");
+      saveRun(dir, 1, "red", "{not json");
+      expect((await commit(dir)).code).toBe(3);
+    });
+
+    it("refuses a unit whose dependency has no commit", async () => {
+      const dir = setup([{ files: ["src/a.ts"] }, { files: ["src/b.ts"], dependsOn: [1] }]);
+      write(dir, "src/b.ts");
+      const r = await commit(dir, "2");
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("unit 1");
+    });
+
+    it("refuses while another unit that shares a file has started without a commit", async () => {
+      const dir = setup([{ files: ["src/a.ts"] }, { files: ["src/a.ts"], test: true }]);
+      write(dir, "src/a.ts");
+      saveRun(dir, 2, "red", "2026-01-01T10:00:00Z");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("unit 2");
+      expect(r.stderr).toContain("src/a.ts");
+    });
+
+    it("refuses a blocked unit with its reason", async () => {
+      const dir = setup([{ files: ["src/a.ts"], blocked: "waiting for the design" }]);
+      write(dir, "src/a.ts");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("waiting for the design");
+    });
+
+    it("refuses a path under a symbolic link and a path that git ignores", async () => {
+      const dir = setup([{ files: ["lnk/z.ts", "src/skip.ts", "src/a.ts"] }]);
+      mkdirSync(join(dir, "real"));
+      symlinkSync(join(dir, "real"), join(dir, "lnk"));
+      writeFileSync(join(dir, ".gitignore"), "src/skip.ts\n");
+      write(dir, "src/skip.ts");
+      write(dir, "src/a.ts");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("lnk/z.ts");
+      expect(r.stderr).toContain("src/skip.ts");
+      expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+    });
+
+    it("lists two broken rules in one message", async () => {
+      const dir = setup([{ files: ["src/a.ts"], test: true, blocked: "later" }]);
+      write(dir, "src/a.ts");
+      saveRun(dir, 1, "red", "2026-01-01T10:00:00Z");
+      const r = await commit(dir);
+      expect(r.stderr).toContain("later");
+      expect(r.stderr).toContain("passing run");
+    });
   });
 });
