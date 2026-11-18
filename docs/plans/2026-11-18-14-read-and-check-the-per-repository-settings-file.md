@@ -246,7 +246,7 @@ The change is small and the approach is locked by the ticket and the answers abo
 
 ## Implementation units
 
-### Unit 1: The reader, its defaults and the unknown keys — status: todo
+### Unit 1: The reader, its defaults and the unknown keys — status: done
 - Files: `cstack/src/settings.ts`, `cstack/test/settings.test.ts`
 - Failing test: in `cstack/test/settings.test.ts`, write first a file `{"version": 1, "reviewer": "x"}` in a temporary root. `readSettings` throws a `SettingsError` whose message names `reviewer` and holds the hint "If this key comes from a newer cstack, update cstack." Then `{"version": 1, "review": {"agent": "claude", "model": "opus", "temperature": 1}}` is refused and the message names `review.temperature`. Then the key `constructor` at the top is refused as unknown. Then add: with no file at all, the result says the file was not found, gives every default, no `testCommands`, and every source is the default. A file with only `"version": 1` gives the review agent `claude` and the model `opus` and every other default, each marked as coming from the default (US-10 AC3). A file with every key gives each value back, each marked as coming from the file (US-10 AC1). `version` missing or set to `2` is refused with a message that says this cstack reads settings version 1. A top level that is an array is refused. A folder at the path `.cstack/settings.json` is refused with a `SettingsError`, not the defaults. A wrong type, such as `"watchIntervalMinutes": "5"` or `"review": null`, is refused with the key path. Two problems in one file give one error that lists both.
 - Minimum code: `cstack/src/settings.ts` with the types, the defaults of the table, `SettingsError` with its list of problems, `readSettings(root)` that reads the file synchronously, treats only `ENOENT` as absent, removes a leading byte order mark, parses with `JSON.parse` (a parse failure is a `SettingsError` with a plain reason for now; unit 3 adds the line and the column), checks the top-level object, `version`, the known keys at the top and inside `review` and `testCommands` with a set of names, and the type of each value. Write the doc comments that the Decisions ask for: the root comes from the caller, the reader never runs a command, the version rule, the source of `review.model` for #22, and the test commands as code of the repository with `/bin/sh -c` and `"$1"`.
@@ -254,7 +254,7 @@ The change is small and the approach is locked by the ticket and the answers abo
 - Commit message: `feat(cli): read .cstack/settings.json with its defaults and refuse unknown keys`
 - Depends on: none
 
-### Unit 2: The rules of each value — status: todo
+### Unit 2: The rules of each value — status: done
 - Files: `cstack/src/settings.ts`, `cstack/test/settings.test.ts`
 - Failing test: each wrong value is refused, and the message names the key and what is allowed. The cases of the ticket are `integration` set to `squash`, `watchIntervalMinutes` set to `0`, `review.agent` set to `my agent`, `testCommands.file` without `{file}`, a trailer line without a colon, and a test command whose first word is in `forbiddenTools`. Add: `watchIntervalMinutes` set to `1441` or `2.5`; `review.model` holding a space, a quote, `$` or `;`; `review` with `agent` and no `model`; `testCommands.file` with `{file}` twice; `testCommands.all` holding `{file}`; a test command with a line break; `./node_modules/.bin/yarn test` with `yarn` forbidden; a forbidden name with a space; a trailer line with a line break; `recordsLanguage` empty, longer than 40 characters, or holding a digit. `recordsLanguage` set to `Français` in decomposed form is accepted and returned in composed form. A message that quotes a value with a control character shows it escaped.
 - Minimum code: the value rules of the Decisions section, each adding its problem to the list with the full key path and what is allowed.
@@ -262,7 +262,7 @@ The change is small and the approach is locked by the ticket and the answers abo
 - Commit message: `feat(cli): check every value of the settings file and name the key that breaks a rule`
 - Depends on: 1
 
-### Unit 3: Line and column of a JSON syntax error — status: todo
+### Unit 3: Line and column of a JSON syntax error — status: done
 - Files: `cstack/src/json-position.ts`, `cstack/src/settings.ts`, `cstack/test/settings.test.ts`
 - Failing test: a settings file with a missing comma is refused, and the message gives its line and column (the ticket's case). Add: a comment `// …` on the first line, a misspelt `tru`, and a cut file each give a line and a column. An empty file gives the message that the file is empty. For a missing comma, a trailing comma and a comment after the first key, the line and column equal the ones in Node's own message. No message holds the text of Node's `SyntaxError`. A file that starts with a byte order mark and is otherwise valid is accepted.
 - Minimum code: `cstack/src/json-position.ts` with one exported function that walks the text as JSON and returns the line, the column and a short reason of the first syntax error, or nothing. `readSettings` calls it only after `JSON.parse` fails, and gives the reason without a position when the locator returns nothing.
@@ -270,7 +270,7 @@ The change is small and the approach is locked by the ticket and the answers abo
 - Commit message: `feat(cli): give the line and the column of a JSON error in the settings file`
 - Depends on: 1
 
-### Unit 4: The example settings file and the install test — status: todo
+### Unit 4: The example settings file and the install test — status: done
 - Files: `cstack/skills/resolve-issue/templates/settings.json`, `cstack/test/settings.test.ts`, `cstack/test/skills-install.test.ts`
 - Failing test: in `cstack/test/settings.test.ts`, copy `cstack/skills/resolve-issue/templates/settings.json` into a temporary root as `.cstack/settings.json`. The reader accepts it, every value equals the default, and the file holds every key of the table except `testCommands`.
 - Minimum code: the example file, with `"version": 1` and every other key at its default value, formatted with two spaces. Then change only the expected output at `cstack/test/skills-install.test.ts` line 94 to the literal `installed cstack-example\ninstalled resolve-issue\n`. Run the whole suite, because the install test fails as soon as the example file exists.
@@ -278,7 +278,7 @@ The change is small and the approach is locked by the ticket and the answers abo
 - Commit message: `feat(skill): add the example settings file of resolve-issue`
 - Depends on: 1
 
-### Unit 5: ADR-SIC-D and the link in the specification — status: todo
+### Unit 5: ADR-SIC-D and the link in the specification — status: done
 - Files: `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, `docs/projects/skills-into-cli.md`
 - No test: documentation only. The reviewer checks the content against the ticket's acceptance line on the ADR.
 - Minimum code: write the ADR as the Decisions section says, then add one sentence with its link to line 321 of the specification, and nothing else in that file.
@@ -302,6 +302,15 @@ Security by design: the change has no endpoint, no database and no network. The 
 - The conventions file: does not apply.
 
 ## Review log
+
+### Impact notes (phase 7)
+
+Graphify is not installed, so these notes come from search. The branch adds new files and changes one assertion in an existing test.
+
+- `cstack/src/settings.ts` and `cstack/src/json-position.ts` are new. Nothing imports them yet, so no outside code depends on them. The only dependents are their own tests.
+- `cstack/test/skills-install.test.ts` (line 94) now expects `installed cstack-example\ninstalled resolve-issue\n`. The full suite passes (132 tests), and `cstack/test/pack.test.ts` uses `toContain`, so it does not break.
+- `docs/projects/skills-into-cli.md` changed on line 321 only. Lines 319 and 320 are untouched.
+- No `WHY:` or `DECISION:` comment exists in the changed files that conflicts with the branch.
 
 ## Briefing
 
