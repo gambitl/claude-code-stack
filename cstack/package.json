@@ -1,8 +1,13 @@
 {
-  "name": "cstack",
+  "name": "@gambitl/cstack",
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "files": [
+    "dist",
+    "skills",
+    "guides"
+  ],
   "bin": {
     "cstack": "dist/bin.js"
   },
@@ -12,7 +17,8 @@
   "scripts": {
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "build": "tsc -p tsconfig.build.json"
+    "build": "tsc -p tsconfig.build.json",
+    "prepack": "npm run build"
   },
   "devDependencies": {
     "@types/node": "^26",

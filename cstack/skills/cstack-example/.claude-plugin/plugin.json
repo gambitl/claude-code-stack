@@ -1,0 +1,4 @@
+{
+  "name": "cstack-example",
+  "description": "Loads the check agent that only verifies the install of cstack."
+}
