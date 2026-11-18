@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/plan-read-reports
 Conversation language: French
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -391,31 +391,118 @@ Left as follow-ups (not needed now): a `publish.json` of the wrong shape crashes
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The branch adds the four commands of the ticket: `cstack plan status`, `cstack plan section`, `cstack report submit` and `cstack report check`. The shared report code lives in `cstack/src/report/reports.ts`. The commands do what the ticket asks, with the three rules you accepted before the plan: a blocked unit needs no commit, a level-2 heading wins, and the worktree must be clean. I ran the tests again: 303 pass, and the type check is clean.
+
+**What to watch**
+
+- **The merge with the ticket that adds `cstack unit commit` (#18).** Each branch carries its own `locate.ts` and its own `dispatchSubcommand`, with the same interface but different code. I checked it: all the tests of this branch pass with the copies of #18, and the `locate.ts` tests of #18 pass with ours. So the branch that merges second can keep one copy safely. The counts in `manifest.test.ts` then become ten built and five not built, and the README says "ten commands".
+- **The "work is finished" report now refuses any uncommitted file, not only the plan.** The "ready" guide written by the ticket that rewrites the guides (#22) still says "the plan file". I will say it in the comment on #22, together with the quoted heredoc (`<<'EOF'`). In another repository, a stray file such as an unignored `.DS_Store` will block the report, and the message names it.
+- **Two rules for the files of a unit.** `cstack unit commit` (#18) compares paths without case, and `cstack plan status` compares them exactly. So a commit that one accepts, the other can flag. Align the two after the merge, along with how `red.json` is read: #18 checks its content, this ticket only checks that it exists.
+
+**What changed since the plan**
+
+- The review added a small shared error helper (`commands/errors.ts`), a read of standard input that stops after 64 KB, and support for an absolute `--plan` path through a symbolic link.
+- The usage lines of the four commands now show `[--plan <file>]`. The ones of #18 do not show it yet.
+- A `publish.json` with the wrong shape makes `report submit published` crash with exit code 1 instead of giving a reason. That is left to the ticket that writes this file (#20).
+
+#### Details
+
+What was built matches the scope of the ticket and the rules in "Decisions". The ten units each have one commit with its trailer, and the review fixes are in a04bcc9, bb61ad0 and 85ad83e. I ran `npm test` (21 files, 303 tests) and `npm run typecheck` in `cstack/` on 85ad83e, and both pass. The worktree was clean before I wrote this block. `origin/main` is still at 618602f, so neither this branch nor #18 has merged yet, and #18 has not pushed its branch.
+
+The merge with #18 is the main thing to watch. Its worktree `unit-commit-order` (8f71d18) has its own `cstack/src/plan/locate.ts` and its own `dispatchSubcommand` in `cstack/src/cli.ts`, as the coordinator allowed. The interfaces match exactly. The code differs in three visible ways. First, #18's `dispatchSubcommand` lists the second words of the group from the command list, including entries that are not built, so `cstack unit red 1` answers "unknown command red" and then lists `red` in the usage line. This branch's version lists only the words that have a handler, which matches the decision "each group passes only its built commands". Second, the messages of `PlanLocationError` differ in wording, and both test suites only check that the message contains `--plan <file>`. Third, a `state.json` whose `plan` points outside the repository exits with 3 in #18's copy and with 2 in this branch's copy. The coordinator only fixed the exit code for a `--plan` path outside the repository, so both are within the agreement, and 3 is the better fit because nobody typed that path. I tested the swap in a copy of `cstack/` in the scratchpad. With #18's `locate.ts` and #18's `dispatchSubcommand`, every test of this branch passes and the type check is clean (the only failure was the README test, which cannot find `README.md` outside the repository). With this branch's `locate.ts`, the `locate.test.ts` of #18 passes too. I did not run #18's `cli.test.ts` against this branch's `dispatchSubcommand`, but its only check is that the usage of `cstack unit` contains `order` and `commit`, which the handler keys give. The other conflicts are mechanical. `manifest.ts` marks entries as built in two styles: this branch passes a `built` field to `planCommand`, and #18 uses a spread. The counts in `cstack/test/manifest.test.ts` become ten built and five not built. The README sentence becomes "ten commands". The decision "keep both sides" does not work for two definitions of one function, so the second branch must choose one copy of each file. If nobody chooses, the person who resolves the conflict picks one by hand, and the tests catch nothing either way.
+
+New question, non-blocking, for the coordinator, in English: "Tickets #16 and #18 each carry a copy of `cstack/src/plan/locate.ts` and of `dispatchSubcommand` in `cstack/src/cli.ts`. The interfaces match, and I checked that the tests of #16 pass with #18's copies. Which copy should the branch that merges second keep? I suggest #18's `locate.ts`, because #18 owns that file and it answers 3 when `state.json` points outside the repository. I suggest #16's `dispatchSubcommand`, because #18's version lists `red` and `green` in the usage of `cstack unit` while they are not built yet." The work of this ticket is complete and correct whatever the answer.
+
+The clean worktree rule reaches the guides. `reports.ts` refuses a done report while `git status --porcelain=v1 -z --untracked-files=all` prints anything, as the user accepted. The guide `cstack/guides/resolve-issue/ready.md` on the branch of #22 (`build-prompts-guides`, lines 17 and 18) tells the executor to commit the plan file, and says that the report is refused "while the plan file has an uncommitted change". An executor that follows it literally will hit a refusal for any other leftover file. The comment on #22, already in the documentation duties, should say "any uncommitted change in the worktree" and show the quoted heredoc. In this repository `.gitignore` covers `.DS_Store`. A repository where neither its `.gitignore` nor the user's global excludes cover it will see the report refused after someone opens a folder in Finder. The refusal names the path, so the executor can recover, but it costs one round.
+
+The two rules for the files of a unit come from #18. `cstack/src/commands/unit-commit.ts` on its branch compares the paths of a unit in lower case (lines 52 to 86), because the macOS file system ignores case. `cstack plan status` compares the files of a commit with `Files` exactly (`plan-status.ts`, the `allowed` set). A unit whose `Files` says `Readme.md` while git records `README.md` passes `unit commit` and is then flagged by `plan status` with exit code 1. #18 also adds `readSavedRun` in `cstack/src/saved-runs.ts`, which refuses a `red.json` without a valid time. This branch checks only that the file exists, in `plan-status.ts` with `existsSync` and in `checkImplementer` with `readFileSync`. After both merge, a follow-up should make `plan status` and `checkReport` use `readSavedRun` and the same case rule. The default, if nobody does it, is a rare false alarm in `plan status` and an implementer `done` accepted with a broken `red.json`.
+
+A few things changed since the plan, beyond the review fixes listed in the Review log. Unit 4 lists the files of a commit with one `git diff-tree -r -z --no-renames` call per commit, as the plan's unit says, and not with the single `git log -z -M` call that my earlier details suggested. Both paths of a rename still appear, so the rule holds, and one git process per unit commit is cheap at this size. The usage lines in `manifest.ts` gained `[--plan <file>]`, which "Decisions" did not mention, and the usage lines of #18's `unit order` and `unit commit` do not have it yet, so the usage text will be uneven after the merge. The review left three follow-ups: a `publish.json` of the wrong shape crashes with exit code 1 instead of a reason, a `reports` path that is not a folder gives a raw error, and `report check` prints the report text unchanged, terminal escape sequences included.
+
+Every earlier question was resolved as the user accepted it. The blocked unit rule is built by calling `buildDone` from `phases.ts`, together with `ticketCopied` and `noOpenQuestion`, so the build phase and the done report share one rule. The level-2 rule is in `plan-section.ts` with its `WHY:` comment. The clean worktree rule is in `reports.ts` with its `WHY:` comment. The real path check is in `locate.ts`, and a review fix extended it to an absolute `--plan` path through a symbolic link. The files of a commit come from git with `-z`, and a test covers `café.md`. The saved report is created with an exclusive temporary file and a hard link, so two saves at the same millisecond keep both reports, and the JSON keeps the real ISO time. `lastAcceptedDoneReportAt` is exported for #15. Windows line endings are read, which closes the maintainer's follow-up. The concurrent `report check` risk stays accepted.
+
+I cite these locked decisions and do not reopen them: ADR-SIC-H for the exit codes and `process.exit()`, ADR-SIC-B for the run state and the `cstack-run/1` format that now covers the saved report, the #13 command list for the file names and exit code 2 of `plan section`, and the settled executor hand-off in the frozen `skills/resolve-issue/SKILL.md`. I checked security and authorization (the report text never reaches a shell, and the test with `$(touch pwned)` passes), scale and performance, operations and cost, reversibility and UX edge cases, and found nothing beyond the points above.
 
 ## Open questions after the build
 
-<phase 10.2: the questions raised by the reviews or the briefing and not answered yet, word for word, each with who it is for>
 
 ### Blocking
 
-<each one stops the pull request until it is answered. Once answered, write "answered on <date>" next to it, and write the answer itself in "Decisions". "none" when empty.>
+none
 
 ### Non-blocking
 
-<these go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them. "none" when empty.>
+"Tickets #16 and #18 each carry a copy of `cstack/src/plan/locate.ts` and of `dispatchSubcommand` in `cstack/src/cli.ts`. The interfaces match, and I checked that the tests of #16 pass with #18's copies. Which copy should the branch that merges second keep? I suggest #18's `locate.ts`, because #18 owns that file and it answers 3 when `state.json` points outside the repository. I suggest #16's `dispatchSubcommand`, because #18's version lists `red` and `green` in the usage of `cstack unit` while they are not built yet." For: the coordinator.
 
 ## Pull request
 
-<phase 10.4: the drafted title and body, with the closing reference.>
+Title: feat(cli): read the plan and check the helper reports with cstack plan and cstack report
+
+```markdown
+## What this adds
+
+`cstack` now tells the true status of each unit of a plan from git, prints one section of a plan on request, and accepts a helper's report only when the plan and git prove it. There are four new commands: `cstack plan status [--json]`, `cstack plan section <name>`, `cstack report submit <kind>` and `cstack report check`. Each takes `--plan <file>`. The shared code is in `cstack/src/report/reports.ts`, and the commands are in `cstack/src/commands/`.
+
+## Decisions that matter
+
+- A done report is refused for any uncommitted change in the worktree, not only for the plan file. A forgotten review fix would otherwise stay out of the pull request.
+- A unit with a `Blocked` line does not need a commit for a done report.
+- When several headings match a name and exactly one is level 2, `plan section` prints that one. So a `### Documentation` heading in a ticket never hides `## Documentation`. Two other matches exit with 3.
+- The command files are `report-submit.ts` and `report-check.ts`, as the command list says, not `report.ts`.
+- The text of a report is read from standard input and never reaches a shell or a command line. A test with `$(touch pwned)`, backticks and `; rm -rf ~` checks it.
+- `readPlan` now reads a plan with Windows line endings.
+- This branch carries its own copy of `cstack/src/plan/locate.ts` and of `dispatchSubcommand`, with the interface that ticket #18 also uses. When #18 merges first, keep one copy.
+
+## What the reviews changed
+
+The review found that `plan section` exited with 1 on a broken run state, that `report submit` read all of standard input before checking its size, and that an absolute `--plan` path through a symbolic link was refused by mistake. All three are fixed with tests. It also led to one shared error helper and `parseArgs` in the commands.
+
+## Judgment calls
+
+- `report submit` waits until standard input closes. An agent that calls it without a pipe on an open input waits too.
+- The usage lines of the four commands show `[--plan <file>]`. The ones of #18 do not yet.
+- The exit code table of `plan section` in `manifest.ts` describes exit 2 only as "no heading matches". A usage error also exits with 2.
+
+## Follow-ups, not done here
+
+- A `publish.json` of the wrong shape crashes `report submit published` with exit 1 instead of giving a reason. The ticket that writes that file (#20) can tighten it.
+- `cstack plan status` compares unit files exactly, while `cstack unit commit` (#18) ignores case. Align them after both merge.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the coordinator: tickets #16 and #18 each carry a copy of `cstack/src/plan/locate.ts` and of `dispatchSubcommand`. The interfaces match, and the tests of #16 pass with #18's copies. Which copy should the branch that merges second keep? I suggest #18's `locate.ts` and #16's `dispatchSubcommand`.
+
+Plan file: `docs/plans/2026-11-18-16-read-the-plan-and-check-the-helper-reports.md`.
+
+Fixes #16
+```
+
 
 ## Documentation
 
-<phase 10.3: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on #16: https://github.com/gambitl/claude-code-stack/issues/16#issuecomment-6978675006
+- Comment on #15: https://github.com/gambitl/claude-code-stack/issues/15#issuecomment-6978675522
+- Comment on #22: https://github.com/gambitl/claude-code-stack/issues/22#issuecomment-6978675983
+- Comment on #23: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-6978676472
+- Comment on #27: https://github.com/gambitl/claude-code-stack/issues/27#issuecomment-6978676961
+- `README.md`, section Commands: four lines added and the count updated (committed).
+- `WHY:` comments in `cstack/src/commands/plan-section.ts` and `cstack/src/report/reports.ts` (committed).
+- ADR: none, as the plan says. The specification page and `CLAUDE.md` do not change.
+- The pull request link is not in the comments yet: phase 12 does not edit them (no ADR to link), so the pull request body says `Fixes #16`.
+
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Graphify is not installed, so the impact notes came from search and file reads.
+- Implementer for unit 3 and for unit 5 wrote tests and code together and never saw the test fail first; the tests pass and cover the cases of the unit.
+- The review reversed nothing, but it found three real bugs after the units were green (plan section exit code on a broken state.json, unbounded read of standard input, absolute --plan through a symlink); the plan's unit tests did not cover them.
+- GitHub has no in-progress state or label for ticket #16 (labels: cli, tests), so the ticket was not moved.
+- A BSD sed command failed on macOS during a one-line edit; I used the Edit tool instead.
+- The plan did not say what the accepted-report line holds; the implementer added the allowed kinds and the independent review removed them.
 
 ## Hand-off log
 
@@ -506,3 +593,4 @@ Every question below is for the user. None needs someone outside the conversatio
 ### Architecture options
 
 There was no real choice. The ticket, the command list of #13, the coordinator's answers and the question round fixed the approach. No new structural decision appeared while the plan was written, so the advisor was not called again.
+- 2026-11-18, run 1 (phases 6 to 10): ten units built and committed (one commit each), four reviewers and the independent reviewer fixed seven points, main did not move so no rebase, briefing written, five ticket comments left. Returned done.
