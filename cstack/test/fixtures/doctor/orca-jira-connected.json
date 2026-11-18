@@ -1,0 +1,29 @@
+{
+  "id": "id-placeholder",
+  "ok": true,
+  "result": {
+    "connected": true,
+    "viewer": {
+      "accountId": "account-1",
+      "displayName": "Example Person",
+      "email": "person@example.com"
+    },
+    "sites": [
+      {
+        "id": "site-1",
+        "siteUrl": "https://example.atlassian.net",
+        "email": "person@example.com",
+        "displayName": "Example Person",
+        "accountId": "account-1",
+        "authType": "api-token"
+      }
+    ],
+    "activeSiteId": "site-1",
+    "selectedSiteId": "site-1",
+    "credentialProtection": null,
+    "supportsScopedTokens": true
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-0000-0000-000000000000"
+  }
+}

@@ -4,6 +4,18 @@ This repository is the source of `cstack`, a command-line tool for working with 
 
 The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing a file there does not change how Claude Code behaves.
 
+## Requirements
+
+`cstack` needs the items below on your Mac. Run `cstack doctor` to check them. It prints one line for each item and tells you how to install what is missing.
+
+- **macOS**: required. `cstack` runs only on macOS.
+- **Node**: required. Install the current long-term support release from https://nodejs.org. The exact minimum is the `engines.node` field in `cstack/package.json`.
+- **git**: required. Run `xcode-select --install` to get it.
+- **Graphify**: optional. Install it with `uv tool install graphifyy`. This needs uv, which you can install with `brew install uv`. If the command is still not found, run `uv tool update-shell`.
+- **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
+- **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
+- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases.
+
 ## How to update the copy of my configuration
 
 Run the sync script from the repository folder:

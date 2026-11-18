@@ -1,13 +1,16 @@
 import { parseArgs } from "node:util";
+import { doctor } from "./commands/doctor.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
 
 const USAGE = `Usage: cstack --version
+       cstack doctor
 
 Options:
   --version  Print the version of cstack.
 
-No command exists yet.
+Commands:
+  doctor     Check that the machine has what cstack needs.
 `;
 
 function fail(io: Io, problem: string): number {
@@ -21,6 +24,8 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
     io.stderr(USAGE);
     return 2;
   }
+  if (first === "doctor")
+    return args.length > 1 ? fail(io, "doctor takes no argument") : doctor(io);
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {

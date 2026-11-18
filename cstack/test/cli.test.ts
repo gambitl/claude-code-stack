@@ -66,4 +66,12 @@ describe("run", () => {
     };
     await expect(run(["--version"], io)).rejects.toThrow("boom");
   });
+
+  it("refuses an argument after doctor, prints the usage and returns 2", async () => {
+    const { out, io } = collect();
+    const code = await run(["doctor", "--nope"], io);
+    expect(out.stderr).toContain("Usage: cstack");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
 });
