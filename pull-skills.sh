@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
-# Copy my own skills from GitHub into ~/.claude/skills. This is the reverse
-# of sync.sh: use it on a computer whose skills are older than the ones in
-# the repository.
+# WHY: ADR-SIC-E. The prose skills are frozen at the tag prose-skills-final.
+# Install the prose skills that the repository froze at the tag
+# prose-skills-final into ~/.claude/skills. Use it on a computer whose skills
+# are older than the frozen ones.
 #
 # Usage:
 #   ./pull-skills.sh           show which skills would change, write nothing
 #   ./pull-skills.sh --apply   replace those skills, after backing them up
 #
-# The skills are read from origin/main as it is on GitHub, not from the files
-# in this folder, so the branch checked out here does not matter. Only the
-# skills that the repository holds are touched. Skills installed by other
-# tools, and local skills the repository does not know, stay as they are.
+# The skills are read from the tag prose-skills-final as it is on GitHub, not
+# from the files in this folder, so the branch checked out here does not
+# matter. The tag is created after the history rewrite. Only the skills that
+# the tag holds are touched. Skills installed by other tools, and local skills
+# the tag does not know, stay as they are.
 
 set -euo pipefail
 
@@ -19,18 +21,22 @@ DEST="$HOME/.claude/skills"
 # skills too.
 BACKUP_ROOT="$HOME/.claude/skill-backups"
 REPO="$(cd "$(dirname "$0")" && pwd)"
-BRANCH="origin/main"
+TAG="prose-skills-final"
 APPLY=false
 [ "${1:-}" = "--apply" ] && APPLY=true
 
 cd "$REPO"
 
-# 1. Get the latest state of GitHub and extract its skills folder into a
-#    temporary folder, which is removed when the script ends.
-git fetch -q origin
+# 1. Get the tags of GitHub and extract the skills folder of the frozen tag
+#    into a temporary folder, which is removed when the script ends.
+git fetch -q --tags origin
+if ! git rev-parse -q --verify "refs/tags/$TAG^{commit}" > /dev/null; then
+  echo "The tag $TAG does not exist yet. It is created after the history rewrite." >&2
+  exit 1
+fi
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-git archive "$BRANCH" skills | tar -x -C "$TMP"
+git archive "refs/tags/$TAG" skills | tar -x -C "$TMP"
 
 # Print one line per file that differs between the GitHub copy and the local
 # copy of a skill, saying what --apply will do to that file.
@@ -61,8 +67,8 @@ for dir in "$TMP"/skills/*/; do
   fi
 done
 
-# Warn about local skills that sync.sh would copy but GitHub does not have.
-# They are left alone. The filters are the same as in sync.sh.
+# Warn about local skills that the tag does not hold. They are left alone.
+# Skills of other tools and workspace folders are not reported.
 for dir in "$DEST"/*/; do
   name="$(basename "$dir")"
   [ "$name" = "synced" ] && continue
