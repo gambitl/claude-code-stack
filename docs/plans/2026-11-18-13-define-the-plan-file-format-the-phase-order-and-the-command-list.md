@@ -476,6 +476,10 @@ The units run in five batches. Units 1, 3 and 4 share no file and can run in par
 
 ## Review log
 
+### Impact notes (phase 7)
+
+Graphify is not installed, so these notes come from search and git history. Existing code that the branch changed: `run` in `cstack/src/cli.ts` (callers: `bin.ts`, `test/cli.test.ts`, `test/guide.test.ts`, `test/measure.test.ts`), `cstack/src/bin.ts`, `cstack/src/io.ts` (user: `commands/version.ts`), and one line of `test/skills-install.test.ts`. The usual companions of `cli.ts` are `test/cli.test.ts` (changed) and the measure files (`commands/measure.ts` still exports `MEASURE_USAGE`, which `cli.ts` no longer imports, and its own tests still pass). `cstack measure` refuses a plan with a `Format` line until #23, which is the planned behaviour. The full suite passed on the branch head with 187 tests and a clean typecheck.
+
 <phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
 
 ## Briefing
