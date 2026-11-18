@@ -482,6 +482,14 @@ Graphify is not installed, so these notes come from search and git history. Exis
 
 <phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
 
+### Review findings (phase 7)
+
+Fixed in one commit: a unit path with a `.git` part (any case) is refused, because a plan could install a git hook (security reviewer, confirmed by running the reader); the `ticket` done check now needs a content line that is not a heading, because the template's Ticket section always holds the heading of the upstream decisions (correctness reviewer; the rule that headings count as content stays for every other section, and each section now carries `bodyLines`); `cstack --version` in a guide is no longer read as a mention of a command (correctness); ADR-SIC-H now says the broken pipe is handled (conventions); a test that could never fail was replaced (conventions).
+
+Not changed: the simplicity reviewer asked to delete `DONE_REPORT_SECTIONS` and the saved-run types in `run-state.ts`, but the Decisions require both exports for #16 to #20, so they stay. Small cleanups it listed in `cli.ts` and `manifest.ts` were left, because they save a few lines and add risk.
+
+Follow-ups, no change here: a plan file with Windows line endings gets the misleading "prose skill wrote it" message; `createRun` stores the plan path as given, so #15 must make it relative to the repository root; an empty `- Blocked:` line counts the unit as blocked in the `build` check; errors echo plan text with control characters; #17 and #18 must resolve symbolic links before they write a unit file (the reader checks text only).
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
