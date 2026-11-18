@@ -212,6 +212,24 @@ describe("cstack skills install", () => {
     ).toBe("old");
   });
 
+  it("never removes an unshipped folder without the marker, nor a link to a marked one", async () => {
+    const pkg = fakePackage(base, "1.0.0", { a: { "SKILL.md": "a" } });
+    mkdirSync(join(skillsDir, "local"), { recursive: true });
+    writeFileSync(join(skillsDir, "local", "SKILL.md"), "mine");
+    const elsewhere = join(base, "elsewhere");
+    mkdirSync(elsewhere);
+    writeFileSync(join(elsewhere, ".cstack-managed"), "0.9.0\n");
+    symlinkSync(elsewhere, join(skillsDir, "linked"));
+    const { out, io } = collect();
+    const code = await skills(["install"], io, { home, packageRoot: pkg });
+    expect(code).toBe(0);
+    expect(out.stdout).toBe("installed a\n");
+    expect(tree(join(skillsDir, "local"))).toEqual(["SKILL.md=mine"]);
+    expect(lstatSync(join(skillsDir, "linked")).isSymbolicLink()).toBe(true);
+    expect(tree(elsewhere)).toEqual([".cstack-managed=0.9.0\n"]);
+    expect(existsSync(join(home, ".claude", "skill-backups"))).toBe(false);
+  });
+
   it("leaves no temporary folder and nothing but skills behind", async () => {
     const pkg = fakePackage(base, "1.0.0", { a: { "SKILL.md": "a" } });
     await skills(["install"], collect().io, { home, packageRoot: pkg });
