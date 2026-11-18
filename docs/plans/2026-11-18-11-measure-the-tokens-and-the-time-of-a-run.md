@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in docs/projects/), ADRs in docs/decisions/
 Branch: gambitl/cstack-measure
 Conversation language: French
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -198,35 +198,35 @@ No new decision since phase 4: the split by model and the guard against a rewrit
 
 ## Implementation units
 
-### Unit 1: The first case, one main session with one helper and one nested helper — status: todo
+### Unit 1: The first case, one main session with one helper and one nested helper — status: done
 - Failing test: in `cstack/test/measure.test.ts`, build a temporary home folder and a temporary git repository with test helpers (see Decisions, Tests). Commit a plan file whose header reads `Status: approved` with a set author date, then a commit that sets it to `Status: ready for review` 95 minutes later. Copy the fixture scenario `basic` (one main session, one helper transcript and one nested helper transcript, whose meta file has `parentAgentId` and `spawnDepth`, all with one model and no repeated `message.id`). Run `cstack measure <plan> --home <home>`. Expect exit code 0, empty standard error, `main sessions: 1`, `helper transcripts: 2`, each of the four totals equal to the sum written in the fixture, the four lines of that model, `minutes from approval to ready for review: 95`, `skipped lines: 0` and `unreadable files: 0`. It fails because `measure` is an unknown command.
 - Minimum code: the dispatch and the usage line in `cli.ts`; `commands/measure.ts` with the argument parsing and the output; `measure/moments.ts` with the repository root, the approval moment and the ready moment as the Decisions describe; `measure/sessions.ts` with the scan of main sessions, the `cwd` match through symbolic links, the helper transcripts, the sums of the four fields and the lines per model.
 - Refactor: none expected.
 - Commit message: `feat: add cstack measure for the tokens and the waiting time of a run`
 - Depends on: none
 
-### Unit 2: The traps in the token counts — status: todo
+### Unit 2: The traps in the token counts — status: done
 - Failing test: new scenarios in the same test file. An answer written on three lines with the same `message.id` counts once, with the `output_tokens` of its last line, which is the largest. The same `message.id` in a main session and in a helper transcript counts once. A `user` line with a `toolUseResult` that carries `usage` and `totalTokens`, and an `assistant` usage with `cache_creation`, `iterations` and a `modelUsage` key nearby, add nothing beyond the four fields. Two lines that are not valid JSON give `skipped lines: 2`, and a blank line is not counted. Two models plus a `<synthetic>` line give the lines of both models and of `other model`, in that order, and the lines per model add up to the totals.
 - Minimum code: in `measure/sessions.ts`, the map of `message.id` over the whole run that keeps the largest `output_tokens`, the count of skipped lines for the files of the run, and the `other model` rule.
 - Refactor: none expected.
 - Commit message: `feat: count each answer once and report skipped lines in cstack measure`
 - Depends on: 1
 
-### Unit 3: Which session files belong to the run — status: todo
+### Unit 3: Which session files belong to the run — status: done
 - Failing test: a session whose only `cwd` is another folder adds nothing. A session whose `cwd` is a sibling folder whose name starts with the root's name adds nothing. A session that starts after "ready for review" adds nothing, and one that ends before the approval adds nothing. A session whose `cwd` is a subfolder of the root counts. A session whose `cwd` is a subfolder that does not exist on disk counts. When no main session matches, every count is printed as 0, standard error holds the fixed sentence about no main session, and the exit code is 1. When `<home>/.claude/projects/` does not exist, the result is the same.
 - Minimum code: in `measure/sessions.ts`, the overlap test with the window, the match on the root followed by `/`, the resolution of the nearest existing parent of a `cwd`; in `commands/measure.ts`, the no-session sentence and exit code.
 - Refactor: none expected.
 - Commit message: `feat: pick the sessions of a run by folder and time window in cstack measure`
 - Depends on: 2
 
-### Unit 4: The moments, the refusals and the usage errors — status: todo
+### Unit 4: The moments, the refusals and the usage errors — status: done
 - Failing test: after a rebase onto a new base commit with a different `GIT_COMMITTER_DATE`, the committer dates changed and the minutes stay the same. A plan file that never reached "ready for review" prints every count but no minutes line, says on standard error that the ready moment is missing, counts a session that started after the approval with no end, and exits with 1. A plan whose ready commit is 30 seconds after the approval prints the counts without the minutes line, says that the history looks rewritten, and exits with 1. A plan whose Status line is still the template's list of values never counts as ready. A plan file with a `Format:` line in its header is refused with the message of the Decisions, prints no count and exits with 1, while a `Format:` line after the first `## ` heading does not refuse it. A plan file that does not exist, one outside any git repository, and one that is not committed each print one fixed sentence, no count, and exit with 1. No argument, two plan files, an unknown option and `--home` without a value each exit with 2 and print the usage line of `measure`.
 - Minimum code: in `measure/moments.ts`, the header parsing, the `Format:` check and the errors for a missing file, no repository and no commit; in `commands/measure.ts`, the missing and rewritten waiting time, the open window and the exit codes.
 - Refactor: none expected.
 - Commit message: `feat: refuse new plan formats and report a missing moment in cstack measure`
 - Depends on: 3
 
-### Unit 5: Nothing private leaves the command — status: todo
+### Unit 5: Nothing private leaves the command — status: done
 - Failing test: a scenario holds the unique marker string in message text, in `cwd` (a subfolder of the repository named with the marker), in `gitBranch`, in a tool result and in `message.model`. Neither standard output nor standard error ever holds the marker. Every standard output line matches either `^(main sessions|helper transcripts|minutes from approval to ready for review|skipped lines|unreadable files): \d+$` or `^(input tokens|cache creation input tokens|cache read input tokens|output tokens)( (claude-[a-z0-9.-]+|other model))?: \d+$`. A helper transcript with file mode `000` gives `unreadable files: 1`, the fixed sentence about unreadable files, exit code 1, and no path, folder name or marker in either stream. The temporary home folder holds exactly the same files with the same contents before and after a run. A last case reads every source file of the command (`src/commands/measure.ts` and `src/measure/*.ts`) and fails when one imports `http`, `https`, `http2`, `net`, `tls`, `dgram`, `dns` or `undici`, with or without the `node:` prefix, or calls `fetch`.
 - Minimum code: the catch of every file system error in `measure/sessions.ts`, the `unreadable files` count and its sentence in `commands/measure.ts`.
 - Refactor: none expected.
@@ -245,7 +245,39 @@ No user interface and no design specification apply. The security points (git ca
 
 ## Review log
 
+Impact notes (graphify is not installed, so these come from reading). The branch changed only one existing symbol, `run` in `cstack/src/cli.ts`, by adding a dispatch for `measure` and one usage line. Its dependents are `cstack/src/bin.ts` and `cstack/test/cli.test.ts`; the usage text no longer ends with "No command exists yet.", and `cli.test.ts` was run in the full suite and passes. Usual companions: `README.md` (gets its section in phase 10.3, per the plan's documentation duties) and `cstack/package.json` (no change needed, no dependency added).
+
+Phase 7 findings (four reviewers, 2026-11-18). Two bugs, both fixed in one follow-up commit: a plain file such as `.DS_Store` in the projects folder was counted as an unreadable file, and a helper folder that could not be listed was dropped silently with exit code 0. Two hardening items, both fixed: the second `git log` call was not wrapped in a fixed error, and the plan path was read as a git pathspec with wildcards (now `--literal-pathspecs`). Simplicity findings, all applied: one map for answers, no try/finally, one header helper, simpler type annotations and model sort, one copy of the usage line where simple. Conventions review found no rule broken. The README section is pending for phase 10.3.
+
 ## Briefing
+
+### What you should know about what was built
+
+`cstack measure <plan file>` is built and does what the ticket asks. It prints the four kinds of tokens, the same four per model, and the minutes from approval to "ready for review", with numbers only. I ran the 25 tests and the type check myself, and both pass.
+
+**What you need to do**
+
+**Merge this pull request with "Create a merge commit", not with "Squash and merge".** The repository allows all three buttons. A squash folds the plan's commits into one, so the command can no longer find the approval and the ready moment on `main`. It then refuses with "the history looks rewritten". The earlier pull requests used merge commits.
+
+**What to watch**
+
+- The command reads the internal format of Claude Code's session files, which is not documented. If an update moves the helper transcripts or renames the usage fields, the numbers drop without any error. The sign is `helper transcripts: 0` on a run that you know started helpers. The baseline ticket (#12) already writes down the Claude Code version, so compare runs made on the same version when you can.
+- The command only sees the sessions whose working folder is inside the repository of the plan, and the helpers of those sessions. If the new version of the skill starts Orca workers in other folders, their tokens are missing. The comparison would then favour the new version for the wrong reason.
+- A run folder must not contain other worktrees. Claude Code puts its own worktrees in `.claude/worktrees/` inside the repository, and their sessions would count too. Orca's sibling folders and the fresh clones of #12 are safe.
+
+#### Details
+
+**Merge button.** `gh repo view` shows `squashMergeAllowed`, `mergeCommitAllowed` and `rebaseMergeAllowed` all true. A squash merge creates one commit whose author date is the merge time, so on `main` the plan file is added and reaches "ready for review" in the same commit. The wait is then under one minute, the guard of the Decisions fires, and the command prints no minutes and exits with 1. A rebase merge keeps author dates and would work. This ticket's own numbers are taken in the worktree before the merge, so they are not at risk, but every later reading from `main` is. The earlier merges `ecaec53` and `4bc2bcb` are merge commits. If nobody decides, GitHub may offer the squash button, because all three are allowed.
+
+**Session file format.** `cstack/src/measure/sessions.ts` relies on four facts: main sessions are `*.jsonl` files directly under a project folder, helpers sit in `<session id>/subagents/`, `assistant` lines carry `message.id`, `message.model` and `message.usage`, and lines carry `cwd` and `timestamp`. None of this is a public contract. A counts-only check on this machine (2026-11-18) found 147 main session files, none named `agent-*`, and 1,188 helper files, all named `agent-<id>.jsonl`, so today's layout matches. If a future layout moves helpers elsewhere, they are not counted and nothing fails. Step 12 of the scope of #12 already records the Claude Code version with each measurement, which is enough to spot a change. No code change is proposed now.
+
+**Tokens outside the run folder.** The window and the `cwd` rule (Decisions, "Which session files count") pick only sessions working inside the repository root, plus their `subagents/` folder. Work started by Orca as a separate Claude Code session in another worktree, or a coordinator session in the main checkout, is invisible. Today's skill runs everything as Claude Code helpers, so the baseline is complete. The epic rule says every feature that uses Orca also works without Orca, so a fair comparison can run the new version without Orca, or the ticket that adds the new plan format (#13) can record the extra folders. Non-blocking question for the maintainer, to place in #13 or in the comparison ticket (#33), in English: "When the new version of the skill runs part of a ticket in Orca workers, how will `cstack measure` count the tokens of those workers, so that the comparison with the baseline stays fair?" If nobody decides, the comparison may report a saving that only comes from tokens the command cannot see.
+
+**Nested worktrees.** `inside()` in `sessions.ts` accepts any `cwd` under the root followed by `/`. That is correct for subfolders, but a worktree nested inside the measured checkout also matches. `git worktree list` here shows the Orca worktrees as siblings under `~/orca/workspaces/claude-code-stack/`, and #12 uses a fresh clone per run, so neither case is affected. It matters only if someone measures a plan in a checkout that holds other worktrees inside it, during the same window.
+
+**Earlier questions, resolved.** All ten draft questions and the two advisor questions were built as answered. The home folder is `--home` with `os.homedir()` as default. Each `message.id` is counted once over the run, keeping the largest `output_tokens` (`sessions.ts`, the `answers` map). The open window runs to now. The exit codes follow the Decisions, including exit 1 for no main session and for unreadable files. The Status line is read from the header only, as an exact value (`headerValue` in `moments.ts`). Minutes are rounded, and a wait under one minute prints the "history looks rewritten" sentence. A missing `cwd` is resolved through its nearest existing parent (`resolveLoose`). There is no scan shortcut. The split by model uses `other model` for names outside `^claude-[a-z0-9.-]+$`. The try on this run is still to do, after the plan reaches "ready for review", with numbers in the conversation only. The fixes of the code review (stray files, unlisted helper folders, the second `git log`, `--literal-pathspecs`) stay inside the Decisions, so nothing changed since the plan.
+
+I checked data model lock-in, security and leaks (fixed sentences only, `execFile` without a shell, no network module, the marker test), scale (a full scan, measured at 36 seconds), failure handling and reversibility, and found nothing new in them. The command is local, stores nothing and has no dependency.
 
 ## Open questions after the build
 
@@ -255,15 +287,51 @@ none
 
 ### Non-blocking
 
-none
+When the new version of the skill runs part of a ticket in Orca workers, how will `cstack measure` count the tokens of those workers, so that the comparison with the baseline stays fair? For the maintainer, to place in the ticket for the new plan format (#13) or in the comparison ticket (#33).
 
 ## Pull request
 
+Title: feat: add cstack measure for the tokens and the waiting time of a run
+
+Body:
+
+This adds `cstack measure <plan file>`, which tells you how many tokens and how many minutes one run of the `resolve-issue` skill used. It reads the session records that Claude Code keeps on your computer and prints labels and numbers only. Run it on the plan file of a run, from the repository of that run, to get the totals that the baseline comparison needs.
+
+The command takes the approval moment and the "ready for review" moment from the author dates in the git history of the plan file, so a rebase does not change them. It counts every main session that worked inside the repository during that window, plus all their helper transcripts. Each answer of the model is counted once, even when it is written on several lines or appears in two files. It prints the four kinds of tokens as totals and for each model. The README has a new section, "Measure a run".
+
+The code is in `cstack/src/commands/measure.ts`, `cstack/src/measure/moments.ts` and `cstack/src/measure/sessions.ts`. `cstack/src/cli.ts` only gains the dispatch and one usage line. All tests are in `cstack/test/measure.test.ts`, with hand-written fixtures in `cstack/test/fixtures/measure/`. No dependency was added. The command runs git without a shell, uses no network, never prints a path or text read from a session, and the tests check each of these points.
+
+Beyond the ticket text, the lines per model and a guard for a rewritten history were added. When "ready for review" is under one minute after the approval, which a squash merge produces, the command says the history looks rewritten, prints no minutes and exits with 1. Please merge this pull request with "Create a merge commit". A squash would make every later reading from `main` fail in this way.
+
+Judgment calls from the independent review, kept as they are. A model name in the output is printed only when it looks like `claude-...`, which is a small loosening of "a fixed label followed by digits". For repeated answers the code keeps the line with the largest `output_tokens`, which equals the last line in every file checked. A missing or uncommitted plan file exits with 1, not 2. The code review also found and fixed a stray `.DS_Store` file being counted as unreadable, an unlisted helper folder being dropped silently, and git reading a plan file name as a wildcard pattern.
+
+Known limits, not fixed here. The command cannot see sessions that run in folders outside the repository, and it would also count a worktree nested inside the measured folder. Both are noted in the README and in the ticket comments.
+
+The plan is `docs/plans/2026-11-18-11-measure-the-tokens-and-the-time-of-a-run.md`.
+
+Open questions, not needed for this pull request. The pull request can be merged without their answers.
+
+When the new version of the skill runs part of a ticket in Orca workers, how will `cstack measure` count the tokens of those workers, so that the comparison with the baseline stays fair? This is for the maintainer, to place in the ticket for the new plan format (#13) or in the comparison ticket (#33).
+
+Fixes #11
+
 ## Documentation
+
+- README.md: new section "Measure a run" (committed on the branch).
+- Comment on #11: https://github.com/gambitl/claude-code-stack/issues/11#issuecomment-6973275826
+- Comment on #12, the ticket it feeds: https://github.com/gambitl/claude-code-stack/issues/12#issuecomment-6973276211
+- No ADR and no specification page change, as the plan's Documentation duties say. The tracker is GitHub, which has no in-progress state or resolution field, so no state change was made.
 
 ## Executor notes
 
+- `gh label list` has no "in progress" label and GitHub issues have no state beyond open and closed, so step 6.1 (move the ticket to in progress) was not possible and nothing was changed.
+- The review found two real bugs that the unit tests missed (a `.DS_Store` file counted as unreadable, an unreadable helper folder dropped silently), so one follow-up commit was needed after phase 7.
+- Unit 5's implementer added its source change before running the new tests, so one test was not seen failing first. The other three new cases passed at once because earlier units already covered them.
+- Graphify is not installed, so impact notes were made by reading.
+
 ## Hand-off log
+
+2026-11-18: done. All five units built, two review rounds and one independent review finished, README and the comments on #11 and #12 written, status set to ready for review. One non-blocking question is open (Orca workers and the comparison). Nothing pushed yet; phase 12 publishes.
 
 ## History
 
