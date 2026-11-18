@@ -325,6 +325,10 @@ Four reviewers ran: correctness, security, conventions and simplicity.
 - Follow-ups, not done: the simplicity reviewer found about 10 lines to shrink in `settings.ts` (two repeated `typeof` checks and two similar closures); this is cosmetic. A committed symlink at `.cstack/settings.json` could make the reader hang on a FIFO; an `lstat` check would close it. #22 should map `review.agent` to a list of known agent programs.
 - Tests: 136 pass, typecheck clean.
 
+### Independent review (phase 8)
+
+Added in the main conversation on 2026-11-18, from the report of the first executor run, because the run did not record it here. The independent reviewer ran once in that run. It found no bug and changed no code. It raised four points for the pull request body: the `resolve-issue` folder that holds only templates until #21 adds `SKILL.md`, a symbolic link at the settings path that can make the reader hang, a test command such as `FOO=1 yarn test` that passes the forbidden-tools check, and no length limit on `review.model` nor on right-to-left override characters in messages.
+
 ## Briefing
 
 ### What you should know about what was built
@@ -402,6 +406,11 @@ Follow-ups left out: about ten lines of `settings.ts` could be shorter, which ch
 Files: `cstack/src/settings.ts`, `cstack/src/json-position.ts`, `cstack/test/settings.test.ts`, `cstack/skills/resolve-issue/templates/settings.json`, `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, one assertion in `cstack/test/skills-install.test.ts` (line 94), one line of `docs/projects/skills-into-cli.md` (line 321), and the plan file `docs/plans/2026-11-18-14-read-and-check-the-per-repository-settings-file.md`. When the pull request of #13 merges first, the install test line and the specification lines need a quick check after the rebase. Both change the same test line to the same text.
 
 I ran the 136 tests and the typecheck. Both pass.
+
+### Open questions, not needed for this pull request
+
+- For the maintainer. A key that appears twice in the JSON text is accepted today, and the last value wins, because that is what `JSON.parse` does. Should the reader refuse a duplicate key?
+- For the maintainer. The forbidden-tools check looks only at the first word of a test command. So `CI=1 yarn test` or `npx yarn test` passes even when `yarn` is forbidden. Should the check skip leading variable assignments or wrappers such as `npx`?
 
 Fixes #14
 
