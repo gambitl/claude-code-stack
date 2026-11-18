@@ -55,7 +55,7 @@ Write every answer into the plan file next to its question. For a blocking quest
 
 ## Questions for someone else
 
-A question for another person or team, blocking or not, reaches a pull request, a ticket or a message only if the user saw it word for word in this round. The user must also have seen whether it needs an answer before the plan or can wait. The same holds for the questions that the build raises later. Never let such a question appear for the first time in a recommendation, a briefing or a pull request body.
+A question for another person or team, blocking or not, reaches a pull request, a ticket or a message only if the user saw it word for word in this round. The user must also have seen whether it needs an answer before the plan or can wait. The same rule holds for the questions that the build raises later. Never let such a question appear for the first time in a recommendation, a briefing or a pull request body.
 
 ## No plan while a blocking question is open
 

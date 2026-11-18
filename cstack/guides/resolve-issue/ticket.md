@@ -2,7 +2,7 @@
 
 In this phase you read the ticket and create the plan file. No run exists yet, so a stop here is handled differently from a later stop.
 
-If `$ARGUMENTS` is empty, this is not a stop. Ask the user for a ticket id or URL, then go on.
+If the user did not give a ticket id or URL, this is not a stop. Ask the user for one, then go on.
 
 ## Fetch the ticket
 
