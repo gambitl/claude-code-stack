@@ -4,9 +4,9 @@ In this phase a reviewer who saw nothing of this run reads the finished branch. 
 
 ## Check the settings first
 
-The settings are read from the file on disk, not from a committed copy. A branch that edits `.cstack/settings.json` could choose its own reviewer. So first run `git diff --name-only <target branch>...HEAD -- .cstack/settings.json`.
+The settings are read from the file on disk, not from a committed copy. A branch that edits `.cstack/settings.json` could choose its own reviewer. So first run `git diff --name-only <target branch> -- .cstack/settings.json`. It compares the target branch with your working tree, so it also shows changes that are not committed. Also run `git status --porcelain -- .cstack/settings.json`, which shows a file that git does not track yet.
 
-When the branch changed that file, return a needs-decision report. Name the change, and ask the user to confirm it.
+When either command prints something, look in "Decisions" for a line that accepts this change. If there is none, return a needs-decision report. Name the change, and ask the user to confirm it.
 
 ## Launch the reviewer
 

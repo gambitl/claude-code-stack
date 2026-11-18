@@ -16,10 +16,10 @@ Write `docs/retros/<YYYY-MM-DD>-<ticket id>.md` from `templates/retro.md`. Use f
 
 Commit the file on the current branch with a `docs` commit. If the run stopped before a branch existed, leave the file uncommitted and say so.
 
-## Hand over
-
-Run `cstack next --done retro --plan <plan file>`. When it says that `publish` comes next, launch the executor again with the same inputs. Its plan file now says "ready for review", so it runs only the `publish` phase. When the executor returns, run `cstack report check --plan <plan file>`. Handle the report as the `plan` guide says.
-
 ## The closing notice
 
 `cstack` may print a "Digest due" notice. Keep it, and show it to the user as the very last thing of the run, after everything else. Do not run the digest in this session.
+
+## Hand over
+
+Run `cstack next --done retro --plan <plan file>`. When it says that `publish` comes next, launch the executor again with the same inputs. Its plan file now says "ready for review", so it runs only the `publish` phase. When the executor returns, run `cstack report check --plan <plan file>`. Handle the report as the `plan` guide says.

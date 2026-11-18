@@ -2,6 +2,10 @@
 
 In this phase you push the branch once, open the pull request, and wait for the checks. The settings that `cstack next` printed above this guide apply. They win over any default here. Only `cstack publish` pushes. Read only these sections of the plan file: its header, "Blocking questions", "Pull request", "Documentation" and "Executor notes".
 
+## The plan file
+
+In this phase, write to the plan file only inside a fix commit that you push. Any other edit would stay unpushed after the run.
+
 Run `cstack publish --plan <plan file>`. It refuses before a push when something is wrong, brings the branch up to date, pushes, opens the pull request with the title and body of the plan file, and waits for the checks. Act on its exit code.
 
 ## Exit code 0
@@ -9,7 +13,7 @@ Run `cstack publish --plan <plan file>`. It refuses before a push when something
 The checks are green.
 
 1. Move the ticket to the tracker's "in review" state, if the forge did not do it already.
-2. Add the pull request link to every decision record written in the `document` and `briefing` phases. These are edits in the documentation tool, not commits.
+2. Add the pull request link to every decision record written in the `document` and `briefing` phases that lives in a documentation tool. These are edits in that tool, not commits. A record that lives in the repository does not get the link, because that would need another push. The forge and the ticket carry the link for it.
 3. Run `cstack next --done publish --plan <plan file>`.
 4. Submit the report with `cstack report submit published --plan <plan file>`.
 
@@ -33,6 +37,4 @@ Read the reasons. A blocking question that is still open leads to a needs-decisi
 
 Exit code `4` means that the forge client is missing. Exit code `5` means that a push or a forge call failed. Submit a failed report that names the problem with `cstack report submit failed --plan <plan file>`.
 
-## The plan file
-
-In this phase, write to the plan file only inside a fix commit that you push. Any other edit would stay unpushed after the run.
+When `cstack publish` exits with `0`, finish with `cstack next --done publish --plan <plan file>` and the `published` report.

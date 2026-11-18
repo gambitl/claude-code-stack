@@ -19,9 +19,9 @@ In this phase you start the work and build every unit of the plan. The settings 
 
 When an implementer reports stuck, launch the same unit again with `resolve-issue:implementer-escalation`. Give it the same inputs and the stuck report. Write under the unit, in the plan file, that it was escalated, and every departure from the unit as written that the second attempt reports.
 
-The second attempt may need a file outside the `Files` line of its unit. Add that file to the line, with a short note, only when no unfinished unit lists it. Then run `cstack unit order --plan <plan file>` again.
+Sometimes the second attempt needs a file outside the `Files` line of its unit. Check this case first. When no unfinished unit lists that file, add it to the `Files` line with a short note. Run `cstack unit order --plan <plan file>` again. Then launch the unit again with `resolve-issue:implementer-escalation`. When an unfinished unit does list the file, the unit is blocked.
 
-If the second attempt is also stuck, add a `- Blocked:` line to the unit, with the reason. Finish every unit that does not depend on it. Then return a needs-decision report.
+When the second attempt is stuck for any other reason, or the unit is blocked, add a `- Blocked:` line to the unit, with the reason. Finish every unit that does not depend on it. Then return a needs-decision report.
 
 A unit can stop because `cstack unit red` or `cstack unit green` exited with `3`, since the settings have no test command. Do not escalate it. Return a needs-decision report that quotes the message.
 

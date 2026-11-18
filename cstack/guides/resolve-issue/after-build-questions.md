@@ -16,7 +16,7 @@ Label each question with the plan's definition.
 
 If you can test the question, test it. You can run the code or the tests, make a free sandbox or staging call that the conventions file allows, or read the source of the system involved. Never make a paid or production call. Record the evidence in the "Review log", apply the result with a commit, and the question is closed.
 
-If you cannot test it, add it under `## Blocking questions`, with the next free number. Write it word for word, for the person who can answer it, with its context and who that person is. End it with `- Answer: open`. Finish every part of the build that does not depend on the answer. Do not run `cstack next --done after-build-questions` as if nothing was open. Return a needs-decision report that starts by saying these are blocking questions found after the build, and gives each question word for word.
+If you cannot test it, add it under `## Blocking questions`. If the section holds the word "none", remove that word first. Write a heading `### Question <n>: <a few words>` with the next free number. Under it, write the question word for word, with its context. Then write a line `- For: <who can answer it>` and a line `- Answer: open`. Finish every part of the build that does not depend on the answer. Do not run `cstack next --done after-build-questions` as if nothing was open. Return a needs-decision report that starts by saying these are blocking questions found after the build, and gives each question word for word.
 
 ## Non-blocking questions
 
