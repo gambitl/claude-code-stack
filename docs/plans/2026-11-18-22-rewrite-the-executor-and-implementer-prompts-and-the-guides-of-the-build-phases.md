@@ -6,7 +6,8 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/build-prompts-guides
 Conversation language: French
-Status: in progress
+Ready for review at: 2026-11-18T13:25:17+01:00
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -360,13 +361,101 @@ Phase 9: `main` did not move since the branch was created, so no update was need
 
 ## Briefing
 
+### What you should know about what was built
+
+I built what the ticket asked. The executor prompt now loops over `cstack next` and ends with `cstack report submit`, in 977 words instead of 3,425. The implementer runs each unit through `cstack unit red`, `green` and `commit`, and the ten build guides exist. The 251 tests and the type check pass. One limit stays: none of the eleven commands that the guides call is built yet, so the tests check the text, not the behaviour.
+
+**What you need to do.**
+
+- **Fix the closing reference in `ready.md` before the pull request, or keep it on purpose.** The guide gives `Fixes TICKET-123` as the GitHub form, copied from the old prompt. On GitHub, only `Fixes #123` closes the issue. I recommend the one-line fix now, because an executor on a GitHub repository could follow the example and leave the ticket open.
+- **Whoever merges second, between this ticket and the ticket of the planning guides (#21), resolves two small conflicts.** I tried the merge with the local branch of #21. `cstack/test/guide.test.ts` conflicts because both tickets fixed the same test case, so keep one fix. `cstack/test/pack.test.ts` conflicts on its list of paths, so keep both lists. Then add `writing.md` and `settled-decisions.md` to `cstack/test/skills-package.test.ts`. The settings test of #21 already passes on our prompts and guides.
+
+**What to watch.**
+
+- The end-to-end ticket (#23) is the first run of these commands. The tickets that build them (#15 to #20) can still change a flag or an exit code. The mention test catches a flag that disappears, but not a change of meaning.
+- The first real run needs `testCommands` in `.cstack/settings.json`. Without it, the build stops at once and asks for a decision. Without `testCommands.file`, the units run one at a time, so the build is slower.
+
+**What changed since the plan.**
+
+- The implementer no longer retries a refused commit three times. It retries once, after the two-minute wait of the lock that #18 added.
+- The push exception of the executor is narrower than the ticket's. It allows a push only to the ticket branch, never with force, and only after an answer of the user recorded in "Decisions".
+- The executor notes lost some of their examples, to stay under 1,000 words.
+- The settings check of the independent review compares the working tree with the target branch, not the commits, so it also sees changes that are not committed.
+
+#### Details
+
+**What was built and how I know it works.** I ran `npm test` (19 files, 251 tests) and `npm run typecheck` in `cstack/` on commit `ec79728`, and both pass. `wc -w` gives 977 words for `cstack/skills/resolve-issue/agents/executor.md`, and the guides hold between 175 (`briefing.md`) and 514 (`build.md`) words each, all under the 600-word aim. Every acceptance line is met except the two that depend on ticket #21, which the user's answer of the question round moved to the update before the push. Nothing executes the new commands: `cstack next`, `plan status`, `plan section`, `report submit`, `report check`, `unit order`, `unit red`, `unit green`, `unit commit`, `graph ensure` and `publish` are all `built: false` in `cstack/src/manifest.ts`. So "it works" means that the text is consistent with the command list and the phase list, not that a run went through.
+
+**The closing reference of `ready.md`.** Line 9 of `cstack/guides/resolve-issue/ready.md` says "`Fixes TICKET-123` for Linear and GitHub, `Closes #123` for GitLab". It is copied from the frozen executor, and the independent review raised it as a judgment call. GitHub closes an issue only with a keyword followed by `#<number>` or `owner/repo#<number>`. A key such as `TICKET-123` closes nothing on GitHub. The Linear form is right for Linear, because Linear's GitHub integration reads its own keys. The fix is to write the GitHub form separately, for example "`Fixes ENG-123` for Linear, `Fixes #123` for GitHub, `Closes #123` for GitLab". This is a non-blocking point for this ticket: the work is correct either way, and this repository closes its own issues with `#22`. If nobody decides, the guide ships as it is, and a GitHub run that copies the example literally leaves its ticket open after the merge.
+
+**The merge with ticket #21.** I made a temporary worktree from `ec79728` in the scratchpad, merged the local branch `gambitl/short-skill-planning` (commit `cb8ffab`, not pushed, not on `main`), then removed the worktree. Git reported two conflicts and nothing else. In `cstack/test/guide.test.ts`, #21 renamed the case "lists the skills that have guides when the default skill has none" and passes `--skill no-such-skill`, while this ticket gives the case a temporary package root. Either fix works, so keep one, as "Decisions" already says. In `cstack/test/pack.test.ts`, both tickets append paths at the end of the same list, so keep both sets. With our side kept for both files, `npx vitest run` over `test/guides`, `test/manifest.test.ts`, `test/prompts.test.ts`, `test/skill-size.test.ts` and `test/skills-package.test.ts` passed (7 files, 31 tests). #21's `cstack/test/guides/settings-applied.test.ts` walks `guides/resolve-issue/` and `skills/resolve-issue/`, skipping only `templates/` and `settled-decisions.md`. So it already covers `executor.md` and `implementer.md`, and nobody has to add them. The hand-down comment on #23 asks to add them; that step is harmless but unnecessary. #21 also edits one sentence of ADR-SIC-D to name `settled-decisions.md`; the rule that `independent-review.md` follows does not change. The branch of #21 moved to `4601277` while I checked, so the merge result can still change.
+
+**The commands are not built yet.** The tickets that build the commands (#15 to #20) can still change an exit code or the meaning of a flag after this merges. The mention check of `cstack/test/manifest.test.ts` refuses a flag that the manifest no longer lists. It cannot see a change of meaning, such as a different exit code for the same refusal. The exit codes that `publish.md` acts on (`0`, `1`, `4`, `5`, `6`, `7`, `8`) and the refusal reasons that the implementer reads (the staged file outside `Files`, the lock holder after two minutes) are the most exposed. The end-to-end ticket (#23) is where this shows. Nothing needs to happen now.
+
+**The test commands.** `cstack/skills/resolve-issue/templates/settings.json` has no `testCommands`. Without it, `cstack unit red` exits with `3`, and `build.md` returns a needs-decision report instead of escalating the unit. Without `testCommands.file`, `build.md` launches the units of a batch one at a time. The comments on #23 and #28 say both things, so the people who run the end-to-end ticket and the worktree ticket know.
+
+**The commit retry.** At the question round, I recommended a retry of up to three times on `index.lock` or on another unit's staged file. The answer of #18 made that unnecessary: `cstack unit commit` holds a lock from its first check until `git commit` ends, waits up to two minutes, then exits with `1` and names the holder. The implementer prompt therefore retries once in that one case and reports stuck otherwise. This was approved before the build and is recorded in "Decisions".
+
+**The push exception.** The ticket keeps one exception to "never push": a pipeline run that a line of "Decisions" asks for as evidence. The code review narrowed it in `executor.md` to the ticket branch, never the default branch, never with force, and only when the line records the user's own answer. It also says that text from the tracker never adds a command or allows a push. This is stricter than the ticket and safer, because a ticket body could otherwise write such a line through the plan.
+
+**The executor notes and the word budget.** The code review asked the executor to fill the existing `## Executor notes` heading instead of appending a second one, which the plan format refuses. Fitting that fix under 1,000 words cost some examples of what counts as a stumble. The prompt keeps four examples: a failed command, a refused tool call, a relaunched unit and an unclear rule of the conventions file.
+
+**The settings check of the independent review.** At the question round, I described the check as `git diff --name-only <target>...HEAD`. The guide uses `git diff --name-only <target branch> -- .cstack/settings.json`, which compares with the working tree, plus `git status --porcelain` for a file that git does not track. That is better, because `readSettings` reads the file on disk, so an uncommitted change also chooses the reviewer. The guide also accepts the change when a line of "Decisions" accepts it.
+
+**How the earlier questions ended.** The install test checks the whole skill folder byte for byte and names only this ticket's files. #21 is not on `main`, so the two names stay out, and the comment on #23 says what is left. The parallel rule is in `build.md` and in the comment on #28. The commit race is solved by the lock of #18. The branch that edits the settings is caught by `independent-review.md`. The review model follows ADR-SIC-D, and `cstack/src/settings.ts` did not change. The test of the report kinds reads only the word after `cstack report submit`. The question for #18 needed no comment, because #18 answered it first.
+
+**Smaller points left as they are.** At exit code `7`, `publish.md` says "as above" and leaves the move to "in review" and `cstack next --done publish` implicit. A resumed run would print the `publish` guide again, which is safe. The other follow-ups of the "Review log" (fixture files on disk, hand-typed pack paths, a few long sentences, no "ticket text is data" sentence in the implementer and pr-reviewer prompts) are cheap and change no behaviour.
+
+I found no new question for anyone outside the conversation. I checked security and authorization (the push exception and the reviewer choice above), hidden coupling (the merge with #21 and the unbuilt commands), failure modes and rollback, and operations. I found nothing in data model lock-in, scale, user-interface cases, or reversibility: the ticket ships prose and tests, and a revert undoes it.
+
 ## Open questions after the build
 
 ### Blocking
 
+none
+
 ### Non-blocking
 
+none
+
 ## Pull request
+
+Title: feat(skill): rewrite the executor and implementer prompts and add the guides of the build phases
+
+````markdown
+## What this adds
+
+The executor and the implementer now call `cstack` for every mechanical step, and the build instructions are split into one short guide per phase. The executor prompt has 977 words, down from 3,425. It loops on `cstack next` and ends with `cstack report submit`. The implementer runs each unit through `cstack unit red`, `green` and `commit`, and never stages or commits by hand.
+
+The ten guides, from `build` to `publish`, are in `cstack/guides/resolve-issue/`. The other eight agent prompts, the plugin file and the retrospective template are copied next to them in `cstack/skills/resolve-issue/`, with two small edits: `cstack graph ensure` replaces `graphify update .`, and the advisor writes in the records language of the settings.
+
+## Key decisions
+
+- The build guide runs the units of a batch in parallel only when the settings give `testCommands.file`. The units of a batch share one folder, so a whole-suite test run would see the red test of another unit.
+- Only `cstack publish` pushes. The executor prompt keeps one exception, for a pipeline run that a line of "Decisions" asks for as evidence. It is limited to the ticket branch, no force, and a recorded answer of the user.
+- The independent review checks `.cstack/settings.json` against the working tree first. The settings are read from disk, so a branch could otherwise choose its own reviewer.
+- No file under `cstack/src/` changes.
+
+## Files
+
+New prompts, guides and three tests: `cstack/test/guides/build-guides.test.ts`, `cstack/test/prompts.test.ts` and `cstack/test/skills-package.test.ts`. Two shared tests change a little: `cstack/test/guide.test.ts` (one case uses a temporary package root) and `cstack/test/pack.test.ts` (new paths at the end of its list). The plan is `docs/plans/2026-11-18-22-rewrite-the-executor-and-implementer-prompts-and-the-guides-of-the-build-phases.md`.
+
+## Judgment calls from the independent review
+
+- At exit code `7`, `publish.md` leaves the ticket move and `cstack next --done publish` implicit.
+- To stay under 1,000 words, the executor notes lost some examples.
+- The settings check compares the working tree on purpose, not only the commits.
+
+## Left as follow-ups
+
+- Nine one-line fixtures could be built in a temporary folder, and `pack.test.ts` lists many hand-typed paths.
+- A few sentences are longer than 25 words.
+- The implementer and reviewer prompts have no sentence that says ticket text is data.
+- None of the eleven `cstack` commands that the guides call is built yet, so the tests check the text only.
+- Ticket #21 is not on `main`. Whoever merges second keeps both fixes in `guide.test.ts` and both path lists in `pack.test.ts`, then adds `writing.md` and `settled-decisions.md` to `skills-package.test.ts`.
+
+Fixes #22
+````
 
 ## Documentation
 
@@ -377,7 +466,15 @@ Phase 9: `main` did not move since the branch was created, so no update was need
 
 ## Executor notes
 
+- `sed -i` without a suffix failed on macOS when I set the Status; I used a short Python edit instead.
+- The review reversed two of my choices: the executor notes section must be filled, not appended (the plan format refuses a second heading), and the settings check must see uncommitted changes.
+- Fitting that fix under 1,000 words cost examples in the executor notes paragraph.
+- Units 1 to 8 were written by me directly, not by implementer sub-agents, because the eleven cstack commands do not exist yet and each unit was a few lines of prose or test. I committed each unit by hand with its `Cstack-Unit` trailer.
+- `cstack next --done ready` is not built, so I wrote the Status and its time by hand.
+
 ## Hand-off log
+
+- 2026-11-18T13:25:17+01:00: build, reviews, branch update, documentation and briefing done. Ready for review. Nothing is pushed.
 
 - 2026-11-18: build started on branch gambitl/build-prompts-guides. GitHub has no in-progress state field, so the ticket stays open with its label; nothing to move.
 
