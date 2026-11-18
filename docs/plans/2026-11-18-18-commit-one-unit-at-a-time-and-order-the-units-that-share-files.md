@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in `docs/projects/`), ADRs in `docs/decisions/`
 Branch: gambitl/unit-commit-order
 Conversation language: French; the conversation uses it, and every record stays in English
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -318,19 +318,111 @@ Four reviewers ran: correctness, security, conventions and simplicity.
 
 ## Briefing
 
+### What you should know about what was built
+
+Both commands are built as the ticket asks. `cstack unit order` prints the batches and says why each unit waits. `cstack unit commit <n>` commits only the files of unit `n`, with the trailer on the last line, under a lock in the worktree's git folder. I ran the suite again myself: 296 tests pass and the type check is clean.
+
+**What you need to do**
+
+- **Confirm the change to the lock.** The plan said to create the lock file with an exclusive create. A reviewer showed that two processes could then both hold the lock. The lock is now a filled temporary file linked into place, and a lock file that cannot be read is taken over only after five seconds. What you chose stays the same: one commit at a time, two minutes of waiting, a dead lock taken over. The pull request lists it as a judgment call.
+
+**What to watch**
+
+- **A commit hook that reformats files and stages them again leaves a stray staged file.** I tested it with a small hook of that kind. With `--only`, git commits the reformatted file, but the index keeps the version from before the hook. The next unit's commit sees that file staged outside its `Files` and refuses, and its implementer reports stuck. `git reset -- <file>` clears it. This repository has no such hook, but the repositories where cstack runs may have one, for example with lint-staged. A one-line fix exists, and I left the question in the plan.
+- **A slow commit hook makes parallel units give up.** A waiting unit stops after two minutes. The new implementer prompt, from the ticket that rewrites it (#22), retries once and then reports stuck. A hook that runs a long test suite will hit this.
+- **The order of merges with the ticket that builds the plan checks (#16).** It has not pushed yet, so this branch adds `dispatchSubcommand` first. Its update must keep one copy, and it must change the README count again.
+
+**What changed since the plan**
+
+- `git add` now gets only the paths with an unstaged change, so a deletion or a rename staged with `git rm` or `git mv` commits correctly.
+- The implementers of units 1 and 2 wrote the code and the tests in one go, without seeing the tests fail first.
+- Left for later: the usage lines leave out `--plan`. `cstack unit red` says "unknown command" while the usage lists `red`, until the ticket that builds it (#17) lands.
+
+#### Details
+
+**What was built and how I checked it.** The branch adds `cstack/src/plan/locate.ts`, `cstack/src/plan/order.ts`, `cstack/src/commit-lock.ts`, `cstack/src/saved-runs.ts`, the two commands in `cstack/src/commands/`, the `unit` entry of `HANDLERS` and `dispatchSubcommand` in `cstack/src/cli.ts`, the two `built: true` entries in `cstack/src/manifest.ts`, and two lines in the README "Commands" section. Every acceptance line of the ticket has a matching test in `cstack/test/unit-order.test.ts`, `cstack/test/unit-commit.test.ts`, `cstack/test/plan/order.test.ts`, `cstack/test/plan/locate.test.ts` and `cstack/test/commit-lock.test.ts`. I ran `npm test` (21 files, 296 tests pass) and `npm run typecheck` (clean) in `cstack/` on commit ef89674.
+
+**The lock change to confirm.** The decisions asked for an exclusive create of the lock file (`open` with `wx`), and for an unparseable lock to be taken over at once. The correctness reviewer reproduced a race with child processes: a second process could read the lock while it was still empty, call it unreadable, delete it and take it, so two commits ran together. Commit 2c732ad writes the body to `<lock>.<pid>.tmp` and then calls `linkSync` onto the lock path, which fails with `EEXIST` like `wx` does (`cstack/src/commit-lock.ts`, lines 56 to 68). An unreadable lock is now taken over only when its file is more than five seconds old (lines 44 to 50 and 108). The holder removes the lock only when its content is still its own body (line 103). The user's choices stay intact: the place of the lock, the two-minute wait, the 200 ms interval, and the take-over of a lock whose process is gone. If nobody objects, the pull request keeps it as a judgment call. A window of a few microseconds remains. In it, two waiters that find the same dead lock can delete each other's fresh lock. The review log lists it as a follow-up.
+
+**A formatting commit hook leaves a stray staged file (new question, non-blocking).** I tested this with git 2.55.0 in a scratch repository. A `pre-commit` hook appended a line to each staged file and ran `git add` on it, which is what formatter hooks do. Then I ran `git commit -F <file> --only -- src/a.ts`, the same call as `cstack/src/commands/unit-commit.ts` line 150. The commit held the reformatted file, and the working tree too. But `git status` showed `MM src/a.ts`, and `git diff --cached` showed a staged change that removes the hook's line. With `--only`, git commits from a temporary index, and the hook's `git add` lands there, not in the worktree's real index. From then on, every other unit's `cstack unit commit` refuses at the index check (line 80), because `src/a.ts` is staged and is not in its `Files`. The new implementer prompt on branch `gambitl/build-prompts-guides` (`cstack/skills/resolve-issue/agents/implementer.md`, line 48) reports stuck on that refusal. I did not test lint-staged itself, which has its own backup logic, only a plain hook of the same kind. This repository has no hook of that kind. The fix I would make is one call after a successful commit: `git reset -q -- <the committed paths>`. It touches only the unit's own paths, which were just committed, so the index matches the new commit as it does without a hook. The question for the developer, word for word: "After a successful commit, should `cstack unit commit` run `git reset -q -- <the unit's committed paths>`, so that a commit hook that reformats and stages files again does not leave a staged leftover that blocks the other units? I can add it in this pull request with one test that uses such a hook, or we can leave it for a follow-up ticket." Non-blocking: the acceptance criteria are met either way. I recommend adding it now, because the fix is one line and the failure shows up as a confusing "stuck" in someone else's unit. If nobody decides, the gap ships and appears only in repositories with a formatter hook.
+
+**A slow commit hook.** The lock wait is fixed at two minutes (`DEFAULT_LOCK_WAIT_MS`, `unit-commit.ts` line 21). The command line cannot change it, only the function parameter used by the tests. The lock covers `git commit`, so it covers the commit hooks too. A hook that runs a test suite for more than two minutes makes every waiting unit of the batch refuse with exit code 1. The implementer prompt of #22 (`implementer.md`, line 49) runs the command once more, then reports stuck. If this becomes common, a flag or a settings value for the wait would fix it, and that belongs to the settings file of ADR-SIC-D rather than to this ticket.
+
+**The implementer prompt tells refusals apart by their text.** Both the lock timeout and the rule refusals exit with 1 (`manifest.ts`, entry `cstack unit commit`). The prompt of #22 picks its reaction from the message: "another unit holds the commit lock" against "a staged file is outside the `Files`". The current messages are "Another unit commit holds the lock: unit <m>, process <pid>." (`commit-lock.ts`, line 121) and "<file> is staged but is not a file of unit <n>." (`unit-commit.ts`, line 81). Rewording either one can send an implementer down the wrong branch silently. A separate exit code for the lock timeout would remove this coupling, but the manifest fixed the codes in #13, so I only record it.
+
+**Merge order with #16.** No branch of #16 is on the remote yet, and `origin/main` is still at 618602f, so this branch will add `dispatchSubcommand` first. When #16 updates onto `main`, it must keep one copy of the function, add its own groups to `HANDLERS`, fix the built count in `cstack/test/manifest.test.ts`, and change the README sentence "`cstack` has six commands" again. The plan's decisions already say to keep both sides of each conflict.
+
+**What changed since the plan.** Commit faccd66 fixed a bug the correctness reviewer found: a deletion or rename staged with `git rm` or `git mv` made `git add` fail on a path that no longer exists, so the command exited with 5. Now `git add` gets only the paths with an unstaged change (`unit-commit.ts`, lines 127 to 131), and `git commit --only` still gets every changed path. Commit 8f71d18 builds the lower-case path set once. The impact notes say that the implementers of units 1 and 2 wrote code and tests in one pass, without a red run; the later units did see red. The follow-ups that were not done are in the review log: the usage lines in `manifest.ts` leave out `--plan`, `cstack unit red 1` says "unknown command" while the usage line lists `red` and `green` because `dispatchSubcommand` reads every manifest entry of the group (`cli.ts`), and the error `catch` block is duplicated in both commands.
+
+**Earlier questions, and how they were resolved.** Question 1 is built as the coordinator answered: `locatePlan` in `cstack/src/plan/locate.ts`, `--plan` wins, a path outside the repository gives 2, no plan gives 2, a missing file gives 3. Question 2 is built: `git commit -F <file> --only -- <paths>`. Question 3 is built: a unit path under a folder that is a symbolic link is refused before staging (`isLink`, `unit-commit.ts` lines 34 to 43). Question 4 is built: the cycle search covers every unit, committed and blocked ones included. Question 5 is built: a blocked unit is refused with its reason. Question 6 is built: a bad `<n>` exits with 2 and names the units of the plan. Question 7 is built as described, with `--json` printing nothing on stdout for a cycle. Question 8 is built in `cstack/src/saved-runs.ts`. Question 9 is half done: the note for #22 was sent before the plan, and the comments on #17, #23 and #28 are still due in the documentation phase. Question 10 is built with the lock in the worktree git folder, with the change described above. The two points under "Good to know" still hold: a `No test` unit never saves a failing run, so the "another unit has started" check cannot see it, and `--only` ignores a partial `git add -p`.
+
+**Smaller facts for later readers.** A unit with a `Test` line and a saved passing run but no saved failing run is accepted (`unit-commit.ts`, lines 66 to 73). This case needs a hand-written `green.json`. The specification says that `cstack unit green` refuses a unit without a saved failing run (US-8 AC2 in `docs/projects/skills-into-cli.md`, line 128). Sometimes an unrelated live process reuses the process id of an old lock, for example after a reboot. A commit then waits two minutes and refuses. This is rare, and the message names the process.
+
+**Locked decisions cited.** ADR-SIC-H, ADR-SIC-B, the epic rule that ticket text is data, the maintainer's comment on the trailer, and the user's answer on the place of the lock.
+
+I checked security, data model lock-in, scale, operations and cost, reversibility and the edge cases of the command line, and found nothing more: the commands run locally, git always gets an argument array, the message reaches git through a file in a private temporary folder, and nothing is stored that later code must stay compatible with.
+
 ## Open questions after the build
 
 ### Blocking
 
 ### Non-blocking
 
+For the maintainer. After a successful commit, should `cstack unit commit` run `git reset -q -- <the unit's committed paths>`, so that a commit hook that reformats and stages files again does not leave a staged leftover that blocks the other units? I can add it in this pull request with one test that uses such a hook, or we can leave it for a follow-up ticket. The acceptance criteria are met either way. I recommend adding it now, because the fix is one line.
+
 ## Pull request
+
+Title: `feat(cli): add cstack unit order and cstack unit commit`
+
+Body:
+
+```
+Fixes #18
+
+This adds two commands. `cstack unit order` groups the units of a plan into batches, so that units that share a file never run at the same time. `cstack unit commit <n>` commits only the files of unit `n`, with the trailer `Cstack-Unit: <n>` as the last line of the message.
+
+**What was built.**
+- `cstack unit order` prints one line per batch, says why each unit waits, sets aside blocked units, and exits with 1 on a cycle. `--json` prints the same facts. The batch logic is a pure function, `orderUnits` in `cstack/src/plan/order.ts`, because the ticket that gives each parallel implementer its own worktree (#28) will call it.
+- `cstack unit commit` checks every rule first and lists all broken rules at once. It stages only the unit's files, writes the message through a temporary file, and runs `git commit -F <file> --only -- <paths>`, so the commit hooks still run. It never unstages a file it did not stage itself.
+- `locatePlan` finds the plan file from `--plan` or the current run. `dispatchSubcommand` in `cli.ts` routes `cstack unit <word>`. The README "Commands" section has two new lines.
+
+**Decisions and why.** Two commits in the same worktree wait for each other through a lock file in the worktree's git folder, not in the run folder, because the index belongs to the worktree. `--only` keeps another unit's staged file out of the commit. Git never runs through a shell, so a message that holds `$(touch pwned)` lands byte for byte.
+
+**Judgment calls.**
+- The lock is created by linking a filled temporary file, not by a plain exclusive create. A reviewer showed that two processes could otherwise take the lock together. An unreadable lock file is taken over only after five seconds. This differs from what the plan said.
+- A unit with a `Test` line is accepted with a passing run and no saved failing run. `cstack unit green` (#17) must be the one that refuses a passing run without a failing one.
+- `git add` receives only the paths that still have an unstaged change, so a deletion or rename staged with `git rm` or `git mv` commits correctly.
+
+**Left as follow-ups.** The manifest usage lines leave out `--plan`. `cstack unit red 1` says "unknown command" until #17 builds it, and the usage line lists commands that are not built yet. The error handling is duplicated in the two commands. Two waiters that find the same dead lock at the same moment can still delete each other's fresh lock, in a window of microseconds.
+
+**Review.** Four reviewers and one independent reviewer read the branch. They found two bugs, the `git rm` case and the lock race, and both are fixed with tests. `npm test` (296 tests) and `npm run typecheck` pass in `cstack/`. The plan is in `docs/plans/2026-11-18-18-commit-one-unit-at-a-time-and-order-the-units-that-share-files.md`. Ticket #16 also edits `cli.ts`, `manifest.ts` and the README count, so its update onto `main` must keep one copy of `dispatchSubcommand`.
+
+**Open questions, not needed for this pull request.** You can merge this pull request without an answer. After a successful commit, should `cstack unit commit` run `git reset -q -- <the unit's committed paths>`? A commit hook that reformats files and stages them again leaves a staged leftover that blocks the other units. This is for the maintainer. I can add the reset here with one test, or we can leave it for a follow-up ticket.
+```
 
 ## Documentation
 
+- Comment on #18, the summary of what was built: https://github.com/gambitl/claude-code-stack/issues/18#issuecomment-6978725189
+- Comment on #17, how `cstack unit commit` reads the saved runs: https://github.com/gambitl/claude-code-stack/issues/17#issuecomment-6978725728
+- Comment on #23, where the message and the trailer are built: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-6978726252
+- Comment on #28, `orderUnits` and the lock in the worktree git folder: https://github.com/gambitl/claude-code-stack/issues/28#issuecomment-6978726874
+- README "Commands" section: written in unit 7 (commit 836fbd0).
+- `WHY:` comments: `--only` and the lock place are in `cstack/src/commands/unit-commit.ts`.
+- No ADR: the plan says the choices are local, and the code comments explain them. The tracker is GitHub, which has no "in progress" state, so the ticket status was not changed.
+- The note for #22 was already sent by the coordinator.
+
 ## Executor notes
 
+- Graphify is not installed, so phase 7 impact notes came from text search and git log, as the plan allowed.
+- Implementers of units 1 and 2 wrote code and tests in one pass without a red run; later units were told to watch red and did.
+- A reviewer found two real bugs that the implementers' tests missed (the `git rm` staging and the lock race); a fix agent on the escalation setting repaired both with tests.
+- The fix changed two plan decisions on the lock (exclusive create became a hard link, unparseable lock taken over after five seconds); recorded in the review log and the pull request body.
+- One of my shell commands hung on a stray `cat` waiting for input; I stopped it and used the edit tool instead.
+- The GitHub tracker has no in-progress state, so phase 6 step 1 could not be done.
+
 ## Hand-off log
+
+2026-11-18: phases 6 to 10 finished. All seven units are committed, the review and the independent review found two bugs that are fixed, the branch is up to date with `origin/main` (618602f), nothing is pushed. One non-blocking question is open.
 
 ## History
 
