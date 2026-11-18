@@ -509,7 +509,7 @@ function readPullRequest(region: Region, section: PlanSection | undefined): Plan
 }
 
 export function readPlan(text: string): PlanRead {
-  const lines = text.split("\n");
+  const lines = text.split(/\r?\n/);
   if (lines.at(-1) === "") lines.pop();
   const { headings, comments, problems } = scan(lines);
 
