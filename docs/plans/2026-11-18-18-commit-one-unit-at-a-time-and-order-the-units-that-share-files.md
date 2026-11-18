@@ -306,6 +306,16 @@ The test commands are `npm test` and `npm run typecheck`, run from `cstack/`. Un
 
 Graphify is not installed, so these come from text search and `git log`. All new symbols (`orderUnits`, `locatePlan`, `withCommitLock`, `unitOrder`, `unitCommit`, `dispatchSubcommand`) are new, so nothing outside the diff depends on them yet. The changed existing files are `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/cli.test.ts`, `cstack/test/manifest.test.ts` and `README.md`. The usual companions of `cli.ts` and `manifest.ts` are their two test files, and both are in the diff. Tests that exercise the change: `cli.test.ts`, `manifest.test.ts`, and the six new test files. Full suite after the units: 21 files, 289 tests pass; typecheck is clean. Implementers of units 1 and 2 wrote code and tests in one pass without a red run; later units did see red.
 
+### Review findings (phase 7)
+
+Four reviewers ran: correctness, security, conventions and simplicity.
+
+- Fixed, correctness: `cstack unit commit` failed with exit 5 when a deletion or rename had been staged with `git rm` or `git mv`, because `git add` was run on a path that no longer exists. Now `git add` gets only paths with an unstaged change, and `git commit --only` gets all changed paths. Commit faccd66, with three tests.
+- Fixed, correctness and security: the commit lock had a race. A second process could read the lock file while it was still empty, call it unreadable and take it over, so two commits ran at once (the reviewer reproduced it with child processes). The lock is now created with a hard link of an already filled temporary file. An unreadable lock is taken over only when it is five seconds old, and only the owner removes it. Commit 2c732ad, with tests including six processes at once. This departs from the decisions on the lock: the exclusive create is a hard link (same EEXIST behaviour), and an unparseable lock is taken over only after five seconds. It goes into the pull request body as a judgment call.
+- Fixed, simplicity: `checkUnit` returns the lowercased own-path set (commit 8f71d18). The `?? ""` in `order.ts` stays, because the types need it.
+- Follow-ups, not done: the manifest usage lines of the two commands leave out `--plan`. `cstack unit red 1` says "unknown command" instead of "not built yet", and the usage line lists unbuilt words. The `catch` block that maps errors to exit codes is duplicated in both commands. Two waiters that find the same dead lock at once can still delete each other's fresh lock (a window of microseconds). `dispatchSubcommand` keeps its `group` parameter because the coordinator fixed its signature.
+- After the fixes: 296 tests pass and typecheck is clean.
+
 ## Briefing
 
 ## Open questions after the build
