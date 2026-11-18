@@ -59,3 +59,13 @@ describe("findOnPath", () => {
     expect(findOnPath("tool", dir)).toBeUndefined();
   });
 });
+
+describe("a command that ignores the polite stop signal", () => {
+  it("still gives timeout in under 2 seconds", async () => {
+    const run = createRunner(200);
+    const started = Date.now();
+    const result = await run("sh", ["-c", "trap '' TERM; sleep 3"]);
+    expect(result.kind).toBe("timeout");
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+});

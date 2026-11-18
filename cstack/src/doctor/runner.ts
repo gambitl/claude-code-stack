@@ -16,7 +16,7 @@ export function createRunner(timeoutMs: number): Runner {
       execFile(
         command,
         args,
-        { timeout: timeoutMs, encoding: "utf8" },
+        { timeout: timeoutMs, killSignal: "SIGKILL", encoding: "utf8" },
         (error, stdout) => {
           if (!error) {
             resolve({ kind: "ok", stdout });
