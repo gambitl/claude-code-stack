@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in docs/projects/), ADRs in docs/decisions/
 Branch: gambitl/cstack-release-skills
 Conversation language: French
-Status: approved
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -359,6 +359,43 @@ The independent reviewer added one test (commit 571e30e): an unshipped folder wi
 
 ## Briefing
 
+### What you should know about what was built
+
+`cstack` now has `cstack skills install` and `cstack guide <phase>`. It ships one example skill and one example guide. A release workflow publishes `gambitl-cstack-<version>.tgz` when someone pushes a `v` tag. This does what the ticket asked, with the two changes you approved: the package name `@gambitl/cstack`, and a backup before every replace or removal. I re-ran the 32 tests, and I packed the real package and read the file name the way the workflow does. Both work. The last acceptance criterion can only be checked after the merge.
+
+**What you need to do**
+
+- The pull request that adds `cstack doctor` (#36) and this one can merge in either order, but the second one needs an update first. Both add a section at the same place in the README, and both add a "Commands:" block to the usage text in `cli.ts`. When you resolve it, keep "Requirements" before "Install cstack", keep a single "Commands:" block, and drop the Node sentence of "Install cstack", because "Requirements" already says it.
+- After the merge, claim the `gambitl` scope on npm. Then push the tag `v0.1.0`, and check that the release has the file attached.
+- For the last acceptance check, do not run `cstack skills install` on your real home before both baseline runs of the ticket that runs today's skill twice (#12) are done. That ticket says to install nothing from `cstack/skills/` before them. The example skill would add one skill and one agent to every session. Until then, check the install with `HOME=$(mktemp -d) cstack skills install`. Installing `cstack` itself with `npm install -g` is fine.
+
+**What to watch**
+
+- The release job runs on `macos-latest`. If GitHub cancels it with "The job was not acquired by Runner", rerun it with `gh run rerun`.
+- Each new version writes a new version into the marker. So every update replaces every skill and adds a backup folder. A Finder `.DS_Store` file inside an installed skill also counts as a change. Nothing cleans `~/.claude/skill-backups`, but it stays small for now.
+
+#### Details
+
+The build followed the plan. All nine units are committed under the messages the plan gives, from f470be0 to 5ac0f64, plus the extra test of the independent review in 571e30e. I ran `npm test` in `cstack/` on 2026-11-18, and the 4 test files and 32 tests passed. I also ran `npm pack --json --pack-destination <scratch folder>` in `cstack/` with npm 11.19.1, piped into the same `node -p` command as the "Pack" step of `.github/workflows/release.yml` (line 42). It printed `gambitl-cstack-0.1.0.tgz`, and the file was written. So the lifecycle output of `prepack` does not pollute the JSON on standard output, even without `--dry-run`. The last acceptance criterion needs a pushed tag and a real install, so nobody can check it before the merge. The plan forbids both during the run.
+
+The pull request that adds `cstack doctor` is #36, on the branch `gambitl/cstack-doctor`, open on 2026-11-18. `origin/main` had not moved since this branch started. #36 changes `README.md`, `cstack/src/cli.ts` and `cstack/test/cli.test.ts`, the same three files that this branch changes besides its own. In the README, both branches insert a new section right after the two introduction paragraphs, so git reports a conflict. In `cli.ts`, both replace the line "No command exists yet." with a "Commands:" block, and both add dispatch lines next to the command-name check. #36 also adds `cstack/test/readme-requirements.test.ts`. That test reads only the bold bullets under `## Requirements`, up to the next `## ` heading, so the "Install cstack" section never breaks it, as long as it stays a separate section. "Requirements" should come first, because a reader needs Node before running `npm install -g`. The last paragraph of "Install cstack" says that `cstack` needs the Node version that `engines.node` names. The Node bullet of "Requirements" says the same thing, so that sentence should go, and the sentence about `cstack guide <phase>` should stay. By default, git forces someone to resolve the conflict, but nothing stops a result with two "Commands:" blocks or the Node rule written twice. The plan already tells the executor to bring the branch up to date before the push, so this matters only when #36 merges after this pull request opens.
+
+ADR-SIC-C, section "Release steps", and the decisions of this plan list the release steps after the merge. The maintainer claims the `gambitl` scope on npm, pushes `v0.1.0`, and checks the release. The tag check in the workflow stops when the tag differs from `v` followed by `0.1.0`. If nobody claims the scope, anyone can create the `gambitl` user or organisation on npm and publish `@gambitl/cstack`. `npm update -g` would then replace the tool with that package, which brings back the trap that the rename avoided.
+
+The last acceptance criterion says that, after `cstack skills install`, a new Claude Code session lists the example skill and its agent. The ticket that runs today's skill twice (#12) says in its scope step 7: "Install nothing from `cstack/skills/` before both runs are done." This version ships only `cstack-example`, so an install on the real home would not touch the prose `resolve-issue`. It would still add the description of one skill and one agent to every session, including the baseline sessions that the comparison measures. `cli.ts` passes `os.homedir()` as the home folder, and on macOS that function reads the `HOME` variable, so `HOME=$(mktemp -d) cstack skills install` checks the files, the marker and the exit code without touching `~/.claude`. The check in a real Claude Code session waits until both baseline runs are done. Installing `cstack` itself with `npm install -g` and the release link does not touch any skill, and #12 scope step 11 even prefers a release build for `cstack measure`. If someone installs on the real home too early, deleting `~/.claude/skills/cstack-example` undoes it, because that folder is new and only `cstack` wrote it.
+
+The release job runs on `macos-latest`, like the CI workflow. The plan's decisions already note that this runner sometimes cancels a job with "The job was not acquired by Runner", which is not a code failure. A rerun with `gh run rerun <run id>` fixes it. If the release step itself fails after the tag is pushed, the maintainer can rerun the job, because `gh release create` runs last and nothing was published before it.
+
+`cstack/src/commands/skills.ts` writes the version into the marker (line 175), and `sameFolder` (lines 55 to 80) compares every entry, marker included. So every version change reports every skill as `replaced` and moves the old folders into a new dated backup folder. A `.DS_Store` that Finder writes inside an installed skill also makes the next install say `replaced`. Nothing removes old backups, and `pull-skills.sh` has the same growth. With the small skill folders of this project, the folder grows by a few kilobytes per update. The options for later are to ignore `.DS_Store` in the comparison, to compare without the marker, or to add a cleanup of old backups. None is needed for this ticket. These are follow-ups 2 and 6 of the phase 7 review.
+
+The other review follow-ups stay open and none changes what the ticket delivers. The usage errors of `cstack skills` print no `cstack: ` prefix (`skills.ts` line 116), while `cli.ts` and `guide.ts` (line 10) do. A relative symbolic link adopted across disks keeps its relative path in the backup. The release job holds `contents: write` while it runs `npm ci` and `npm test`. The token itself reaches only the "Create the release" step, and the checkout keeps no credentials, but splitting the job in two would narrow it further. `cache: npm` could be dropped from the release workflow to remove any cache question. The plan chose one job, and this repository has a single maintainer who can push tags, so I accept that choice.
+
+The questions of the earlier block are all resolved in the code. The package is named `@gambitl/cstack` in `cstack/package.json` and `cstack/package-lock.json`, and the README, ADR-SIC-C and the pack test use `gambitl-cstack-<version>.tgz`. A folder that `cstack` owns moves into the dated backup folder before a replace or a removal, and an identical folder is reported as `unchanged`. Each command takes an options object, and the signature of `run` did not change. `--adopt` can repeat, usage errors return 2, and `cstack guide` with the default skill returns 1 and lists the skills that have guides. The release reads the file name from `npm pack --json`, gives the token only to its last step, and keeps no credentials on checkout. The temporary folder is created next to the real path of the skills folder (`skills.ts` line 168), and a backup move falls back to copy and delete on `EXDEV`. The command refuses to run as root. `pull-skills.sh` skips folders that hold `.cstack-managed`, with a test. The marker holds the version followed by a newline. The point about a nested `.gitignore` belongs to the comments on the tickets that ship the real skill and its guides (#21, #22), which are still to write under "Documentation duties".
+
+I found no new question for anyone outside the conversation.
+
+I checked and found nothing to raise on the validation of names before any file is read, data lock-in (only the existence of the marker counts, so its content can change later), scale, recurring cost, and user experience beyond the points above.
+
 ## Open questions after the build
 
 ### Blocking
@@ -367,9 +404,43 @@ The independent reviewer added one test (commit 571e30e): an unshipped folder wi
 
 ## Pull request
 
+Title: `feat(cli): release cstack on GitHub and install its skills in one step`
+
+Body:
+
+This pull request adds `cstack skills install` and `cstack guide <phase>`, ships one example skill and one example guide, and adds a workflow that publishes each version as a GitHub release.
+
+`cstack skills install` copies the skills of the installed package into `~/.claude/skills/` and writes the marker file `.cstack-managed` with the version into each folder. It replaces only folders that hold the marker. A folder without the marker, a symbolic link or a plain file is skipped with a reason, and `--adopt <name>` takes it over after a backup. Before it replaces, removes or adopts a folder, it moves the old one to `~/.claude/skill-backups/<date-time>/<name>`. Installing an older release brings the older skills back exactly. `cstack guide <phase>` prints a guide from the installed package, for `resolve-issue` unless `--skill` names another skill.
+
+Key decisions, written in `docs/decisions/ADR-SIC-C-how-cstack-ships-its-skills.md`: the package is named `@gambitl/cstack` because the name `cstack` on the npm registry belongs to an unrelated package, so the release file is `gambitl-cstack-<version>.tgz`; the command refuses to run as root; and a marked folder is backed up, never deleted. The ticket asked for a backup only with `--adopt`.
+
+Files touched: `cstack/src/commands/skills.ts` and `guide.ts` (new), `cstack/src/cli.ts` (two dispatch blocks and the usage text), `cstack/package.json` and its lock file (name, `files`, `prepack`), the example skill and guide, three test files, `.github/workflows/release.yml`, `pull-skills.sh` and its test (it no longer reports folders that `cstack` installed), `README.md` (new section "Install cstack"), the ADR and its link in the specification.
+
+Judgment calls from the independent review. The messages of `skills install` lack the `cstack: ` prefix of the other commands. Every new version changes the marker, so each update replaces every skill and adds a backup folder, which nothing cleans. If a backup move fails halfway, the skills already moved stay missing until the next install.
+
+Review findings left as follow-ups: a `.DS_Store` file inside an installed skill counts as a change; a relative symbolic link adopted across disks keeps its relative path in the backup; the release job could be split in two so that `contents: write` is not present during `npm ci` and `npm test`; about 11 lines could be removed in `guide.ts` and `skills.ts`.
+
+After the merge, the maintainer needs to claim the `gambitl` scope on npm, push the tag `v0.1.0`, and check that the release has the file attached. Tickets #10 and #36 edit `cli.ts` and the README too, so the second to merge will need a small conflict fix. Do not run `cstack skills install` on the real home folder before the baseline runs of #12 are done.
+
+Plan file: `docs/plans/2026-11-18-9-release-cstack-and-install-its-skills.md`.
+
+Fixes #9
+
 ## Documentation
 
+- Comment on #9: https://github.com/gambitl/claude-code-stack/issues/9#issuecomment-6973263138
+- Comments on dependent tickets: #15 https://github.com/gambitl/claude-code-stack/issues/15#issuecomment-6973263543, #21 https://github.com/gambitl/claude-code-stack/issues/21#issuecomment-6973264027, #22 https://github.com/gambitl/claude-code-stack/issues/22#issuecomment-6973264500
+- Epic #6 body: the ADR-SIC-C line now says the record exists, with its path.
+- ADR-SIC-C: `docs/decisions/ADR-SIC-C-how-cstack-ships-its-skills.md`, with `WHY: ADR-SIC-C` comments in `cstack/src/commands/skills.ts`. Linked from section 9 of `docs/projects/skills-into-cli.md`.
+- README section "Install cstack".
+- The pull request link is not added to the ADR: it lives in the repository, and an edit would need an extra push.
+
 ## Executor notes
+
+- Unit 2 removed the line "No command exists yet." from `USAGE` in `cli.ts`, which the plan did not list; it was false after the change.
+- Unit 3 amended its own commit after a failed assertion caused by a sed command; no impact.
+- The plan asked for two `WHY: ADR-SIC-C` comments in `skills.ts`, but units 3 and 4 wrote only one. The executor added the marker one in a commit.
+- Graphify is not installed, so impact notes used file reads and `git log`.
 
 ## Hand-off log
 
