@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/plan-format
 Conversation language: French
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -488,37 +488,129 @@ Fixed in one commit: a unit path with a `.git` part (any case) is refused, becau
 
 Not changed: the simplicity reviewer asked to delete `DONE_REPORT_SECTIONS` and the saved-run types in `run-state.ts`, but the Decisions require both exports for #16 to #20, so they stay. Small cleanups it listed in `cli.ts` and `manifest.ts` were left, because they save a few lines and add risk.
 
-Follow-ups, no change here: a plan file with Windows line endings gets the misleading "prose skill wrote it" message; `createRun` stores the plan path as given, so #15 must make it relative to the repository root; an empty `- Blocked:` line counts the unit as blocked in the `build` check; errors echo plan text with control characters; #17 and #18 must resolve symbolic links before they write a unit file (the reader checks text only).
+Follow-ups, no change here: a plan file with Windows line endings gets the misleading "prose skill wrote it" message; `createRun` stores the plan path as given, so #15 must make it relative to the repository root; errors echo plan text with control characters; #17 and #18 must resolve symbolic links before they write a unit file (the reader checks text only).
+
+### Independent review (phase 8)
+
+The independent reviewer changed one thing: the reader now refuses an empty `- Blocked:` line (test first), which closes the follow-up above. It found no other bug, security problem or broken convention, and it checked the acceptance criteria one by one. Judgment calls for the pull request body: the Ticket section's `filled` flag is always true because of the upstream-decisions heading, so #16 must check `bodyLines` as the `ticket` phase does; the commit reader compares with the upstream of the target branch, as the user decided; and a test in `manifest.test.ts` is named more strongly than what it checks.
+
+### Update onto main (phase 9)
+
+`origin/main` moved when ticket #14 merged. The branch was rebased. One commit that fixed the install test was dropped, because `main` already had the same fix. After the rebase `npm run typecheck`, `npm test` (241 tests) and `npm run build` pass.
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The branch delivers the shared rules of milestone 2. They are the `cstack-plan/1` format with its reader, the reader of the `Cstack-Unit` trailers, the order of the fifteen phases, the run state under the common git folder, the command list with its exit codes, and ADR-SIC-B. It does what the ticket asked. The 241 tests pass, the typecheck and the build are clean, and I checked that `cstack next` answers "not built in this version yet" with exit code 2.
+
+**What you need to do**
+
+- Do not tag a `v*` release before the entry skill (#21) merges. Otherwise `cstack skills install` would install a `resolve-issue` folder that holds only two templates. On your machine, it would also run into your current prose `resolve-issue` skill.
+
+**What to watch**
+
+- `cli.ts` finds a command by its first word. The `cstack unit` commands are split between two tickets: `unit red` and `unit green` come from #17, `unit order` and `unit commit` from #18. Both tickets will edit the same `unit` handler. The one that merges first must answer "not built yet" for the other ticket's commands.
+- The review left follow-ups for the tickets that build on this one. #15 must store the plan path relative to the repository root, because `createRun` keeps it as given. #17 and #18 must resolve symbolic links before they touch a unit file, because the reader only checks the text of a path. Check that the comments on #15, #17 and #18 say so.
+- The commit reader refuses a target branch that has no local branch, even when `origin/main` exists. In a clone that holds only the ticket's branch, the unit status command (#16) will stop with exit code 3.
+
+**What changed since the plan**
+
+- The review made the format stricter. A unit path with a `.git` part is refused, and so is an empty `- Blocked:` line. The `ticket` phase now needs a real content line, not only a heading.
+- A mention of `cstack --version` in a guide is no longer read as a command, so the check of the guides stays quiet on it.
+- Unit 1 wrote its test and its code together, so nobody saw that test fail first. The other units followed the failing-test-first order.
+
+#### Details
+
+**What was built and how I know it works.** On the rebased branch (head b9ec93d, on top of `origin/main` at 5181afd, which holds the settings file of #14), `npm test` ran 16 test files and 241 tests, all green, and `npm run typecheck` and `npm run build` were clean. `node dist/bin.js --version` printed `0.1.0`, and `node dist/bin.js next` printed `cstack: "next" is not built in this version yet.` with exit code 2. The modules are `cstack/src/manifest.ts`, `cstack/src/plan/read.ts`, `cstack/src/plan/commits.ts`, `cstack/src/phases.ts` and `cstack/src/run-state.ts`, plus the template `cstack/skills/resolve-issue/templates/plan.md`, the fixtures under `cstack/test/fixtures/plans/`, and `docs/decisions/ADR-SIC-B-run-state.md`. The ADR-SIC-B line of section 9 of `docs/projects/skills-into-cli.md` now links the record. The conventions sentence about `manifest.ts` in `CLAUDE.md` (line 22) is already on `main`, so the branch does not change `CLAUDE.md`.
+
+**No release before the entry skill.** This is the only action left for a person. `cstack/skills/resolve-issue/templates/` now holds `plan.md` from this branch and `settings.json` from #14, and nothing else. `cstack skills install` copies every folder under `cstack/skills/`, and releases run only on a `v*` tag (`.github/workflows/release.yml`). The maintainer's `~/.claude/skills/resolve-issue/` holds the prose skill without the `.cstack-managed` marker, so an install would skip it and exit with 1, and `--adopt resolve-issue` would move the working prose skill into a backup folder. The pull request body says this, as the Decisions require. If nobody acts, nothing happens, because no tag is created by itself.
+
+**The shared `unit` handler.** `cstack/src/cli.ts` keys `HANDLERS` by the first word of a usage line, and `run` calls a handler only when some built entry has that first word. For `plan`, `report`, `next`, `graph` and `publish`, one ticket builds every command under the word (#16 builds both `plan` and both `report` commands). For `unit`, the entries in `cstack/src/manifest.ts` (lines 122, 130, 144 and 158) belong to #17 (`unit red`, `unit green`) and #18 (`unit order`, `unit commit`). Whichever ticket merges first creates the `unit` handler and marks its two entries built. `run` then sends `cstack unit order` to that handler, so the handler itself must answer "not built" for the other ticket's commands, and the test that matches handlers with built entries does not catch it. The second ticket then edits the same handler, which is a merge conflict between two parallel tickets. A small shared helper in `cli.ts`, such as a second-word dispatch that reads `built` from the command list, would solve both, but it belongs to #17 and #18, not here. This is a non-blocking question for the people who build #17 and #18, and it can be posted on both tickets word for word: "The command list of #13 gives `cstack unit red` and `cstack unit green` to #17, and `cstack unit order` and `cstack unit commit` to #18. `cli.ts` finds a command by its first word, so both tickets will add or edit the same `unit` handler. Can the first of the two to start add a second-word dispatch for `unit` that answers 'not built in this version yet' for any `unit` command whose entry is not built? The other ticket then only adds its two handlers." If nobody decides, the first ticket to merge may route `cstack unit order` into its own handler and print a confusing usage error instead of "not built".
+
+**The review follow-ups that must reach the dependent tickets.** The Review log lists five follow-ups that this branch did not change. Two of them matter for later tickets. `createRun` in `cstack/src/run-state.ts` (line 159) stores `planFile` as given in `state.json`, while ADR-SIC-B and the Decisions say the `plan` field is the path from the repository root, so #15 must make it relative before it calls `createRun`. The reader checks a unit path as text only. So a path passes even when one of its folders is a symbolic link to a place outside the repository. `git add` refuses a path beyond a symbolic link, and that protects the `unit commit` command of #18. But #17 runs a test file that the plan names, so it should resolve the real path first. The documentation duties list the content of each dependent comment, and neither of these two points is in that list. The other follow-ups (Windows line endings giving the "prose skill" message, and control characters echoed in error messages) are minor on a macOS-only tool. The Review log also still lists the empty `- Blocked:` line as a follow-up, but commit b9ec93d fixed it, so that paragraph is out of date, and no phase 8 entry is recorded yet.
+
+**The commit reader needs a local target branch.** `listUnitCommits` in `cstack/src/plan/commits.ts` first runs `git rev-parse --verify --quiet refs/heads/<target>` and refuses with exit code 3 when it fails. Only after that does it look for `<target>@{upstream}`. In an Orca worktree the refs are shared with the main clone, so `main` exists and this is fine. In a clone made with `--single-branch` of the ticket's branch, or in a CI checkout of a pull request, there is no local `main`, and `cstack plan status` stops even though `origin/main` would be the right base. Accepting `refs/remotes/origin/<target>` when the local branch is missing would be a small change for #16 if it ever hurts. If nobody decides, the error message says plainly that the target branch does not exist, so the failure is visible, not silent.
+
+**The format became stricter during the review.** Commit 1830283 refuses a unit path with a `.git` part in any case, because a plan could otherwise point a unit at a git hook (fixture `cstack/test/fixtures/plans/path-dotgit.md`). It also makes the `ticket` done check require a content line that is not a heading, because the template's Ticket section always holds the heading of the upstream decisions and would count as filled. Each section now carries `bodyLines`, and the rule that headings count as content stays for every other section. Commit b9ec93d refuses an empty `- Blocked:` line, because the `build` done check would otherwise skip that unit with no reason. These are additions to `cstack-plan/1` before any plan in that format exists, so they need no new version. After this merges, a stricter rule means a new format version, as ADR-SIC-B says.
+
+**The mention check and `cstack --version`.** The same commit stops the mention check from reading `cstack --version` as a command, because `--version` is a global option of `cli.ts` and not an entry of the command list, as the Decisions say. The ADR-SIC-H consequences paragraph now says that `bin.ts` handles the broken pipe.
+
+**Unit 1 and the failing-test-first order.** The Hand-off log records that unit 1's implementer wrote the test and the code together and never saw the test fail. The mention check was later shown to fail on the `cstack frobnicate` fixture by its own test, and the review replaced a test that could never fail, so the risk left is low. Two smaller departures are also recorded there: `approved.md` keeps an open Question 2, so the test of the `plan` done check replaces that answer before it checks the pass, and the fix to `cstack/test/skills-install.test.ts` from unit 6 disappeared in the rebase because `main` already had the same change from #14.
+
+**How the earlier questions were resolved.** The base of the commit reader is the upstream of the target branch when it has one and the local branch otherwise, with `--end-of-options` before the range, and `cstack/test/plan/commits.test.ts` covers the stale local `main` with a bare remote. `cli.ts` builds its usage from the built entries only, dispatches through the `HANDLERS` record, and answers a planned command with "not built" and exit code 2. The broken pipe is handled by a listener from `cstack/src/io.ts` that `bin.ts` adds to standard output, with `cstack/test/io.test.ts`. A crash still exits with 1, and `manifest.ts` (line 6) says so next to the refused code. The rule of no release before #21 is in the pull request body. The reader returns the level of every heading, and the comment on #16 carries the suggestion that a level-2 match wins. The `publish` start condition on a repeated `retro` and the `build` done check are in `cstack/src/phases.ts` (lines 73 to 79 and 113 to 114). The unclosed fence error is in `cstack/src/plan/read.ts` with the fixture `fence-never-closes.md`. The trailer in the final paragraph is tested in `commits.test.ts`, and `run-state.ts` (line 83) uses `--path-format=absolute`.
+
+Already settled and not reopened: the format version and its refusal, the briefing after the documentation, the ticket headings moved down one level (CTO review block of this ticket), the run state split (ADR-SIC-B), and one entry file with no `process.exit()` (ADR-SIC-H). Areas checked with nothing to add: security beyond the path and branch checks above, data model lock-in beyond the format additions above, scale and performance, operations and cost, and user-facing edge cases, because the tool has no interface and the files stay small.
 
 ## Open questions after the build
 
 ### Blocking
 
-<none yet>
+none
 
 ### Non-blocking
 
-<none yet>
+- For the people who build #17 and #18: "The command list of #13 gives `cstack unit red` and `cstack unit green` to #17, and `cstack unit order` and `cstack unit commit` to #18. `cli.ts` finds a command by its first word, so both tickets will add or edit the same `unit` handler. Can the first of the two to start add a second-word dispatch for `unit` that answers 'not built in this version yet' for any `unit` command whose entry is not built? The other ticket then only adds its two handlers." Nobody has to answer before this pull request merges.
 
 ## Pull request
 
-<phase 10.4>
+Title: feat(cli): define the plan file format, the phase order and the command list of the build loop
+
+```markdown
+## What this builds
+
+This pull request sets the shared rules of milestone 2, so that the tickets #15 to #24 can be built in parallel and still fit together. It adds the plan file format `cstack-plan/1` with a template and a reader. It adds a reader for the `Cstack-Unit` commit trailer, the list of the fifteen phases, the run state that `cstack` keeps under the common git folder, and the list of all commands with their exit codes. It also adds ADR-SIC-B, which records where the run state lives. A CI test now checks every `cstack` command that a skill or a guide names against the command list.
+
+## Key decisions and why
+
+- **Both a plan file header and a run state.** The plan file keeps what people read and what must travel with the branch. The run state keeps what only `cstack` needs, such as saved test runs, under the common git folder. Every worktree sees the same run, and test output never enters the repository. The cost is that deleting the clone loses the saved runs. ADR-SIC-B explains this.
+- **Unit status comes from git.** A unit has no status in the plan file. `cstack` reads it from the commits that carry `Cstack-Unit: <n>`. The reader compares with the upstream of the target branch, so a stale local `main` cannot make another ticket's unit look done.
+- **The briefing runs after the documentation,** as the ticket asks.
+- **One file per command.** Each command of milestone 2 has its own file name in the command list, so #15 to #20 do not edit the same file.
+- **Files touched.** New code is in `cstack/src/` (`manifest.ts`, `phases.ts`, `run-state.ts`, `plan/read.ts`, `plan/commits.ts`), with tests and example plan files under `cstack/test/`. `cli.ts` now reads the command list, and `bin.ts` and `io.ts` end quietly on a broken pipe. The template is `cstack/skills/resolve-issue/templates/plan.md`. The docs changed are ADR-SIC-B (new), ADR-SIC-H, `CLAUDE.md` and one line of the specification.
+
+## Things to know before merging
+
+- Do not tag a `v*` release before the entry skill of #21 merges. Until then `cstack skills install` would ship a `resolve-issue` folder that holds only templates.
+- The review made the reader stricter than the ticket: a unit path with a `.git` part is refused, because a plan could otherwise write a git hook. An empty `- Blocked:` line is refused. The `ticket` phase needs a line of real content, not only a heading.
+- Judgment calls from the independent review: the Ticket section always counts as filled because of a heading, so #16 must check the body lines as the `ticket` phase does. A test in `manifest.test.ts` is named more strongly than what it checks.
+- Follow-ups, not done here: a plan file with Windows line endings gets a misleading error. `createRun` keeps the plan path as given, so #15 must make it relative to the repository root. #17 and #18 must resolve symbolic links before they touch a unit file. Errors echo plan text, which can hold control characters.
+- The plan file is `docs/plans/2026-11-18-13-define-the-plan-file-format-the-phase-order-and-the-command-list.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the people who build #17 and #18: "The command list of #13 gives `cstack unit red` and `cstack unit green` to #17, and `cstack unit order` and `cstack unit commit` to #18. `cli.ts` finds a command by its first word, so both tickets will add or edit the same `unit` handler. Can the first of the two to start add a second-word dispatch for `unit` that answers 'not built in this version yet' for any `unit` command whose entry is not built? The other ticket then only adds its two handlers."
+
+Fixes #13
+```
 
 ## Documentation
 
-<phase 10.3>
+- ADR-SIC-B: `docs/decisions/ADR-SIC-B-run-state.md`, with `WHY: ADR-SIC-B` comments in `cstack/src/run-state.ts` and `cstack/src/plan/read.ts`. Its pull request link is added in the pull request body, because the ADR lives in the same branch.
+- ADR-SIC-H: `docs/decisions/ADR-SIC-H-how-a-cstack-command-starts-and-ends.md` now says the broken pipe is handled.
+- Specification: the ADR-SIC-B line of section 9 of `docs/projects/skills-into-cli.md`.
+- Conventions file: `CLAUDE.md` (Commands paragraph) says every command has an entry in `cstack/src/manifest.ts`.
+- Epic #6: its ADR-SIC-B line was edited, https://github.com/gambitl/claude-code-stack/issues/6.
+- Comment on ticket #13: https://github.com/gambitl/claude-code-stack/issues/13
+- Comments on dependent tickets #15, #16, #17, #18, #19, #20, #21, #22, #23 and #24, each on its own issue page.
+- The README does not apply.
 
 ## Executor notes
 
-<executor, before its report>
+- Unit 1's implementer wrote the test and the code together and never saw the red step. Later review found no resulting gap.
+- Unit 8's implementer found that `approved.md` keeps an open Question 2, so the unit's "passes on approved.md" cannot hold as written. The test replaces the answer.
+- Unit 6 broke `cstack/test/skills-install.test.ts` by adding a second shipped skill. The fix was dropped in the rebase because `main` already had the same change.
+- A shell command of mine hung for two minutes because of a stray `cat` waiting on standard input. I stopped it and redid the edit.
+- The security reviewer found a `.git` path hole and the correctness reviewer found a `ticket` check that always passed. The Decisions line "headings count as content" caused the second one.
+- Graphify is not installed here, so the impact notes came from search and git history.
+- The CTO advisor asked for comments on #17 and #18 about the `unit` handler. I recorded it as a non-blocking question, because posting it elsewhere is not allowed.
 
 ## Hand-off log
 
-- 2026-11-18 run 1, phase 6: GitHub has no in-progress state for issue #13 (no project board, only labels), so the ticket stays open and nothing was changed in the tracker. Branch `gambitl/plan-format` already existed. Units 1 to 10 are done and committed. Departures: unit 1's implementer wrote test and code together and did not see the red step. Unit 8: `approved.md` has an open Question 2, so the `plan` done check fails on it as shipped. The test replaces that answer and checks the pass. Unit 5 edited the unit 4 fixture `ticket-with-code-block.md` (placeholder lines replaced). Unit 6 made `cstack/test/skills-install.test.ts` break (a second shipped skill), fixed in a separate commit (835c553).
+- 2026-11-18 run 1, phase 6: GitHub has no in-progress state for issue #13 (no project board, only labels), so the ticket stays open and nothing was changed in the tracker. Branch `gambitl/plan-format` already existed. Units 1 to 10 are done and committed. Departures: unit 1's implementer wrote test and code together and did not see the red step. Unit 8: `approved.md` has an open Question 2, so the `plan` done check fails on it as shipped. The test replaces that answer and checks the pass. Unit 5 edited the unit 4 fixture `ticket-with-code-block.md` (placeholder lines replaced). Unit 6 made `cstack/test/skills-install.test.ts` break (a second shipped skill), fixed in a separate commit, which the rebase later dropped because `main` had the same fix.
+- 2026-11-18 run 1, phases 7 to 10: both reviews done and fixed, branch rebased onto `origin/main` (241 tests green), ADR-SIC-B, the epic, the ticket and ten dependent tickets documented, briefing written, one non-blocking question, no blocking question. Status is ready for review. Nothing is pushed.
 
 ## History
 
