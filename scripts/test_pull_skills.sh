@@ -41,6 +41,15 @@ check "compares with the tag, not main" "[ $code -eq 0 ] && echo \"\$out\" | gre
 after="$(find "$WORK/home" | sort | xargs shasum 2>/dev/null)"
 check "writes nothing in the fake home" "[ \"\$before\" = \"\$after\" ]"
 
+# A skill that cstack installed (marked) is not reported; an unmarked one is.
+mkdir -p "$WORK/home/.claude/skills/cstackskill" "$WORK/home/.claude/skills/localskill"
+echo "x" > "$WORK/home/.claude/skills/cstackskill/SKILL.md"
+touch "$WORK/home/.claude/skills/cstackskill/.cstack-managed"
+echo "y" > "$WORK/home/.claude/skills/localskill/SKILL.md"
+out="$(cd "$WORK/clone" && HOME="$WORK/home" bash ./pull-skills.sh 2>&1)"
+check "does not report a skill that cstack installed" "! echo \"\$out\" | grep -q 'left as is: cstackskill'"
+check "still reports an unmarked local skill" "echo \"\$out\" | grep -q 'left as is: localskill'"
+
 out="$(cd "$WORK/clone-notag" && HOME="$WORK/home" bash ./pull-skills.sh 2>&1)"; code=$?
 check "stops without the tag" "[ $code -ne 0 ] && echo \"\$out\" | grep -q 'prose-skills-final'"
 

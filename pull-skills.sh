@@ -68,11 +68,13 @@ for dir in "$TMP"/skills/*/; do
 done
 
 # Warn about local skills that the tag does not hold. They are left alone.
-# Skills of other tools and workspace folders are not reported.
+# Skills of other tools, skills that cstack installed and workspace folders are
+# not reported.
 for dir in "$DEST"/*/; do
   name="$(basename "$dir")"
   [ "$name" = "synced" ] && continue
   [ -e "$dir/.superset-managed" ] && continue
+  [ -e "$dir/.cstack-managed" ] && continue
   case "$name" in *-workspace) continue ;; esac
   [ -d "$TMP/skills/$name" ] && continue
   echo "Only on this computer, left as is: $name"

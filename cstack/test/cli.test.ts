@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { homedir, tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
 import type { Io } from "../src/io.js";
@@ -73,5 +75,28 @@ describe("run", () => {
     expect(out.stderr).toContain("Usage: cstack");
     expect(out.stdout).toBe("");
     expect(code).toBe(2);
+  });
+
+  it("installs cstack-example into the home folder with skills install", async () => {
+    const home = mkdtempSync(join(tmpdir(), "cstack-cli-home-"));
+    const oldHome = process.env.HOME;
+    process.env.HOME = home;
+    try {
+      expect(homedir()).toBe(home);
+      const { io } = collect();
+      expect(await run(["skills", "install"], io)).toBe(0);
+      expect(existsSync(join(home, ".claude", "skills", "cstack-example", ".cstack-managed"))).toBe(true);
+    } finally {
+      process.env.HOME = oldHome;
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("returns 2 and prints the usage for skills without a valid subcommand", async () => {
+    for (const args of [["skills"], ["skills", "nope"]]) {
+      const { out, io } = collect();
+      expect(await run(args, io)).toBe(2);
+      expect(out.stderr).toContain("Usage: cstack skills install");
+    }
   });
 });
