@@ -1,3 +1,4 @@
+import { ORCA_HINT, checkOrca } from "./orca.js";
 import type { Runner } from "./runner.js";
 
 // Everything doctor needs from the outside world. Tests pass their own.
@@ -168,13 +169,10 @@ export const requirements: Requirement[] = [
     /^(\S+) \(Claude Code\)/,
     'Install it with "curl -fsSL https://claude.ai/install.sh | bash".',
   ),
-  // Stub: unit 3 replaces it with the real Orca checks.
-  simple(
-    "Orca",
-    false,
-    "orca",
-    ["--version"],
-    /^\s*(\S+)/,
-    "Download it from https://github.com/stablyai/orca/releases.",
-  ),
+  {
+    name: "Orca",
+    required: false,
+    install: ORCA_HINT,
+    check: checkOrca,
+  },
 ];

@@ -13,6 +13,11 @@ const fixture = (name: string) =>
 
 const ok = (name: string): RunResult => ({ kind: "ok", stdout: fixture(name) });
 
+const json = (name: string): RunResult => ({
+  kind: "ok",
+  stdout: readFileSync(new URL(`./fixtures/doctor/${name}.json`, import.meta.url), "utf8"),
+});
+
 const answers: Record<string, RunResult> = {
   "sw_vers -productVersion": ok("sw_vers"),
   "xcode-select -p": ok("xcode-select"),
@@ -23,6 +28,35 @@ const answers: Record<string, RunResult> = {
   "claude --version": ok("claude"),
   "orca --version": { kind: "missing" },
 };
+
+const STATUS = "orca status --json";
+const JIRA = "orca jira connection --json";
+const LINEAR = "orca linear team list --workspace all --json";
+
+// The answers of an Orca that runs and has Jira and Linear.
+const orcaConnected: Record<string, RunResult> = {
+  "orca --version": ok("orca-version"),
+  [STATUS]: json("orca-status-running"),
+  [JIRA]: json("orca-jira-connected"),
+  [LINEAR]: json("orca-linear-connected"),
+};
+
+const ALLOWED = new Set([
+  "sw_vers -productVersion",
+  "xcode-select -p",
+  "git --version",
+  "graphify --version",
+  "gh --version",
+  "glab --version",
+  "claude --version",
+  "orca --version",
+  STATUS,
+  JIRA,
+  LINEAR,
+]);
+
+const orcaLine = (stdout: string) =>
+  stdout.split("\n").find((l) => l.startsWith("Orca")) ?? "";
 
 function setup(
   overrides: Record<string, RunResult> = {},
@@ -146,6 +180,104 @@ describe("doctor", () => {
     expect(calls).toContain("git --version");
     expect(out.stdout).toContain("git: 2.55.0");
     expect(code).toBe(0);
+  });
+});
+
+describe("doctor and Orca", () => {
+  it("lists Jira and Linear when Orca runs and is connected to both", async () => {
+    const { out, io, full } = setup(orcaConnected);
+    const code = await doctor(io, full);
+    expect(orcaLine(out.stdout)).toBe(
+      "Orca (optional): 1.4.262, running. Trackers: Jira, Linear",
+    );
+    expect(code).toBe(0);
+  });
+
+  it("says that Orca is not installed and returns 0", async () => {
+    const { out, io, full } = setup();
+    const code = await doctor(io, full);
+    expect(orcaLine(out.stdout)).toContain("Orca is not installed.");
+    expect(orcaLine(out.stdout)).toContain("https://github.com/stablyai/orca/releases");
+    expect(code).toBe(0);
+  });
+
+  it("prints the version and skips the trackers when Orca is not running", async () => {
+    const { out, io, full, calls } = setup({
+      ...orcaConnected,
+      [STATUS]: json("orca-status-closed"),
+    });
+    const code = await doctor(io, full);
+    expect(orcaLine(out.stdout)).toBe(
+      "Orca (optional): 1.4.262, installed but not running. Trackers were not checked.",
+    );
+    expect(calls).not.toContain(JIRA);
+    expect(calls).not.toContain(LINEAR);
+    expect(code).toBe(0);
+  });
+
+  it("treats a failed status command as not running", async () => {
+    const { out, io, full, calls } = setup({
+      ...orcaConnected,
+      [STATUS]: { kind: "failed", exitCode: 1 },
+    });
+    await doctor(io, full);
+    expect(orcaLine(out.stdout)).toContain("installed but not running");
+    expect(calls).not.toContain(JIRA);
+  });
+
+  it("adds no tracker for empty connection lists", async () => {
+    const { out, io, full } = setup({
+      ...orcaConnected,
+      [JIRA]: json("orca-jira-empty"),
+      [LINEAR]: json("orca-linear-empty"),
+    });
+    await doctor(io, full);
+    expect(orcaLine(out.stdout)).toBe("Orca (optional): 1.4.262, running. Trackers: none");
+  });
+
+  it("prints Linear (connection error) when no team comes with a workspace error", async () => {
+    const { out, io, full } = setup({
+      ...orcaConnected,
+      [JIRA]: json("orca-jira-empty"),
+      [LINEAR]: json("orca-linear-error"),
+    });
+    await doctor(io, full);
+    expect(orcaLine(out.stdout)).toBe(
+      "Orca (optional): 1.4.262, running. Trackers: Linear (connection error)",
+    );
+  });
+
+  it("adds no tracker for an answer that is not valid JSON or has ok false", async () => {
+    const { out, io, full } = setup({
+      ...orcaConnected,
+      [JIRA]: { kind: "ok", stdout: "not json" },
+      [LINEAR]: { kind: "ok", stdout: '{"ok":false,"result":{"teams":[{"key":"A"}]}}' },
+    });
+    await doctor(io, full);
+    expect(orcaLine(out.stdout)).toBe("Orca (optional): 1.4.262, running. Trackers: none");
+  });
+
+  it("runs only version, status and list commands", async () => {
+    const { io, full, calls } = setup(orcaConnected);
+    await doctor(io, full);
+    expect(calls.length).toBeGreaterThan(0);
+    for (const call of calls) expect(ALLOWED.has(call)).toBe(true);
+    expect(calls.join("\n")).not.toMatch(/orca (open|serve)|install/);
+  });
+
+  it("never prints a site, email, team or workspace from an answer or stderr", async () => {
+    const { out, io, full } = setup(orcaConnected);
+    await doctor(io, full);
+    const all = out.stdout + out.stderr;
+    for (const secret of [
+      "example.atlassian.net",
+      "person@example.com",
+      "Example Person",
+      "Example Team",
+      "Example Workspace",
+      "EXA",
+    ])
+      expect(all).not.toContain(secret);
   });
 });
 
