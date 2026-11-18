@@ -1,0 +1,1 @@
+{"type":"assistant","cwd":"{{REPO}}/ZQ7-PRIVATE-MARKER-41","timestamp":"2026-03-01T10:09:00.000Z","message":{"id":"msg_ph1","model":"claude-sonnet-5-5","usage":{"input_tokens":2,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":2},"content":[{"type":"text","text":"Synthetic answer."}]}}

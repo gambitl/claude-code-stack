@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import {
+  chmodSync,
   cpSync,
   mkdirSync,
   mkdtempSync,
@@ -358,6 +359,93 @@ describe("cstack measure", () => {
         expect(code).toBe(2);
         expect(out.stdout).toBe("");
         expect(out.stderr).toContain("Usage: cstack measure <plan file> [--home <folder>]\n");
+      }
+    });
+  });
+
+  describe("nothing private leaves the command", () => {
+    const MARKER = "ZQ7-PRIVATE-MARKER-41";
+    const ALLOWED = [
+      /^(main sessions|helper transcripts|minutes from approval to ready for review|skipped lines|unreadable files): \d+$/,
+      /^(input tokens|cache creation input tokens|cache read input tokens|output tokens)( (claude-[a-z0-9.-]+|other model))?: \d+$/,
+    ];
+
+    function setup(): { repo: string; home: string; plan: string } {
+      const repo = makeRepo();
+      commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+      commitPlan(repo, "ready for review", "2026-03-01T11:35:00+00:00");
+      const home = tmp("cstack-home-");
+      copyScenario("private", home, repo);
+      return { repo, home, plan: join(repo, "docs/plan.md") };
+    }
+
+    function listing(dir: string): Record<string, string> {
+      const found: Record<string, string> = {};
+      const walk = (path: string) => {
+        for (const entry of readdirSync(path, { withFileTypes: true })) {
+          const full = join(path, entry.name);
+          if (entry.isDirectory()) walk(full);
+          else found[full.slice(dir.length)] = readFileSync(full, "utf8");
+        }
+      };
+      walk(dir);
+      return found;
+    }
+
+    it("prints only fixed labels and digits, and never the marker", async () => {
+      const { home, plan } = setup();
+      const { out, io } = collect();
+      const code = await run(["measure", plan, "--home", home], io);
+      expect(code).toBe(0);
+      expect(out.stdout + out.stderr).not.toContain(MARKER);
+      const lines = out.stdout.trimEnd().split("\n");
+      expect(lines.length).toBeGreaterThan(5);
+      for (const line of lines) expect(ALLOWED.some((pattern) => pattern.test(line))).toBe(true);
+      expect(out.stdout).toContain("input tokens other model: 4");
+    });
+
+    it("counts an unreadable helper, says so in a fixed sentence and leaks no path", async () => {
+      const { home, plan } = setup();
+      const helper = join(home, ".claude/projects/-repo/main1/subagents/agent-p2.jsonl");
+      chmodSync(helper, 0o000);
+      try {
+        const { out, io } = collect();
+        const code = await run(["measure", plan, "--home", home], io);
+        expect(code).toBe(1);
+        expect(out.stdout).toContain("unreadable files: 1");
+        expect(out.stderr).toBe("cstack measure: some files could not be read and were left out of the counts.\n");
+        for (const text of [out.stdout, out.stderr]) {
+          expect(text).not.toContain(MARKER);
+          expect(text).not.toContain("agent-p2");
+          expect(text).not.toContain("-repo");
+          expect(text).not.toContain(home);
+        }
+      } finally {
+        chmodSync(helper, 0o644);
+      }
+    });
+
+    it("leaves the home folder exactly as it was", async () => {
+      const { home, plan } = setup();
+      const before = listing(home);
+      const { io } = collect();
+      await run(["measure", plan, "--home", home], io);
+      expect(listing(home)).toEqual(before);
+    });
+
+    it("has no network module and no fetch call in its sources", () => {
+      const root = new URL("../src/", import.meta.url).pathname;
+      const files = [join(root, "commands/measure.ts")];
+      for (const name of readdirSync(join(root, "measure"))) files.push(join(root, "measure", name));
+      expect(files.length).toBeGreaterThanOrEqual(3);
+      const modules = ["http", "https", "http2", "net", "tls", "dgram", "dns", "undici"];
+      for (const file of files) {
+        const text = readFileSync(file, "utf8");
+        for (const name of modules) {
+          expect(text).not.toMatch(new RegExp(`(from|import)\\s*\\(?\\s*["'](node:)?${name}(/[^"']*)?["']`));
+          expect(text).not.toMatch(new RegExp(`require\\(\\s*["'](node:)?${name}["']`));
+        }
+        expect(text).not.toMatch(/\bfetch\s*\(/);
       }
     });
   });

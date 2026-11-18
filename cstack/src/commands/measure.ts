@@ -66,6 +66,10 @@ export async function measure(args: string[], io: Io): Promise<number> {
     io.stderr("cstack measure: the ready moment is less than a minute after the approval, so the history looks rewritten.\n");
     code = 1;
   }
+  if (result.unreadableFiles > 0) {
+    io.stderr("cstack measure: some files could not be read and were left out of the counts.\n");
+    code = 1;
+  }
   if (result.mainSessions === 0) {
     io.stderr("cstack measure: no main session of this run was found.\n");
     code = 1;
