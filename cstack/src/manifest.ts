@@ -118,14 +118,17 @@ export const COMMANDS: CommandEntry[] = [
     file: "report-check.ts",
     ticket: 16,
   }),
-  planCommand({
-    usage: "cstack unit order [--json]",
-    summary: "Print the units in batches that can run in parallel.",
-    flags: ["--json"],
-    exitCodes: { 0: OK, 1: "The Depends on lines form a cycle.", 2: USAGE, 3: INVALID },
-    file: "unit-order.ts",
-    ticket: 18,
-  }),
+  {
+    ...planCommand({
+      usage: "cstack unit order [--json]",
+      summary: "Print the units in batches that can run in parallel.",
+      flags: ["--json"],
+      exitCodes: { 0: OK, 1: "The Depends on lines form a cycle.", 2: USAGE, 3: INVALID },
+      file: "unit-order.ts",
+      ticket: 18,
+    }),
+    built: true,
+  },
   planCommand({
     usage: "cstack unit red <n> [--timeout <minutes>]",
     summary: "Run the test of a unit, require a failure and save the run.",
