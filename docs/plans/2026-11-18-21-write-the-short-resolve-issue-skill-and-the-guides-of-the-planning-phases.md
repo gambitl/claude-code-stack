@@ -248,7 +248,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 
 ## Implementation units
 
-### Unit 1: Copy the writing guide — status: todo
+### Unit 1: Copy the writing guide — status: done
 - Files: `cstack/skills/resolve-issue/writing.md`
 - Failing test: none. This unit copies a prose file with four edits. The settings test of unit 9 and the reviewer check of the acceptance cover it.
 - Minimum code: copy `skills/resolve-issue/writing.md` to `cstack/skills/resolve-issue/writing.md`. Rewrite line 17 so that every record uses the records language that `cstack next` prints from the settings, English by default, without the words "in English". Replace `PROJ-288` with `ABC-123`, `PROJ-301` with `ABC-124` and `M4-8` with `ABC-125`. Change nothing else, and check with `diff` that only these lines differ.
@@ -256,7 +256,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): copy the writing guide and take the records language from the settings`
 - Depends on: none
 
-### Unit 2: Write the settled decisions file — status: todo
+### Unit 2: Write the settled decisions file — status: done
 - Files: `cstack/skills/resolve-issue/settled-decisions.md`
 - Failing test: none. The acceptance asks a reviewer to find the amended model decision and no work ticket. The command list test of #13 covers the `cstack publish` mention.
 - Minimum code: start the file with a title and two sentences that say what it holds and that Claude does not load it at the start of a run. Move the models table with its explanation (today's lines 28 to 42), the settled decisions with their introduction (lines 195 to 212) and the lessons applied (lines 214 to 218). Apply the amendments that "Decisions" lists for this file, and nothing else.
@@ -264,7 +264,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): move the settled decisions and the models table out of the entry skill`
 - Depends on: none
 
-### Unit 3: Write the entry skill — status: todo
+### Unit 3: Write the entry skill — status: done
 - Files: `cstack/skills/resolve-issue/SKILL.md`
 - Failing test: none in this unit. The size test of unit 8 and the settings test of unit 9 check it.
 - Minimum code: write the entry skill from today's lines 1 to 50 and the ticket's scope item 1, following every line of "Decisions" about the entry skill. Keep the front matter word for word. Stay at or under 800 words with `wc -w`.
@@ -272,7 +272,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): write the short entry skill of resolve-issue`
 - Depends on: none
 
-### Unit 4: Write the `ticket` guide — status: todo
+### Unit 4: Write the `ticket` guide — status: done
 - Files: `cstack/guides/resolve-issue/ticket.md`
 - Failing test: none in this unit. The size test of unit 8, the settings test of unit 9 and the guides test of unit 10 check it.
 - Minimum code: write the guide from today's phase 1 (lines 58 to 68) and the ticket's scope item 4, following "Decisions". Stay at or under 550 words with `wc -w`.
@@ -280,7 +280,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): write the guide of the ticket phase`
 - Depends on: none
 
-### Unit 5: Write the `dependencies` guide — status: todo
+### Unit 5: Write the `dependencies` guide — status: done
 - Files: `cstack/guides/resolve-issue/dependencies.md`
 - Failing test: none in this unit. The settings test of unit 9 and the guides test of unit 10 check it.
 - Minimum code: write the guide from today's phase 2 (lines 70 to 78) and the ticket's scope item 5, following "Decisions". On a stop, the plan file is kept and the guide ends with `cstack next --phase retro`.
@@ -288,7 +288,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): write the guide of the dependencies phase`
 - Depends on: none
 
-### Unit 6: Write the `code-map` guide — status: todo
+### Unit 6: Write the `code-map` guide — status: done
 - Files: `cstack/guides/resolve-issue/code-map.md`
 - Failing test: none in this unit. The settings test of unit 9 and the guides test of unit 10 check it.
 - Minimum code: write the guide from today's phase 3 (lines 80 to 95) and the ticket's scope item 6, following "Decisions". It starts with `cstack graph ensure`.
@@ -296,7 +296,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): write the guide of the code-map phase`
 - Depends on: none
 
-### Unit 7: Write the `questions` and `plan` guides — status: todo
+### Unit 7: Write the `questions` and `plan` guides — status: done
 - Files: `cstack/guides/resolve-issue/questions.md`, `cstack/guides/resolve-issue/plan.md`
 - Failing test: none in this unit. The settings test of unit 9 and the guides test of unit 10 check them.
 - Minimum code: write `questions.md` from today's phase 4 (lines 97 to 126) and the ticket's scope item 7. Write `plan.md` from today's phase 5 (lines 128 to 163), the report handling of lines 185 to 189, and the ticket's scope item 8. Follow every line of "Decisions" about these two guides. One unit holds both, because the blocking questions written in `questions` are the ones that the `plan` guide waits for and that the executor's reports bring back.
@@ -304,7 +304,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `feat(skill): write the guides of the questions and plan phases`
 - Depends on: none
 
-### Unit 8: Test the size of the entry skill — status: todo
+### Unit 8: Test the size of the entry skill — status: done
 - Files: `cstack/test/skill-size.test.ts`
 - Failing test: `cstack/test/skill-size.test.ts`. First write the case where a generated entry skill of 1,500 words, plus a short first guide, must be reported over the limit, and see it fail before the counting code exists. Then add the case that the real entry skill and the guide of `PHASES[0].name` stay under a fifth of the frozen files (US-6 AC4).
 - Minimum code: the word count and the limit check inside the test file, as "Decisions" describes them. The failure message gives the sum and the limit.
@@ -312,7 +312,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `test(tests): check that the entry skill and the first guide stay under a fifth of the prose skill`
 - Depends on: 3, 4
 
-### Unit 9: Test that the texts leave the settings values to the settings file — status: todo
+### Unit 9: Test that the texts leave the settings values to the settings file — status: done
 - Files: `cstack/test/guides/settings-applied.test.ts`, `cstack/test/fixtures/guides/owned-value/plan.md`
 - Failing test: `cstack/test/guides/settings-applied.test.ts`. First write the fixture guide that says "write the plan in English" and the case that the scan must report it with the file and the phrase, and see it fail before the scan exists. Then add the case that the real files pass, and the case that the entry skill names `.cstack/settings.json` and `cstack next` and holds the words "win over" (US-10 AC2).
 - Minimum code: the scan inside the test file, with the list of phrases and the folders that "Decisions" gives. If a real file breaks a rule, fix the wording of that file in this unit.
@@ -320,7 +320,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `test(tests): check that the skill and the guides leave the settings values to the settings file`
 - Depends on: 1, 3, 4, 5, 6, 7
 
-### Unit 10: Test that every planning phase has its guide — status: todo
+### Unit 10: Test that every planning phase has its guide — status: done
 - Files: `cstack/test/guides/planning-guides.test.ts`, `cstack/test/fixtures/guides/planning-missing-questions/ticket.md`, `cstack/test/fixtures/guides/planning-missing-questions/dependencies.md`, `cstack/test/fixtures/guides/planning-missing-questions/code-map.md`, `cstack/test/fixtures/guides/planning-missing-questions/plan.md`
 - Failing test: `cstack/test/guides/planning-guides.test.ts`. First write the case with the fixture folder where `questions.md` is missing, which must fail and name `questions`, and see it fail before the check exists. Then add the case that `cstack/guides/resolve-issue/` has a guide for each phase of `PLANNING_PHASES`.
 - Minimum code: the check inside the test file.
@@ -328,7 +328,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 - Commit message: `test(tests): check that each planning phase has its guide`
 - Depends on: 4, 5, 6, 7
 
-### Unit 11: List the new files in the pack test — status: todo
+### Unit 11: List the new files in the pack test — status: done
 - Files: `cstack/test/pack.test.ts`
 - Failing test: none of its own. This unit adds eight expected paths to the existing pack test, which passes at once because units 1 to 7 created the files.
 - Minimum code: add the eight paths that "Decisions" lists to the array of expected paths, and make the test title say that it lists the skills and the guides. Keep the change small, because #22 edits the same array.
@@ -354,7 +354,16 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 
 ## Review log
 
-<phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
+### Impact notes (phase 7)
+
+Graphify is not installed, so I used search and file reads. The branch changes no symbol of `cstack/src/`. It adds prose under `cstack/skills/resolve-issue/` and `cstack/guides/resolve-issue/`, three new test files with fixtures, and edits two existing tests.
+
+- `cstack/test/guide.test.ts` depended on `resolve-issue` having no guides. It failed after the guides arrived. I fixed it by naming a skill that has none (commit a32563c).
+- `cstack/test/manifest.test.ts` scans every file under `cstack/skills/` and `cstack/guides/`, so it covers the new prose. It passes.
+- `cstack/test/pack.test.ts` lists the new files. It passes.
+- `cstack/src/commands/guide.ts` reads the new guides. It needs no change.
+- The word total of the entry skill and the `ticket` guide is 799 + 505 = 1,304, under the limit of 1,451.
+- `npm test` (248 tests) and `npm run typecheck` pass in `cstack/`.
 
 ## Briefing
 
