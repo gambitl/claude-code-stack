@@ -13,6 +13,12 @@ export type Result = {
   unreadableFiles: number;
 };
 
+const addTotals = (target: Totals, source: Totals): void => {
+  target.input += source.input;
+  target.cacheCreation += source.cacheCreation;
+  target.cacheRead += source.cacheRead;
+  target.output += source.output;
+};
 const empty = (): Totals => ({ input: 0, cacheCreation: 0, cacheRead: 0, output: 0 });
 const MODEL = /^claude-[a-z0-9.-]+$/;
 
@@ -47,10 +53,12 @@ async function readLines(
   return skipped;
 }
 
-async function listDir(path: string): Promise<string[] | undefined> {
+// Returns undefined when the folder is gone. Any other failure is counted by the caller as an unreadable file.
+async function listDir(path: string, onError: () => void): Promise<string[] | undefined> {
   try {
     return await readdir(path);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") onError();
     return undefined;
   }
 }
@@ -70,89 +78,37 @@ export async function measureSessions(
     unreadableFiles: 0,
   };
   const projects = join(home, ".claude", "projects");
+  const unreadable = () => {
+    result.unreadableFiles++;
+  };
   const inside = async (cwd: string): Promise<boolean> => {
     const resolved = await resolveLoose(cwd);
     return resolved === root || resolved.startsWith(root + sep);
   };
-  const answers: { model: string; totals: Totals }[] = [];
-  const byId = new Map<string, { model: string; totals: Totals }>();
+  // One answer is written on several lines with the same id. Only output_tokens grows, so keep the largest.
+  // A line without an id gets a key of its own, so it is always counted.
+  const answers = new Map<string, { model: string; totals: Totals }>();
+  let anonymous = 0;
   const add = (line: Record<string, unknown>) => {
     if (line.type !== "assistant") return;
     const message = line.message as { id?: unknown; model?: unknown; usage?: Record<string, unknown> } | undefined;
     const usage = message?.usage;
     if (!usage) return;
     const n = (key: string) => (typeof usage[key] === "number" ? (usage[key] as number) : 0);
-    const model = typeof message?.model === "string" && MODEL.test(message.model) ? message.model : "other model";
-    const answer = { model, totals: { input: n("input_tokens"), cacheCreation: n("cache_creation_input_tokens"), cacheRead: n("cache_read_input_tokens"), output: n("output_tokens") } };
-    const id = (message as { id?: unknown }).id;
-    if (typeof id !== "string") {
-      answers.push(answer);
-      return;
-    }
-    // One answer is written on several lines with the same id. Only output_tokens grows, so keep the largest.
-    const seen = byId.get(id);
-    if (!seen || answer.totals.output > seen.totals.output) byId.set(id, answer);
+    const model = typeof message.model === "string" && MODEL.test(message.model) ? message.model : "other model";
+    const answer = {
+      model,
+      totals: {
+        input: n("input_tokens"),
+        cacheCreation: n("cache_creation_input_tokens"),
+        cacheRead: n("cache_read_input_tokens"),
+        output: n("output_tokens"),
+      },
+    };
+    const key = typeof message.id === "string" ? `id:${message.id}` : `line:${anonymous++}`;
+    const seen = answers.get(key);
+    if (!seen || answer.totals.output > seen.totals.output) answers.set(key, answer);
   };
-
-  const folders = await listDir(projects);
-  if (!folders) return result;
-  try {
-    return await scan(folders);
-  } finally {
-    for (const answer of [...answers, ...byId.values()]) {
-      let bucket = result.perModel.get(answer.model);
-      if (!bucket) result.perModel.set(answer.model, (bucket = empty()));
-      for (const target of [result.totals, bucket]) {
-        target.input += answer.totals.input;
-        target.cacheCreation += answer.totals.cacheCreation;
-        target.cacheRead += answer.totals.cacheRead;
-        target.output += answer.totals.output;
-      }
-    }
-  }
-
-  async function scan(folders: string[]): Promise<Result> {
-  for (const folder of folders) {
-    const names = await listDir(join(projects, folder));
-    if (!names) {
-      result.unreadableFiles++;
-      continue;
-    }
-    for (const name of names.filter((entry) => entry.endsWith(".jsonl"))) {
-      const file = join(projects, folder, name);
-      const cwds = new Set<string>();
-      let first = Infinity;
-      let last = -Infinity;
-      try {
-        await readLines(file, (line) => {
-          if (typeof line.cwd === "string") cwds.add(line.cwd);
-          const time = typeof line.timestamp === "string" ? Date.parse(line.timestamp) : NaN;
-          if (!Number.isNaN(time)) {
-            first = Math.min(first, time);
-            last = Math.max(last, time);
-          }
-        });
-      } catch {
-        result.unreadableFiles++;
-        continue;
-      }
-      if (first > windowEnd.getTime() || last < windowStart.getTime()) continue;
-      let counts = false;
-      for (const cwd of cwds) if (await inside(cwd)) counts = true;
-      if (!counts) continue;
-      result.mainSessions++;
-      await addFile(file);
-      const helpers = join(projects, folder, name.slice(0, -".jsonl".length), "subagents");
-      const helperNames = await listDir(helpers);
-      for (const helper of helperNames ?? []) {
-        if (!helper.endsWith(".jsonl")) continue;
-        result.helperTranscripts++;
-        await addFile(join(helpers, helper));
-      }
-    }
-  }
-  return result;
-  }
 
   async function addFile(file: string): Promise<void> {
     try {
@@ -161,4 +117,54 @@ export async function measureSessions(
       result.unreadableFiles++;
     }
   }
+
+  async function scan(): Promise<void> {
+    const entries = await readdir(projects, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") unreadable();
+      return [];
+    });
+    for (const folder of entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)) {
+      const names = await listDir(join(projects, folder), unreadable);
+      for (const name of (names ?? []).filter((entry) => entry.endsWith(".jsonl"))) {
+        const file = join(projects, folder, name);
+        const cwds = new Set<string>();
+        let first = Infinity;
+        let last = -Infinity;
+        try {
+          await readLines(file, (line) => {
+            if (typeof line.cwd === "string") cwds.add(line.cwd);
+            const time = typeof line.timestamp === "string" ? Date.parse(line.timestamp) : NaN;
+            if (!Number.isNaN(time)) {
+              first = Math.min(first, time);
+              last = Math.max(last, time);
+            }
+          });
+        } catch {
+          unreadable();
+          continue;
+        }
+        if (first > windowEnd.getTime() || last < windowStart.getTime()) continue;
+        let counts = false;
+        for (const cwd of cwds) if (await inside(cwd)) counts = true;
+        if (!counts) continue;
+        result.mainSessions++;
+        await addFile(file);
+        const helpers = join(projects, folder, name.slice(0, -".jsonl".length), "subagents");
+        for (const helper of (await listDir(helpers, unreadable)) ?? []) {
+          if (!helper.endsWith(".jsonl")) continue;
+          result.helperTranscripts++;
+          await addFile(join(helpers, helper));
+        }
+      }
+    }
+  }
+
+  await scan();
+  for (const answer of answers.values()) {
+    let bucket = result.perModel.get(answer.model);
+    if (!bucket) result.perModel.set(answer.model, (bucket = empty()));
+    addTotals(result.totals, answer.totals);
+    addTotals(bucket, answer.totals);
+  }
+  return result;
 }

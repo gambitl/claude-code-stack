@@ -16,7 +16,7 @@ function totalLines(suffix: string, t: Totals): string[] {
 }
 
 export async function measure(args: string[], io: Io): Promise<number> {
-  let parsed: ReturnType<typeof parseArgs<{ options: { home: { type: "string" } }; allowPositionals: true }>>;
+  let parsed;
   try {
     parsed = parseArgs({
       args,
@@ -33,7 +33,7 @@ export async function measure(args: string[], io: Io): Promise<number> {
     io.stderr(`cstack measure: give exactly one plan file.\n${MEASURE_USAGE}\n`);
     return 2;
   }
-  let moments: Awaited<ReturnType<typeof readMoments>>;
+  let moments;
   try {
     moments = await readMoments(plan);
   } catch (error) {
@@ -48,9 +48,8 @@ export async function measure(args: string[], io: Io): Promise<number> {
     `helper transcripts: ${result.helperTranscripts}`,
     ...totalLines("", result.totals),
   ];
-  const models = [...result.perModel.keys()].sort((a, b) =>
-    a === "other model" ? 1 : b === "other model" ? -1 : a < b ? -1 : a > b ? 1 : 0,
-  );
+  const names = [...result.perModel.keys()];
+  const models = [...names.filter((name) => name !== "other model").sort(), ...names.filter((name) => name === "other model")];
   for (const model of models) lines.push(...totalLines(` ${model}`, result.perModel.get(model) as Totals));
   const wait = moments.ready ? moments.ready.getTime() - moments.approval.getTime() : undefined;
   if (wait !== undefined && wait >= 60000) {

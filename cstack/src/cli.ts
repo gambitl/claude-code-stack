@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
-import { measure } from "./commands/measure.js";
+import { MEASURE_USAGE, measure } from "./commands/measure.js";
 import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
@@ -11,7 +11,7 @@ import { type Io, processIo } from "./io.js";
 const USAGE = `Usage: cstack --version
        cstack doctor
        cstack guide <phase> [--skill <name>]
-       cstack measure <plan file> [--home <folder>]
+       ${MEASURE_USAGE.replace("Usage: ", "")}
        cstack skills install [--adopt <name>]...
 
 Commands:

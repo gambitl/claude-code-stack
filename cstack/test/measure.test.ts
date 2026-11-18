@@ -186,6 +186,31 @@ describe("cstack measure", () => {
 
     const inWindow = ["2026-03-01T10:10:00.000Z", "2026-03-01T10:20:00.000Z"];
 
+    it("ignores a plain file inside the projects folder", async () => {
+      const { out, code } = await measureWith((home, repo) => {
+        session(home, "a", repo, inWindow);
+        writeFileSync(join(home, ".claude", "projects", ".DS_Store"), "x");
+      });
+      expect(out.stdout).toContain("unreadable files: 0\n");
+      expect(code).toBe(0);
+    });
+
+    it("counts a helper folder it cannot open as an unreadable file", async () => {
+      let helpers = "";
+      try {
+        const { out, code } = await measureWith((home, repo) => {
+          session(home, "a", repo, inWindow);
+          helpers = join(home, ".claude", "projects", "-some-folder", "a", "subagents");
+          mkdirSync(helpers, { recursive: true });
+          chmodSync(helpers, 0o000);
+        });
+        expect(out.stdout).toContain("unreadable files: 1\n");
+        expect(code).toBe(1);
+      } finally {
+        if (helpers) chmodSync(helpers, 0o755);
+      }
+    });
+
     it("counts a session in a subfolder of the root, even one that is gone", async () => {
       const { out, code } = await measureWith((home, repo) => {
         session(home, "a", join(repo, "docs"), inWindow);
@@ -243,6 +268,22 @@ describe("cstack measure", () => {
       const code = await run(["measure", join(repo, plan), "--home", home], io);
       return { out, code };
     }
+
+    it("reads a plan file name with wildcard characters literally", async () => {
+      const repo = realpathSync(makeRepo());
+      writeFileSync(join(repo, "planX.md"), "# Other\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-q", "-m", "other"], "2026-03-01T09:00:00+00:00");
+      writeFileSync(join(repo, "plan*.md"), "# Plan\n\nStatus: approved\n\n## Ticket\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-q", "-m", "approved"], "2026-03-01T10:00:00+00:00");
+      writeFileSync(join(repo, "plan*.md"), "# Plan\n\nStatus: ready for review\n\n## Ticket\n");
+      git(repo, ["commit", "-q", "-am", "ready"], "2026-03-01T11:00:00+00:00");
+      const home = tmp("cstack-home-");
+      oneSession(home, repo, "2026-03-01T10:10:00.000Z", "2026-03-01T10:20:00.000Z");
+      const { out } = await measureRepo(repo, home, "plan*.md");
+      expect(out.stdout).toContain("minutes from approval to ready for review: 60\n");
+    });
 
     it("keeps the minutes after a rebase that changes the committer dates", async () => {
       const repo = realpathSync(makeRepo());

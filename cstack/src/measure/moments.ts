@@ -4,7 +4,7 @@ import { dirname, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
-const GIT_OPTIONS = ["-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];
+const GIT_OPTIONS = ["--literal-pathspecs", "-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];
 
 async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", [...GIT_OPTIONS, ...args], {
@@ -19,24 +19,14 @@ export class MomentsError extends Error {}
 
 export type Moments = { root: string; approval: Date; ready: Date | undefined };
 
-// A version reads "ready for review" when the first Status line of its header says so.
-function isReady(text: string): boolean {
-  for (const line of text.split("\n")) {
-    if (line.startsWith("## ")) return false;
-    if (line.startsWith("Status:")) {
-      return line.slice("Status:".length).trim().toLowerCase() === "ready for review";
-    }
-  }
-  return false;
-}
-
 // The header is every line before the first line that starts with "## ".
-function hasFormatLine(text: string): boolean {
+// Returns the text after the first "<key>:" line of the header, or undefined when there is none.
+function headerValue(text: string, key: string): string | undefined {
   for (const line of text.split("\n")) {
-    if (line.startsWith("## ")) return false;
-    if (line.startsWith("Format:")) return true;
+    if (line.startsWith("## ")) return undefined;
+    if (line.startsWith(`${key}:`)) return line.slice(key.length + 1).trim();
   }
-  return false;
+  return undefined;
 }
 
 export async function readMoments(planArgument: string): Promise<Moments> {
@@ -48,7 +38,7 @@ export async function readMoments(planArgument: string): Promise<Moments> {
   } catch {
     throw new MomentsError("the plan file does not exist or cannot be read.");
   }
-  if (hasFormatLine(text)) {
+  if (headerValue(text, "Format") !== undefined) {
     throw new MomentsError("this version of cstack measure reads only plan files made before cstack.");
   }
   let root: string;
@@ -67,14 +57,17 @@ export async function readMoments(planArgument: string): Promise<Moments> {
   const last = added[added.length - 1];
   if (!last) throw new MomentsError("the plan file was never committed.");
   const approval = new Date(last);
-  const commits = (await git(root, ["log", "--reverse", "--format=%H %aI", "--", path]))
-    .trim()
-    .split("\n");
+  let commits: string[];
+  try {
+    commits = (await git(root, ["log", "--reverse", "--format=%H %aI", "--", path])).trim().split("\n");
+  } catch {
+    throw new MomentsError("the history of the plan file cannot be read.");
+  }
   let ready: Date | undefined;
   for (const entry of commits) {
     const [hash, date] = entry.split(" ") as [string, string];
     try {
-      if (isReady(await git(root, ["show", `${hash}:${path}`]))) {
+      if (headerValue(await git(root, ["show", `${hash}:${path}`]), "Status")?.toLowerCase() === "ready for review") {
         ready = new Date(date);
         break;
       }
