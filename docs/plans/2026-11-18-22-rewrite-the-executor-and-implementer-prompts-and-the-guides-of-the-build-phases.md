@@ -272,7 +272,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 
 ## Implementation units
 
-### Unit 1: Ship the ten prompts, the plugin file and the retrospective template — status: todo
+### Unit 1: Ship the ten prompts, the plugin file and the retrospective template — status: done
 - Failing test: write `cstack/test/skills-package.test.ts`. It runs `skills(["install"], io, { home, packageRoot })` from `cstack/src/commands/skills.ts`, with a temporary home and the real package root (`new URL("..", import.meta.url).pathname`). It checks that the installed `resolve-issue` folder holds `agents/<name>.md` for the ten names `code-architect`, `code-explorer`, `code-reviewer`, `code-reviewer-deep`, `code-reviewer-simplicity`, `cto-review`, `executor`, `implementer`, `implementer-escalation` and `pr-reviewer`, plus `templates/plan.md`, `templates/settings.json`, `templates/retro.md` and `.claude-plugin/plugin.json`. It also walks every file of `cstack/skills/resolve-issue/` in the package, hidden files included, and checks that the installed copy has the same bytes. Run it and see it fail because `agents/` and `templates/retro.md` are missing.
 - Minimum code: copy the ten prompts of `skills/resolve-issue/agents/` into `cstack/skills/resolve-issue/agents/` byte for byte, with the two edits that "Decisions" names for `pr-reviewer.md` and `cto-review.md`. Copy `skills/resolve-issue/.claude-plugin/plugin.json` and `skills/resolve-issue/templates/retro.md` byte for byte. Add the paths of the ten prompts, `skills/resolve-issue/.claude-plugin/plugin.json` and `skills/resolve-issue/templates/retro.md` at the end of the list in `cstack/test/pack.test.ts`. Run the whole suite.
 - Refactor: none.
@@ -280,7 +280,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: none
 - Files: `cstack/test/skills-package.test.ts`, `cstack/test/pack.test.ts`, `cstack/skills/resolve-issue/agents/` (ten files), `cstack/skills/resolve-issue/.claude-plugin/plugin.json`, `cstack/skills/resolve-issue/templates/retro.md`.
 
-### Unit 2: Rewrite the implementer prompt — status: todo
+### Unit 2: Rewrite the implementer prompt — status: done
 - Failing test: write `cstack/test/prompts.test.ts` with a function that returns the problems of an implementer prompt. First, a fixture `cstack/test/fixtures/prompts/implementer-commit-before-green.md` names `cstack unit red`, then `cstack unit commit`, then `cstack unit green`. The test checks that the function reports a problem for it. Then the test checks that the real `cstack/skills/resolve-issue/agents/implementer.md` has no problem: it names `cstack unit red`, `cstack unit green` and `cstack unit commit` in this order, with no `cstack unit commit` before the first `cstack unit green`. It also has one sentence that holds both "No test" and `cstack unit commit`. Run it and see the real-prompt case fail, because the copy of unit 1 names none of these commands.
 - Minimum code: rewrite `cstack/skills/resolve-issue/agents/implementer.md` as the implementer lines of "Decisions" say. Run `cstack/test/prompts.test.ts` and `cstack/test/manifest.test.ts`, then the whole suite.
 - Refactor: none.
@@ -288,7 +288,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 1
 - Files: `cstack/test/prompts.test.ts`, `cstack/test/fixtures/prompts/implementer-commit-before-green.md`, `cstack/skills/resolve-issue/agents/implementer.md`.
 
-### Unit 3: Rewrite the executor prompt — status: todo
+### Unit 3: Rewrite the executor prompt — status: done
 - Failing test: in `cstack/test/prompts.test.ts`, check that the real `cstack/skills/resolve-issue/agents/executor.md` names `cstack next` and `cstack report submit`. The words that follow every `cstack report submit` in the prompt must form exactly the set `done`, `needs-decision`, `failed` and `published`. Run it and see it fail, because the copy of unit 1 names no cstack command.
 - Minimum code: rewrite `cstack/skills/resolve-issue/agents/executor.md` as the executor lines of "Decisions" say, under 1,000 words by `wc -w`. Run `cstack/test/prompts.test.ts` and `cstack/test/manifest.test.ts`, then the whole suite. Give the word count in the report.
 - Refactor: none.
@@ -296,7 +296,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 2
 - Files: `cstack/test/prompts.test.ts`, `cstack/skills/resolve-issue/agents/executor.md`.
 
-### Unit 4: Write the build guide and keep the guide test independent of the real guides — status: todo
+### Unit 4: Write the build guide and keep the guide test independent of the real guides — status: done
 - Failing test: write `cstack/guides/resolve-issue/build.md`, then run `cstack/test/guide.test.ts`. The case "lists the skills that have guides when the default skill has none" fails, because the default skill `resolve-issue` now has a guide.
 - Minimum code: give that one case a temporary package root that holds only `guides/cstack-example/hello.md`, made with `mkdtempSync`, and keep its assertions. The other cases do not change. `build.md` follows the build lines of "Decisions" and ticket Scope 5. Run `cstack/test/guide.test.ts` and `cstack/test/manifest.test.ts`, then the whole suite.
 - Refactor: none.
@@ -304,7 +304,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 3
 - Files: `cstack/guides/resolve-issue/build.md`, `cstack/test/guide.test.ts`.
 
-### Unit 5: Write the guides of the two reviews and of the branch update — status: todo
+### Unit 5: Write the guides of the two reviews and of the branch update — status: done
 - No test: prose only. The mention check of `cstack/test/manifest.test.ts` already scans these files, and unit 8 checks that they exist and hold no `git push`.
 - Minimum code: write `review.md`, `independent-review.md` and `update-branch.md` under `cstack/guides/resolve-issue/`, as their lines of "Decisions" and ticket Scopes 6, 7 and 8 say. Run `npx vitest run test/manifest.test.ts` from `cstack/`.
 - Refactor: none.
@@ -312,7 +312,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 4
 - Files: `cstack/guides/resolve-issue/review.md`, `cstack/guides/resolve-issue/independent-review.md`, `cstack/guides/resolve-issue/update-branch.md`.
 
-### Unit 6: Write the guides from the documentation to the ready state — status: todo
+### Unit 6: Write the guides from the documentation to the ready state — status: done
 - No test: prose only. The mention check of `cstack/test/manifest.test.ts` already scans these files, and unit 8 checks that they exist and hold no `git push`.
 - Minimum code: write `document.md`, `briefing.md`, `after-build-questions.md` and `ready.md` under `cstack/guides/resolve-issue/`, as their lines of "Decisions" and ticket Scopes 9, 10 and 11 say. Run `npx vitest run test/manifest.test.ts` from `cstack/`.
 - Refactor: none.
@@ -320,7 +320,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 4
 - Files: `cstack/guides/resolve-issue/document.md`, `cstack/guides/resolve-issue/briefing.md`, `cstack/guides/resolve-issue/after-build-questions.md`, `cstack/guides/resolve-issue/ready.md`.
 
-### Unit 7: Write the guides of the retrospective and of the publication — status: todo
+### Unit 7: Write the guides of the retrospective and of the publication — status: done
 - No test: prose only. The mention check of `cstack/test/manifest.test.ts` already scans these files, and unit 8 checks that they exist and hold no `git push`.
 - Minimum code: write `retro.md` and `publish.md` under `cstack/guides/resolve-issue/`, as their lines of "Decisions" and ticket Scopes 12 and 13 say. `retro.md` is for the main conversation. Run `npx vitest run test/manifest.test.ts` from `cstack/`.
 - Refactor: none.
@@ -328,7 +328,7 @@ The approach is locked by the ticket. The ten prompts and the two plain files ar
 - Depends on: 4
 - Files: `cstack/guides/resolve-issue/retro.md`, `cstack/guides/resolve-issue/publish.md`.
 
-### Unit 8: Check that every build guide exists and that only the executor may name a push — status: todo
+### Unit 8: Check that every build guide exists and that only the executor may name a push — status: done
 - Failing test: write `cstack/test/guides/build-guides.test.ts` with a function that takes a guides folder and returns the build phases that have no guide. The build phases are the entries of `PHASES` from `cstack/src/phases.ts`, from `build` to `publish`, `retro` included. First, a fixture folder `cstack/test/fixtures/build-guides/` holds every build guide except `publish.md`. The test checks that the function returns `publish` and that the failure message names `publish.md`. Then the real folder `cstack/guides/resolve-issue/` returns nothing. In `cstack/test/prompts.test.ts`, add the check that `git push` appears in no file of `cstack/guides/resolve-issue/` and of `cstack/skills/resolve-issue/agents/`, except in exactly one sentence of `executor.md`, and that this sentence speaks of a pipeline run and of "Decisions". Run both files and see the fixture case fail before the function exists.
 - Minimum code: the function in the test file, with the fixture guides as one-line files. Add the paths of the ten guides at the end of the list in `cstack/test/pack.test.ts`. Run the whole suite and `npm run typecheck`.
 - Refactor: none.
@@ -348,6 +348,8 @@ Security: no security surface, skip. The ticket adds prose and tests, and no end
 - A `WHY:` comment in code: does not apply, because no code under `cstack/src/` changes.
 
 ## Review log
+
+Impact notes. Graphify is not installed and the brief forbids installing it, so the impact was checked with search. No symbol of `cstack/src/` changed. The shared files touched are `cstack/test/guide.test.ts` (one case now uses a temporary package root), `cstack/test/pack.test.ts` (paths added at the end of the list) and the new tests. Usual companions: none outside the diff. No `WHY:` or `DECISION:` comment sits in the changed files. Checks run: `npm test` (251 tests) and `npm run typecheck` pass in `cstack/`. `wc -w` of the new `executor.md` is 976, down from 3,425. No guide or prompt holds the phrases "in English", `Co-Authored-By` or a fixed test command, and `git push` appears once, in the executor prompt.
 
 ## Briefing
 
