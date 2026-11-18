@@ -196,6 +196,7 @@ function scan(lines: string[]): Scanned {
   return { headings, comments, problems };
 }
 
+// WHY: ADR-SIC-B (docs/decisions/ADR-SIC-B-run-state.md). An unknown format version is refused, and the message names the cstack version that can read the file.
 function stopOnFormat(lines: string[], firstHeadingLine: number): void {
   const region = lines.slice(0, firstHeadingLine - 1);
   const value = (key: string) =>

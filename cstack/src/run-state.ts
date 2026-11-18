@@ -1,3 +1,4 @@
+// WHY: ADR-SIC-B (docs/decisions/ADR-SIC-B-run-state.md). The run state lives under the common git folder, not in the plan file, and carries its own format version.
 import { spawnSync } from "node:child_process";
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
