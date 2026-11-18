@@ -396,6 +396,8 @@ Done so far (phase 10.3, the answer to the blocking question is still missing):
 
 - 2026-11-18: phase 6 started. GitHub issues have no "in progress" state, so the ticket stays open and the branch `gambitl/settings-file` (already checked out) marks the start.
 
+- 2026-11-18: phases 6 to 9 done and 10.1 to 10.3 partly done. Needs decision: one blocking question about the example file (see "Open questions after the build"). Nothing pushed.
+
 ## History
 
 <!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
