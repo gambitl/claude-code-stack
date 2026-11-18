@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/cstack-doctor
 Conversation language: French
-Status: in progress (phase 10). Ticket: GitHub has no in-progress state, so none was set. Branch gambitl/cstack-doctor is checked out.
+Status: ready for review Ticket: GitHub has no in-progress state, so none was set. Branch gambitl/cstack-doctor is checked out.
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -280,6 +280,50 @@ origin/main did not move since the branch was created, so no rebase was needed. 
 
 ## Briefing
 
+### What you should know about what was built
+
+`cstack doctor` is built, and it does what the ticket asked. It checks the seven items in the same order as the new README section. It prints one line for each, with the version or the install command, and exits with code 1 only when a required item needs attention. The 38 tests pass, and a real run on this machine took about one second and exited with code 0.
+
+**What you need to do.**
+
+- Merge the pull request yourself once the `cstack` check is green. If the ticket that adds the release (#9) or the one that adds `cstack measure` (#11) merges first, the usage text in `cstack/src/cli.ts` will conflict, because all three replace the line "No command exists yet." Keep a single "Commands:" list that holds every command. In the README, keep "Requirements" above "Install cstack".
+
+**What to watch.**
+
+- The Orca check relies on three fields of Orca's JSON answers. If a new Orca version renames one, doctor will quietly say "installed but not running" or "Trackers: none". The tests will not notice, because they use recorded answers. Run `cstack doctor` by hand after an Orca update. The ticket that checks the Orca version (#24) is the right place to guard this.
+- The rule that avoids running `/usr/bin/git` on a Mac without the developer tools was tested only with a fake. The first teammate on a fresh Mac is the real test: they should see "git: missing" and no system window.
+- On a timeout, doctor stops the command but not the programs it started. `orca` and `claude` are wrapper scripts, so their real process can keep running for a short while. It is harmless.
+
+**What changed since the plan.**
+
+- On a timeout, doctor now stops the command with SIGKILL, the signal a program cannot ignore, so a stubborn command can no longer block it.
+- `cstack/src/cli.ts` refuses any argument after `doctor`, instead of `doctor.ts` reading its own options. This keeps the change to that shared file at two lines.
+- The runner never keeps the stderr of a command at all, so doctor cannot print it. The planned test with a fake stderr was dropped, because there is nothing left to test.
+
+#### Details
+
+**What was built and how I know it works.** The branch adds `cstack/src/doctor/runner.ts`, `cstack/src/doctor/requirements.ts`, `cstack/src/doctor/orca.ts` and `cstack/src/commands/doctor.ts`, registers `doctor` in `cstack/src/cli.ts`, and adds the `## Requirements` section to `README.md`. I ran `npm test` in `cstack/` on 2026-11-18: 4 test files and 38 tests pass. I built the package and ran `node dist/bin.js doctor` on this machine. It printed 8 lines (seven items and the summary), exited with code 0 and took about one second. I did not copy that output anywhere, as the plan requires. `origin/main` has not moved since the branch was created, and neither #9 nor #11 has merged yet.
+
+**Merging after #9 or #11.** All three tickets of the wave replace the line "No command exists yet." in the `USAGE` constant of `cstack/src/cli.ts` (lines 5 to 14 on this branch). This branch replaced it with a `Commands:` header and one line for `doctor`. A careless "keep both" resolution can leave two `Commands:` headers, or bring the old sentence back. No test checks the usage text, so CI would not catch it. In `README.md`, #9 adds "Install cstack". The README test reads the bold bullets under `## Requirements` until the next `## ` heading, so a new `##` section after it is safe. A `###` subsection with bold bullets inside "Requirements" would break the test, which is the intended behaviour. The plan already says to keep both changes and to put "Requirements" first. The maintainer merges, so the maintainer may be the one who resolves the conflict if this pull request is not the first to merge.
+
+**Orca answers can drift.** `cstack/src/doctor/orca.ts` reads `result.runtime.reachable` from `orca status --json`, `result.sites` from `orca jira connection --json`, and `result.teams` and `result.meta.workspaceErrors` from `orca linear team list --workspace all --json`. Every unusual answer, such as an answer that is not JSON, has `ok` false, or lacks a field, falls back to "not running" or to no tracker. That fallback is correct for privacy and for the exit code, because Orca is optional. The cost is that a format change in Orca looks like a normal state and not like an error. The fixtures were recorded with Orca 1.4.262, while the plan was written with 1.4.259, so Orca already moved during this ticket. The specification accepts this risk (open question 1). By default nobody notices until a teammate wonders why their trackers are missing. The ticket that checks the Orca version (#24) can pin the version that the fixtures come from. The comment planned on #24 should say so.
+
+**The git rule on a fresh Mac.** `requirements.ts` runs `xcode-select -p` and, when it fails and the first `git` on the PATH is `/usr/bin/git`, reports git as missing without running it. The fake runner covers both branches. No real machine without the developer tools was available. `xcode-select -p` itself does not open any window when the tools are missing; it only exits with a non-zero code. The open risk is a PATH where `/usr/bin/git` is reached through another folder, for example a symbolic link. In that case doctor would run the Apple shim and the system window would appear. This is unlikely, and the window only offers an install, which the user can refuse.
+
+**Processes left behind on a timeout.** `createRunner` uses `execFile` with `timeout` and `killSignal: "SIGKILL"` (commit 4227f03, with a test of a command that ignores SIGTERM). Node sends the signal only to the direct child. `orca` is a bash script that starts Orca's Electron binary, and `claude` is a zsh wrapper on this machine, so a killed wrapper can leave its real process running until that process ends on its own. The plan accepted this (question 4 and the decision on process groups). Killing the process group would need `detached: true`, which also stops Ctrl+C from reaching the child, so I would still not do it. In the worst case, where every command hangs, a doctor run takes 11 times 5 seconds, which is 55 seconds.
+
+**Options parsed in `cli.ts`.** The comment on #7 said that each command parses its own options. On this branch, `run` in `cli.ts` refuses any argument after `doctor` with exit code 2, and `doctor(io)` takes no arguments. ADR-SIC-H does not require one form or the other. The choice keeps the shared file change at two lines, which matters while #9 and #11 edit the same function. The day `doctor` gains an option, such as `--json`, the check has to move into `doctor.ts`.
+
+**Stderr and the privacy test.** `RunResult` has no stderr field, and the runner ignores the stderr that `execFile` gives. Doctor therefore cannot print a workspace name that Orca writes on stderr. The plan asked for a negative test with a fake stderr. The independent review dropped it, because the fake runner cannot return a stderr. The negative test on a recorded answer that holds a site name, an email, a team name and a workspace name is in place and passes.
+
+**A buffer limit reported as a timeout.** `execFile` stops a command whose output passes 1 MB and sets `killed`, so the runner reports it as a timeout. None of the eleven commands prints anything close to that, so this is a wording issue only. A non-numeric error code other than `ENOENT`, such as `EACCES` for a file on the PATH that cannot run, is reported as "failed with exit code 1". This is also only a wording issue.
+
+**How the earlier questions were resolved.** Question 1 (how Orca and its trackers are detected) is built as answered, in `orca.ts`. Question 2 (connected Orca answers) is built from the real empty answers with placeholders, in `cstack/test/fixtures/doctor/orca-*.json`. Question 3 (Graphify version flag) is built as `graphify --version` with the fixture `graphify 0.9.112`. Question 4 (time limit with a grandchild) is built and tested in `cstack/test/doctor-runner.test.ts`, now with SIGKILL. Question 5 (a required item that times out counts as a problem) is built and tested. Questions 6, 7, 9, 10 and 11 are built as drafted. Question 12 (`--json`) stays open, and it is already in "Open questions after the build" as non-blocking. Question 13 (Orca installed but closed) is built: doctor skips the Jira and Linear commands, and a test checks that they never run. Question 14 (the `/usr/bin/git` shim) is built, tested only with a fake. Question 15 (Linear connection error) is built as "Linear (connection error)".
+
+**New questions.** I found no new question. The open `--json` question stays as it is.
+
+I checked security and authorization, data model lock-in, scale, failure modes, user-facing edge cases, operations and cost, reversibility and hidden coupling. Beyond the points above, I found nothing in security, data model lock-in, scale, operations and cost, or reversibility, because doctor only reads, stores nothing, holds no credentials and adds no dependency.
+
 ## Open questions after the build
 
 ### Blocking
@@ -292,11 +336,48 @@ none
 
 ## Pull request
 
+Title: `feat(cli): add cstack doctor, which checks what cstack needs on the machine`
+
+Body:
+
+This adds `cstack doctor`, a command that checks the machine for the programs that `cstack` and the skills need. It prints one line per item with its version, or the command that installs it when it is missing. It exits with code 1 only when a required item needs attention. The README has a new "Requirements" section with the same items, and a test fails when the two lists differ.
+
+The items are macOS, Node, git, Graphify, a forge client (`gh` or `glab`), Claude Code and Orca. Graphify and Orca are optional. For Orca, doctor also lists the trackers it is connected to, and prints only the names Jira and Linear. Doctor only reads: it never installs anything, never starts Orca, and never prints a site, workspace, team, account or email.
+
+Key decisions. Every outside command goes through one runner with a 5 second limit, which tests replace with a fake. The minimum Node version is read from `engines.node` at run time, and the README says "the current long-term support release" in words. On a Mac without the developer tools, doctor never runs `/usr/bin/git`, because that file opens a system install window. Doctor does not judge the Orca version, because ticket #24 sets the minimum.
+
+Files: `cstack/src/commands/doctor.ts`, `cstack/src/doctor/` (`runner.ts`, `requirements.ts`, `orca.ts`), a small change in `cstack/src/cli.ts`, new tests and recorded answers in `cstack/test/`, and `README.md`. If #9 or #11 merges first, keep both changes in `cli.ts` and in the README, with one "Commands:" list and "Requirements" above "Install cstack".
+
+Judgment calls from the independent review. The runner drops stderr, so the planned privacy test with a fake stderr was not written. `cli.ts` refuses any argument after `doctor`, to keep the shared file change small. The recorded Orca version is 1.4.262. Follow-ups not done: share two error sentences between `orca.ts` and `requirements.ts`, and let each check hold its own install hint.
+
+Plan file: `docs/plans/2026-11-18-10-check-the-machine-with-cstack-doctor.md`.
+
+### Open questions, not needed for this pull request
+
+This pull request can be merged without these answers. For the maintainer: should `cstack doctor` offer a machine-readable output, such as `--json`, so that a skill can read its result? This pull request does not add one, because nothing reads it yet.
+
+Fixes #10
+
 ## Documentation
+
+- Comment on ticket #10: https://github.com/gambitl/claude-code-stack/issues/10#issuecomment-6973129971
+- Comment on ticket #24: https://github.com/gambitl/claude-code-stack/issues/24#issuecomment-6973130356
+- README "Requirements" section and the usage text of `cstack`: committed on the branch.
+- No ADR: no structural decision beyond ADR-SIC-H.
 
 ## Executor notes
 
+- Graphify is not installed, so impact notes came from reading the code.
+- Unit implementers wrote code before tests in units 1 to 4, so no test was seen failing first.
+- The plan expected Orca 1.4.259, the recorded version is 1.4.262.
+- The planned stderr privacy test could not be written: the runner result has no stderr field.
+- Correctness review found a command that ignores SIGTERM could block doctor, fixed with SIGKILL (4227f03).
+- The independent review changed one test to check the Orca line (d446703).
+- GitHub has no in-progress state for the ticket, so none was set.
+
 ## Hand-off log
+
+2026-11-18: phases 6 to 10 finished. Four units done, reviews done, ticket and #24 commented, pull request drafted. Nothing pushed.
 
 ## History
 
