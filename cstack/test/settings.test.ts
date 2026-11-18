@@ -107,3 +107,73 @@ describe("readSettings refusals of shape", () => {
     expect(e.problems.map((p) => p.path)).toEqual(["integration", "watchIntervalMinutes"]);
   });
 });
+
+function problemPaths(root: string): string[] {
+  return refusal(root).problems.map((p) => p.path);
+}
+
+describe("readSettings value rules", () => {
+  it("refuses integration squash and names the allowed values", () => {
+    const e = refusal(repo({ version: 1, integration: "squash" }));
+    expect(e.message).toContain("integration");
+    expect(e.message).toContain("merge");
+    expect(e.message).toContain("rebase");
+  });
+  it.each([0, 1441, 2.5])("refuses watchIntervalMinutes %s", (n) => {
+    const e = refusal(repo({ version: 1, watchIntervalMinutes: n }));
+    expect(e.message).toContain("watchIntervalMinutes");
+    expect(e.message).toContain("1440");
+  });
+  it.each(["my agent", "Claude", "a;b", "1abc", "a".repeat(33)])("refuses review.agent %j", (agent) => {
+    expect(problemPaths(repo({ version: 1, review: { agent, model: "opus" } }))).toEqual(["review.agent"]);
+  });
+  it.each(["a b", 'a"b', "a$b", "a;b", ""])("refuses review.model %j", (model) => {
+    expect(problemPaths(repo({ version: 1, review: { agent: "claude", model } }))).toEqual(["review.model"]);
+  });
+  it("accepts review.model with brackets and dots", () => {
+    const s = readSettings(repo({ version: 1, review: { agent: "claude", model: "opus-4.5[1m]" } }));
+    expect(s.values.review.model).toBe("opus-4.5[1m]");
+  });
+  it("refuses review with agent and no model", () => {
+    expect(problemPaths(repo({ version: 1, review: { agent: "claude" } }))).toEqual(["review.model"]);
+  });
+  it("refuses testCommands.file without the placeholder, or with it twice", () => {
+    expect(problemPaths(repo({ version: 1, testCommands: { all: "npm test", file: "vitest" } }))).toEqual(["testCommands.file"]);
+    expect(problemPaths(repo({ version: 1, testCommands: { all: "npm test", file: "vitest {file} {file}" } }))).toEqual(["testCommands.file"]);
+  });
+  it("refuses {file} in testCommands.all and points to testCommands.file", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "vitest {file}" } }));
+    expect(e.problems[0].path).toBe("testCommands.all");
+    expect(e.message).toContain("testCommands.file");
+  });
+  it("refuses a test command with a line break or empty", () => {
+    expect(problemPaths(repo({ version: 1, testCommands: { all: "npm test\nrm -rf x" } }))).toEqual(["testCommands.all"]);
+    expect(problemPaths(repo({ version: 1, testCommands: { all: "" } }))).toEqual(["testCommands.all"]);
+  });
+  it("refuses a test command whose first word is a forbidden tool, also with a path", () => {
+    const e = refusal(repo({ version: 1, forbiddenTools: ["yarn"], testCommands: { all: "yarn test" } }));
+    expect(e.problems[0].path).toBe("testCommands.all");
+    expect(e.message).toContain("yarn");
+    expect(problemPaths(repo({ version: 1, forbiddenTools: ["yarn"], testCommands: { all: "npm test", file: "  ./node_modules/.bin/yarn {file}" } }))).toEqual(["testCommands.file"]);
+  });
+  it("refuses a forbidden name with a space", () => {
+    expect(problemPaths(repo({ version: 1, forbiddenTools: ["ok", "a b"] }))).toEqual(["forbiddenTools[1]"]);
+  });
+  it("refuses trailer lines that are not Key: value or hold a line break", () => {
+    expect(problemPaths(repo({ version: 1, commitAttribution: ["Co-Authored-By: A <a@b.c>", "no colon"] }))).toEqual(["commitAttribution[1]"]);
+    expect(problemPaths(repo({ version: 1, commitAttribution: ["Key: a\nKey2: b"] }))).toEqual(["commitAttribution[0]"]);
+    expect(problemPaths(repo({ version: 1, commitAttribution: ["Key:  spaced", "Key: "] }))).toEqual(["commitAttribution[0]", "commitAttribution[1]"]);
+  });
+  it.each(["", "a".repeat(41), "French2"])("refuses recordsLanguage %j", (v) => {
+    expect(problemPaths(repo({ version: 1, recordsLanguage: v }))).toEqual(["recordsLanguage"]);
+  });
+  it("returns recordsLanguage in composed form", () => {
+    const s = readSettings(repo({ version: 1, recordsLanguage: "Français" }));
+    expect(s.values.recordsLanguage).toBe("Français");
+  });
+  it("shows a control character escaped in a quoted value", () => {
+    const e = refusal(repo({ version: 1, integration: "a\u001b[31mb" }));
+    expect(e.message).not.toContain("\u001b");
+    expect(e.message).toContain("\\u001b");
+  });
+});

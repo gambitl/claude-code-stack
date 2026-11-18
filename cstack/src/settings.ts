@@ -93,17 +93,53 @@ function unknownKeys(obj: Record<string, unknown>, allowed: string[], prefix: st
   }
 }
 
-function checkStringList(v: unknown, path: string, out: Problem[]): string[] | undefined {
+// A value quoted in a message: escaped by JSON.stringify and cut, so a terminal escape cannot get through.
+function quote(v: unknown): string {
+  let t = JSON.stringify(v) ?? String(v);
+  t = t.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+  return t.length > 60 ? `${t.slice(0, 60)}...` : t;
+}
+
+function checkTestCommand(v: unknown, path: string, isFile: boolean, forbidden: string[], out: Problem[]): boolean {
+  if (typeof v !== "string" || v.trim() === "" || /\p{Cc}/u.test(v)) {
+    out.push({ path, text: `must be a non-empty one-line command with no control character, not ${quote(v)}` });
+    return false;
+  }
+  const count = v.split("{file}").length - 1;
+  if (isFile && count !== 1) {
+    out.push({ path, text: `must contain the placeholder {file} exactly once, found ${count}` });
+    return false;
+  }
+  if (!isFile && count > 0) {
+    out.push({ path, text: "must not contain {file}. Put a command for one file in testCommands.file" });
+    return false;
+  }
+  const word = v.trimStart().split(/[ \t]/)[0];
+  const base = word.slice(word.lastIndexOf("/") + 1);
+  const hit = forbidden.find((f) => f === word || f === base);
+  if (hit !== undefined) {
+    out.push({ path, text: `starts with ${quote(hit)}, which is in forbiddenTools` });
+    return false;
+  }
+  return true;
+}
+
+function checkStringList(
+  v: unknown,
+  path: string,
+  out: Problem[],
+  item?: (value: string, path: string) => boolean,
+): string[] | undefined {
   if (!Array.isArray(v)) {
     out.push({ path, text: "must be a list of strings" });
     return undefined;
   }
   let ok = true;
-  v.forEach((item, i) => {
-    if (typeof item !== "string") {
+  v.forEach((entry, i) => {
+    if (typeof entry !== "string") {
       out.push({ path: `${path}[${i}]`, text: "must be a string" });
       ok = false;
-    }
+    } else if (item && !item(entry, `${path}[${i}]`)) ok = false;
   });
   return ok ? (v as string[]) : undefined;
 }
@@ -162,29 +198,46 @@ export function readSettings(root: string): Settings {
     result.sources[key] = "file";
   };
 
+  const forbidden = Array.isArray(data.forbiddenTools)
+    ? data.forbiddenTools.filter((x): x is string => typeof x === "string")
+    : [];
+
   if (Object.hasOwn(data, "integration")) {
-    if (typeof data.integration === "string") set("integration", data.integration);
-    else problems.push({ path: "integration", text: "must be a string" });
+    const v = data.integration;
+    if (v === "merge" || v === "rebase") set("integration", v);
+    else problems.push({ path: "integration", text: `must be "merge" or "rebase", not ${quote(v)}` });
   }
   if (Object.hasOwn(data, "recordsLanguage")) {
-    if (typeof data.recordsLanguage === "string") set("recordsLanguage", data.recordsLanguage);
-    else problems.push({ path: "recordsLanguage", text: "must be a string" });
+    const v = typeof data.recordsLanguage === "string" ? data.recordsLanguage.normalize("NFC") : data.recordsLanguage;
+    if (typeof v === "string" && /^\p{L}[\p{L} -]{0,39}$/u.test(v)) set("recordsLanguage", v);
+    else problems.push({ path: "recordsLanguage", text: `must be 1 to 40 letters, spaces and hyphens, starting with a letter, not ${quote(v)}` });
   }
-  for (const key of ["forbiddenTools", "commitAttribution"] as const) {
-    if (Object.hasOwn(data, key)) {
-      const list = checkStringList(data[key], key, problems);
-      if (list) set(key, list);
-    }
+  if (Object.hasOwn(data, "forbiddenTools")) {
+    const list = checkStringList(data.forbiddenTools, "forbiddenTools", problems, (item, path) => {
+      if (!/^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$/.test(item)) {
+        problems.push({ path, text: `must be a command name of letters, digits, . _ + - (1 to 64 characters), not ${quote(item)}` });
+        return false;
+      }
+      return true;
+    });
+    if (list) set("forbiddenTools", list);
+  }
+  if (Object.hasOwn(data, "commitAttribution")) {
+    const list = checkStringList(data.commitAttribution, "commitAttribution", problems, (item, path) => {
+      if (!/^[A-Za-z0-9][A-Za-z0-9-]*: [^ \p{Cc}][^\p{Cc}]*$/u.test(item)) {
+        problems.push({ path, text: `must be one git trailer line of the form "Key: value", with no control character or line break, not ${quote(item)}` });
+        return false;
+      }
+      return true;
+    });
+    if (list) set("commitAttribution", list);
   }
   if (Object.hasOwn(data, "testCommands")) {
     const o = checkObjectKeys(data.testCommands, "testCommands", TEST_KEYS, ["all"], problems);
     if (o) {
       let ok = true;
       for (const key of TEST_KEYS) {
-        if (Object.hasOwn(o, key) && typeof o[key] !== "string") {
-          problems.push({ path: `testCommands.${key}`, text: "must be a string" });
-          ok = false;
-        }
+        if (Object.hasOwn(o, key) && !checkTestCommand(o[key], `testCommands.${key}`, key === "file", forbidden, problems)) ok = false;
       }
       if (ok && typeof o.all === "string") set("testCommands", { ...o });
     }
@@ -193,18 +246,21 @@ export function readSettings(root: string): Settings {
     const o = checkObjectKeys(data.review, "review", REVIEW_KEYS, REVIEW_KEYS, problems);
     if (o) {
       let ok = true;
-      for (const key of REVIEW_KEYS) {
-        if (Object.hasOwn(o, key) && typeof o[key] !== "string") {
-          problems.push({ path: `review.${key}`, text: "must be a string" });
-          ok = false;
-        }
+      if (Object.hasOwn(o, "agent") && !(typeof o.agent === "string" && /^[a-z][a-z0-9-]{0,31}$/.test(o.agent))) {
+        problems.push({ path: "review.agent", text: `must match ^[a-z][a-z0-9-]{0,31}$ (lowercase letters, digits, hyphens), not ${quote(o.agent)}` });
+        ok = false;
+      }
+      if (Object.hasOwn(o, "model") && !(typeof o.model === "string" && /^[A-Za-z0-9._\-[\]]+$/.test(o.model))) {
+        problems.push({ path: "review.model", text: `must be a non-empty string of letters, digits and . _ - [ ], not ${quote(o.model)}` });
+        ok = false;
       }
       if (ok && typeof o.agent === "string" && typeof o.model === "string") set("review", { agent: o.agent, model: o.model });
     }
   }
   if (Object.hasOwn(data, "watchIntervalMinutes")) {
-    if (typeof data.watchIntervalMinutes === "number") set("watchIntervalMinutes", data.watchIntervalMinutes);
-    else problems.push({ path: "watchIntervalMinutes", text: "must be a number" });
+    const v = data.watchIntervalMinutes;
+    if (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 1440) set("watchIntervalMinutes", v);
+    else problems.push({ path: "watchIntervalMinutes", text: `must be a whole number from 1 to 1440, not ${quote(v)}` });
   }
 
   if (problems.length > 0) throw new SettingsError(problems);
