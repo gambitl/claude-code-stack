@@ -342,6 +342,21 @@ Design specification: no unit has a user interface.
 
 Graphify is not installed, so dependents were found with file reads and `git log`. All commands and the code are new, so nothing outside the diff calls them. `cli.ts` is called only by `bin.ts` and `cli.test.ts`, which pass. Files that usually change with the touched files: `.gitignore` (dist is already ignored and the packed folders hold no ignore files), `sync.sh` (plan says not to edit it; it skips `.superset-managed` folders and the plan forbids a change), `scripts/test_pull_skills.sh` (changed with `pull-skills.sh`), `cstack/tsconfig*.json` (unchanged on purpose, `rootDir` stays `src`). The full suite (31 tests) and the type check passed before review. One `WHY: ADR-SIC-C` comment was missing on the marker check, and the executor added it.
 
+### Phase 7 findings (2026-11-18)
+
+Correctness, security and conventions reviewers found no issue at or above confidence 80. The reviewer of correctness also packed the real package, installed it into a temporary folder and ran both commands through the bin file with a temporary home; it all worked. The simplicity reviewer found about 11 lines to cut (a `listDir` helper in `guide.ts`, a three-member `Plan` type and a duplicated `readdir` sort in `skills.ts`). Nothing was changed for these. Follow-ups, none blocking:
+
+- Usage errors of `skills` lack the `cstack: ` prefix that `cli.ts` and `guide` use.
+- `sameFolder` compares `.DS_Store` too, so a Finder file inside an installed skill makes the next install say `replaced`.
+- A relative symbolic link adopted across disks keeps its relative path in the backup.
+- The release job holds `contents: write` while it runs `npm ci` and `npm test`. A split into a build job and a release job would narrow the token. The plan chose one job.
+- `cache: npm` in a release workflow can be removed to close any cache question.
+- A version change makes every skill `replaced`, so the backup folder grows on every update and nothing cleans it.
+
+### Phase 8 (2026-11-18)
+
+The independent reviewer added one test (commit 571e30e): an unshipped folder without the marker, and a link to a marked folder, are never removed. All 32 tests, the type check, the build and the `pull-skills.sh` test pass. The target branch had not moved, so no rebase was needed (phase 9). The judgment calls it raised are the first, second and sixth follow-ups above, plus the accepted risk that a failed backup move leaves a skill missing until the next install.
+
 ## Briefing
 
 ## Open questions after the build
