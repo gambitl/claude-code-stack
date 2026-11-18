@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/cstack-doctor
 Conversation language: French
-Status: ready for review Ticket: GitHub has no in-progress state, so none was set. Branch gambitl/cstack-doctor is checked out.
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
