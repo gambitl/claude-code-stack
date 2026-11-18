@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/plan-read-reports
 Conversation language: French
-Status: approved
+Status: in progress
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -407,7 +407,8 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned.>
+- 2026-11-18, run 1: ticket #16 has no in-progress state or label on GitHub (labels: cli, tests), so it stays open. Branch `gambitl/plan-read-reports` already existed; the plan file is its first commit.
+
 
 ## History
 
