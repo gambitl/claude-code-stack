@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/settings-file
 Conversation language: French
-Status: in progress
+Status: needs decision
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -324,17 +324,73 @@ Four reviewers ran: correctness, security, conventions and simplicity.
 
 ## Briefing
 
+### What you should know about what was built
+
+One question needs your answer before the pull request can open: should the example settings file leave out `review`? You will see it right after this, with the other open questions.
+
+Apart from that, the branch does what the ticket asked. The reader of `.cstack/settings.json` returns every value with its source. It refuses an unknown key or a wrong value and names the full key, and it gives the line and the column of a JSON error. ADR-SIC-D is written, and the specification links to it. I ran the 136 tests and the typecheck again, and both pass.
+
+**What you need to do**
+
+Answer the question about the example file. Today it holds `"review": {"agent": "claude", "model": "opus"}`. I checked it: a repository that copies it gets `review` from the file, not from the default. So the ticket that launches the review (#22) will pass `opus` there forever, and a later change to the header of `pr-reviewer.md` never reaches that repository. I recommend removing `review` from the example, as we did for `testCommands`.
+
+**What to watch**
+
+- When the ticket of the plan file format (#13) merges, the second branch to merge should re-check the install test line, the ADR lines of the specification and the epic body. Both tickets edit them.
+- The reader follows a symbolic link. A committed `.cstack/settings.json` that points to `/dev/zero` or `/dev/stdin` makes cstack hang. Nothing calls the reader yet, so the first command that does (#23) should refuse anything that is not a plain file.
+- `review.agent` accepts any lowercase name, such as `codex`. The ticket that launches the review (#22) must match it against agents it knows, never run it as a program name.
+
+**What changed since the plan**
+
+- `recordsLanguage` also accepts combining marks, so Hindi passes. The plan's rule was narrower.
+- `review.model` must start with a letter or a digit, so a value like `--yolo` cannot act as an option of a later tool.
+- An unknown key name is now quoted and cut in the message, like a value.
+
+#### Details
+
+What was built. The branch adds `cstack/src/settings.ts` (the reader, its defaults, `SettingsError` and the value rules), `cstack/src/json-position.ts` (the locator of a JSON syntax error), `cstack/test/settings.test.ts`, the example file `cstack/skills/resolve-issue/templates/settings.json`, and `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`. It changes one assertion at `cstack/test/skills-install.test.ts` line 94 and one line of `docs/projects/skills-into-cli.md` (line 321). I re-ran `npm test` (136 tests, 9 files) and `npm run typecheck` in `cstack/` on commit `96df1fd`, and both pass. `origin/main` is still at `f1de136`, so #13 has not merged yet. Every acceptance line of the ticket has a test, and the ADR holds the three options, the choice, the default and the citation of line 210.
+
+The example file pins the review model (new question, blocking, cannot be tested: the developer has to answer). I copied the example file into a scratch root and called `readSettings`. Every key it holds comes back with the source `file`, `review` included. ADR-SIC-D says that the executor passes a model to the review only when `review` comes from the settings file, and that the header decides when the file says nothing. The ticket that fills the guides (#21) points a repository without a file to this example, so most repositories will copy it, and the file will never be silent about `review`. A later change of the model in the header of `skills/resolve-issue/agents/pr-reviewer.md` would then never reach those repositories, and nobody would have chosen that. The question, word for word, for the developer: "The example settings file `cstack/skills/resolve-issue/templates/settings.json` holds `"review": {"agent": "claude", "model": "opus"}`. A repository that copies it gets `review` from the file, so the review launch of #22 always passes `opus` and ignores a later change to the header of `pr-reviewer.md`. Should I remove `review` from the example file, as we did for `testCommands`, and change its test to check every key except `testCommands` and `review`?" I recommend yes. The cost is one key less in the file and one line in its test, and it departs from "every key" in Scope 6 the same way `testCommands` already does. The comment on #21 should then say that its guide mentions the `review` key without copying it. I rejected two other answers. Letting #22 compare the file value with the header cannot tell a team that chose `opus` on purpose from a team that copied the example, and it was already rejected in "Questions you may not be asking". Keeping the key and asking the guide of #21 to tell teams to delete it relies on prose that a team will skip. If the answer is to keep the file as it is, the comments on #21 and #22 must say that copying the example pins the review model. The same freezing applies to `integration` and `watchIntervalMinutes`, but their defaults live only in the reader, so a copied value is just an explicit choice and does no harm.
+
+The merge with the ticket of the plan file format (#13). Both branches change `cstack/test/skills-install.test.ts` line 94 to the same literal, `installed cstack-example\ninstalled resolve-issue\n`. They change different ADR lines of the specification (319 for #13, 321 here, with line 320 untouched by both), and they both edit the epic body. A scratch merge showed that the test line and the specification lines merge cleanly. The epic body has no merge: `gh issue edit --body` replaces it whole, so the documentation step must re-read it just before the edit, as the plan says. Whichever branch merges second should run the full suite after rebasing.
+
+The reader follows a symbolic link (new question, non-blocking, for the developer). `readFileSync` follows links, and git can commit a symbolic link. A link to `/dev/zero` makes the read grow without end, and a link to `/dev/stdin` waits for input. A link to a file outside the repository is read too, but the messages never copy its text, because the locator writes its own reasons and quoted values are cut at about 60 characters. The fix is an `lstat` check that refuses anything that is not a regular file, about five lines. The question, word for word, for the developer: "Should the reader refuse `.cstack/settings.json` when it is not a regular file, such as a symbolic link or a device, in this pull request, or should the first command that reads the file (#23) add that check?" The work of this ticket stays correct either way, because no command calls the reader yet. If nobody decides, the comment on #23 carries it.
+
+The review agent name. `review.agent` matches `^[a-z][a-z0-9-]{0,31}$`, so it cannot carry shell code, but any name passes, such as `codex` or `rm`. The ticket that launches the review (#22) must map the name to a list of agents it knows and refuse the others with exit code 3. This belongs in the comment on #22, next to the rule about passing a model only when the source is the file and the warning that the reader reads the file on disk.
+
+What changed since the plan. The review of phase 7 widened `recordsLanguage` to `^\p{L}[\p{L}\p{M} -]{0,39}$`, so scripts that need combining marks, such as Devanagari, pass. The length limit counts code points after NFC, so a combining mark counts as one of the 40 characters. `review.model` now must start with a letter or a digit (`^[A-Za-z0-9][A-Za-z0-9._\-[\]]*$`), which keeps a value like `--yolo` from acting as an option. It still has no length limit, which is harmless for a value passed as a separate argument. An unknown key name is quoted with `JSON.stringify` and cut when it holds anything outside `[A-Za-z0-9_$-]`, so a committed file cannot send terminal escape codes. The locator returns no position when it overflows the stack on deep nesting, so the reader still throws a `SettingsError`. The simplicity reviewer's cosmetic shrink of about ten lines in `settings.ts` was not done; it changes no behaviour.
+
+How the earlier questions were resolved. The version rule (question 12) is in the consequences of ADR-SIC-D, in the doc comment of the reader, and in the hint of every unknown-key message. The install test (question 1) uses the literal line. The root comes from the caller, and only `ENOENT` gives the defaults (question 2); `EISDIR` has a test. The locator keeps its three guards (question 3): `JSON.parse` judges validity, a missing position gives a message without one, and a test compares the locator with Node's own position. A leading byte order mark is removed, an empty file has its own message, and Node's text is never forwarded. Both keys of `review` are required (question 4). Every problem is listed in one error (question 5). `recordsLanguage` is converted with NFC before its pattern (question 6). The rules of `forbiddenTools`, of the trailer lines and of `testCommands` are as drafted (questions 7 to 9). The key check uses a list of names with `includes` over `Object.keys`, never `in`, and a test uses `constructor`. The example file leaves out `testCommands`, and the doc comment says that #22 passes a model only when `review` comes from the file. Questions 10 (duplicate keys) and 11 (words before the tool in a test command) stay open and non-blocking. The point about the file on disk still has to reach the comments on #17 and #22 in the documentation step.
+
+Locked decisions I did not reopen: ADR-SIC-C, ADR-SIC-E, ADR-SIC-H, the exit code 3 of #13, the table of keys and defaults, and section 5 items 3 and 4 of the specification. I checked scale and performance, operations and cost, and rollback, and found nothing: the reader is a synchronous read of one small file that nothing calls yet.
+
 ## Open questions after the build
 
 ### Blocking
 
+1. For the developer. The example file `cstack/skills/resolve-issue/templates/settings.json` holds `"review": {"agent": "claude", "model": "opus"}`, as the ticket asks (Scope 6: every key with its default). A repository that copies this file then has `review` coming from the file, not from the default. Ticket #22 passes a model only when the source of `review` is the file, so it would pass `opus` there for good, even if the header of `pr-reviewer.md` changes. Should the example leave out `review`, as it already leaves out `testCommands`? Recommendation: yes. The test would then require every key except `testCommands` and `review`, and the ticket's wording "every key" would be relaxed for `review`. The code is done either way, and the change is two lines in the example file and one line in its test.
+
 ### Non-blocking
+
+1. For the developer. Should the reader refuse a symbolic link or any file that is not a regular file at `.cstack/settings.json`, in this pull request, or should #23 do it in the first command that calls the reader? A link to `/dev/zero` makes the reader hang. No command calls the reader yet. Recommendation: #23. The comment on #23 already says so.
 
 ## Pull request
 
 ## Documentation
 
+Done so far (phase 10.3, the answer to the blocking question is still missing):
+
+- ADR-SIC-D: `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, committed on the branch. The link to the specification is on line 321 of `docs/projects/skills-into-cli.md`.
+- Epic #6: the ADR-SIC-D line now says the record exists. Edited on GitHub on 2026-11-18.
+- Comments on dependent tickets, written on 2026-11-18: #13 (the exact install test line), #17 (shape of `testCommands`, exit 3, `/bin/sh -c`, `"$1"`, the file on disk), #20 (`integration`), #23 (`readSettings`, `SettingsError`, release note, symbolic link), #30 (`watchIntervalMinutes`).
+- Still to do after the answer: the comment on ticket #14, the comments on #21 (example file, `testCommands` hint, amendment) and #22 (model only when the source is the file, file on disk, agent list). The pull request link goes into the ADR in phase 12.
+
 ## Executor notes
+
+- Graphify is not installed, so the impact notes of phase 7 came from search and file reads.
+- GitHub issues have no "in progress" state, so phase 6 step 1 changed nothing in the tracker.
+- Two implementers (units 1 and 3) wrote code before their tests, so the red step was checked afterwards; unit 3 restored the old file to confirm 7 tests fail without the change.
+- The security review found three real problems after all units were green (raw key in messages, stack overflow in the locator, a model starting with a hyphen), and the correctness review found a gap in the `recordsLanguage` pattern.
 
 ## Hand-off log
 
