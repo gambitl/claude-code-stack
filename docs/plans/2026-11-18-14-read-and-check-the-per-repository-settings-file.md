@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/settings-file
 Conversation language: French
-Status: needs decision
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -197,6 +197,7 @@ Graphify is not installed on this machine (`graphify` is not on the PATH, and th
 - `watchIntervalMinutes` is a whole number from 1 to 1440. (2026-11-18, the ticket)
 - A JSON `null` is a wrong type for every key. (2026-11-18, assumption not asked)
 - Duplicate keys in the JSON text are accepted, and the last value wins, because that is what `JSON.parse` does. (2026-11-18, accepted by default, left open)
+- The reader does not refuse a symbolic link or a file that is not a regular file at `.cstack/settings.json` in this pull request. Ticket #23 adds that refusal in the first command that calls the reader. (2026-11-18, the developer's answer after the build)
 
 **Test commands are code of the repository**
 
@@ -215,7 +216,9 @@ Graphify is not installed on this machine (`graphify` is not on the PATH, and th
 
 **The example file and the install test**
 
-- The example file is `cstack/skills/resolve-issue/templates/settings.json`. It holds `"version": 1` and every other key with its default value, and it leaves out `testCommands`, because the default of `testCommands` is "absent". A test checks that the reader accepts it and that its values equal the defaults. (2026-11-18, the ticket, Scope 6, and accepted by default)
+- The example file is `cstack/skills/resolve-issue/templates/settings.json`. It holds `"version": 1` and every other key with its default value, except `testCommands` and `review`. A test checks that the reader accepts it and that its values equal the defaults. (2026-11-18, the ticket, Scope 6, and the developer's answer after the build)
+- The example leaves out `testCommands`, because the default of `testCommands` is "absent". (2026-11-18, accepted by default)
+- The example leaves out `review`. A repository that copied it would otherwise have `review` coming from its file, so #22 would pass `opus` there for good, even after the header of `pr-reviewer.md` changes. The ticket's "every key" is relaxed for this one key. (2026-11-18, the developer's answer after the build)
 - The test "installs into an empty home" in `cstack/test/skills-install.test.ts` (line 94) expects the literal output `installed cstack-example\ninstalled resolve-issue\n`. Write it literally, never from a listing of the folder. Ticket #13 makes the same edit, so the two merge cleanly. Change nothing else in that test file. (2026-11-18, accepted by default)
 
 **ADR-SIC-D**
@@ -368,22 +371,49 @@ Locked decisions I did not reopen: ADR-SIC-C, ADR-SIC-E, ADR-SIC-H, the exit cod
 
 ### Blocking
 
-1. For the developer. The example file `cstack/skills/resolve-issue/templates/settings.json` holds `"review": {"agent": "claude", "model": "opus"}`, as the ticket asks (Scope 6: every key with its default). A repository that copies this file then has `review` coming from the file, not from the default. Ticket #22 passes a model only when the source of `review` is the file, so it would pass `opus` there for good, even if the header of `pr-reviewer.md` changes. Should the example leave out `review`, as it already leaves out `testCommands`? Recommendation: yes. The test would then require every key except `testCommands` and `review`, and the ticket's wording "every key" would be relaxed for `review`. The code is done either way, and the change is two lines in the example file and one line in its test.
+1. For the developer. The example file `cstack/skills/resolve-issue/templates/settings.json` holds `"review": {"agent": "claude", "model": "opus"}`, as the ticket asks (Scope 6: every key with its default). A repository that copies this file then has `review` coming from the file, not from the default. Ticket #22 passes a model only when the source of `review` is the file, so it would pass `opus` there for good, even if the header of `pr-reviewer.md` changes. Should the example leave out `review`, as it already leaves out `testCommands`? Recommendation: yes. The test would then require every key except `testCommands` and `review`, and the ticket's wording "every key" would be relaxed for `review`. The code is done either way, and the change is two lines in the example file and one line in its test. Answered on 2026-11-18: yes, leave out `review`.
 
 ### Non-blocking
 
-1. For the developer. Should the reader refuse a symbolic link or any file that is not a regular file at `.cstack/settings.json`, in this pull request, or should #23 do it in the first command that calls the reader? A link to `/dev/zero` makes the reader hang. No command calls the reader yet. Recommendation: #23. The comment on #23 already says so.
+1. For the developer. Should the reader refuse a symbolic link or any file that is not a regular file at `.cstack/settings.json`, in this pull request, or should #23 do it in the first command that calls the reader? A link to `/dev/zero` makes the reader hang. No command calls the reader yet. Recommendation: #23. The comment on #23 already says so. Answered on 2026-11-18: #23 does it. The question is no longer open, so the pull request states it as a decision left to #23, not as an open question.
 
 ## Pull request
 
+Title: `feat(cli): read and check the per-repository settings file`
+
+Body:
+
+This adds the reader and checker of `.cstack/settings.json`, with its defaults, an example file and ADR-SIC-D. No command calls the reader yet, so nothing changes for users today.
+
+`readSettings(root)` in `cstack/src/settings.ts` returns every key with its value and says whether it comes from the file or from a default. A missing file gives all defaults. An unknown key, a wrong value or a JSON error is refused with a `SettingsError` that names the full key, such as `review.temperature`, and lists every problem at once. For a JSON error the message gives the line and the column, found by `cstack/src/json-position.ts`.
+
+The key decisions are in `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, linked from line 321 of the specification. The settings file can change the review agent and its model, and nothing else. The header of `pr-reviewer.md` stays the default. A new key keeps `version` at 1, and a rename, removal or change of meaning moves it to 2.
+
+Judgment calls to check:
+
+- The example file leaves out `review`, as it leaves out `testCommands`. The ticket said "every key". With `review` in the example, a repository that copies it would pin `opus` for good. The developer agreed.
+- `recordsLanguage` also accepts combining marks, so Hindi passes. The plan's rule was narrower.
+- `review.model` must start with a letter or a digit, so a value like `--yolo` cannot act as an option of a later tool.
+- An unknown key name is quoted and cut in the message, so a committed file cannot send terminal escape codes.
+- The reader follows a symbolic link, so a link to `/dev/zero` would make it hang. Ticket #23, the first command that calls the reader, adds the refusal. The developer chose that.
+
+Follow-ups left out: about ten lines of `settings.ts` could be shorter, which changes no behavior. Ticket #22 must map `review.agent` to a list of known agents and never run it as a program name.
+
+Files: `cstack/src/settings.ts`, `cstack/src/json-position.ts`, `cstack/test/settings.test.ts`, `cstack/skills/resolve-issue/templates/settings.json`, `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, one assertion in `cstack/test/skills-install.test.ts` (line 94), one line of `docs/projects/skills-into-cli.md` (line 321), and the plan file `docs/plans/2026-11-18-14-read-and-check-the-per-repository-settings-file.md`. When the pull request of #13 merges first, the install test line and the specification lines need a quick check after the rebase. Both change the same test line to the same text.
+
+I ran the 136 tests and the typecheck. Both pass.
+
+Fixes #14
+
 ## Documentation
 
-Done so far (phase 10.3, the answer to the blocking question is still missing):
+Phase 10.3 is complete:
 
 - ADR-SIC-D: `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, committed on the branch. The link to the specification is on line 321 of `docs/projects/skills-into-cli.md`.
 - Epic #6: the ADR-SIC-D line now says the record exists. Edited on GitHub on 2026-11-18.
 - Comments on dependent tickets, written on 2026-11-18: #13 (the exact install test line), #17 (shape of `testCommands`, exit 3, `/bin/sh -c`, `"$1"`, the file on disk), #20 (`integration`), #23 (`readSettings`, `SettingsError`, release note, symbolic link), #30 (`watchIntervalMinutes`).
-- Still to do after the answer: the comment on ticket #14, the comments on #21 (example file, `testCommands` hint, amendment) and #22 (model only when the source is the file, file on disk, agent list). The pull request link goes into the ADR in phase 12.
+- Comments written after the answer, on 2026-11-18: #14 (what was built and what was left out), #21 (example file without `review` and `testCommands`, the amendment, the version rule) and #22 (model only when the source is the file, the file on disk, the agent list). Every comment is now written.
+- The pull request link goes into the ADR in phase 12.
 
 ## Executor notes
 
@@ -391,12 +421,14 @@ Done so far (phase 10.3, the answer to the blocking question is still missing):
 - GitHub issues have no "in progress" state, so phase 6 step 1 changed nothing in the tracker.
 - Two implementers (units 1 and 3) wrote code before their tests, so the red step was checked afterwards; unit 3 restored the old file to confirm 7 tests fail without the change.
 - The security review found three real problems after all units were green (raw key in messages, stack overflow in the locator, a model starting with a hyphen), and the correctness review found a gap in the `recordsLanguage` pattern.
+- The blocking question was a needs-decision round. After the answer I removed `review` from the example file and its test.
 
 ## Hand-off log
 
 - 2026-11-18: phase 6 started. GitHub issues have no "in progress" state, so the ticket stays open and the branch `gambitl/settings-file` (already checked out) marks the start.
 
 - 2026-11-18: phases 6 to 9 done and 10.1 to 10.3 partly done. Needs decision: one blocking question about the example file (see "Open questions after the build"). Nothing pushed.
+- 2026-11-18: phase 10 finished after the developer answered. The example file leaves out `review`, the comments on #14, #21 and #22 are written, the pull request is drafted, Status is ready for review. Nothing pushed.
 
 ## History
 
