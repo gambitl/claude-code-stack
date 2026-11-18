@@ -21,6 +21,18 @@ test("npm pack lists the build, the example skill and the example guide", async 
     "skills/cstack-example/.claude-plugin/plugin.json",
     "skills/cstack-example/agents/check.md",
     "guides/cstack-example/hello.md",
+    "skills/resolve-issue/agents/code-architect.md",
+    "skills/resolve-issue/agents/code-explorer.md",
+    "skills/resolve-issue/agents/code-reviewer.md",
+    "skills/resolve-issue/agents/code-reviewer-deep.md",
+    "skills/resolve-issue/agents/code-reviewer-simplicity.md",
+    "skills/resolve-issue/agents/cto-review.md",
+    "skills/resolve-issue/agents/executor.md",
+    "skills/resolve-issue/agents/implementer.md",
+    "skills/resolve-issue/agents/implementer-escalation.md",
+    "skills/resolve-issue/agents/pr-reviewer.md",
+    "skills/resolve-issue/.claude-plugin/plugin.json",
+    "skills/resolve-issue/templates/retro.md",
   ]) {
     expect(paths).toContain(p);
   }
