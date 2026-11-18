@@ -222,4 +222,143 @@ describe("cstack measure", () => {
       expect(code).toBe(1);
     });
   });
+
+  describe("the moments, the refusals and the usage errors", () => {
+    function oneSession(home: string, repo: string, start: string, end: string): void {
+      const dir = join(home, ".claude", "projects", "-some-folder");
+      mkdirSync(dir, { recursive: true });
+      const line = (timestamp: string, id: string) =>
+        JSON.stringify({
+          type: "assistant",
+          cwd: repo,
+          timestamp,
+          message: { id, model: "claude-opus-5-5", usage: { input_tokens: 1, output_tokens: 4 } },
+        });
+      writeFileSync(join(dir, "s.jsonl"), `${line(start, "m1")}\n${line(end, "m2")}\n`);
+    }
+
+    async function measureRepo(repo: string, home: string, plan = "docs/plan.md") {
+      const { out, io } = collect();
+      const code = await run(["measure", join(repo, plan), "--home", home], io);
+      return { out, code };
+    }
+
+    it("keeps the minutes after a rebase that changes the committer dates", async () => {
+      const repo = realpathSync(makeRepo());
+      writeFileSync(join(repo, "base.txt"), "base\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-q", "-m", "base"], "2026-03-01T09:00:00+00:00");
+      git(repo, ["checkout", "-q", "-b", "work"]);
+      commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+      commitPlan(repo, "ready for review", "2026-03-01T11:35:00+00:00");
+      git(repo, ["checkout", "-q", "main"]);
+      writeFileSync(join(repo, "newer.txt"), "newer\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-q", "-m", "newer"], "2026-03-02T09:00:00+00:00");
+      git(repo, ["checkout", "-q", "work"]);
+      const before = git(repo, ["log", "--format=%ct"]);
+      git(repo, ["rebase", "-q", "main"], "2026-04-01T00:00:00+00:00");
+      expect(git(repo, ["log", "--format=%ct"])).not.toBe(before);
+      const home = tmp("cstack-home-");
+      oneSession(home, repo, "2026-03-01T10:10:00.000Z", "2026-03-01T10:20:00.000Z");
+      const { out, code } = await measureRepo(repo, home);
+      expect(out.stdout).toContain("minutes from approval to ready for review: 95\n");
+      expect(code).toBe(0);
+    });
+
+    it("prints the counts but no minutes when the plan never reached ready for review", async () => {
+      const repo = realpathSync(makeRepo());
+      commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+      const home = tmp("cstack-home-");
+      oneSession(home, repo, "2026-03-01T10:10:00.000Z", "2026-03-01T10:20:00.000Z");
+      const { out, code } = await measureRepo(repo, home);
+      expect(out.stdout).toContain("main sessions: 1\n");
+      expect(out.stdout).toContain("output tokens: 8\n");
+      expect(out.stdout).not.toContain("minutes");
+      expect(out.stderr).toBe(
+        "cstack measure: the plan file never reached ready for review, so the ready moment is missing.\n",
+      );
+      expect(code).toBe(1);
+    });
+
+    it("says the history looks rewritten when ready comes 30 seconds after the approval", async () => {
+      const repo = realpathSync(makeRepo());
+      commitPlan(repo, "approved", "2026-03-01T10:00:00+00:00");
+      commitPlan(repo, "ready for review", "2026-03-01T10:00:30+00:00");
+      const home = tmp("cstack-home-");
+      oneSession(home, repo, "2026-03-01T10:00:10.000Z", "2026-03-01T10:00:20.000Z");
+      const { out, code } = await measureRepo(repo, home);
+      expect(out.stdout).toContain("main sessions: 1\n");
+      expect(out.stdout).not.toContain("minutes");
+      expect(out.stderr).toBe(
+        "cstack measure: the ready moment is less than a minute after the approval, so the history looks rewritten.\n",
+      );
+      expect(code).toBe(1);
+    });
+
+    it("never counts the template list of values as ready", async () => {
+      const repo = realpathSync(makeRepo());
+      commitPlan(repo, "draft | approved | ready for review", "2026-03-01T10:00:00+00:00");
+      commitPlan(repo, "ready for review (soon)", "2026-03-01T12:00:00+00:00");
+      const { out, code } = await measureRepo(repo, tmp("cstack-home-"));
+      expect(out.stderr).toContain("ready moment is missing");
+      expect(out.stdout).not.toContain("minutes");
+      expect(code).toBe(1);
+    });
+
+    it("refuses a plan with a Format line in its header, but not one after a heading", async () => {
+      const repo = realpathSync(makeRepo());
+      mkdirSync(join(repo, "docs"));
+      writeFileSync(join(repo, "docs/plan.md"), "# Plan\n\nFormat: 2\nStatus: approved\n\n## Ticket\n");
+      git(repo, ["add", "."]);
+      git(repo, ["commit", "-q", "-m", "plan"], "2026-03-01T10:00:00+00:00");
+      const refused = await measureRepo(repo, tmp("cstack-home-"));
+      expect(refused.out.stdout).toBe("");
+      expect(refused.out.stderr).toBe(
+        "cstack measure: this version of cstack measure reads only plan files made before cstack.\n",
+      );
+      expect(refused.code).toBe(1);
+      writeFileSync(join(repo, "docs/plan.md"), "# Plan\n\nStatus: approved\n\n## Ticket\n\nFormat: 2\n");
+      git(repo, ["commit", "-q", "-a", "-m", "move"], "2026-03-01T10:05:00+00:00");
+      const allowed = await measureRepo(repo, tmp("cstack-home-"));
+      expect(allowed.out.stdout).toContain("main sessions: 0\n");
+    });
+
+    it("prints one fixed sentence and no count for a missing, outside or uncommitted plan", async () => {
+      const repo = realpathSync(makeRepo());
+      const missing = await measureRepo(repo, tmp("cstack-home-"));
+      expect(missing.out.stdout).toBe("");
+      expect(missing.out.stderr).toBe("cstack measure: the plan file does not exist or cannot be read.\n");
+      expect(missing.code).toBe(1);
+
+      const outside = tmp("cstack-outside-");
+      writeFileSync(join(outside, "plan.md"), "# Plan\n\nStatus: approved\n");
+      const noRepo = await measureRepo(outside, tmp("cstack-home-"), "plan.md");
+      expect(noRepo.out.stdout).toBe("");
+      expect(noRepo.out.stderr).toBe("cstack measure: the plan file is not inside a git repository.\n");
+      expect(noRepo.code).toBe(1);
+
+      mkdirSync(join(repo, "docs"));
+      writeFileSync(join(repo, "docs/plan.md"), "# Plan\n\nStatus: approved\n");
+      const uncommitted = await measureRepo(repo, tmp("cstack-home-"));
+      expect(uncommitted.out.stdout).toBe("");
+      expect(uncommitted.out.stderr).toBe("cstack measure: the plan file was never committed.\n");
+      expect(uncommitted.code).toBe(1);
+    });
+
+    it("exits with 2 and the usage line for a wrong command line", async () => {
+      for (const args of [
+        ["measure"],
+        ["measure", "a.md", "b.md"],
+        ["measure", "a.md", "--nope"],
+        ["measure", "a.md", "--home"],
+      ]) {
+        const { out, io } = collect();
+        const code = await run(args, io);
+        expect(code).toBe(2);
+        expect(out.stdout).toBe("");
+        expect(out.stderr).toContain("Usage: cstack measure <plan file> [--home <folder>]\n");
+      }
+    });
+  });
 });

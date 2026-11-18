@@ -1,7 +1,7 @@
 import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
-import { readMoments } from "../measure/moments.js";
+import { MomentsError, readMoments } from "../measure/moments.js";
 import { measureSessions, type Totals } from "../measure/sessions.js";
 
 export const MEASURE_USAGE = "Usage: cstack measure <plan file> [--home <folder>]";
@@ -24,8 +24,8 @@ export async function measure(args: string[], io: Io): Promise<number> {
       strict: true,
       allowPositionals: true,
     });
-  } catch (error) {
-    io.stderr(`cstack measure: ${error instanceof Error ? error.message : String(error)}\n${MEASURE_USAGE}\n`);
+  } catch {
+    io.stderr(`cstack measure: the command line is wrong.\n${MEASURE_USAGE}\n`);
     return 2;
   }
   const [plan, ...extra] = parsed.positionals;
@@ -33,7 +33,14 @@ export async function measure(args: string[], io: Io): Promise<number> {
     io.stderr(`cstack measure: give exactly one plan file.\n${MEASURE_USAGE}\n`);
     return 2;
   }
-  const moments = await readMoments(plan);
+  let moments: Awaited<ReturnType<typeof readMoments>>;
+  try {
+    moments = await readMoments(plan);
+  } catch (error) {
+    if (!(error instanceof MomentsError)) throw error;
+    io.stderr(`cstack measure: ${error.message}\n`);
+    return 1;
+  }
   const end = moments.ready ?? new Date();
   const result = await measureSessions(parsed.values.home ?? homedir(), moments.root, moments.approval, end);
   const lines = [
@@ -45,15 +52,23 @@ export async function measure(args: string[], io: Io): Promise<number> {
     a === "other model" ? 1 : b === "other model" ? -1 : a < b ? -1 : a > b ? 1 : 0,
   );
   for (const model of models) lines.push(...totalLines(` ${model}`, result.perModel.get(model) as Totals));
-  if (moments.ready) {
-    const minutes = Math.round((moments.ready.getTime() - moments.approval.getTime()) / 60000);
-    lines.push(`minutes from approval to ready for review: ${minutes}`);
+  const wait = moments.ready ? moments.ready.getTime() - moments.approval.getTime() : undefined;
+  if (wait !== undefined && wait >= 60000) {
+    lines.push(`minutes from approval to ready for review: ${Math.round(wait / 60000)}`);
   }
   lines.push(`skipped lines: ${result.skippedLines}`, `unreadable files: ${result.unreadableFiles}`);
   io.stdout(`${lines.join("\n")}\n`);
+  let code = 0;
+  if (wait === undefined) {
+    io.stderr("cstack measure: the plan file never reached ready for review, so the ready moment is missing.\n");
+    code = 1;
+  } else if (wait < 60000) {
+    io.stderr("cstack measure: the ready moment is less than a minute after the approval, so the history looks rewritten.\n");
+    code = 1;
+  }
   if (result.mainSessions === 0) {
     io.stderr("cstack measure: no main session of this run was found.\n");
-    return 1;
+    code = 1;
   }
-  return 0;
+  return code;
 }
