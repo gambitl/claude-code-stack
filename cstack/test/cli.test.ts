@@ -131,6 +131,19 @@ describe("run", () => {
   });
 });
 
+describe("the plan and report groups", () => {
+  it("returns 2 and lists the second words of the group when the second word is missing or unknown", async () => {
+    for (const [args, words] of [
+      [["plan"], "status|section"],
+      [["report", "nope"], "submit|check"],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io)).toBe(2);
+      expect(out.stderr).toContain(words);
+    }
+  });
+});
+
 describe("dispatchSubcommand", () => {
   it("sends the arguments after the second word to its handler and returns its exit code", async () => {
     const { out, io } = collect();

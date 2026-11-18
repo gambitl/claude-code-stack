@@ -4,6 +4,10 @@ import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
+import { planSection } from "./commands/plan-section.js";
+import { planStatus } from "./commands/plan-status.js";
+import { reportCheck } from "./commands/report-check.js";
+import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
@@ -39,6 +43,16 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
+  plan: (args, io) =>
+    dispatchSubcommand("plan", args, io, {
+      status: async (a, i) => planStatus(a, i, { cwd: process.cwd() }),
+      section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
+    }),
+  report: (args, io) =>
+    dispatchSubcommand("report", args, io, {
+      submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
+      check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
+    }),
 };
 
 export async function run(args: string[], io: Io = processIo): Promise<number> {
