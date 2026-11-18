@@ -1,17 +1,21 @@
+import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
+import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
 
 const USAGE = `Usage: cstack --version
        cstack doctor
        cstack guide <phase> [--skill <name>]
+       cstack skills install [--adopt <name>]...
 
 Commands:
   doctor     Check that the machine has what cstack needs.
   guide      Print a phase guide of the installed version.
+  skills     Install the skills that this version ships.
 
 Options:
   --version  Print the version of cstack.
@@ -32,6 +36,11 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
     return args.length > 1 ? fail(io, "doctor takes no argument") : doctor(io);
   if (first === "guide")
     return guide(args.slice(1), io, { packageRoot: fileURLToPath(new URL("..", import.meta.url)) });
+  if (first === "skills")
+    return skills(args.slice(1), io, {
+      home: homedir(),
+      packageRoot: fileURLToPath(new URL("..", import.meta.url)),
+    });
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {
