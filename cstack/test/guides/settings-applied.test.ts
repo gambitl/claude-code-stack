@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
@@ -57,8 +57,11 @@ describe("settings values stay in the settings file", () => {
   });
 
   it("finds no owned value in the real skill and guides", () => {
-    const skip = (path: string) =>
-      path.includes("/templates") || path.endsWith("settled-decisions.md");
+    // Match on the path inside the package, so a parent folder of the checkout never skips everything.
+    const skip = (path: string) => {
+      const parts = relative(root, path).split(sep);
+      return parts.includes("templates") || parts.at(-1) === "settled-decisions.md";
+    };
     const folders = [
       join(root, "guides", "resolve-issue"),
       join(root, "skills", "resolve-issue"),
