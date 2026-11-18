@@ -27,7 +27,7 @@ The checks still run. Submit the `published` report as above, and say that the c
 
 ## Exit code 8
 
-The target branch moved and the update conflicts. Resolve the conflict as the `update-branch` guide says, and commit. On an ambiguous conflict, return a needs-decision report. Then run `cstack publish --plan <plan file>` again.
+The target branch moved and the update conflicts. You did not read the `update-branch` guide in this run, so print it with `cstack guide update-branch`. Resolve the conflict as it says, and commit. On an ambiguous conflict, return a needs-decision report. Then run `cstack publish --plan <plan file>` again.
 
 ## Exit code 1
 
