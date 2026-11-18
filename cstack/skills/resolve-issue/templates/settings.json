@@ -4,9 +4,5 @@
   "recordsLanguage": "English",
   "forbiddenTools": [],
   "commitAttribution": [],
-  "review": {
-    "agent": "claude",
-    "model": "opus"
-  },
   "watchIntervalMinutes": 5
 }

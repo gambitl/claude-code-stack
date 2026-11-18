@@ -221,13 +221,13 @@ describe("readSettings JSON syntax errors", () => {
 
 describe("the example settings file", () => {
   const examplePath = new URL("../skills/resolve-issue/templates/settings.json", import.meta.url);
-  it("is accepted, equals the defaults and holds every key except testCommands", () => {
+  it("is accepted, equals the defaults and holds every key except testCommands and review", () => {
     const text = readFileSync(examplePath, "utf8");
     const s = readSettings(repo(text));
     expect(s.found).toBe(true);
     expect(s.values).toEqual(DEFAULTS);
     const keys = Object.keys(JSON.parse(text)).sort();
-    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands")].sort();
+    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands" && k !== "review")].sort();
     expect(keys).toEqual(expected);
   });
 });
