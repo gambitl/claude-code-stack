@@ -365,6 +365,20 @@ Graphify is not installed, so I used search and file reads. The branch changes n
 - The word total of the entry skill and the `ticket` guide is 799 + 505 = 1,304, under the limit of 1,451.
 - `npm test` (248 tests) and `npm run typecheck` pass in `cstack/`.
 
+### Findings of the four reviewers (phase 7)
+
+Fixed:
+- The `ticket` guide named the arguments variable, which cstack output does not fill in. Reworded (c463522).
+- Two sentences over 25 words in `plan.md` and `questions.md` were split (c463522).
+- The plan file quoted work ticket keys. They are described in words now (3d36721).
+- The settings test only looked for the word "integration" anywhere, and missed "rebasing". It now needs the `integration` setting named and matches every form of rebase, with a fixture case (52327fb).
+- The entry skill now says that the example settings lack `testCommands` (52327fb). I cut the line about the two blocks shown in full, because `questions.md` and `plan.md` already say it.
+- `plan.md` now says to run `cstack report check` first when the `publish` report comes back (52327fb).
+
+Not done, on purpose:
+- The simplicity reviewer proposed removing the fixture folders and the temp-directory case. The acceptance asks for those fixtures as the first failing case, so they stay.
+- Sharing the file walk between `manifest.test.ts` and `settings-applied.test.ts`, shortening the owned phrase list, and trimming the writing paragraph of the entry skill are cheap but optional. They are follow-ups.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
