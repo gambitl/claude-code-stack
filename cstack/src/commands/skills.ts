@@ -37,6 +37,8 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
+// WHY: ADR-SIC-C. The marker is the only proof that cstack wrote a folder, so a link,
+// a plain file or an unmarked folder is always someone else's work.
 // A target is ours only when it is a real folder (never a link) with the marker.
 async function ownerOf(path: string): Promise<Owner> {
   let info;
