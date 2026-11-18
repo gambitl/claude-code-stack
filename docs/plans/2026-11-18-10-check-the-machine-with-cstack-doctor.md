@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/cstack-doctor
 Conversation language: French
-Status: in progress (phase 6). Ticket: GitHub has no in-progress state, so none was set. Branch gambitl/cstack-doctor is checked out.
+Status: in progress (phase 10). Ticket: GitHub has no in-progress state, so none was set. Branch gambitl/cstack-doctor is checked out.
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -221,28 +221,28 @@ The change is small and the approach is locked by the ticket. One runner hides t
 
 ## Implementation units
 
-### Unit 1: The command runner — status: todo
+### Unit 1: The command runner — status: done (8c00739)
 - Failing test: `cstack/test/doctor-runner.test.ts`, which uses the real runner with short time limits. `echo hello` gives ok with the stdout `hello\n`. `sh -c "exit 3"` gives failed with exit code 3. A command name that does not exist gives missing. `sh -c "sleep 5"` with a 200 ms limit gives timeout and returns in under 2 seconds. `sh -c "sleep 5 & wait"` with a 200 ms limit also gives timeout in under 2 seconds. The tests fail first, because `runner.ts` does not exist.
 - Minimum code: `cstack/src/doctor/runner.ts` exports the `Runner` type, the `RunResult` type with its four kinds (ok with stdout, failed with exit code, missing, timeout), and a function that builds the real runner from a time limit in milliseconds. It uses `execFile` with `timeout` and no shell. It also exports the PATH lookup function used for git: it takes a command name and the PATH string, and returns the first folder entry that exists and can be run, or nothing. Add one test of the PATH lookup with a temporary folder that holds an executable file.
 - Refactor: none expected.
 - Commit message: `feat(cli): add the command runner that cstack doctor uses`
 - Depends on: none
 
-### Unit 2: The requirements list and the doctor command — status: todo
+### Unit 2: The requirements list and the doctor command — status: done (b391c70)
 - Failing test: `cstack/test/doctor.test.ts`. Write first the case "every item is present", with a fake runner that answers from the fixtures and records each call. It fails, because the command does not exist yet. Then add the cases of the ticket acceptance that do not involve Orca. When Graphify is missing, doctor prints `uv tool install graphifyy` and exits with code 0. When git is missing, it prints how to install git and exits with code 1. When neither `gh` nor `glab` is present, it exits with code 1. A Node version below `engines.node` is reported as too old and exits with code 1. A command that never answers, such as `claude --version`, is reported after the time limit, and doctor still checks the items after it. When `xcode-select -p` fails and the first git on the PATH is `/usr/bin/git`, git is missing and `git --version` is never run. When `xcode-select -p` fails and git is elsewhere, `git --version` runs. The comparison function reads the real `cstack/package.json` and accepts its `engines.node` form. Add one test in `cstack/test/cli.test.ts`: `run(["doctor", "--nope"])` returns 2 and prints the usage. In this unit the Orca item can be a stub that the fake runner reports as missing, so that the tests run.
 - Minimum code: record the real outputs of `sw_vers -productVersion`, `xcode-select -p`, `git --version`, `gh --version`, `glab --version` and `claude --version` into `cstack/test/fixtures/doctor/`, and add `graphify --version` as `graphify 0.9.112`. Write `cstack/src/doctor/requirements.ts` with the seven items and their install hints, the Node comparison, and `cstack/src/commands/doctor.ts`. Register `doctor` in `cstack/src/cli.ts` with one `if` line and one usage line.
 - Refactor: keep the version parsing of the simple items as data in the list (command, arguments and a pattern), not as one function per item.
 - Commit message: `feat(cli): add cstack doctor, which checks what cstack needs on the machine`
 - Depends on: 1
 
-### Unit 3: The Orca item — status: todo
+### Unit 3: The Orca item — status: done (614c8e7)
 - Failing test: in `cstack/test/doctor.test.ts`, write first the case "Orca is running and connected to Jira and Linear". It fails while the Orca item is a stub. Then add the other cases. When the `orca` command is missing, doctor says that Orca is not installed and exits with code 0. When Orca is installed but not running, doctor prints its version, says that the trackers were not checked, and never runs the Jira or Linear command. An empty connection list adds no tracker. A Linear answer with no team and a workspace error prints "Linear (connection error)". An answer that is not valid JSON adds no tracker. Negative: the fake runner records every command that doctor runs, and every recorded call is in the list of allowed commands of "Decisions". The list never holds `orca open`, `orca serve` or an install command. Negative: a recorded Orca answer that holds a site name, an email, a team name and a workspace name, and a fake stderr that holds a workspace name, give an output that holds none of them.
 - Minimum code: record the real answers of `orca --version`, `orca status --json`, `orca jira connection --json` and `orca linear team list --workspace all --json`, and neutralize them as "Decisions" says. Build the connected, error and closed answers as "Decisions" says. Write `cstack/src/doctor/orca.ts`, and replace the stub in `requirements.ts` with it.
 - Refactor: none expected.
 - Commit message: `feat(cli): report Orca and the trackers it is connected to in cstack doctor`
 - Depends on: 2
 
-### Unit 4: The Requirements section of the README — status: todo
+### Unit 4: The Requirements section of the README — status: done (b7205ec)
 - Failing test: `cstack/test/readme-requirements.test.ts`. It reads `README.md` at the repository root and takes the bold names of the bullets under `## Requirements`, up to the next `## ` heading. It compares them, in order, with the names in `requirements.ts`. It fails today, because the section does not exist. Add a second case on a small sample text that has one extra bullet, to show that an item added to only one list fails the comparison.
 - Minimum code: add the `## Requirements` section to `README.md`, as "Decisions" says. Follow the documentation writing rules of this repository: one idea per sentence, every sentence with a subject and a verb, and short sentences.
 - Refactor: none expected.
@@ -261,6 +261,22 @@ There is no security surface beyond what the units already cover: doctor has no 
 - The specification page `docs/projects/skills-into-cli.md`: does not apply. Nothing in US-3 or in its open questions changes.
 
 ## Review log
+
+### Impact notes
+
+Graphify is not installed, so the impact was checked by reading. The only existing symbol the branch changed is `run` in `cstack/src/cli.ts`. Its callers are `cstack/src/bin.ts` and `cstack/test/cli.test.ts`, and the new `doctor` branch sits before the "unknown command" check, so those paths are unchanged. The usage text lost the line "No command exists yet." No test checked that text. `README.md` gained a section and the usual companions of `cli.ts` (`bin.ts`, `package.json`) need no change. No `WHY:` or `DECISION:` comment exists in the changed files.
+
+### Findings of the four reviewers (phase 7)
+
+Conventions, correctness and security: no finding. Correctness noted that a command that ignores the polite stop signal would block doctor, so the runner now uses SIGKILL (commit 4227f03, with a test). Simplicity proposed removing the "Linear (connection error)" branch and simplifying the Node comparison. Both are recorded user decisions, so they stay. Follow-ups, not done: share the "did not answer" and "failed with exit code" sentences between `orca.ts` and `requirements.ts`; let each check close over its own install hint.
+
+### Independent review (phase 8)
+
+It changed one test (commit d446703) so that the "every item is present" case also checks the Orca version line. Judgment calls for the pull request: the privacy test cannot include a fake stderr because the runner result has no stderr field, which is safe by construction; `cli.ts` refuses arguments after `doctor` instead of `doctor.ts` parsing its own options, to keep the shared file change small; the output buffer limit of 1 MB would be reported as a timeout, which is unlikely for these commands. The recorded Orca version is 1.4.262, not 1.4.259.
+
+### Phase 9
+
+origin/main did not move since the branch was created, so no rebase was needed. Tests, typecheck and build pass. No formatter or linter is configured.
 
 ## Briefing
 
