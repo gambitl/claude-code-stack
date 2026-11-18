@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "integration": "rebase",
+  "recordsLanguage": "English",
+  "forbiddenTools": [],
+  "commitAttribution": [],
+  "watchIntervalMinutes": 5
+}
