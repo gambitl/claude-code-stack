@@ -375,7 +375,19 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 
 ## Review log
 
-<phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
+### Phase 7: impact notes and review
+
+Impact notes: no code graph on this machine. By search, `readPlan` is used by `phases.ts`, `commands/measure.ts` and tests, and the new line split does not change LF files. `cli.test.ts` and `manifest.test.ts` check handlers against built entries and were updated. The README Commands section was updated. Ticket #18 also edits `locate.ts`, `cli.ts` and `manifest.ts`, so conflicts are expected at the update onto main.
+
+Four reviewers (correctness, security, conventions, simplicity). Fixed in commit a04bcc9:
+- `plan section` exited 1 on a broken `state.json`; it now exits 3, with a test.
+- `report submit` read all of standard input before the size check; it now stops after 64 KB, with a test.
+- An absolute `--plan` path through a symbolic link (macOS /var) was refused by mistake; the lexical check is gone and the real path decides, with a test.
+- Simplicity: one shared error helper (`commands/errors.ts`), `parseArgs` in three commands, the `present` helper removed, clearer wording of the kind error.
+
+Left as follow-ups (not needed now): a `publish.json` of the wrong shape crashes with exit 1 instead of a reason (#20 writes that file); a `reports` path that is not a folder gives a raw error; `report check` prints report text unchanged, so terminal escape sequences would reach a terminal (Claude reads the output, so it is accepted). `lastAcceptedDoneReportAt` and the implementer roles have no caller yet; they are for #15 and #27. ADR-SIC-H says only `bin.ts` touches the process; `cli.ts` and `readStdin` read `process.cwd()` and `process.stdin` and inject them, which matches the plan.
+
+<phase 8 below>
 
 ## Briefing
 
