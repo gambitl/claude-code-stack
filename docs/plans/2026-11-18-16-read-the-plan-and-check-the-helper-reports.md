@@ -283,7 +283,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 
 ## Implementation units
 
-### Unit 1: Read a plan file with Windows line endings — status: todo
+### Unit 1: Read a plan file with Windows line endings — status: done (1d9f2c9)
 - Files: `cstack/src/plan/read.ts`, `cstack/test/plan/read.test.ts`
 - Failing test: in `cstack/test/plan/read.test.ts`, `readPlan` on `cstack/test/fixtures/plans/approved.md` converted to CRLF returns the same header, sections, units, blocking questions and pull request as on the original file. Today it throws "This plan file has no Format line".
 - Minimum code: in `readPlan`, split the text with `/\r?\n/` instead of `"\n"`.
@@ -291,7 +291,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `fix(cli): read a plan file with Windows line endings`
 - Depends on: none
 
-### Unit 2: Send a two-word command to its handler by the second word — status: todo
+### Unit 2: Send a two-word command to its handler by the second word — status: done (1714ad7)
 - Files: `cstack/src/cli.ts`, `cstack/test/cli.test.ts`
 - Failing test: in `cstack/test/cli.test.ts`, `dispatchSubcommand("plan", ["status", "--json"], io, { status: fake })` calls `fake` with `["--json"]` and returns its exit code. With `[]` and with `["nope"]`, it returns 2 and prints on standard error a usage line that names the group `plan` and lists `status`.
 - Minimum code: export `dispatchSubcommand` from `cstack/src/cli.ts` with the signature written in "Decisions". Register no handler yet.
@@ -299,7 +299,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): send a two-word command to its handler by the second word`
 - Depends on: none
 
-### Unit 3: Find the plan file from --plan or the current run — status: todo
+### Unit 3: Find the plan file from --plan or the current run — status: done (a25a566)
 - Files: `cstack/src/plan/locate.ts`, `cstack/test/plan/locate.test.ts`
 - Failing test: in `cstack/test/plan/locate.test.ts`, with a temporary repository under `os.tmpdir()`, `locatePlan(repo, "docs/plans/x.md")` returns the real root, the real absolute path and `docs/plans/x.md`. Called from a subfolder with `../docs/plans/x.md`, it returns the same file. `locatePlan(repo, "../outside.md")`, an absolute path outside the repository, and a symbolic link inside the repository that points outside it throw `PlanLocationError` with `exitCode` 2. A `--plan` file inside the repository that does not exist throws `PlanLocationError` with `exitCode` 3. Without `--plan`, after `writeCurrentRun` and `writeState` with `plan: "docs/plans/x.md"`, it returns that file, also from a subfolder. With no `current-run`, it throws `PlanLocationError` with `exitCode` 2, and the message asks for `--plan <file>`. With `current-run` but no `state.json`, it throws `PlanLocationError` with `exitCode` 3. It never writes `current-run` or `state.json`.
 - Minimum code: `cstack/src/plan/locate.ts` with exactly the interface and behaviour of "Decisions", built on `gitFolders`, `readCurrentRun` and `readState` of `cstack/src/run-state.ts` and on `git rev-parse --show-toplevel`. This is this branch's copy of the file that #18 writes, so do not rename anything.
@@ -307,7 +307,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): find the plan file from --plan or the current run`
 - Depends on: none
 
-### Unit 4: List the files that a unit commit changes — status: todo
+### Unit 4: List the files that a unit commit changes — status: done (742eef2)
 - Files: `cstack/src/plan/commits.ts`, `cstack/test/plan/commits.test.ts`
 - Failing test: in `cstack/test/plan/commits.test.ts`, on a commit that renames `a.txt` to `b.txt` and adds `café.md`, `listCommitFiles(repo, [hash])` returns `{ [hash]: ["a.txt", "b.txt", "café.md"] }`, sorted, with the name `café.md` unquoted and unescaped.
 - Minimum code: append `listCommitFiles(repoDir, hashes)` at the end of `cstack/src/plan/commits.ts`. For each hash, it runs `git diff-tree -r -z --name-only --no-renames --no-commit-id --end-of-options <hash>` with an argument array. A git failure throws `PlanFormatError`, as `listUnitCommits` does. Do not change `listUnitCommits`.
@@ -315,7 +315,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): list the files that each unit commit changes`
 - Depends on: none
 
-### Unit 5: A full example plan and a helper that builds a test repository — status: todo
+### Unit 5: A full example plan and a helper that builds a test repository — status: done (dedfff2)
 - Files: `cstack/test/fixtures/plans/full.md`, `cstack/test/helpers/plan-repo.ts`, `cstack/test/plan/full-example.test.ts`
 - Failing test: in `cstack/test/plan/full-example.test.ts`, `readPlan` on `full.md` returns ten units, a `Ready for review at` time, every section of `DONE_REPORT_SECTIONS` filled, a Ticket section whose `bodyLines` is above 0, and no open blocking question. A repository made by the helper with `full.md` committed at `docs/plans/full.md` has a clean `git status` and no unit commit.
 - Minimum code: `full.md` is a complete `cstack-plan/1` plan with Status `ready for review`, both times set, and `Target branch: main`. Its Ticket section copies a ticket with its headings moved down one level: `### Why this matters (plain language)`, `### Where things are today (read first)`, `### Scope` and `### Acceptance (TDD)`, then `### Decisions already taken upstream`. Inside the ticket, a fenced code block holds the lines `## Decisions` and `### Unit 3: fake`. It has `## Decisions`, `## Architecture`, ten units `### Unit 1` to `### Unit 10`, each with its own file under `src/` in `Files`, some with a `Test` line and some with a `No test` line, and none with a `Blocked` line. `## Blocking questions` holds one answered question. `## Briefing`, `## Documentation duties`, `## Documentation` and every other section are filled. `## Pull request` has `Title:` and a four-backtick `markdown` block. `## History` ends with `### Architecture options`, followed by two `#### Details` headings in two different level-3 parts. `cstack/test/helpers/plan-repo.ts` exports a `git(cwd, ...args)` helper with a test identity, a function that makes a temporary repository on `main` with a first commit, a function that writes and commits a plan file, a function that commits changes to given files with given `Cstack-Unit` trailers in the final paragraph, and a `collect()` helper that builds a fake `Io`.
@@ -323,7 +323,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `test(tests): add a full example plan and a helper that builds a test repository`
 - Depends on: none
 
-### Unit 6: Print exactly one section with cstack plan section — status: todo
+### Unit 6: Print exactly one section with cstack plan section — status: done (763f281)
 - Files: `cstack/src/commands/plan-section.ts`, `cstack/test/plan-section.test.ts`
 - Failing test: in `cstack/test/plan-section.test.ts`, write first `cstack plan section Decisions` on `full.md` in a test repository. It prints `## Decisions` with its body, nothing of `### Decisions already taken upstream`, and exits with 0 (US-7 AC2). Then add the other cases. `Architecture` prints nothing of `### Architecture options`, and `Documentation` prints nothing of `## Documentation duties`. `Unit 1` prints unit 1 and not unit 10. `Scope` prints the ticket's `### Scope`, and `Acceptance` prints `### Acceptance (TDD)`. The `## Decisions` line inside the fenced block never matches. An unknown name exits with 2 and lists the headings. `Details` matches two `#### Details` headings and exits with 3. A plan whose Ticket section holds `### Documentation` still prints `## Documentation` for `Documentation`. `Code mapping` given as two arguments works. A plan with two `### Unit 3` headings exits with 3, because the reader refuses it. A plan that the reader refuses for another reason exits with 3.
 - Minimum code: `planSection(args, io, { cwd })` in `cstack/src/commands/plan-section.ts`, as "Decisions" describes. It finds the plan with `locatePlan` and reads it with `readPlan`.
@@ -331,7 +331,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): print exactly one section of the plan with cstack plan section`
 - Depends on: 3, 5
 
-### Unit 7: Print the status of each unit with cstack plan status — status: todo
+### Unit 7: Print the status of each unit with cstack plan status — status: done (e01d41f)
 - Files: `cstack/src/commands/plan-status.ts`, `cstack/test/plan-status.test.ts`
 - Failing test: in `cstack/test/plan-status.test.ts`, write first a test repository where unit 2 has a commit with `Cstack-Unit: 2` and unit 1 has none. `cstack plan status` says that unit 1 is not done and that unit 2 is done with its short hash (US-7 AC1). A commit with `Cstack-Unit: 1` on `main` does not count. Then add the other cases. A commit with `Cstack-Unit: 7` in a plan of three units exits with 1 and names that commit, after the statuses. A commit of unit 2 that changes a file outside unit 2's `Files` exits with 1 and names the file. `Cstack-Unit: abc` exits with 1. A saved `units/1/red.json` in the run folder shows `failing run saved` on unit 1, and `green.json` shows `passing run saved`. A `Blocked` line shows with its reason. `--json` gives the same data and the same exit code.
 - Minimum code: `planStatus(args, io, { cwd })` in `cstack/src/commands/plan-status.ts`, as "Decisions" describes. It uses `locatePlan`, `readPlan`, `listUnitCommits`, `listCommitFiles` and `runFolder`.
@@ -339,7 +339,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): print the status of each unit from git with cstack plan status`
 - Depends on: 3, 4, 5
 
-### Unit 8: Check, save and read the reports of the helpers — status: todo
+### Unit 8: Check, save and read the reports of the helpers — status: done (0f9b5d3)
 - Files: `cstack/src/report/reports.ts`, `cstack/src/phases.ts`, `cstack/test/report.test.ts`
 - Failing test: in `cstack/test/report.test.ts`, write first `checkReport` with the role `executor` and the kind `done`, on a test repository where every unit of `full.md` has a commit but the Briefing section holds only its placeholder. The reasons name Briefing (US-7 AC3). Then add the other cases. Without a commit for unit 3, a reason names unit 3, and with both problems, both reasons appear (US-7 AC3). A unit with a `Blocked` line and no commit is accepted. An open blocking question, `Ready for review at: not yet`, an uncommitted change to the plan file, an untracked plan file and an untracked file elsewhere are each refused. A clean, complete repository gives no reason. The kind `complete` is refused with a reason that lists done, needs-decision, failed and published (US-9 AC1). `needs-decision` and `failed` with an empty or blank text are refused. `published` is refused without `publish.json` and when the last push is older than `HEAD`, and accepted when the last push is `HEAD` and the link is set. With the role `implementer` and unit 2, `done` is refused while unit 2 has no commit, and accepted once the commit exists and, for a unit with a `Test` line, `units/2/red.json` is saved. The kind `needs-decision` is refused for an implementer, and `stuck` with an empty text too. `saveReport` then `takeOldestUnreadReport` returns the report and sets `readAt`, and a second call returns nothing. Two reports come out oldest first. Two saves at the same fixed time give two files. `lastAcceptedDoneReportAt` returns the time of the latest done report.
 - Minimum code: `cstack/src/report/reports.ts` as "Decisions" describes. Export `ticketCopied`, `noOpenQuestion` and `buildDone` from `cstack/src/phases.ts`, and call them from `checkReport`.
@@ -347,7 +347,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): check, save and read the reports of the helpers`
 - Depends on: 5
 
-### Unit 9: Submit and read the executor's report with cstack report submit and report check — status: todo
+### Unit 9: Submit and read the executor's report with cstack report submit and report check — status: done (c71df6c)
 - Files: `cstack/src/commands/report-submit.ts`, `cstack/src/commands/report-check.ts`, `cstack/test/report.test.ts`
 - Failing test: in `cstack/test/report.test.ts`, `reportSubmit(["done", "--plan", "docs/plans/full.md"], io, { cwd, readInput })` on the plan whose Briefing holds only its placeholder exits with 1 and names Briefing on standard error. `cstack report submit complete` exits with 1 and the message lists done, needs-decision, failed and published (US-9 AC1). `needs-decision` with an empty input exits with 1. An input over 65,536 bytes exits with 1, and so does an input that is not valid UTF-8. A `readInput` that returns nothing, as for a terminal, exits with 2. An accepted report exits with 0, prints one line and saves its file. After it, `cstack report check` prints the kind and the text and exits with 0. A second call exits with 1 and gives the message about launching the executor again. Two accepted reports come out oldest first. A report whose text holds `$(touch pwned)`, backticks and `; rm -rf ~` is saved and printed byte for byte, and no file named `pwned` appears in the test repository or in the current folder.
 - Minimum code: `reportSubmit(args, io, { cwd, readInput })` in `cstack/src/commands/report-submit.ts`, with the exported reader of `process.stdin`, and `reportCheck(args, io, { cwd })` in `cstack/src/commands/report-check.ts`, as "Decisions" describes. Both find the plan with `locatePlan` and the run folder with `runFolder`.
@@ -355,7 +355,7 @@ The units run in four batches. Units 1, 2, 3, 4 and 5 share no file and can run 
 - Commit message: `feat(cli): submit and read the executor's report with cstack report submit and report check`
 - Depends on: 3, 8
 
-### Unit 10: Register the four commands in the command list and the command line — status: todo
+### Unit 10: Register the four commands in the command list and the command line — status: done (0b7b7d5)
 - Files: `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/src/cli.ts`, `cstack/test/cli.test.ts`
 - Failing test: `cstack/test/manifest.test.ts` expects eight built entries and seven that are not built. In `cstack/test/cli.test.ts`, `run(["plan"])` and `run(["report", "nope"])` return 2 and list the known second words of their group. The existing tests then check that every built entry has a handler, that the usage lists the four new usage lines, and that each new command answers `--cstack-unknown-flag` with its usage line and exit code 2.
 - Minimum code: set `built: true` on the four entries of this ticket in `cstack/src/manifest.ts`, and write the new meaning of exit code 1 of `cstack plan status`. In `cstack/src/cli.ts`, add the keys `plan` and `report` to `HANDLERS`. Each calls `dispatchSubcommand` with its built commands, `{ cwd: process.cwd() }`, and for `report submit`, the reader of `process.stdin`.
