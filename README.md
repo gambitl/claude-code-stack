@@ -65,6 +65,20 @@ The script reads the skills from the tag as it is on GitHub, whatever branch is 
 
 The script only replaces the skills that the tag holds. It moves the old version of each one into a dated folder under `~/.claude/skill-backups` first. This includes a `resolve-issue` skill that `cstack` installed: it is replaced too, after the backup. Skills installed by other tools, and local skills that the tag does not have, stay as they are. The script only handles skills. The settings and the other config files belong to one computer, so it does not copy them.
 
+## Measure a run
+
+`cstack measure <plan file>` tells you how many tokens and how much time one run of the `resolve-issue` skill used. A token is the unit in which Claude counts the text it reads and writes. The command reads the session records that Claude Code keeps on your computer, and it prints numbers only.
+
+You run it from the repository of the run, on the plan file that the run committed. Add `--home <folder>` if your session records are not under your home folder.
+
+The command prints one line per number, in this order. It gives the number of main sessions and of helper transcripts. It gives the four kinds of tokens: input, cache creation input, cache read input and output. It repeats the four kinds for each Claude model. It gives the minutes from the approval of the plan to "ready for review". It ends with the number of skipped lines and of unreadable files.
+
+The command finds the sessions in two steps. It takes the commit dates of the plan file from git as the start and the end of the run. Then it counts every session whose working folder is the repository, or a folder inside it, and that was active between those two dates. It also counts all the helpers of those sessions. It counts each answer of the model once.
+
+Run the command before you remove the folder of the run, and before a squash merge, because both erase what the command reads. Run it after the session has ended, because anything said later in a session that counts adds to the totals.
+
+Exit code 0 means every number is complete. Exit code 1 means the plan file could not be used, or the numbers may be incomplete. The reason is printed on standard error. Exit code 2 means the command line is wrong. A plan file made with the newer `Format:` line is refused, because this version reads only plan files made before `cstack`.
+
 ## What is in here
 
 `INVENTORY.md` is the best place to start. It is a readable summary of every hook, plugin, MCP server and skill, and the sync script rebuilds it each time. (MCP, the Model Context Protocol, is how Claude Code connects to outside tools such as Linear or GitHub.)
