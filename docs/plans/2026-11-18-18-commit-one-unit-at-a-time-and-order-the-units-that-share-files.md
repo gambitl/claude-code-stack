@@ -302,6 +302,10 @@ The test commands are `npm test` and `npm run typecheck`, run from `cstack/`. Un
 
 ## Review log
 
+### Impact notes
+
+Graphify is not installed, so these come from text search and `git log`. All new symbols (`orderUnits`, `locatePlan`, `withCommitLock`, `unitOrder`, `unitCommit`, `dispatchSubcommand`) are new, so nothing outside the diff depends on them yet. The changed existing files are `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/cli.test.ts`, `cstack/test/manifest.test.ts` and `README.md`. The usual companions of `cli.ts` and `manifest.ts` are their two test files, and both are in the diff. Tests that exercise the change: `cli.test.ts`, `manifest.test.ts`, and the six new test files. Full suite after the units: 21 files, 289 tests pass; typecheck is clean. Implementers of units 1 and 2 wrote code and tests in one pass without a red run; later units did see red.
+
 ## Briefing
 
 ## Open questions after the build
