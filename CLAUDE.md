@@ -19,7 +19,7 @@ This repository is public. Never write the name of an employer or a client in it
 
 You run these commands from the `cstack/` folder. `npm ci` installs the packages. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
 
-The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
+The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. Every command also has an entry in `cstack/src/manifest.ts`, which defines the common exit codes. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
 
 The minimum Node version is written in one place only, which is `engines.node` in `cstack/package.json`. Do not copy that number into any other file.
 
