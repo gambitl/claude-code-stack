@@ -140,7 +140,7 @@ Dependencies: clear. The blockers #13 and #9 are closed as completed (checked on
 
 Graphify is not installed on this machine, and the run must not install it, so I mapped the code with search and file reads.
 
-**The frozen prose.** `skills/resolve-issue/SKILL.md` and `skills/resolve-issue/writing.md` are identical to the tag `prose-skills-final` and to the copy installed in `~/.claude/skills/resolve-issue/`. They must never be edited. Today `wc -w` counts 6,131 words in `SKILL.md` and 1,128 in `writing.md`, so 7,259 together. The ticket says 7,261, because the history rewrite of 2026-11-18 replaced the work references (commit `2c14821`) and changed two words. A fifth of 7,259 is 1,451.8, so the entry skill and the first guide may hold at most 1,451 words together. Both frozen files already pass `scripts/private_names.py check`. `writing.md` lines 27 and 41 now hold the ids `PROJ-288` and `PROJ-301`. The settled decision at `SKILL.md` line 211 names the work ticket `PROJ-12`, which the copy must drop.
+**The frozen prose.** `skills/resolve-issue/SKILL.md` and `skills/resolve-issue/writing.md` are identical to the tag `prose-skills-final` and to the copy installed in `~/.claude/skills/resolve-issue/`. They must never be edited. Today `wc -w` counts 6,131 words in `SKILL.md` and 1,128 in `writing.md`, so 7,259 together. The ticket says 7,261, because the history rewrite of 2026-11-18 replaced the work references (commit `2c14821`) and changed two words. A fifth of 7,259 is 1,451.8, so the entry skill and the first guide may hold at most 1,451 words together. Both frozen files already pass `scripts/private_names.py check`. `writing.md` lines 27 and 41 now hold the two example ids. The settled decision at `SKILL.md` line 211 names the work ticket a work ticket, which the copy must drop.
 
 **Word counts of today's phases.** Phase 0 holds 68 words (lines 52 to 56). Phase 1 holds 403 words (lines 58 to 68). Phase 2 holds 128, phase 3 holds 516, phase 4 holds 862 and phase 5 holds 1,207. The handling of the publish reports (lines 185 to 189) holds 88. So an entry skill of about 700 words plus a ticket guide of about 450 words leaves a margin of about 300 words under the limit.
 
@@ -193,7 +193,7 @@ Graphify is not installed on this machine, and the run must not install it, so I
 
 **The copy of the writing guide `cstack/skills/resolve-issue/writing.md`**
 
-- It is a copy of the frozen `skills/resolve-issue/writing.md` with exactly four changes. Line 17 says that every record uses the records language that `cstack next` prints from the settings, English by default, instead of "written in English, unless the conventions file says otherwise". `PROJ-288` at line 27 becomes `ABC-123`. `PROJ-301` at line 41 becomes `ABC-124`. `M4-8` at line 58 becomes `ABC-125`, because it is a work ticket key that the public text rule forbids. Nothing else changes. (2026-11-18, the ticket, and accepted by default for line 58.)
+- It is a copy of the frozen `skills/resolve-issue/writing.md` with exactly four changes. Line 17 says that every record uses the records language that `cstack next` prints from the settings, English by default, instead of "written in English, unless the conventions file says otherwise". the first example id at line 27 becomes `ABC-123`. the second example id at line 41 becomes `ABC-124`. The milestone-style key at line 58 becomes `ABC-125`, because it is a work ticket key that the public text rule forbids. Nothing else changes. (2026-11-18, the ticket, and accepted by default for line 58.)
 
 **The settled decisions `cstack/skills/resolve-issue/settled-decisions.md`**
 
@@ -201,7 +201,7 @@ Graphify is not installed on this machine, and the run must not install it, so I
 - The decision on models (line 210) gets an amendment: the settings file can change the agent and the model of the independent review only, and its thinking level stays in the header. It links to ADR-SIC-D with the full address `https://github.com/gambitl/claude-code-stack/blob/main/docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`, because the file is installed outside the repository. (2026-11-18, the ticket and accepted by default.)
 - The decision on the single push (line 212) adds that `cstack publish` now enforces it, and it refers to `cstack publish` instead of the "Pushes" section. (2026-11-18, the ticket and accepted by default.)
 - The decision on languages (line 208) says that every record uses the records language of the settings, English by default. (2026-11-18, the ticket.)
-- The decision on blocking questions (line 211) drops the work ticket `PROJ-12` and keeps the rest of its text. (2026-11-18, the ticket.)
+- The decision on blocking questions (line 211) drops the work ticket a work ticket and keeps the rest of its text. (2026-11-18, the ticket.)
 - A new decision says that the guides come from cstack one phase at a time and that the skill has no prose fallback, settled on 2026-11-18, with what it protects. (2026-11-18, the ticket.)
 - Today's phase numbers become phase names: phase 1 is `ticket`, phase 3 is `code-map`, phases 5.3 and 5.4 are the `plan` phase, and phase 12 is `publish`. Nothing else in the decisions changes. (2026-11-18, accepted by default.)
 
@@ -251,7 +251,7 @@ The approach is locked by the ticket's scope: the change is prose in `cstack/ski
 ### Unit 1: Copy the writing guide — status: done
 - Files: `cstack/skills/resolve-issue/writing.md`
 - Failing test: none. This unit copies a prose file with four edits. The settings test of unit 9 and the reviewer check of the acceptance cover it.
-- Minimum code: copy `skills/resolve-issue/writing.md` to `cstack/skills/resolve-issue/writing.md`. Rewrite line 17 so that every record uses the records language that `cstack next` prints from the settings, English by default, without the words "in English". Replace `PROJ-288` with `ABC-123`, `PROJ-301` with `ABC-124` and `M4-8` with `ABC-125`. Change nothing else, and check with `diff` that only these lines differ.
+- Minimum code: copy `skills/resolve-issue/writing.md` to `cstack/skills/resolve-issue/writing.md`. Rewrite line 17 so that every record uses the records language that `cstack next` prints from the settings, English by default, without the words "in English". Replace the first example id with `ABC-123`, the second example id with `ABC-124` and the milestone-style key of line 58 with `ABC-125`. Change nothing else, and check with `diff` that only these lines differ.
 - Refactor: none.
 - Commit message: `feat(skill): copy the writing guide and take the records language from the settings`
 - Depends on: none
@@ -466,7 +466,7 @@ Answer: keep the plan file, uncommitted, and tell the user its path. The user ac
 
 **Q6. Blocking, answered by a test. What is the word limit?** I checked it: `wc -w` counts 6,131 words in the frozen `skills/resolve-issue/SKILL.md` and 1,128 in `writing.md`, so 7,259, not the 7,261 of the ticket. The history rewrite of 2026-11-18 (commit `2c14821`) changed two words. A fifth is 1,451.8, so the limit is 1,451 words. The test computes the limit from the frozen files at each run, so the number is not written in the test.
 
-**Q7. Non-blocking, answered by a test. Are the example ids of `writing.md` still from work?** I checked it: after the history rewrite they read `PROJ-288` and `PROJ-301`, and `scripts/private_names.py check` exits with 0 on both frozen files. The copy still replaces them with `ABC-123` and `ABC-124`, as the ticket asks.
+**Q7. Non-blocking, answered by a test. Are the example ids of `writing.md` still from work?** I checked it: after the history rewrite they read the first example id and the second example id, and `scripts/private_names.py check` exits with 0 on both frozen files. The copy still replaces them with `ABC-123` and `ABC-124`, as the ticket asks.
 
 **Q8. Non-blocking, accepted by default on 2026-11-18. Does this ticket add its files to `cstack/test/pack.test.ts`?** The comment of #9 on this ticket asks for it. Recommended answer: yes, add `skills/resolve-issue/SKILL.md`, `writing.md`, `settled-decisions.md` and the five guides to its list of expected paths.
 
