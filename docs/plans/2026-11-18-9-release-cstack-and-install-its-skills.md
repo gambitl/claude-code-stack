@@ -259,63 +259,63 @@ The approach is locked by the ticket, its CTO review block and the answers of ph
 
 ## Implementation units
 
-### Unit 1: Package files, example skill and guide, package name — status: todo
+### Unit 1: Package files, example skill and guide, package name — status: done (f470be0)
 - Failing test: `cstack/test/pack.test.ts` runs `npm pack --dry-run --json` in `cstack/` with `execFile` and a timeout of 120 seconds. It expects the file name `gambitl-cstack-<version>.tgz`, with the version read from `cstack/package.json`. It expects these paths in the file list: `dist/bin.js`, `dist/cli.js`, `skills/cstack-example/SKILL.md`, `skills/cstack-example/.claude-plugin/plugin.json`, `skills/cstack-example/agents/check.md` and `guides/cstack-example/hello.md`. It fails today because the package has no `files` field and its name is `cstack`.
 - Minimum code: in `cstack/package.json`, set the name, `files` and `prepack`. In `cstack/package-lock.json`, change the two name fields. Write the three files of the example skill and the example guide.
 - Refactor: none.
 - Commit message: `feat(cli): pack the example skill and guide into a package named @gambitl/cstack`
 - Depends on: none.
 
-### Unit 2: `cstack guide <phase>` — status: todo
+### Unit 2: `cstack guide <phase>` — status: done (8bbb289)
 - Failing test: `cstack/test/guide.test.ts`. First case: `run(["guide", "hello", "--skill", "cstack-example"], io)` prints exactly the content of `cstack/guides/cstack-example/hello.md` and returns 0. Then these cases. An unknown phase returns 1 and lists `hello`. The default skill `resolve-issue` returns 1 and lists `cstack-example`. The phase `../../etc/passwd`, and the same value given to `--skill`, return 2, even when the function gets a `packageRoot` that does not exist; that proves that no file was read. `cstack guide` with no phase returns 2, and so does an extra argument.
 - Minimum code: `cstack/src/commands/guide.ts` exports `guide(args, io, { packageRoot })`. `cli.ts` gets one dispatch line and one usage line.
 - Refactor: none.
 - Commit message: `feat(cli): add cstack guide to print a phase guide of the installed version`
 - Depends on: Unit 1.
 
-### Unit 3: `cstack skills install` for the folders that cstack owns — status: todo
+### Unit 3: `cstack skills install` for the folders that cstack owns — status: done (08ed4f0)
 - Failing test: `cstack/test/skills-install.test.ts`. Write "install into an empty home" first. It uses the real package root and a temporary home. Every folder of `cstack/skills/` then exists under `<home>/.claude/skills/`, with its hidden files and its `agents/` folder, and holds `.cstack-managed` with the version and a newline. The exit code is 0, with one `installed` line per skill. Then, with fake packages, these cases. A second install of the same package says `unchanged` and creates no backup folder. The rollback case installs 1.0.0, then 1.1.0, which changes one skill and adds another, then 1.0.0 again. The folders then match 1.0.0 exactly, the added skill is gone, every marker says 1.0.0, and the replaced and removed folders are in the backup folder. A folder without the marker stays byte for byte the same, the output names it with the reason, and the exit code is 1. A symbolic link at the target is skipped, and the folder it points to is unchanged. A plain file at the target is skipped. A marked folder that the package no longer ships moves into the backup folder. At the end, the temporary folder is gone, and nothing new exists inside the skills folder except the skill folders.
 - Minimum code: `cstack/src/commands/skills.ts` exports `skills(args, io, options)` with the subcommand `install`. It decides first, then checks the backup targets, then acts.
 - Refactor: keep the helpers for moving and comparing folders small and named for what they do.
 - Commit message: `feat(cli): add cstack skills install, which replaces only the folders that cstack wrote`
 - Depends on: Unit 1.
 
-### Unit 4: `--adopt`, the root refusal, backup collisions and moves across disks — status: todo
+### Unit 4: `--adopt`, the root refusal, backup collisions and moves across disks — status: done (536dd59)
 - Failing test: in `cstack/test/skills-install.test.ts`, these cases. `--adopt <name>` moves the old folder to `<home>/.claude/skill-backups/<date-time>/<name>` with its content intact, installs the new folder, and prints the backup path. `--adopt` given twice adopts both folders into one backup folder. `--adopt` with a name that this version does not ship returns 2, and the whole home tree stays unchanged. `--adopt ../x` returns 2. `--adopt` on a symbolic link moves the link and leaves the folder it points to unchanged. With `uid: 0`, the command returns 1 and the home folder stays empty. With a fixed `now` and a backup target that already exists, the command returns 1 and nothing moves. The move helper copies, then deletes, when the rename throws an `EXDEV` error; test the helper with an injected rename function.
 - Minimum code: in `cstack/src/commands/skills.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): let cstack skills install adopt a folder after a backup`
 - Depends on: Unit 3.
 
-### Unit 5: Register `cstack skills install` in the command line — status: todo
+### Unit 5: Register `cstack skills install` in the command line — status: done (e91335f)
 - Failing test: in `cstack/test/cli.test.ts`, set `process.env.HOME` to a temporary folder, check that `os.homedir()` returns it, and restore the old value after the test. `run(["skills", "install"], io)` then installs `cstack-example` into the temporary home and returns 0. `run(["skills"], io)` and `run(["skills", "nope"], io)` return 2 and print the usage.
 - Minimum code: one dispatch line and one usage line in `cstack/src/cli.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): register cstack skills install in the command line`
 - Depends on: Units 2 and 4.
 
-### Unit 6: `pull-skills.sh` stops reporting the skills that cstack installed — status: todo
+### Unit 6: `pull-skills.sh` stops reporting the skills that cstack installed — status: done (4cbb332)
 - Failing test: a new case in `scripts/test_pull_skills.sh`. The fake home holds a folder `cstackskill` with `.cstack-managed` and a `SKILL.md`, and an unmarked local folder. The output of `pull-skills.sh` does not contain "Only on this computer, left as is: cstackskill", and it still reports the unmarked folder.
 - Minimum code: one line in `pull-skills.sh`.
 - Refactor: none.
 - Commit message: `fix: stop pull-skills.sh from reporting the skills that cstack installed`
 - Depends on: none.
 
-### Unit 7: The release workflow — status: todo
+### Unit 7: The release workflow — status: done (3692e07)
 - Failing test: no test. The workflow only runs when a `v` tag is pushed, and this run must never push one. Check it by hand instead. Run the tag check script locally with a matching and a non-matching tag, and see it pass and stop. Run `npm pack --json --pack-destination <temporary folder>` in `cstack/`, and read `filename` with the same command as the workflow. Delete the temporary folder afterwards.
 - Minimum code: `.github/workflows/release.yml` as the "Release workflow" decisions say.
 - Refactor: none.
 - Commit message: `ci(tests): publish a GitHub release with the packed file when a v tag is pushed`
 - Depends on: Unit 1.
 
-### Unit 8: The README section "Install cstack" — status: todo
+### Unit 8: The README section "Install cstack" — status: done (83a6719)
 - Failing test: no test, because this unit is prose.
 - Minimum code: the section and the removed sentence, as the "Other files" decisions say. Write it as the existing README is written: full sentences, one idea per sentence.
 - Refactor: none.
 - Commit message: `docs: explain how to install, update and roll back cstack and its skills`
 - Depends on: Units 4 and 7.
 
-### Unit 9: ADR-SIC-C and the link from the specification — status: todo
+### Unit 9: ADR-SIC-C and the link from the specification — status: done (45f9e38)
 - Failing test: no test, because this unit is prose.
 - Minimum code: `docs/decisions/ADR-SIC-C-how-cstack-ships-its-skills.md` and the link in section 9 of `docs/projects/skills-into-cli.md`.
 - Refactor: none.
@@ -400,7 +400,11 @@ I checked and found nothing to raise on the validation of names before any file 
 
 ### Blocking
 
+none
+
 ### Non-blocking
+
+none
 
 ## Pull request
 
@@ -414,13 +418,13 @@ This pull request adds `cstack skills install` and `cstack guide <phase>`, ships
 
 Key decisions, written in `docs/decisions/ADR-SIC-C-how-cstack-ships-its-skills.md`: the package is named `@gambitl/cstack` because the name `cstack` on the npm registry belongs to an unrelated package, so the release file is `gambitl-cstack-<version>.tgz`; the command refuses to run as root; and a marked folder is backed up, never deleted. The ticket asked for a backup only with `--adopt`.
 
-Files touched: `cstack/src/commands/skills.ts` and `guide.ts` (new), `cstack/src/cli.ts` (two dispatch blocks and the usage text), `cstack/package.json` and its lock file (name, `files`, `prepack`), the example skill and guide, three test files, `.github/workflows/release.yml`, `pull-skills.sh` and its test (it no longer reports folders that `cstack` installed), `README.md` (new section "Install cstack"), the ADR and its link in the specification.
+Files touched: `cstack/src/commands/skills.ts` and `guide.ts` (new), `cstack/src/cli.ts` (two dispatch blocks and the usage text), `cstack/package.json` and its lock file (name, `files`, `prepack`), the example skill and guide, three new test files and `cli.test.ts`, `.github/workflows/release.yml`, `pull-skills.sh` and its test (it no longer reports folders that `cstack` installed), `README.md` (new section "Install cstack"), the ADR and its link in the specification.
 
 Judgment calls from the independent review. The messages of `skills install` lack the `cstack: ` prefix of the other commands. Every new version changes the marker, so each update replaces every skill and adds a backup folder, which nothing cleans. If a backup move fails halfway, the skills already moved stay missing until the next install.
 
 Review findings left as follow-ups: a `.DS_Store` file inside an installed skill counts as a change; a relative symbolic link adopted across disks keeps its relative path in the backup; the release job could be split in two so that `contents: write` is not present during `npm ci` and `npm test`; about 11 lines could be removed in `guide.ts` and `skills.ts`.
 
-After the merge, the maintainer needs to claim the `gambitl` scope on npm, push the tag `v0.1.0`, and check that the release has the file attached. Tickets #10 and #36 edit `cli.ts` and the README too, so the second to merge will need a small conflict fix. Do not run `cstack skills install` on the real home folder before the baseline runs of #12 are done.
+After the merge, the maintainer needs to claim the `gambitl` scope on npm, push the tag `v0.1.0`, and check that the release has the file attached. The pull request that adds `cstack doctor` (#36) edits `cli.ts` and the README too, so the second of the two to merge will need a small conflict fix. Do not run `cstack skills install` on the real home folder before the baseline runs of #12 are done.
 
 Plan file: `docs/plans/2026-11-18-9-release-cstack-and-install-its-skills.md`.
 
@@ -443,6 +447,8 @@ Fixes #9
 - Graphify is not installed, so impact notes used file reads and `git log`.
 
 ## Hand-off log
+
+- 2026-11-18, first executor run: it ran phases 6 to 10. All nine units are committed, from f470be0 to 45f9e38, plus 5ac0f64 for a missing `WHY: ADR-SIC-C` comment. Four phase 7 reviewers found nothing at or above the confidence bar. The independent reviewer added one test in 571e30e. All 32 tests, the type check, the build and the `pull-skills.sh` test passed. `origin/main` had not moved. The documentation was written on #9, #15, #21, #22 and the epic #6. It returned the report "done". The run did not fill this log, the unit statuses or the empty headings of "Open questions after the build", so the main conversation filled them afterwards.
 
 ## History
 
