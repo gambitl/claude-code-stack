@@ -98,7 +98,8 @@ export function locateJsonError(text: string): JsonErrorPosition | undefined {
     ws();
     if (i < text.length) fail("unexpected content after the end of the value");
   } catch (err) {
-    if (!(err instanceof Stop)) throw err;
+    // Any other error, such as a stack overflow on deep nesting, means no position.
+    if (!(err instanceof Stop)) return undefined;
     const before = text.slice(0, err.pos).split("\n");
     return { line: before.length, column: before[before.length - 1]!.length + 1, reason: err.reason };
   }

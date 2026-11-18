@@ -231,3 +231,22 @@ describe("the example settings file", () => {
     expect(keys).toEqual(expected);
   });
 });
+
+describe("review hardening", () => {
+  it("escapes an unknown key that holds a terminal escape", () => {
+    const e = refusal(repo(`{"version": 1, "\\u001b]0;x\\u0007": 1}`));
+    expect(e.message).not.toMatch(/[\u001b\u0007]/);
+    expect(e.message).toContain("unknown key");
+  });
+  it("refuses a model that starts with a hyphen", () => {
+    expect(problemPaths(repo({ version: 1, review: { agent: "claude", model: "--yolo" } }))).toContain("review.model");
+  });
+  it("accepts a language written with combining marks", () => {
+    const s = readSettings(repo({ version: 1, recordsLanguage: "हिन्दी" }));
+    expect(s.values.recordsLanguage).toBe("हिन्दी");
+  });
+  it("gives a SettingsError, not a stack overflow, for deep nesting", () => {
+    const e = refusal(repo("[".repeat(200000)));
+    expect(e).toBeInstanceOf(SettingsError);
+  });
+});

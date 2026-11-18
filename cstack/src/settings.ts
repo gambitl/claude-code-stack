@@ -87,7 +87,7 @@ function unknownKeys(obj: Record<string, unknown>, allowed: string[], prefix: st
   for (const key of Object.keys(obj)) {
     if (!allowed.includes(key)) {
       out.push({
-        path: prefix + key,
+        path: prefix + (/^[A-Za-z0-9_$-]{1,60}$/.test(key) ? key : quote(key)),
         text: `unknown key. Allowed keys here: ${allowed.join(", ")}. ${HINT}`,
       });
     }
@@ -221,7 +221,7 @@ export function readSettings(root: string): Settings {
   }
   if (Object.hasOwn(data, "recordsLanguage")) {
     const v = typeof data.recordsLanguage === "string" ? data.recordsLanguage.normalize("NFC") : data.recordsLanguage;
-    if (typeof v === "string" && /^\p{L}[\p{L} -]{0,39}$/u.test(v)) set("recordsLanguage", v);
+    if (typeof v === "string" && /^\p{L}[\p{L}\p{M} -]{0,39}$/u.test(v)) set("recordsLanguage", v);
     else problems.push({ path: "recordsLanguage", text: `must be 1 to 40 letters, spaces and hyphens, starting with a letter, not ${quote(v)}` });
   }
   if (Object.hasOwn(data, "forbiddenTools")) {
@@ -262,8 +262,8 @@ export function readSettings(root: string): Settings {
         problems.push({ path: "review.agent", text: `must match ^[a-z][a-z0-9-]{0,31}$ (lowercase letters, digits, hyphens), not ${quote(o.agent)}` });
         ok = false;
       }
-      if (Object.hasOwn(o, "model") && !(typeof o.model === "string" && /^[A-Za-z0-9._\-[\]]+$/.test(o.model))) {
-        problems.push({ path: "review.model", text: `must be a non-empty string of letters, digits and . _ - [ ], not ${quote(o.model)}` });
+      if (Object.hasOwn(o, "model") && !(typeof o.model === "string" && /^[A-Za-z0-9][A-Za-z0-9._\-[\]]*$/.test(o.model))) {
+        problems.push({ path: "review.model", text: `must be a non-empty string of letters, digits and . _ - [ ], starting with a letter or a digit, not ${quote(o.model)}` });
         ok = false;
       }
       if (ok && typeof o.agent === "string" && typeof o.model === "string") set("review", { agent: o.agent, model: o.model });

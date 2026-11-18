@@ -312,6 +312,16 @@ Graphify is not installed, so these notes come from search. The branch adds new 
 - `docs/projects/skills-into-cli.md` changed on line 321 only. Lines 319 and 320 are untouched.
 - No `WHY:` or `DECISION:` comment exists in the changed files that conflicts with the branch.
 
+### Review findings (phase 7)
+
+Four reviewers ran: correctness, security, conventions and simplicity.
+
+- Fixed (security): an unknown key name was printed raw, so a committed file could send terminal escape codes. It is now quoted and cut. A deeply nested invalid file made the locator overflow the stack, so it now returns no position and the reader still gives a `SettingsError`. `review.model` could start with a hyphen, such as `--yolo`, which could act as an option for a later tool. It must now start with a letter or a digit.
+- Fixed (correctness, judgment call): `recordsLanguage` refused scripts that need combining marks, such as Hindi. The pattern now also allows `\p{M}`. The plan's pattern was narrower, so this widens a recorded rule.
+- Conventions reviewer: nothing to fix.
+- Follow-ups, not done: the simplicity reviewer found about 10 lines to shrink in `settings.ts` (two repeated `typeof` checks and two similar closures); this is cosmetic. A committed symlink at `.cstack/settings.json` could make the reader hang on a FIFO; an `lstat` check would close it. #22 should map `review.agent` to a list of known agent programs.
+- Tests: 136 pass, typecheck clean.
+
 ## Briefing
 
 ## Open questions after the build
