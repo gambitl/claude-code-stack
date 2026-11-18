@@ -70,3 +70,16 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
   if (values.version) return version(io);
   return fail(io, "no command given");
 }
+
+/** Sends `cstack <group> <word> ...` to the handler of the second word. */
+export async function dispatchSubcommand(
+  group: string,
+  args: string[],
+  io: Io,
+  handlers: Record<string, (args: string[], io: Io) => Promise<number>>,
+): Promise<number> {
+  const word = args[0];
+  if (word !== undefined && Object.hasOwn(handlers, word)) return handlers[word](args.slice(1), io);
+  io.stderr(`cstack: usage: cstack ${group} <${Object.keys(handlers).join("|")}>\n`);
+  return EXIT.usage;
+}
