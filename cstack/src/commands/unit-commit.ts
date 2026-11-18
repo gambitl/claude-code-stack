@@ -49,7 +49,13 @@ interface Entry {
 }
 
 // Collects every broken rule before anything is staged. A saved run that cannot be read throws a RunStateError.
-function checkUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string): { problems: string[]; entries: Entry[] } {
+// It also returns the unit's own paths in lower case, because git paths are compared without case.
+function checkUnit(
+  root: string,
+  plan: PlanRead,
+  unit: PlanUnit,
+  runDir: string,
+): { problems: string[]; entries: Entry[]; own: Set<string> } {
   const problems: string[] = [];
   const n = unit.number;
   const own = new Set(unit.files.map((f) => f.toLowerCase()));
@@ -103,12 +109,11 @@ function checkUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string)
           git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames", "--", ...usable]).stdout,
         ).map((e) => ({ staged: e[0] !== " " && e[0] !== "?", unstaged: e[1] !== " ", path: e.slice(3) }));
   if (entries.length === 0) problems.push(`Unit ${n} has no changed file.`);
-  return { problems, entries };
+  return { problems, entries, own };
 }
 
 function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string): Outcome {
-  const own = new Set(unit.files.map((f) => f.toLowerCase()));
-  const { problems, entries } = checkUnit(root, plan, unit, runDir);
+  const { problems, entries, own } = checkUnit(root, plan, unit, runDir);
 
   if (problems.length > 0) return { code: 1, stderr: `${problems.join("\n")}\n` };
 
