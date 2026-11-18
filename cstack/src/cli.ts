@@ -1,16 +1,20 @@
+import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
+import { guide } from "./commands/guide.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
 
 const USAGE = `Usage: cstack --version
        cstack doctor
-
-Options:
-  --version  Print the version of cstack.
+       cstack guide <phase> [--skill <name>]
 
 Commands:
   doctor     Check that the machine has what cstack needs.
+  guide      Print a phase guide of the installed version.
+
+Options:
+  --version  Print the version of cstack.
 `;
 
 function fail(io: Io, problem: string): number {
@@ -26,6 +30,8 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
   }
   if (first === "doctor")
     return args.length > 1 ? fail(io, "doctor takes no argument") : doctor(io);
+  if (first === "guide")
+    return guide(args.slice(1), io, { packageRoot: fileURLToPath(new URL("..", import.meta.url)) });
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {
