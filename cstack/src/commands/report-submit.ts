@@ -2,7 +2,7 @@
 import type { Io } from "../io.js";
 import { parseArgs } from "node:util";
 import { locatePlan } from "../plan/locate.js";
-import { EXECUTOR_KINDS, checkReport, saveReport } from "../report/reports.js";
+import { checkReport, saveReport } from "../report/reports.js";
 import type { SavedReport } from "../run-state.js";
 import { failWith } from "./errors.js";
 
@@ -68,7 +68,7 @@ export async function reportSubmit(
       return 1;
     }
     saveReport(where, { kind: kind as SavedReport["kind"], text });
-    io.stdout(`The ${kind} report was accepted and saved. Allowed kinds: ${EXECUTOR_KINDS.join(", ")}.\n`);
+    io.stdout(`The ${kind} report was accepted and saved.\n`);
     return 0;
   } catch (error) {
     return failWith(error, io);
