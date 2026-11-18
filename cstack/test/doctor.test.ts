@@ -90,7 +90,7 @@ function setup(
 
 describe("doctor", () => {
   it("prints one line per item and returns 0 when every item is present", async () => {
-    const { out, io, full } = setup();
+    const { out, io, full } = setup(orcaConnected);
     const code = await doctor(io, full);
     const lines = out.stdout.trimEnd().split("\n");
     expect(lines).toEqual([
@@ -100,7 +100,7 @@ describe("doctor", () => {
       "Graphify (optional): 0.9.112",
       "Forge client: gh 2.101.0, glab 1.119.0",
       "Claude Code: 2.1.327",
-      expect.stringMatching(/^Orca \(optional\): /),
+      "Orca (optional): 1.4.262, running. Trackers: Jira, Linear",
       "Every required item is present.",
     ]);
     expect(code).toBe(0);
