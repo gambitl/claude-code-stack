@@ -4,6 +4,18 @@ This repository is the source of `cstack`, a command-line tool for working with 
 
 The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing a file there does not change how Claude Code behaves.
 
+## Requirements
+
+`cstack` needs the items below on your Mac. Run `cstack doctor` to check them. It prints one line for each item and tells you how to install what is missing.
+
+- **macOS**: required. `cstack` runs only on macOS.
+- **Node**: required. Install the current long-term support release from https://nodejs.org. The exact minimum is the `engines.node` field in `cstack/package.json`.
+- **git**: required. Run `xcode-select --install` to get it.
+- **Graphify**: optional. Install it with `uv tool install graphifyy`. This needs uv, which you can install with `brew install uv`. If the command is still not found, run `uv tool update-shell`.
+- **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
+- **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
+- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases.
+
 ## Install cstack
 
 `cstack` is not on the npm registry. You install it from a release file on GitHub. Replace `<version>` with the version you want, for example the latest release:
@@ -23,19 +35,28 @@ Each skill that `cstack` installs holds a file named `.cstack-managed`. This fil
 
 Before `cstack` replaces, removes or adopts a folder, it saves the old folder in `~/.claude/skill-backups/<date-time>/<name>`. This place is outside the skills folder, so Claude Code does not load the backups.
 
-`cstack` needs the Node version that `engines.node` in `cstack/package.json` names. To read the guide of one phase of a skill, run `cstack guide <phase>`.
+## Commands
 
-## Requirements
+`cstack` has four commands. Run `cstack` with no argument to see how to call each one.
 
-`cstack` needs the items below on your Mac. Run `cstack doctor` to check them. It prints one line for each item and tells you how to install what is missing.
+- `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
+- `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
+- `cstack measure <plan file>` prints how many tokens and how much time one run of `resolve-issue` used. The "Measure a run" section below explains it.
+- `cstack skills install` copies the skills that this version of `cstack` ships into `~/.claude/skills`. The "Install cstack" section above explains what it does with a folder that it did not write.
 
-- **macOS**: required. `cstack` runs only on macOS.
-- **Node**: required. Install the current long-term support release from https://nodejs.org. The exact minimum is the `engines.node` field in `cstack/package.json`.
-- **git**: required. Run `xcode-select --install` to get it.
-- **Graphify**: optional. Install it with `uv tool install graphifyy`. This needs uv, which you can install with `brew install uv`. If the command is still not found, run `uv tool update-shell`.
-- **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
-- **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
-- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases.
+## Measure a run
+
+`cstack measure <plan file>` tells you how many tokens and how much time one run of the `resolve-issue` skill used. A token is the unit in which Claude counts the text it reads and writes. The command reads the session records that Claude Code keeps on your computer, and it prints numbers only.
+
+You run it from the repository of the run, on the plan file that the run committed. Add `--home <folder>` if your session records are not under your home folder.
+
+The command prints one line per number, in this order. It gives the number of main sessions and of helper transcripts. It gives the four kinds of tokens: input, cache creation input, cache read input and output. It repeats the four kinds for each Claude model. It gives the minutes from the approval of the plan to "ready for review". It ends with the number of skipped lines and of unreadable files.
+
+The command finds the sessions in two steps. It takes the commit dates of the plan file from git as the start and the end of the run. Then it counts every session whose working folder is the repository, or a folder inside it, and that was active between those two dates. It also counts all the helpers of those sessions. It counts each answer of the model once.
+
+Run the command before you remove the folder of the run, and before a squash merge, because both erase what the command reads. Run it after the session has ended, because anything said later in a session that counts adds to the totals.
+
+Exit code 0 means every number is complete. Exit code 1 means the plan file could not be used, or the numbers may be incomplete. The reason is printed on standard error. Exit code 2 means the command line is wrong. A plan file made with the newer `Format:` line is refused, because this version reads only plan files made before `cstack`.
 
 ## How to update the copy of my configuration
 
