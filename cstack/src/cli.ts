@@ -3,22 +3,24 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
-import { MEASURE_USAGE, measure } from "./commands/measure.js";
+import { measure } from "./commands/measure.js";
 import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
+import { COMMANDS, type CommandEntry, EXIT, commandWords } from "./manifest.js";
+
+const BUILT = COMMANDS.filter((entry) => entry.built);
 
 const USAGE = `Usage: cstack --version
-       cstack doctor
-       cstack guide <phase> [--skill <name>]
-       ${MEASURE_USAGE.replace("Usage: ", "")}
-       cstack skills install [--adopt <name>]...
+${BUILT.map((entry) => `       ${entry.usage}`).join("\n")}
 
 Commands:
-  doctor     Check that the machine has what cstack needs.
-  guide      Print a phase guide of the installed version.
-  measure    Print the tokens and the waiting time of one run.
-  skills     Install the skills that this version ships.
+${[...new Set(BUILT.map((entry) => commandWords(entry)[0]))]
+  .map((word) => {
+    const entry = BUILT.find((e) => commandWords(e)[0] === word) as CommandEntry;
+    return `  ${word.padEnd(10)} ${entry.summary}`;
+  })
+  .join("\n")}
 
 Options:
   --version  Print the version of cstack.
@@ -26,25 +28,31 @@ Options:
 
 function fail(io: Io, problem: string): number {
   io.stderr(`cstack: ${problem}\n${USAGE}`);
-  return 2;
+  return EXIT.usage;
 }
+
+const packageRoot = fileURLToPath(new URL("..", import.meta.url));
+
+/** The calls to the built commands, keyed by the first word of their usage line. */
+export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promise<number>> = {
+  doctor: (args, io) => (args.length > 0 ? fail(io, "doctor takes no argument") : doctor(io)),
+  guide: (args, io) => guide(args, io, { packageRoot }),
+  measure: (args, io) => measure(args, io),
+  skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
+};
 
 export async function run(args: string[], io: Io = processIo): Promise<number> {
   const first = args[0];
   if (first === undefined) {
     io.stderr(USAGE);
-    return 2;
+    return EXIT.usage;
   }
-  if (first === "doctor")
-    return args.length > 1 ? fail(io, "doctor takes no argument") : doctor(io);
-  if (first === "guide")
-    return guide(args.slice(1), io, { packageRoot: fileURLToPath(new URL("..", import.meta.url)) });
-  if (first === "skills")
-    return skills(args.slice(1), io, {
-      home: homedir(),
-      packageRoot: fileURLToPath(new URL("..", import.meta.url)),
-    });
-  if (first === "measure") return measure(args.slice(1), io);
+  if (Object.hasOwn(HANDLERS, first) && BUILT.some((e) => commandWords(e)[0] === first))
+    return HANDLERS[first](args.slice(1), io);
+  if (COMMANDS.some((e) => commandWords(e)[0] === first)) {
+    io.stderr(`cstack: "${first}" is not built in this version yet.\n`);
+    return EXIT.usage;
+  }
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {
