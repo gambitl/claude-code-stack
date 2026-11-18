@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { PHASES } from "../src/phases.js";
 import { HEADER_KEYS, PLAN_FORMAT, SECTION_NAMES, readPlan } from "../src/plan/read.js";
 
 const template = readFileSync(
@@ -50,5 +51,10 @@ describe("the plan template", () => {
       })
       .join("\n");
     expect(() => readPlan(filled)).not.toThrow();
+    // A fresh template holds only placeholders and the heading of the upstream decisions,
+    // so the ticket phase must not count it as a copied ticket.
+    const ticket = PHASES.find((phase) => phase.name === "ticket")!;
+    const context = { plan: readPlan(filled), commits: { units: {}, invalid: [] }, doneAt: {} };
+    expect(ticket.done!(context)).toEqual(["Ticket is not filled."]);
   });
 });

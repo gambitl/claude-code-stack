@@ -26,4 +26,4 @@ We use option 2.
 
 ## Consequences
 
-Tests are fast and never start a process. Every later command follows the same shape: it prints through `io` and returns its exit code. The only part that tests cannot reach is `bin.ts`, so the CI workflow runs `node dist/bin.js --version` on every pull request. One known gap: if the program that reads the output closes the pipe early, Node can still crash with a stack trace on the write error. A later ticket can handle that.
+Tests are fast and never start a process. Every later command follows the same shape: it prints through `io` and returns its exit code. The only part that tests cannot reach is `bin.ts`, so the CI workflow runs `node dist/bin.js --version` on every pull request. If the program that reads the output closes the pipe early, `bin.ts` ends quietly. It ignores the broken pipe error (`EPIPE`) on standard output and throws every other stream error again. `bin.ts` stays the only file that touches the process.

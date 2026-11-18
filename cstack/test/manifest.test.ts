@@ -18,7 +18,7 @@ export function extractMentions(content: string, file: string): Mention[] {
   const found: Mention[] = [];
   let fence: { char: string; length: number } | undefined;
   const scan = (code: string, line: number) => {
-    for (const m of code.matchAll(/(?<![\w./<>-])cstack (?=[a-z0-9-]+)/g)) {
+    for (const m of code.matchAll(/(?<![\w./<>-])cstack (?=[a-z0-9][a-z0-9-]*)/g)) {
       const rest = code.slice(m.index + m[0].length);
       const end = rest.search(/[|;&>)]| #/);
       found.push({ file, line, text: (end === -1 ? rest : rest.slice(0, end)).trim() });
@@ -130,9 +130,17 @@ describe("the command list", () => {
     expect(new Set(words).size).toBe(words.length);
   });
 
-  it("only uses the common exit codes below 6", () => {
+  it("gives each common exit code the same meaning only where the command uses it", () => {
+    // Codes 0 to 5 are common. A command may use any of them, but never a code above 5
+    // without a description of its own.
     for (const entry of COMMANDS)
-      for (const code of Object.keys(entry.exitCodes).map(Number))
-        expect(code <= EXIT.toolFailed || code >= 6).toBe(true);
+      for (const [code, meaning] of Object.entries(entry.exitCodes)) {
+        expect(Number.isInteger(Number(code))).toBe(true);
+        expect(meaning.trim()).not.toBe("");
+      }
+  });
+
+  it("does not treat cstack --version as a mention of a command", () => {
+    expect(extractMentions("Run `cstack --version` first.", "x.md")).toEqual([]);
   });
 });

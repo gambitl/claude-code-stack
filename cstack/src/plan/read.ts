@@ -80,6 +80,8 @@ export interface PlanSection {
   first: number;
   last: number;
   filled: boolean;
+  /** Content lines that are not headings. A heading alone does not make a ticket. */
+  bodyLines: number;
 }
 
 export interface PlanUnit {
@@ -273,6 +275,10 @@ function pathProblem(path: string): string | undefined {
   if (path.endsWith("/")) return `The path \`${path}\` ends with /. Name a file.`;
   if (path.split("/").some((part) => part === "" || part === "." || part === "..")) {
     return `The path \`${path}\` has an empty, . or .. part (the .. part leaves the repository).`;
+  }
+  // Git runs the hooks in .git, and macOS treats .GIT as the same folder.
+  if (path.split("/").some((part) => part.toLowerCase() === ".git")) {
+    return `The path \`${path}\` has a .git part. A unit never writes inside the git folder.`;
   }
   return undefined;
 }
@@ -569,11 +575,18 @@ export function readPlan(text: string): PlanRead {
     }
     expected = Math.max(expected, known + 1);
     const last = (sectionHeadings[index + 1]?.line ?? lines.length + 1) - 1;
-    const filled = lines.slice(heading.line, last).some((content, offset) => {
+    const contentLines = lines.slice(heading.line, last).filter((content, offset) => {
       const trimmed = content.trim();
       return trimmed !== "" && !comments.has(heading.line + 1 + offset) && !isPlaceholder(trimmed);
     });
-    sections.push({ name: heading.text as SectionName, first: heading.line, last, filled });
+    const bodyLines = contentLines.filter((content) => !/^ {0,3}#{1,6}(\s|$)/.test(content)).length;
+    sections.push({
+      name: heading.text as SectionName,
+      first: heading.line,
+      last,
+      filled: contentLines.length > 0,
+      bodyLines,
+    });
   });
   for (const name of SECTION_NAMES) {
     if (!sections.some((section) => section.name === name)) {

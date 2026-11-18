@@ -64,7 +64,7 @@ describe("a valid plan file", () => {
 
   it("gives the range and the filled flag of every section", () => {
     expect(plan.sections.map((section) => section.name)).toEqual([...SECTION_NAMES]);
-    expect(plan.sections[0]).toEqual({ name: "Ticket", first: 15, last: 27, filled: true });
+    expect(plan.sections[0]).toMatchObject({ name: "Ticket", first: 15, last: 27, filled: true });
     const byName = Object.fromEntries(plan.sections.map((s) => [s.name, s]));
     expect(byName["Briefing"].filled).toBe(false);
     expect(byName["Hand-off log"].filled).toBe(false);
@@ -193,6 +193,7 @@ describe("the units, the questions and the pull request", () => {
     ["unit-no-test", 39, "Test"],
     ["unit-test-not-in-files", 39, "Files"],
     ["path-dotdot", 38, ".."],
+    ["path-dotgit", 38, ".git"],
     ["path-absolute", 38, "/"],
     ["path-dash", 38, "-"],
     ["path-semicolon", 38, "path"],

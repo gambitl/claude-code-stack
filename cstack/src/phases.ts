@@ -50,6 +50,13 @@ const filled =
       .filter((name) => !plan.sections.find((section) => section.name === name)?.filled)
       .map((name) => `${name} is not filled.`);
 
+// The Ticket section always holds the heading "Decisions already taken upstream",
+// so a heading alone must not count as a copied ticket.
+const ticketCopied: PhaseCheck = ({ plan }) =>
+  (plan.sections.find((section) => section.name === "Ticket")?.bodyLines ?? 0) > 0
+    ? []
+    : ["Ticket is not filled."];
+
 const noOpenQuestion: PhaseCheck = ({ plan }) =>
   plan.blockingQuestions.filter((q) => q.open).map((q) => `Blocking question ${q.number} is still open.`);
 
@@ -86,7 +93,7 @@ const MAIN = "main conversation";
 const EXEC = "executor";
 
 export const PHASES: readonly Phase[] = [
-  phase("ticket", "0 and 1", MAIN, [], { done: filled("Ticket"), writes: ["Written by"] }),
+  phase("ticket", "0 and 1", MAIN, [], { done: ticketCopied, writes: ["Written by"] }),
   phase("dependencies", "2", MAIN, ["ticket"], { done: filled("Dependencies") }),
   phase("code-map", "3", MAIN, ["dependencies"], { done: filled("Code mapping") }),
   phase("questions", "4", MAIN, ["code-map"], { done: filled("Blocking questions") }),
