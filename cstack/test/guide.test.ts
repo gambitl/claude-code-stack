@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
@@ -43,10 +45,18 @@ describe("guide", () => {
   });
 
   it("lists the skills that have guides when the default skill has none", async () => {
-    const { out, io } = collect();
-    const code = await guide(["hello"], io, { packageRoot });
-    expect(code).toBe(1);
-    expect(out.stderr).toContain("cstack-example");
+    // The real package has guides for resolve-issue, so this case uses a package that has none.
+    const root = mkdtempSync(join(tmpdir(), "cstack-guide-"));
+    try {
+      mkdirSync(join(root, "guides", "cstack-example"), { recursive: true });
+      writeFileSync(join(root, "guides", "cstack-example", "hello.md"), "# Hello\n");
+      const { out, io } = collect();
+      const code = await guide(["hello"], io, { packageRoot: root });
+      expect(code).toBe(1);
+      expect(out.stderr).toContain("cstack-example");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("refuses a path as phase or skill before reading any file", async () => {
