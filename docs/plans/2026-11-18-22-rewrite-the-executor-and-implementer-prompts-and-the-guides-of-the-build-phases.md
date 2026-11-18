@@ -370,6 +370,11 @@ Phase 9: `main` did not move since the branch was created, so no update was need
 
 ## Documentation
 
+- Comment on ticket #22 (https://github.com/gambitl/claude-code-stack/issues/22): what was built, the parallel rule, and what differs from the ticket.
+- Hand-down comment on ticket #23 (https://github.com/gambitl/claude-code-stack/issues/23): prompts, guides, unbuilt commands, settings needed, and what to add for ticket #21's files.
+- Comment on ticket #28 (https://github.com/gambitl/claude-code-stack/issues/28): the parallel condition that it can lift.
+- Decision records, specification page, README and `WHY:` comments: do not apply, as the plan's duties say. No trade-off needed a new record.
+
 ## Executor notes
 
 ## Hand-off log
