@@ -338,6 +338,10 @@ Design specification: no unit has a user interface.
 
 ## Review log
 
+### Impact notes (2026-11-18)
+
+Graphify is not installed, so dependents were found with file reads and `git log`. All commands and the code are new, so nothing outside the diff calls them. `cli.ts` is called only by `bin.ts` and `cli.test.ts`, which pass. Files that usually change with the touched files: `.gitignore` (dist is already ignored and the packed folders hold no ignore files), `sync.sh` (plan says not to edit it; it skips `.superset-managed` folders and the plan forbids a change), `scripts/test_pull_skills.sh` (changed with `pull-skills.sh`), `cstack/tsconfig*.json` (unchanged on purpose, `rootDir` stays `src`). The full suite (31 tests) and the type check passed before review. One `WHY: ADR-SIC-C` comment was missing on the marker check, and the executor added it.
+
 ## Briefing
 
 ## Open questions after the build
