@@ -4,6 +4,27 @@ This repository is the source of `cstack`, a command-line tool for working with 
 
 The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing a file there does not change how Claude Code behaves.
 
+## Install cstack
+
+`cstack` is not on the npm registry. You install it from a release file on GitHub. Replace `<version>` with the version you want, for example the latest release:
+
+```sh
+npm install -g https://github.com/gambitl/claude-code-stack/releases/download/v<version>/gambitl-cstack-<version>.tgz
+cstack skills install
+```
+
+The first command installs the `cstack` command. The second command copies the skills that this version ships into `~/.claude/skills`. Run it without `sudo`, because the skills belong in your own home folder.
+
+To update, run the same two commands with the link of the newer release. Do not use `npm update -g`. It cannot update `cstack`, and it stops with a 404 error.
+
+To go back, install the previous release the same way. Then run `cstack skills install` again.
+
+Each skill that `cstack` installs holds a file named `.cstack-managed`. This file tells `cstack` that it owns the folder. If a folder of the same name has no such file, `cstack` skips it and leaves it as it is. To let `cstack` take it over, run `cstack skills install --adopt <name>`.
+
+Before `cstack` replaces, removes or adopts a folder, it saves the old folder in `~/.claude/skill-backups/<date-time>/<name>`. This place is outside the skills folder, so Claude Code does not load the backups.
+
+`cstack` needs the Node version that `engines.node` in `cstack/package.json` names. To read the guide of one phase of a skill, run `cstack guide <phase>`.
+
 ## Requirements
 
 `cstack` needs the items below on your Mac. Run `cstack doctor` to check them. It prints one line for each item and tells you how to install what is missing.
@@ -43,8 +64,6 @@ The skills in the `skills` folder are frozen. They match the tag `prose-skills-f
 The script reads the skills from the tag as it is on GitHub, whatever branch is checked out in this folder. The tag is created after the history rewrite, so the script stops with a message until then.
 
 The script only replaces the skills that the tag holds. It moves the old version of each one into a dated folder under `~/.claude/skill-backups` first. This includes a `resolve-issue` skill that `cstack` installed: it is replaced too, after the backup. Skills installed by other tools, and local skills that the tag does not have, stay as they are. The script only handles skills. The settings and the other config files belong to one computer, so it does not copy them.
-
-The install steps of `cstack` itself are documented separately, when that part of the tool ships.
 
 ## What is in here
 
