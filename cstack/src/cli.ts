@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
+import { measure } from "./commands/measure.js";
 import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
@@ -10,11 +11,13 @@ import { type Io, processIo } from "./io.js";
 const USAGE = `Usage: cstack --version
        cstack doctor
        cstack guide <phase> [--skill <name>]
+       cstack measure <plan file> [--home <folder>]
        cstack skills install [--adopt <name>]...
 
 Commands:
   doctor     Check that the machine has what cstack needs.
   guide      Print a phase guide of the installed version.
+  measure    Print the tokens and the waiting time of one run.
   skills     Install the skills that this version ships.
 
 Options:
@@ -41,6 +44,7 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
       home: homedir(),
       packageRoot: fileURLToPath(new URL("..", import.meta.url)),
     });
+  if (first === "measure") return measure(args.slice(1), io);
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {
