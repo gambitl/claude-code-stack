@@ -297,7 +297,7 @@ Body:
 
 This adds `cstack measure <plan file>`, which tells you how many tokens and how many minutes one run of the `resolve-issue` skill used. It reads the session records that Claude Code keeps on your computer and prints labels and numbers only. Run it on the plan file of a run, from the repository of that run, to get the totals that the baseline comparison needs.
 
-The command takes the approval moment and the "ready for review" moment from the author dates in the git history of the plan file, so a rebase does not change them. It counts every main session that worked inside the repository during that window, plus all their helper transcripts. Each answer of the model is counted once, even when it is written on several lines or appears in two files. It prints the four kinds of tokens as totals and for each model. The README has a new section, "Measure a run".
+The command takes the approval moment and the "ready for review" moment from the author dates in the git history of the plan file, so a rebase does not change them. It counts every main session that worked inside the repository during that window, plus all their helper transcripts. Each answer of the model is counted once, even when it is written on several lines or appears in two files. It prints the four kinds of tokens as totals and for each model. The README has a new section, "Measure a run", and one list of every `cstack` command after the update onto `main`.
 
 The code is in `cstack/src/commands/measure.ts`, `cstack/src/measure/moments.ts` and `cstack/src/measure/sessions.ts`. `cstack/src/cli.ts` only gains the dispatch and one usage line. All tests are in `cstack/test/measure.test.ts`, with hand-written fixtures in `cstack/test/fixtures/measure/`. No dependency was added. The command runs git without a shell, uses no network, never prints a path or text read from a session, and the tests check each of these points.
 
@@ -332,6 +332,10 @@ Fixes #11
 ## Hand-off log
 
 2026-11-18: done. All five units built, two review rounds and one independent review finished, README and the comments on #11 and #12 written, status set to ready for review. One non-blocking question is open (Orca workers and the comparison). Nothing pushed yet; phase 12 publishes.
+
+2026-11-18: published. The branch was rebased onto `main` with the `doctor` command of #10 kept next to `measure` in `cstack/src/cli.ts`, pushed once, and pull request #37 opened with the `cstack` check green.
+
+2026-11-18: updated onto `main` after the merge of #9 (`cstack skills install`, `cstack guide` and the release workflow), at the coordinator's request. The rebase kept every author date. The conflicts in `cstack/src/cli.ts` and `README.md` were resolved by keeping both sides: the usage text lists `doctor`, `guide`, `measure` and `skills install`, and the README puts "Requirements" before "Install cstack" and adds one "Commands" list for the four commands. `npm test` (85 tests) and `npm run typecheck` pass.
 
 ## History
 
