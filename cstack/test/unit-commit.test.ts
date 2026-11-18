@@ -134,6 +134,46 @@ describe("cstack unit commit", () => {
     ]);
   });
 
+  it("commits a deletion that git rm already staged", async () => {
+    const dir = setup([{ files: ["src/new.ts", "src/old.ts"] }]);
+    write(dir, "src/new.ts");
+    git(dir, "rm", "-q", "src/old.ts");
+    const r = await commit(dir);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    expect(git(dir, "show", "--name-status", "--format=", "HEAD").split("\n").sort()).toEqual([
+      "A\tsrc/new.ts",
+      "D\tsrc/old.ts",
+    ]);
+    expect(git(dir, "status", "--porcelain")).toBe("");
+  });
+
+  it("commits a rename that git mv already staged, when the unit lists both paths", async () => {
+    const dir = setup([{ files: ["src/old.ts", "src/moved.ts"] }]);
+    git(dir, "mv", "src/old.ts", "src/moved.ts");
+    const r = await commit(dir);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    expect(git(dir, "show", "--name-status", "--no-renames", "--format=", "HEAD").split("\n").sort()).toEqual([
+      "A\tsrc/moved.ts",
+      "D\tsrc/old.ts",
+    ]);
+    expect(git(dir, "status", "--porcelain")).toBe("");
+  });
+
+  it("unstages only what it staged when the hook fails after a git rm", async () => {
+    const dir = setup([{ files: ["src/new.ts", "src/old.ts"] }]);
+    write(dir, "src/new.ts");
+    git(dir, "rm", "-q", "src/old.ts");
+    const hook = join(dir, ".git/hooks/pre-commit");
+    mkdirSync(dirname(hook), { recursive: true });
+    writeFileSync(hook, "#!/bin/sh\nexit 1\n");
+    chmodSync(hook, 0o755);
+    const r = await commit(dir);
+    expect(r.code).toBe(5);
+    expect(git(dir, "status", "--porcelain", "--untracked-files=all").split("\n").sort()).toEqual(["?? src/new.ts", "D  src/old.ts"]);
+  });
+
   it("exits with 5 and prints the output of a failing hook, and unstages what it staged", async () => {
     const dir = setup(two);
     write(dir, "src/a.ts");

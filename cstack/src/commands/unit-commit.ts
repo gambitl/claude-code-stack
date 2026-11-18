@@ -44,6 +44,7 @@ const isLink = (root: string, path: string) => {
 
 interface Entry {
   staged: boolean;
+  unstaged: boolean;
   path: string;
 }
 
@@ -94,13 +95,13 @@ function checkUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string)
     return true;
   });
 
-  // Each status entry is "XY path". X is the state in the index.
+  // Each status entry is "XY path". X is the state in the index, Y the state in the working tree.
   const entries: Entry[] =
     usable.length === 0
       ? []
       : nulList(
           git(root, ["status", "--porcelain=v1", "-z", "--untracked-files=all", "--no-renames", "--", ...usable]).stdout,
-        ).map((e) => ({ staged: e[0] !== " " && e[0] !== "?", path: e.slice(3) }));
+        ).map((e) => ({ staged: e[0] !== " " && e[0] !== "?", unstaged: e[1] !== " ", path: e.slice(3) }));
   if (entries.length === 0) problems.push(`Unit ${n} has no changed file.`);
   return { problems, entries };
 }
@@ -118,7 +119,11 @@ function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string
     if (stagedByUs.length > 0) git(root, ["reset", "-q", "--", ...stagedByUs]);
   };
 
-  const add = git(root, ["add", "--", ...paths]);
+  // WHY: only paths with a change in the working tree go to git add. A deletion or
+  // a rename that git rm or git mv already staged leaves a path that exists nowhere,
+  // and git add refuses such a path. git commit --only still takes every path.
+  const toAdd = entries.filter((e) => e.unstaged).map((e) => e.path);
+  const add = toAdd.length > 0 ? git(root, ["add", "--", ...toAdd]) : { ok: true, stdout: "", stderr: "" };
   if (!add.ok) {
     undo();
     return { code: 5, stderr: gitOutput(add) };
