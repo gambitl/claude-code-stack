@@ -2,6 +2,7 @@
 
 Status: accepted, 2026-11-18.
 Ticket: https://github.com/gambitl/claude-code-stack/issues/14
+Pull request: https://github.com/gambitl/claude-code-stack/pull/39
 Specification: [`docs/projects/skills-into-cli.md`](../projects/skills-into-cli.md)
 
 ## Context
