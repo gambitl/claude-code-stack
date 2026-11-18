@@ -59,7 +59,7 @@ Otherwise the executor ends with one of these reports.
 
 ## The report of the publish phase
 
-The `retro` guide sends you back here after the `publish` phase. The executor then ends with one of these reports.
+The `retro` guide sends you back here after the `publish` phase. Run `cstack report check` first, as above. The executor then ends with one of these reports.
 
 - **published.** Tell the user the pull request link and the result of the checks, in a few sentences. Say plainly if a check is still red or pending, because the pull request is then not ready for review. Mention every extra push and its reason.
 - **needs-decision.** Ask the user the question, write the answer into `## Decisions`, and launch the executor again with the same inputs.

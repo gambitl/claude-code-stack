@@ -41,7 +41,7 @@ export function scan(folders: string[], base: string, skip: (path: string) => bo
     for (const phrase of OWNED) {
       if (lower.includes(phrase.toLowerCase())) failures.push(`${name}: "${phrase}" belongs to the settings file`);
     }
-    if (/\brebase\b/i.test(text) && !/\bintegration\b/i.test(text)) {
+    if (/\brebas\w*/i.test(text) && !/`integration`|\bintegration setting\b/i.test(text)) {
       failures.push(`${name}: "rebase" without the integration setting`);
     }
   }
@@ -53,6 +53,7 @@ describe("settings values stay in the settings file", () => {
     const folder = join(here, "..", "fixtures", "guides", "owned-value");
     const failures = scan([folder], folder);
     expect(failures).toContain('plan.md: "in English" belongs to the settings file');
+    expect(failures).toContain('plan.md: "rebase" without the integration setting');
   });
 
   it("finds no owned value in the real skill and guides", () => {

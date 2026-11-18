@@ -33,7 +33,7 @@ If `cstack` itself is missing, say so, give this install command and stop: `npm 
 
 ## Settings
 
-`cstack next` prints the values of `.cstack/settings.json` above each guide. These values win over any default that a guide gives. If the repository has no `.cstack/settings.json`, tell the user and point to the example `templates/settings.json` in the skill folder.
+`cstack next` prints the values of `.cstack/settings.json` above each guide. These values win over any default that a guide gives. If the repository has no `.cstack/settings.json`, tell the user and point to the example `templates/settings.json` in the skill folder. The example has no `testCommands`, so tell the user to add their own, or a command that runs tests exits with `3`.
 
 ## Vocabulary
 
@@ -57,5 +57,3 @@ Write the way a colleague talks at their desk. Start with the outcome or with wh
 ## Planned stops
 
 The planned stops for the user are a blocked ticket, the question round and the approval gate. Two more stops happen only when needed. One is waiting for the answer to a blocking question that nobody in the conversation can answer. The other is a blocking question found after the build, which stops the run before the pull request opens.
-
-Always show the user in full the blocks "Questions you may not be asking" and "What you should know about what was built".
