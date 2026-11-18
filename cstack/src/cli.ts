@@ -5,6 +5,7 @@ import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
 import { skills } from "./commands/skills.js";
+import { unitCommit } from "./commands/unit-commit.js";
 import { unitOrder } from "./commands/unit-order.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
@@ -57,7 +58,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
-  unit: (args, io) => dispatchSubcommand("unit", args, io, { order: (a, i) => unitOrder(a, i) }),
+  unit: (args, io) => dispatchSubcommand("unit", args, io, { order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i) }),
 };
 
 export async function run(args: string[], io: Io = processIo): Promise<number> {

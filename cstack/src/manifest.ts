@@ -157,13 +157,16 @@ export const COMMANDS: CommandEntry[] = [
     file: "unit-green.ts",
     ticket: 17,
   }),
-  planCommand({
-    usage: "cstack unit commit <n>",
-    summary: "Commit the files of a unit with its message and trailer.",
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: "git commit failed, for example because of a commit hook." },
-    file: "unit-commit.ts",
-    ticket: 18,
-  }),
+  {
+    ...planCommand({
+      usage: "cstack unit commit <n>",
+      summary: "Commit the files of a unit with its message and trailer.",
+      exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: "git commit failed, for example because of a commit hook." },
+      file: "unit-commit.ts",
+      ticket: 18,
+    }),
+    built: true,
+  },
   {
     usage: "cstack graph ensure",
     summary: "Update the code graph when it differs from the current commit.",
