@@ -91,7 +91,7 @@ describe("cstack skills install", () => {
       packageRoot: realRoot,
     });
     expect(code).toBe(0);
-    expect(out.stdout).toBe("installed cstack-example\n");
+    expect(out.stdout).toBe("installed cstack-example\ninstalled resolve-issue\n");
     const dir = join(skillsDir, "cstack-example");
     expect(existsSync(join(dir, ".claude-plugin", "plugin.json"))).toBe(true);
     expect(existsSync(join(dir, "agents", "check.md"))).toBe(true);

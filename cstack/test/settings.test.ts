@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-import { readSettings, SettingsError } from "../src/settings.js";
+import { DEFAULTS, readSettings, SettingsError } from "../src/settings.js";
 
 const roots: string[] = [];
 function repo(content?: string | object): string {
@@ -216,5 +216,18 @@ describe("readSettings JSON syntax errors", () => {
   });
   it("accepts a valid file that starts with a byte order mark", () => {
     expect(readSettings(repo("﻿" + '{"version": 1}')).found).toBe(true);
+  });
+});
+
+describe("the example settings file", () => {
+  const examplePath = new URL("../skills/resolve-issue/templates/settings.json", import.meta.url);
+  it("is accepted, equals the defaults and holds every key except testCommands", () => {
+    const text = readFileSync(examplePath, "utf8");
+    const s = readSettings(repo(text));
+    expect(s.found).toBe(true);
+    expect(s.values).toEqual(DEFAULTS);
+    const keys = Object.keys(JSON.parse(text)).sort();
+    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands")].sort();
+    expect(keys).toEqual(expected);
   });
 });
