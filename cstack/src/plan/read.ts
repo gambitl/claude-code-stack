@@ -82,10 +82,43 @@ export interface PlanSection {
   filled: boolean;
 }
 
+export interface PlanUnit {
+  number: number;
+  name: string;
+  line: number;
+  files: string[];
+  test?: { file: string; case: string };
+  noTest?: string;
+  minimumCode: string;
+  refactor: string;
+  commitMessage: string;
+  dependsOn: number[];
+  designSpecification?: string;
+  blocked?: string;
+}
+
+export interface BlockingQuestion {
+  number: number;
+  title: string;
+  line: number;
+  text: string;
+  for: string;
+  answer: string;
+  open: boolean;
+}
+
+export interface PlanPullRequest {
+  title: string;
+  body: string;
+}
+
 export interface PlanRead {
   header: Record<HeaderKey, string>;
   headings: PlanHeading[];
   sections: PlanSection[];
+  units: PlanUnit[];
+  blockingQuestions: BlockingQuestion[];
+  pullRequest?: PlanPullRequest;
 }
 
 export class PlanFormatError extends Error {
@@ -213,6 +246,260 @@ function checkHeaderValue(key: HeaderKey, value: string): string | undefined {
   }
 }
 
+interface Region {
+  lines: string[];
+  headings: PlanHeading[];
+  comments: Set<number>;
+  problems: PlanProblem[];
+}
+
+// The lines of a section that are neither blank nor comments, with their 1-based numbers.
+function contentLines(region: Region, first: number, last: number) {
+  const found: { line: number; text: string }[] = [];
+  for (let line = first; line <= last; line++) {
+    const text = region.lines[line - 1];
+    if (text.trim() !== "" && !region.comments.has(line)) found.push({ line, text });
+  }
+  return found;
+}
+
+function pathProblem(path: string): string | undefined {
+  if (!/^[A-Za-z0-9._/@+-]+$/.test(path)) {
+    return `The path \`${path}\` holds a character that a unit path does not allow. Use ASCII letters, digits and . _ - / @ + only.`;
+  }
+  if (path.startsWith("/")) return `The path \`${path}\` starts with /. A unit path is relative to the repository root.`;
+  if (path.startsWith("-")) return `The path \`${path}\` starts with -. A unit path never starts with a dash.`;
+  if (path.endsWith("/")) return `The path \`${path}\` ends with /. Name a file.`;
+  if (path.split("/").some((part) => part === "" || part === "." || part === "..")) {
+    return `The path \`${path}\` has an empty, . or .. part (the .. part leaves the repository).`;
+  }
+  return undefined;
+}
+
+const UNIT_FIELDS = [
+  ["Files"],
+  ["Test", "No test"],
+  ["Minimum code"],
+  ["Refactor"],
+  ["Commit message"],
+  ["Depends on"],
+  ["Design specification"],
+  ["Blocked"],
+] as const;
+const REQUIRED_FIELDS = 6;
+const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|Depends on|Design specification|Blocked):(?: (.*))?$/;
+
+function readUnit(region: Region, number: number, heading: PlanHeading, last: number): PlanUnit {
+  const { problems } = region;
+  const values: Record<string, { line: number; text: string }> = {};
+  let slot = -1;
+  let current: string | undefined;
+  for (let line = heading.line + 1; line <= last; line++) {
+    const text = region.lines[line - 1];
+    if (region.comments.has(line)) continue;
+    const field = FIELD_LINE.exec(text);
+    if (field) {
+      const label = field[1];
+      const index = UNIT_FIELDS.findIndex((names) => (names as readonly string[]).includes(label));
+      if (index <= slot) {
+        problems.push({ line, rule: `The line \`- ${label}:\` is repeated or out of order. The unit lines come in a fixed order.` });
+        continue;
+      }
+      for (let missing = slot + 1; missing < Math.min(index, REQUIRED_FIELDS); missing++) {
+        problems.push({
+          line,
+          rule: missing === 1
+            ? "Unit " + number + " has neither `- Test:` nor `- No test:` after `- Files:`."
+            : `Unit ${number} has no \`- ${UNIT_FIELDS[missing][0]}:\` line.`,
+        });
+      }
+      slot = index;
+      current = label;
+      values[label] = { line, text: (field[2] ?? "").trim() };
+      continue;
+    }
+    if (slot >= 5) continue; // After Depends on, free notes and optional lines follow.
+    const continues = text.trim() === "" || text.startsWith("  ");
+    if (continues && current !== undefined && current !== "Commit message") {
+      if (text.trim() !== "") values[current].text += ` ${text.trim()}`;
+      continue;
+    }
+    if (text.trim() === "" && current === undefined) continue;
+    problems.push({
+      line,
+      rule: text.trim() === ""
+        ? "A blank line cannot follow `- Commit message:`. The next line is `- Depends on:`."
+        : "This line does not belong to the unit. Write one of the unit lines in their fixed order, or indent a continued line by two spaces.",
+    });
+  }
+  if (slot < 5) {
+    for (let missing = slot + 1; missing < REQUIRED_FIELDS; missing++) {
+      problems.push({
+        line: last,
+        rule: missing === 1
+          ? `Unit ${number} has neither \`- Test:\` nor \`- No test:\`.`
+          : `Unit ${number} has no \`- ${UNIT_FIELDS[missing][0]}:\` line.`,
+      });
+    }
+  }
+
+  const unit: PlanUnit = {
+    number,
+    name: heading.text.replace(/^Unit \d+:\s*/, ""),
+    line: heading.line,
+    files: [],
+    minimumCode: values["Minimum code"]?.text ?? "",
+    refactor: values["Refactor"]?.text ?? "",
+    commitMessage: (values["Commit message"]?.text ?? "").replace(/^`(.*)`$/, "$1"),
+    dependsOn: [],
+  };
+  if (values["Files"]) {
+    const { line, text } = values["Files"];
+    if (!/^`[^`]+`(?:, `[^`]+`)*$/.test(text)) {
+      problems.push({ line, rule: "`- Files:` lists one or more paths in backticks, separated by `, `." });
+    } else {
+      unit.files = text.slice(1, -1).split("`, `");
+      for (const path of unit.files) {
+        const problem = pathProblem(path);
+        if (problem) problems.push({ line, rule: problem });
+      }
+    }
+  }
+  if (values["Test"]) {
+    const { line, text } = values["Test"];
+    const parsed = /^`([^`]+)`: (.+)$/.exec(text);
+    if (!parsed) {
+      problems.push({ line, rule: "`- Test:` holds `<test file>`: <failing case>, with the file in backticks." });
+    } else {
+      unit.test = { file: parsed[1], case: parsed[2] };
+      if (!unit.files.includes(parsed[1])) {
+        problems.push({ line, rule: `The test file \`${parsed[1]}\` is missing from \`- Files:\`.` });
+      }
+    }
+  }
+  if (values["No test"]) unit.noTest = values["No test"].text;
+  if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;
+  if (values["Blocked"]) unit.blocked = values["Blocked"].text;
+  for (const label of ["Minimum code", "Refactor", "Commit message", "Depends on", "No test"]) {
+    if (values[label] && values[label].text === "") {
+      problems.push({ line: values[label].line, rule: `\`- ${label}:\` is empty.` });
+    }
+  }
+  const depends = values["Depends on"];
+  if (depends && depends.text !== "none") {
+    if (/^\d+(, \d+)*$/.test(depends.text)) unit.dependsOn = depends.text.split(", ").map(Number);
+    else problems.push({ line: depends.line, rule: "`- Depends on:` holds unit numbers separated by `, `, or the word `none`." });
+  }
+  return unit;
+}
+
+function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[] {
+  if (!section) return [];
+  const { problems } = region;
+  const unitHeadings = region.headings.filter(
+    (heading) => heading.level === 3 && heading.line > section.first && heading.line <= section.last,
+  );
+  const units: PlanUnit[] = [];
+  unitHeadings.forEach((heading, index) => {
+    const parsed = /^Unit ([1-9]\d*): (\S.*)$/.exec(heading.text);
+    if (!parsed) {
+      problems.push({ line: heading.line, rule: "A heading in the units section is `### Unit <n>: <name>`." });
+      return;
+    }
+    if (/status:/i.test(parsed[2])) {
+      problems.push({ line: heading.line, rule: "A unit heading carries no status. The commits show what is done." });
+    }
+    const number = Number(parsed[1]);
+    if (number !== units.length + 1) {
+      problems.push({ line: heading.line, rule: `Unit ${number} is out of place. Units are numbered from 1 with no gap, so Unit ${units.length + 1} comes here.` });
+    }
+    const next = unitHeadings[index + 1]?.line ?? section.last + 1;
+    units.push(readUnit(region, number, heading, next - 1));
+  });
+  for (const unit of units) {
+    let line = unit.line;
+    while (line < section.last && !region.lines[line].startsWith("- Depends on:")) line++;
+    for (const target of unit.dependsOn) {
+      if (target === unit.number || !units.some((other) => other.number === target)) {
+        problems.push({
+          line: line + 1,
+          rule: target === unit.number
+            ? `Unit ${unit.number} depends on itself.`
+            : `Unit ${unit.number} depends on Unit ${target}, which does not exist.`,
+        });
+      }
+    }
+  }
+  return units;
+}
+
+function readQuestions(region: Region, section: PlanSection | undefined): BlockingQuestion[] {
+  if (!section || !section.filled) return [];
+  const { problems } = region;
+  const content = contentLines(region, section.first + 1, section.last);
+  const headings = region.headings.filter(
+    (heading) => heading.level === 3 && heading.line > section.first && heading.line <= section.last,
+  );
+  const none = content.filter(({ text }) => text.trim() === "none");
+  if (headings.length === 0) {
+    if (none.length !== 1 || content.length !== 1) {
+      problems.push({ line: content[0].line, rule: "Blocking questions holds the word `none`, or questions with `### Question <n>: <a few words>` headings." });
+    }
+    return [];
+  }
+  for (const { line } of none) {
+    problems.push({ line, rule: "The word `none` cannot sit next to a question. Remove it." });
+  }
+  const questions: BlockingQuestion[] = [];
+  headings.forEach((heading, index) => {
+    const parsed = /^Question ([1-9]\d*): (\S.*)$/.exec(heading.text);
+    if (!parsed) {
+      problems.push({ line: heading.line, rule: "A heading in the blocking questions is `### Question <n>: <a few words>`." });
+      return;
+    }
+    const number = Number(parsed[1]);
+    if (number !== questions.length + 1) {
+      problems.push({ line: heading.line, rule: `Question ${number} is out of place. Questions are numbered from 1 with no gap, so Question ${questions.length + 1} comes here.` });
+    }
+    const last = (headings[index + 1]?.line ?? section.last + 1) - 1;
+    const body = contentLines(region, heading.line + 1, last);
+    const forIndex = body.findIndex(({ text }) => text.startsWith("- For: "));
+    const answerIndex = body.findIndex(({ text }) => text.startsWith("- Answer: "));
+    if (forIndex === -1) problems.push({ line: heading.line, rule: `Question ${number} has no \`- For:\` line.` });
+    if (answerIndex === -1) problems.push({ line: heading.line, rule: `Question ${number} has no \`- Answer:\` line. Write \`- Answer: open\` when nobody has answered.` });
+    const firstField = [forIndex, answerIndex].filter((i) => i !== -1).reduce((a, b) => Math.min(a, b), body.length);
+    const answer = answerIndex === -1 ? "" : body[answerIndex].text.slice("- Answer: ".length).trim();
+    questions.push({
+      number,
+      title: parsed[2],
+      line: heading.line,
+      text: body.slice(0, firstField).map(({ text }) => text).join("\n"),
+      for: forIndex === -1 ? "" : body[forIndex].text.slice("- For: ".length).trim(),
+      answer,
+      open: answer === "open",
+    });
+  });
+  return questions;
+}
+
+function readPullRequest(region: Region, section: PlanSection | undefined): PlanPullRequest | undefined {
+  if (!section || !section.filled) return undefined;
+  const { lines, problems } = region;
+  const content = contentLines(region, section.first + 1, section.last);
+  const title = content.map(({ text }) => /^Title: (\S.*)$/.exec(text)?.[1].trim()).find(Boolean);
+  if (title === undefined) {
+    problems.push({ line: section.first, rule: "The pull request section needs a line `Title: <title>`." });
+  }
+  const open = content.find(({ text }) => /^````markdown[ \t]*$/.test(text));
+  const close = open && content.find(({ line, text }) => line > open.line && /^````[ \t]*$/.test(text));
+  if (!open || !close) {
+    problems.push({ line: section.first, rule: "The pull request body needs a block that opens with four backticks and the word markdown, and closes with four backticks." });
+    return undefined;
+  }
+  if (title === undefined) return undefined;
+  return { title, body: lines.slice(open.line, close.line - 1).join("\n") };
+}
+
 export function readPlan(text: string): PlanRead {
   const lines = text.split("\n");
   if (lines.at(-1) === "") lines.pop();
@@ -293,6 +580,12 @@ export function readPlan(text: string): PlanRead {
     }
   }
 
+  const region: Region = { lines, headings, comments, problems };
+  const section = (name: SectionName) => sections.find((candidate) => candidate.name === name);
+  const units = readUnits(region, section("Implementation units"));
+  const blockingQuestions = readQuestions(region, section("Blocking questions"));
+  const pullRequest = readPullRequest(region, section("Pull request"));
+
   if (problems.length > 0) {
     problems.sort((a, b) => a.line - b.line);
     throw new PlanFormatError(
@@ -300,5 +593,5 @@ export function readPlan(text: string): PlanRead {
       problems,
     );
   }
-  return { header, headings, sections };
+  return { header, headings, sections, units, blockingQuestions, pullRequest };
 }

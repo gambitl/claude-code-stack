@@ -124,6 +124,93 @@ describe("a broken plan file", () => {
   });
 });
 
+describe("the units, the questions and the pull request", () => {
+  const approved = readPlan(fixture("approved"));
+
+  it("reads the units with their files, tests and dependencies", () => {
+    expect(approved.units.map((unit) => unit.number)).toEqual([1, 2, 3]);
+    expect(approved.units[0]).toMatchObject({
+      number: 1,
+      name: "Thing 1",
+      line: 37,
+      files: ["src/a1.ts", "test/a1.test.ts"],
+      test: { file: "test/a1.test.ts", case: "the case 1 fails" },
+      commitMessage: "feat(cli): add a1",
+      dependsOn: [],
+    });
+    expect(approved.units[0].noTest).toBeUndefined();
+  });
+
+  it("reads a unit with no test, a continued field and a dependency", () => {
+    expect(approved.units[1]).toMatchObject({
+      noTest: "The unit changes prose only.",
+      minimumCode: "Write the page, then link it from the index.",
+      dependsOn: [1],
+    });
+    expect(approved.units[1].test).toBeUndefined();
+  });
+
+  it("reads the optional lines of a unit", () => {
+    expect(approved.units[2]).toMatchObject({
+      dependsOn: [1, 2],
+      designSpecification: "none",
+      blocked: "waiting for a decision",
+    });
+  });
+
+  it("reads the blocking questions, one open and one answered", () => {
+    expect(approved.blockingQuestions).toEqual([
+      {
+        number: 1,
+        title: "Which flag",
+        line: 71,
+        text: "Should the flag be long?",
+        for: "the maintainer",
+        answer: "Yes, long. The maintainer, 2026-11-18.",
+        open: false,
+      },
+      expect.objectContaining({ number: 2, answer: "open", open: true }),
+    ]);
+    expect(approved.pullRequest).toBeUndefined();
+  });
+
+  it("reads a ready plan: no questions, and the title and body of the pull request", () => {
+    const ready = readPlan(fixture("ready-for-review"));
+    expect(ready.blockingQuestions).toEqual([]);
+    expect(ready.pullRequest?.title).toBe("feat(cli): read the plan file");
+    expect(ready.pullRequest?.body).toContain("```bash\n## not a heading of the plan\nnpm test\n```");
+    expect(ready.pullRequest?.body).toContain("\n## Summary\n");
+    expect(ready.pullRequest?.body).not.toContain("````");
+  });
+
+  it("reads a plan with no units and the word none as no questions", () => {
+    const plan = readPlan(fixture("ticket-with-code-block"));
+    expect(plan.units).toEqual([]);
+    expect(plan.blockingQuestions).toEqual([]);
+  });
+
+  it.each([
+    ["unit-no-test", 39, "Test"],
+    ["unit-test-not-in-files", 39, "Files"],
+    ["path-dotdot", 38, ".."],
+    ["path-absolute", 38, "/"],
+    ["path-dash", 38, "-"],
+    ["path-semicolon", 38, "path"],
+    ["path-dollar", 38, "path"],
+    ["path-space", 38, "path"],
+    ["unit-gap", 45, "Unit 2"],
+    ["depends-missing", 43, "Unit 4"],
+    ["question-no-answer", 71, "Answer"],
+    ["question-none-with-question", 71, "none"],
+    ["pr-no-block", 85, "four"],
+  ])("flags %s at line %i", (name, line, word) => {
+    const found = failure(name).problems;
+    expect(found).toContainEqual(
+      expect.objectContaining({ line, rule: expect.stringContaining(word) }),
+    );
+  });
+});
+
 describe("isBranchName", () => {
   it.each(["main", "gambitl/plan-format", "release/1.2+x", "a_b"])("accepts %s", (name) => {
     expect(isBranchName(name)).toBe(true);

@@ -43,7 +43,7 @@ Some text.
 
 ## Implementation units
 
-Some text.
+<!-- no units yet -->
 
 ## Documentation duties
 
@@ -51,7 +51,7 @@ Some text.
 
 ## Blocking questions
 
-Some text.
+none
 
 ## Review log
 
@@ -69,7 +69,7 @@ Some text.
 
 ## Pull request
 
-Some text.
+<!-- not yet -->
 
 ## Documentation
 
