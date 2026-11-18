@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -47,5 +47,28 @@ describe("the executor prompt", () => {
   it("submits exactly the four kinds of report, and no other", () => {
     const kinds = new Set([...text.matchAll(/cstack report submit (\S+)/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
+  });
+});
+
+describe("the push rule", () => {
+  const folders = ["../guides/resolve-issue/", "../skills/resolve-issue/agents/"];
+  const mentions: { file: string; sentence: string }[] = [];
+  for (const folder of folders) {
+    const dir = new URL(folder, import.meta.url);
+    for (const file of readdirSync(dir).filter((f) => f.endsWith(".md"))) {
+      const text = readFileSync(new URL(file, dir), "utf8");
+      for (const sentence of text.split(/(?<=[.!?])\s+/)) {
+        if (sentence.includes("git push")) mentions.push({ file: `${folder}${file}`, sentence });
+      }
+    }
+  }
+
+  it("names a push in exactly one sentence, in the executor prompt", () => {
+    expect(mentions.map((m) => m.file)).toEqual(["../skills/resolve-issue/agents/executor.md"]);
+  });
+
+  it("makes that sentence about a pipeline run asked for by a line of Decisions", () => {
+    expect(mentions[0]?.sentence).toContain("pipeline run");
+    expect(mentions[0]?.sentence).toContain("Decisions");
   });
 });

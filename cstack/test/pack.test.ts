@@ -33,6 +33,16 @@ test("npm pack lists the build, the example skill and the example guide", async 
     "skills/resolve-issue/agents/pr-reviewer.md",
     "skills/resolve-issue/.claude-plugin/plugin.json",
     "skills/resolve-issue/templates/retro.md",
+    "guides/resolve-issue/build.md",
+    "guides/resolve-issue/review.md",
+    "guides/resolve-issue/independent-review.md",
+    "guides/resolve-issue/update-branch.md",
+    "guides/resolve-issue/document.md",
+    "guides/resolve-issue/briefing.md",
+    "guides/resolve-issue/after-build-questions.md",
+    "guides/resolve-issue/ready.md",
+    "guides/resolve-issue/retro.md",
+    "guides/resolve-issue/publish.md",
   ]) {
     expect(paths).toContain(p);
   }
