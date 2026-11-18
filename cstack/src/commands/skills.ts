@@ -15,13 +15,15 @@ import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 
-const USAGE = "Usage: cstack skills install\n";
+const USAGE = "Usage: cstack skills install [--adopt <name>]...\n";
+const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const MARKER = ".cstack-managed";
 
 export type SkillsOptions = {
   home: string;
   packageRoot: string;
   now?: () => Date;
+  uid?: number;
 };
 
 type Owner = "missing" | "cstack" | "not a folder" | "a symbolic link" | "no marker";
@@ -75,6 +77,21 @@ async function sameFolder(a: string, b: string): Promise<boolean> {
   return true;
 }
 
+// Rename; across disks (EXDEV) copy and then delete, as mv does.
+export async function moveFolder(
+  from: string,
+  to: string,
+  renameFn: typeof rename = rename,
+): Promise<void> {
+  try {
+    await renameFn(from, to);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "EXDEV") throw error;
+    await cp(from, to, { recursive: true, verbatimSymlinks: true });
+    await rm(from, { recursive: true, force: true });
+  }
+}
+
 function stamp(date: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return (
@@ -105,10 +122,24 @@ export async function skills(
         : `Unknown subcommand: ${subcommand}`,
     );
   }
+  let values: { adopt?: string[] };
   try {
-    parseArgs({ args: rest, options: {}, allowPositionals: false, strict: true });
+    ({ values } = parseArgs({
+      args: rest,
+      options: { adopt: { type: "string", multiple: true } },
+      allowPositionals: false,
+      strict: true,
+    }));
   } catch (error) {
     return usageError((error as Error).message);
+  }
+  const adopt = new Set(values.adopt ?? []);
+  for (const name of adopt) {
+    if (!NAME.test(name)) return usageError(`Bad skill name: ${name}`);
+  }
+  if ((options.uid ?? process.getuid?.()) === 0) {
+    io.stderr("Run cstack skills install without sudo.\n");
+    return 1;
   }
 
   const { home, packageRoot } = options;
@@ -123,6 +154,12 @@ export async function skills(
     .filter((e) => e.isDirectory())
     .map((e) => e.name)
     .sort();
+
+  for (const name of adopt) {
+    if (!shipped.includes(name)) {
+      return usageError(`This version does not ship a skill named ${name}.`);
+    }
+  }
 
   const skillsDir = join(home, ".claude", "skills");
   await mkdir(skillsDir, { recursive: true });
@@ -142,7 +179,8 @@ export async function skills(
           name,
           action: (await sameFolder(target, copy)) ? "unchanged" : "replaced",
         });
-      } else plans.push({ name, action: "skipped", reason: owner });
+      } else if (adopt.has(name)) plans.push({ name, action: "replaced" });
+      else plans.push({ name, action: "skipped", reason: owner });
     }
     const removed = (await readdir(skillsDir, { withFileTypes: true }))
       .filter((e) => e.isDirectory() && !shipped.includes(e.name))
@@ -171,7 +209,7 @@ export async function skills(
       // WHY: ADR-SIC-C. Old folders are moved aside, never deleted, so a replace or a
       // removal can always be undone by hand.
       await mkdir(backupRoot, { recursive: true });
-      await rename(join(skillsDir, p.name), join(backupRoot, p.name));
+      await moveFolder(join(skillsDir, p.name), join(backupRoot, p.name));
     }
     for (const p of plans) {
       if (p.action === "installed" || p.action === "replaced") {
