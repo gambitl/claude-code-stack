@@ -52,8 +52,6 @@ function changedPaths(root: string): string[] {
   return paths;
 }
 
-const present = (reasons: string[], list: string[]) => reasons.push(...list);
-
 function readPublish(folder: string): PublishRecord | undefined {
   const path = join(folder, "publish.json");
   let text: string;
@@ -82,11 +80,11 @@ function checkExecutor(report: Report, where: Where, plan: PlanRead): string[] {
       doneAt: {},
     };
     for (const name of DONE_REPORT_SECTIONS) {
-      if (name === "Ticket") present(reasons, ticketCopied(context));
+      if (name === "Ticket") reasons.push(...ticketCopied(context));
       else if (!plan.sections.find((s) => s.name === name)?.filled) reasons.push(`${name} is not filled.`);
     }
-    present(reasons, buildDone(context));
-    present(reasons, noOpenQuestion(context));
+    reasons.push(...buildDone(context));
+    reasons.push(...noOpenQuestion(context));
     if (plan.header["Ready for review at"] === "not yet") reasons.push("Ready for review at is still `not yet`.");
     const changed = changedPaths(where.root);
     if (changed.length > 0) {
@@ -133,7 +131,7 @@ function checkImplementer(report: Report, where: Where, plan: PlanRead): string[
 export function checkReport(report: Report, where: Where): string[] {
   const allowed = KINDS_BY_ROLE[report.role];
   if (!allowed.includes(report.kind)) {
-    return [`A ${report.role} report has the kind ${allowed.join(", ")}. "${report.kind}" is not one of them.`];
+    return [`The kind ${report.kind} is not allowed for the role ${report.role}. Allowed kinds: ${allowed.join(", ")}.`];
   }
   const plan = readPlan(readFileSync(join(where.root, where.planFile), "utf8"));
   return report.role === "executor" ? checkExecutor(report, where, plan) : checkImplementer(report, where, plan);

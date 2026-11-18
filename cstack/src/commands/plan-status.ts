@@ -2,10 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
+import { failWith } from "./errors.js";
 import { listCommitFiles, listUnitCommits } from "../plan/commits.js";
-import { PlanLocationError, locatePlan } from "../plan/locate.js";
-import { PlanFormatError, readPlan } from "../plan/read.js";
-import { RunStateError, runFolder } from "../run-state.js";
+import { locatePlan } from "../plan/locate.js";
+import { readPlan } from "../plan/read.js";
+import { runFolder } from "../run-state.js";
 
 export const PLAN_STATUS_USAGE = "Usage: cstack plan status [--plan <file>] [--json]";
 
@@ -101,10 +102,6 @@ export function planStatus(args: string[], io: Io, env: { cwd: string }): number
     }
     return problems.length > 0 ? 1 : 0;
   } catch (error) {
-    if (error instanceof PlanLocationError || error instanceof PlanFormatError || error instanceof RunStateError) {
-      io.stderr(`cstack plan status: ${error.message}\n`);
-      return error.exitCode;
-    }
-    throw error;
+    return failWith(error, io, "cstack plan status: ");
   }
 }

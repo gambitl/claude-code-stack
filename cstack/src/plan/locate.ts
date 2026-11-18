@@ -36,14 +36,15 @@ function repositoryRoot(cwd: string): string {
 }
 
 function locateFile(root: string, absolute: string, label: string): LocatedPlan {
-  if (!isInside(root, absolute)) {
-    throw new PlanLocationError(`The plan file ${label} is outside the repository.`, 2);
-  }
   let real: string;
   try {
     real = realpathSync(absolute);
     if (!statSync(real).isFile()) throw new Error("not a file");
   } catch {
+    // The path does not exist. A path that is lexically outside the repository is still a usage problem.
+    if (!isInside(root, absolute)) {
+      throw new PlanLocationError(`The plan file ${label} is outside the repository.`, 2);
+    }
     throw new PlanLocationError(`The plan file ${label} does not exist or cannot be read.`, 3);
   }
   if (!isInside(root, real)) {

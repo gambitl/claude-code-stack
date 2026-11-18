@@ -46,6 +46,15 @@ describe("locatePlan with --plan", () => {
     expect(failure(() => locatePlan(dir, "docs/plans/link.md")).exitCode).toBe(2);
   });
 
+  it("accepts an absolute path that reaches the repository through a symbolic link", () => {
+    const dir = repo();
+    const alias = join(mkdtempSync(join(tmpdir(), "cstack-alias-")), "repo");
+    symlinkSync(dir, alias);
+    expect(locatePlan(dir, join(alias, "docs/plans/x.md")).relative).toBe("docs/plans/x.md");
+    // The non-real form of the temporary folder, as macOS gives it (/var instead of /private/var).
+    expect(locatePlan(dir, join(dir, "docs/plans/x.md")).relative).toBe("docs/plans/x.md");
+  });
+
   it("exits with 3 when the file inside the repository does not exist", () => {
     expect(failure(() => locatePlan(repo(), "docs/plans/missing.md")).exitCode).toBe(3);
   });

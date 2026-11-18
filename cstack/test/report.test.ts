@@ -1,8 +1,9 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { Readable } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { reportCheck } from "../src/commands/report-check.js";
-import { reportSubmit } from "../src/commands/report-submit.js";
+import { readStdin, reportSubmit } from "../src/commands/report-submit.js";
 import {
   checkReport,
   lastAcceptedDoneReportAt,
@@ -222,6 +223,22 @@ describe("cstack report submit and report check", () => {
     const r = await submit("complete", dir, Buffer.from("x"));
     expect(r.code).toBe(1);
     for (const kind of ["done", "needs-decision", "failed", "published"]) expect(r.stderr).toContain(kind);
+  });
+
+  it("refuses more than 64 KB of input and stops reading the stream early", async () => {
+    const { dir } = setup();
+    expect((await submit("failed", dir, Buffer.alloc(300_000, "a"))).code).toBe(1);
+    let pulled = 0;
+    const stream = new Readable({
+      read() {
+        pulled++;
+        this.push(Buffer.alloc(16_384, "a"));
+      },
+    });
+    const input = await readStdin(stream);
+    expect(input!.length).toBeGreaterThan(65_536);
+    expect(pulled).toBeLessThan(20);
+    stream.destroy();
   });
 
   it("refuses an empty needs-decision, a text over 65536 bytes and invalid UTF-8", async () => {

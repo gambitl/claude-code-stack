@@ -1,18 +1,24 @@
 // WHY: the report text is external input. It is read from standard input, checked, saved as JSON and never passed to a shell or a command line.
 import type { Io } from "../io.js";
-import { locatePlan, PlanLocationError } from "../plan/locate.js";
-import { PlanFormatError } from "../plan/read.js";
+import { parseArgs } from "node:util";
+import { locatePlan } from "../plan/locate.js";
 import { EXECUTOR_KINDS, checkReport, saveReport } from "../report/reports.js";
-import { RunStateError, type SavedReport } from "../run-state.js";
+import type { SavedReport } from "../run-state.js";
+import { failWith } from "./errors.js";
 
 const MAX_BYTES = 65_536;
-const USAGE = "Usage: cstack report submit <kind> [--plan <file>]\n";
+const USAGE = "Usage: cstack report submit <kind> [--plan <file>]";
 
-/** Reads all of standard input. Returns nothing when standard input is a terminal. */
-export async function readStdin(): Promise<Buffer | undefined> {
-  if (process.stdin.isTTY) return undefined;
+/** Reads standard input, and stops as soon as more than the limit has arrived. Returns nothing when standard input is a terminal. */
+export async function readStdin(stream: NodeJS.ReadableStream & { isTTY?: boolean } = process.stdin): Promise<Buffer | undefined> {
+  if (stream.isTTY) return undefined;
   const chunks: Buffer[] = [];
-  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+  let size = 0;
+  for await (const chunk of stream) {
+    chunks.push(Buffer.from(chunk));
+    size += chunks.at(-1)!.length;
+    if (size > MAX_BYTES) break;
+  }
   return Buffer.concat(chunks);
 }
 
@@ -21,27 +27,19 @@ export async function reportSubmit(
   io: Io,
   options: { cwd: string; readInput: () => Promise<Buffer | undefined> | Buffer | undefined },
 ): Promise<number> {
-  let planFlag: string | undefined;
-  const words: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]!;
-    if (arg === "--plan") {
-      planFlag = args[++i];
-      if (planFlag === undefined) {
-        io.stderr("The flag --plan needs a file.\n");
-        return 2;
-      }
-    } else if (arg.startsWith("--plan=")) planFlag = arg.slice("--plan=".length);
-    else if (arg.startsWith("--")) {
-      io.stderr(`Unknown option ${arg}. ${USAGE}`);
-      return 2;
-    } else words.push(arg);
-  }
-  if (words.length !== 1) {
-    io.stderr(USAGE);
+  let parsed;
+  try {
+    parsed = parseArgs({ args, options: { plan: { type: "string" } }, strict: true, allowPositionals: true });
+  } catch (error) {
+    io.stderr(`${(error as Error).message}. ${USAGE}\n`);
     return 2;
   }
-  const kind = words[0]!;
+  const planFlag = parsed.values.plan;
+  if (parsed.positionals.length !== 1) {
+    io.stderr(`${USAGE}\n`);
+    return 2;
+  }
+  const kind = parsed.positionals[0]!;
 
   const input = await options.readInput();
   if (input === undefined) {
@@ -72,18 +70,6 @@ export async function reportSubmit(
     io.stdout(`The ${kind} report was accepted and saved. Allowed kinds: ${EXECUTOR_KINDS.join(", ")}.\n`);
     return 0;
   } catch (error) {
-    if (error instanceof PlanLocationError) {
-      io.stderr(`${error.message}\n`);
-      return error.exitCode;
-    }
-    if (error instanceof PlanFormatError) {
-      io.stderr(`${error.message}\n${error.problems.map((p) => `line ${p.line}: ${p.rule}`).join("\n")}\n`);
-      return 3;
-    }
-    if (error instanceof RunStateError) {
-      io.stderr(`${error.message}\n`);
-      return 3;
-    }
-    throw error;
+    return failWith(error, io);
   }
 }

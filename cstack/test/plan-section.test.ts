@@ -1,6 +1,8 @@
-import { readFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { planSection } from "../src/commands/plan-section.js";
+import { runFolder, writeCurrentRun } from "../src/run-state.js";
 import { collect, commitPlan, makeRepo } from "./helpers/plan-repo.js";
 
 const text = readFileSync(new URL("./fixtures/plans/full.md", import.meta.url), "utf8");
@@ -92,5 +94,17 @@ describe("cstack plan section", () => {
   it("exits with 3 when the reader refuses the plan", async () => {
     const r = await run(["Decisions"], "not a plan\n");
     expect(r.code).toBe(3);
+  });
+
+  it("exits with 3 when state.json of the current run is broken", async () => {
+    const dir = makeRepo();
+    commitPlan(dir, text);
+    writeCurrentRun(dir, "docs/plans/full.md");
+    const folder = runFolder(dir, "docs/plans/full.md");
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, "state.json"), "{bad");
+    const { out, io } = collect();
+    expect(await planSection(["Decisions"], io, { cwd: dir })).toBe(3);
+    expect(out.stderr).toContain("not valid JSON");
   });
 });
