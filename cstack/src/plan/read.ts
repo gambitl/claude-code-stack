@@ -387,7 +387,8 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
   if (values["No test"]) unit.noTest = values["No test"].text;
   if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;
   if (values["Blocked"]) unit.blocked = values["Blocked"].text;
-  for (const label of ["Minimum code", "Refactor", "Commit message", "Depends on", "No test"]) {
+  // An empty Blocked line would let the build check skip a unit with no reason.
+  for (const label of ["Minimum code", "Refactor", "Commit message", "Depends on", "No test", "Blocked"]) {
     if (values[label] && values[label].text === "") {
       problems.push({ line: values[label].line, rule: `\`- ${label}:\` is empty.` });
     }

@@ -158,6 +158,20 @@ describe("the units, the questions and the pull request", () => {
     });
   });
 
+  it("refuses an empty Blocked line, because a unit is blocked only with a reason", () => {
+    const text = fixture("approved").replace("- Blocked: waiting for a decision", "- Blocked:");
+    let error: unknown;
+    try {
+      readPlan(text);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(PlanFormatError);
+    expect((error as PlanFormatError).problems).toContainEqual(
+      expect.objectContaining({ line: 62, rule: expect.stringContaining("Blocked") }),
+    );
+  });
+
   it("reads the blocking questions, one open and one answered", () => {
     expect(approved.blockingQuestions).toEqual([
       {
