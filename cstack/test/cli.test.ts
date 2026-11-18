@@ -2,7 +2,8 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { run } from "../src/cli.js";
+import { HANDLERS, run } from "../src/cli.js";
+import { COMMANDS, commandWords } from "../src/manifest.js";
 import type { Io } from "../src/io.js";
 
 function collect() {
@@ -97,6 +98,35 @@ describe("run", () => {
       const { out, io } = collect();
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("Usage: cstack skills install");
+    }
+  });
+  it("answers that a command of the list is not built yet, with exit code 2", async () => {
+    const { out, io } = collect();
+    const code = await run(["next"], io);
+    expect(out.stderr).toContain("not built in this version yet");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("prints the usage line of every built entry and of no other entry", async () => {
+    const { out, io } = collect();
+    await run([], io);
+    for (const entry of COMMANDS) {
+      expect(out.stderr.includes(entry.usage)).toBe(entry.built);
+    }
+  });
+
+  it("has a handler for every built entry and an entry for every handler", () => {
+    const builtWords = new Set(COMMANDS.filter((e) => e.built).map((e) => commandWords(e)[0]));
+    expect([...builtWords].sort()).toEqual(Object.keys(HANDLERS).sort());
+  });
+
+  it("prints the usage line of the list when a built command gets an unknown flag", async () => {
+    for (const entry of COMMANDS.filter((e) => e.built)) {
+      const { out, io } = collect();
+      const code = await run([...commandWords(entry), "--cstack-unknown-flag"], io);
+      expect(code, entry.usage).toBe(2);
+      expect(out.stderr, entry.usage).toContain(entry.usage);
     }
   });
 });
