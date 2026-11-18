@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { locateJsonError } from "./json-position.js";
 import { join } from "node:path";
 
 /**
@@ -175,11 +176,22 @@ export function readSettings(root: string): Settings {
   }
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
 
+  if (text.trim() === "") {
+    throw new SettingsError([{ path: ".cstack/settings.json", text: "is empty" }]);
+  }
   let data: unknown;
   try {
     data = JSON.parse(text);
   } catch {
-    throw new SettingsError([{ path: ".cstack/settings.json", text: "is not valid JSON" }]);
+    const where = locateJsonError(text);
+    throw new SettingsError([
+      {
+        path: ".cstack/settings.json",
+        text: where
+          ? `is not valid JSON, at line ${where.line}, column ${where.column}: ${where.reason}`
+          : "is not valid JSON",
+      },
+    ]);
   }
   if (!isObject(data)) {
     throw new SettingsError([{ path: ".cstack/settings.json", text: "must hold a JSON object at the top level" }]);

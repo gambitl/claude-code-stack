@@ -177,3 +177,44 @@ describe("readSettings value rules", () => {
     expect(e.message).toContain("\\u001b");
   });
 });
+
+describe("readSettings JSON syntax errors", () => {
+  const nodePosition = (text: string) => {
+    try {
+      JSON.parse(text);
+    } catch (e) {
+      const m = /line (\d+) column (\d+)/.exec((e as Error).message);
+      return m ? { line: Number(m[1]), column: Number(m[2]) } : undefined;
+    }
+  };
+  const cases: Record<string, string> = {
+    "a missing comma": '{\n  "version": 1\n  "integration": "merge"\n}',
+    "a trailing comma": '{"version": 1,}',
+    "a comment after the first key": '{"version": 1,\n // note\n"integration": "merge"}',
+  };
+  for (const [name, text] of Object.entries(cases)) {
+    it(`gives the same line and column as Node for ${name}`, () => {
+      const node = nodePosition(text)!;
+      expect(node).toBeDefined();
+      const e = refusal(repo(text));
+      expect(e.message).toContain(`line ${node.line}, column ${node.column}`);
+      expect(e.message).not.toContain("SyntaxError");
+      expect(e.message).not.toContain("in JSON at position");
+    });
+  }
+  it("gives a line and a column for a comment on the first line", () => {
+    expect(refusal(repo('// settings\n{"version": 1}')).message).toContain("line 1, column 1");
+  });
+  it("gives a line and a column for a misspelt true", () => {
+    expect(refusal(repo('{"version": 1, "recordsLanguage": tru}')).message).toMatch(/line 1, column \d+/);
+  });
+  it("gives a line and a column for a cut file", () => {
+    expect(refusal(repo('{"version": 1,\n')).message).toMatch(/line 2, column 1/);
+  });
+  it("says that an empty file is empty", () => {
+    expect(refusal(repo("  \n")).message).toContain("is empty");
+  });
+  it("accepts a valid file that starts with a byte order mark", () => {
+    expect(readSettings(repo("﻿" + '{"version": 1}')).found).toBe(true);
+  });
+});
