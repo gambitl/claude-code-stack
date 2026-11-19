@@ -44,7 +44,10 @@ const MAX_FAILED_ROUNDS = 3;
 const NO_CLIENT =
   "cstack: the watch needs a tracker client: Orca connected to the tracker, or gh or glab logged in. Run cstack wave again by hand. Claude can read the tracker with its own connection and write a file for --from-file <path>.\n";
 
-/** Watches a group. For now it only checks that a watch can run. */
+/**
+ * Watches a group until Control-C, until standard input closes, or until no ticket is blocked and every ready ticket was offered.
+ * Returns 5 when a start failed or its outcome is unknown, the exit code of the last error after three failed reads in a row, and 0 otherwise.
+ */
 export async function watchWave(
   group: Group,
   root: string,
@@ -100,10 +103,9 @@ export async function watchWave(
     /** Starts one ticket with a fresh fetch and a fresh worktree check, and prints one line. */
     const startOne = async (key: string): Promise<void> => {
       const shown = printableText(key);
-      const notStarted = () => io.stdout(`${shown}  not started, because you stopped the watch.\n`);
       const failed = (why: string) => {
         badStarts++;
-        io.stdout(`${shown}  failed, ${printableText(why)}.\n`);
+        io.stdout(`${shown}  failed, ${printableText(why).replace(/\.$/, "")}.\n`);
       };
       try {
         // WHY: each start runs exactly one `git fetch origin`. The git way fetches inside prepareGitStart.
@@ -125,7 +127,7 @@ export async function watchWave(
         if (report.kind === "failed" || report.kind === "unknown") badStarts++;
       } catch (error) {
         if (stop.aborted && (error instanceof WaveError || error instanceof TrackerError || (error as Error)?.name === "AbortError")) {
-          notStarted();
+          io.stdout(`${shown}  not started, because you stopped the watch.\n`);
         } else if (error instanceof WaveError && error.message === FETCH_FAILED) {
           failed("`git fetch origin` failed");
         } else if (error instanceof WaveError || error instanceof TrackerError) {
@@ -135,8 +137,13 @@ export async function watchWave(
         }
       }
     };
+    const clock = () => {
+      const time = watch.now();
+      return `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
+    };
     while (!stop.aborted) {
       const started = watch.now().getTime();
+      const pause = () => watch.sleep(Math.max(0, started + interval * 60_000 - watch.now().getTime()), stop);
       let groups;
       try {
         const tickets = await lister.listGroup(group);
@@ -146,21 +153,19 @@ export async function watchWave(
         if (!(error instanceof WaveError || error instanceof TrackerError)) throw error;
         if (stop.aborted) break;
         failedInARow++;
-        io.stderr(`cstack: ${printableText(error.message)}\n`);
+        io.stderr(`cstack: ${clock()}  the read failed (${failedInARow} of ${MAX_FAILED_ROUNDS} in a row): ${printableText(error.message)}\n`);
         if (failedInARow >= MAX_FAILED_ROUNDS) {
-          io.stderr(`cstack: the last ${MAX_FAILED_ROUNDS} reads of the wave failed, so the watch stopped.\n`);
+          io.stderr(`cstack: the watch stopped, because ${MAX_FAILED_ROUNDS} reads in a row failed.\n`);
           return error.exitCode;
         }
-        await watch.sleep(Math.max(0, started + interval * 60_000 - watch.now().getTime()), stop);
+        await pause();
         continue;
       }
       failedInARow = 0;
       if (stop.aborted) break;
       if (first) io.stdout(formatGroups(groups));
-      const time = watch.now();
-      const hhmm = `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
       io.stdout(
-        `${hhmm}  ${groups.ready.length} ready, ${groups.blocked.length} blocked, ${groups.started.length} already started, ${groups.finished} finished.\n`,
+        `${clock()}  ${groups.ready.length} ready, ${groups.blocked.length} blocked, ${groups.started.length} already started, ${groups.finished} finished.\n`,
       );
       const readyKeys = groups.ready.map((t) => t.ticket.key);
       let toOffer: string[];
@@ -175,7 +180,10 @@ export async function watchWave(
             offered.add(key);
             if (!isYes(answer)) declined.add(key);
           }
-          if (isYes(answer)) {
+          if (!isYes(answer)) {
+            io.stdout("\nStarted nothing.\n");
+          } else {
+            io.stdout("\n");
             for (const key of readyKeys) {
               if (stop.aborted) break;
               await startOne(key);
@@ -212,7 +220,7 @@ export async function watchWave(
         io.stdout("No ticket is blocked anymore and every ready ticket was offered, so the watch ended.\n");
         return badStarts > 0 ? EXIT.toolFailed : EXIT.ok;
       }
-      await watch.sleep(Math.max(0, started + interval * 60_000 - watch.now().getTime()), stop);
+      await pause();
     }
     io.stdout(interrupted.signal.aborted ? "\nStopped the watch.\n" : "\nStandard input closed, so the watch stopped.\n");
     return badStarts > 0 ? EXIT.toolFailed : EXIT.ok;

@@ -38,7 +38,8 @@ describe("cstack wave --watch after a failed read", () => {
     expect(code).toBe(5);
     expect(reads()).toBe(4);
     expect(s.out.stderr.match(/the tracker did not answer/g)).toHaveLength(3);
-    expect(s.out.stderr).toContain("so the watch stopped");
+    expect(s.out.stderr).toContain("the watch stopped, because 3 reads in a row failed.");
+    expect(s.out.stderr).toContain("(2 of 3 in a row)");
   });
 
   it("keeps going after one failure, a good read and two failures", async () => {

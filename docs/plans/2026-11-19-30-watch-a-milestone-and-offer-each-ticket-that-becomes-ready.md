@@ -381,7 +381,24 @@ While the watch waits between two rounds, a line that you type in the terminal s
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes (phase review)
+
+The branch adds `start.ts`, `answers.ts`, `notify.ts` and `watch.ts` in `cstack/src/wave/`, and changes `wave.ts`, `confirm.ts`, `start-git.ts` and `manifest.ts`. The changed or new symbols are `startTicket`, `startAllQuestion`, `fetchOrigin`, `watchWave`, `openAnswers`, `notifyReady` and the removed `notBuiltFlags` of the wave entry. Their callers and tests are in `cstack/src/commands/wave.ts`, `cstack/test/wave/`, `cstack/test/manifest.test.ts` and `cstack/test/cli.test.ts`. The tests of `cstack wave` (`confirm`, `start-git`, `start-orca`, `groups`) passed without any edit. The files that usually change with `wave.ts` are the wave tests and `README.md`; `README.md` is in the diff. The usual companions of `manifest.ts` are `cli.ts`, `cli.test.ts` and `manifest.test.ts`; `cli.ts` needs no change, because `wave()` takes the watch dependencies as a fourth parameter with a default. The only `WHY:` comment in the area is in `start-git.ts` (`--no-track`), and the branch does not touch it. The `WHY:` comment of `notify.ts` is new.
+
+
+### Findings of the four reviewers (phase review)
+
+Correctness: no critical bug. Three findings, all fixed. The lines of a failed read did not use the words of the architecture table, so they now read `cstack: HH:MM  the read failed (n of 3 in a row): <message>` and `cstack: the watch stopped, because 3 reads in a row failed.`, and the test checks "(2 of 3 in a row)". The first round printed nothing after the answer, so it now prints `Started nothing.` after a no and a line break before the starts after a yes. A "failed" line could end with two periods, so one trailing period is removed first.
+
+Security: nothing at confidence 80 or above. One risk below that: a half-typed `y` without Enter stays in the terminal and could answer a later question when the user presses Enter. Fixing it needs raw mode, which the plan rejected on purpose. Recorded as a follow-up.
+
+Conventions: the doc comment of `watchWave` was stale, now fixed. Two follow-ups: the start code finds the fetch failure by comparing the message with `FETCH_FAILED`, which a dedicated error class would make safer; and the two commits of unit 8 have the same subject, which is kept because the history is not rewritten.
+
+Simplicity: the repeated delay computation and the hand-built `HH:MM` are now one local function each, and the stale comment and the one-use `notStarted` helper are gone. Not applied: the rewrite of the `toOffer` block and `toTimeString`, which save little.
+
+Wording slip, not fixed: when standard input ends during a start that then fails, the unknown-outcome line still blames Control-C.
+
+Tests: `npm run typecheck` is clean and `npm test` passed, 97 files and 1166 tests.
 
 ## Briefing
 
