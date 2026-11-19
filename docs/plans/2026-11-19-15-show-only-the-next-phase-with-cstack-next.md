@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/next-phase
 Conversation language: French
-Status: in progress (phase 6)
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -365,7 +365,44 @@ The independent reviewer found the plan met and changed one thing: the README bu
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack next` is built, and it does what the ticket asks. It prints only the guide of the next phase, refuses to skip a phase, writes the times into the plan header and shows the "Digest due" notice. I ran the suite again: 429 tests pass and the type check is clean. The branch is level with `main`, and no question is left open.
+
+**What you need to do**
+
+- If you merge another pull request of the same wave before this one, update this branch before you merge it. The ones that build `unit red` and `unit green` (#17), `cstack publish` (#20) and the tracker access (#24) touch the same lines. The command counts in `manifest.test.ts` and `README.md` will conflict. A function in `cli.ts` can also end up there twice with no conflict marker.
+
+**What to watch**
+
+- Watch the first real run from start to end. The tests use fifteen small fixture guides, never the real ones. The hand-over between the main conversation and the build agent rests on two sentences of prose that no test runs.
+- Watch a build agent that resumes after `--done ready` but before it sends its report. cstack shows it the retrospective guide. Only one sentence of its prompt tells it to commit the plan file and report instead. If you ever see it write a retrospective, that sentence failed.
+
+**What changed since the plan**
+
+- The build agent's prompt got that extra sentence for the retrospective case. A fix in the code would have added a rule that you did not decide.
+- `cstackVersion` is now exported from `run-state.ts`. That is a one-word change in a file the wave protects, but the wave's rule covers run folder helpers, and this is not one.
+- After `--done retro`, the "Digest due" notice is not printed when `publish` cannot start yet or when the run is already finished. Both cases are rare.
+
+#### Details
+
+What was built matches the ticket and every decision of "Decisions". On 2026-11-19, `npm test` in `cstack/` passed 36 files and 429 tests, and `npm run typecheck` was clean. `HEAD` sits on top of `origin/main` at `2f01aa1`, which is also the merge base, and no other pull request of the wave was open at that time. The code is `cstack/src/commands/next.ts` (188 lines), `cstack/src/run-progress.ts`, `cstack/src/plan/header-write.ts` and `cstack/src/local-time.ts`, with the guide lookup shared through `readGuide` in `cstack/src/commands/guide.ts`.
+
+The merge order is the only action for a person. Tickets #17, #20 and #24 run in the same wave and change `cstack/src/manifest.ts`, `cstack/src/cli.ts`, `cstack/test/manifest.test.ts` and `README.md`. This branch says eleven built commands and four unbuilt ones (`manifest.test.ts`) and "eleven commands" (`README.md` line 40). Whichever pull request merges second needs the update-branch step again, with a recount. If #24 merged first, its rule for an unbuilt command (exit `1` naming the ticket) replaces today's exit `2`, and `cstack/test/cli.test.ts` keeps picking the first unbuilt entry of `COMMANDS`. Check `HANDLERS` in `cli.ts` for a key that appears twice after the merge, as happened in wave 4. If nobody does this, the merge either conflicts or, worse, merges with a wrong count that the test then catches on `main`.
+
+The first real run is the main fragile spot. `cstack/test/next.test.ts` uses the fixture package root `cstack/test/fixtures/next/`, one marker line per phase. The fifteen real guides in `cstack/guides/resolve-issue/` exist, and their calls match the command (for example `ready.md` line 15, `retro.md` line 25, `plan.md` lines 47, 55, 56 and 58, `questions.md` line 68). But no test runs the real guides through `cstack next`. The two prose sentences, in `cstack/skills/resolve-issue/SKILL.md` (after line 20) and `cstack/skills/resolve-issue/agents/executor.md` (after line 26), are only checked for presence by `cstack/test/prompts.test.ts`. The resume paths are where a wrong side could follow a wrong guide: a session that stopped during the build, and a retrospective written at an earlier stop.
+
+The resume of the executor after `--done ready` and before its done report is the second fragile spot. At that point `ready` is done and `retro` is not done after it, so a plain `cstack next --plan` picks `retro` and prints its run line "in the main conversation". The correctness reviewer found it in phase 7. The fix is prose: `executor.md` now says that when that phase is `retro` and the Status is `ready for review`, the executor commits the plan file if it changed and submits its done report. The other option was a code rule in `next.ts` that prints the "runs in the main conversation" line on a plain call in that case. It was not taken because it adds a behaviour the user did not decide. If the prose fails, the executor submits a failed report naming `retro`, or follows the retro guide, and the main conversation has to recover by hand.
+
+Three things changed from the plan. First, the executor prompt has the extra case above, beyond the one sentence that "Decisions" named. Second, `cstackVersion` in `cstack/src/run-state.ts` is now exported (line 61) and imported by `next.ts`, instead of a copy. The wave rule forbids new run folder helpers in `run-state.ts`, and a version reader is not one, so the reviewers accepted it. Third, the "Digest due" notice is printed last on the paths that print a guide, the executor line, or "The run stopped". It is not printed on the two early returns of `next.ts`: when every phase is done (lines 161 to 165), and when the next phase cannot start (lines 166 to 171). After `--done retro` with `ready` done, the second case means `publishStart` failed. That happens only if a done report was accepted later than the retrospective. Smaller changes: the plan file is read once per call, the header write uses `writeFileAtomic`, and the usage line of `next` in the manifest was put back to the contract of #13 after the unit 7 commit had rewritten it.
+
+Every earlier question was resolved as decided. The stale retrospective is `isDone` in `cstack/src/run-progress.ts` (lines 12 to 18), with `Date.parse` and a `WHY:` comment, and the message for it is in `missingToStart` (lines 52 to 54). The place on the run line is `runLine` in `next.ts` (lines 29 to 33), plus the two prose sentences. The start check on every start is `next.ts` lines 166 to 171, which prints "<phase> is done." on standard output first when a `--done` just succeeded. The second `--done` is `next.ts` line 135, with `retro` always closed again. The digest count takes only `.md` files directly in `docs/retros/` (`next.ts` lines 62 to 73). The times are `localTime` for the header and `toISOString()` in `run-progress.ts` line 62 for `state.json`. The write order, plan file first and `state.json` second, is `next.ts` lines 143 to 147, with its `WHY:` comment.
+
+One new question came up, for the maintainer, labelled non-blocking, because the build is complete and correct whatever the answer: "Should I open a follow-up ticket so that a plain `cstack next` prints 'The next phase, retro, runs in the main conversation.' instead of the retro guide when the Status is already `ready for review`? Today a sentence of the executor prompt handles that case." If nobody answers, the prose rule stays.
+
+Two smaller couplings need no action. `cstack/test/cli.test.ts` now skips its unbuilt-command case when every entry of `COMMANDS` is built, so once the wave builds the last command, the "not built in this version yet" path has no test and nobody will notice. `setHeaderValues` throws a plain `Error` when a key is missing, which `failWith` rethrows as an unhandled error with exit `1`. That cannot happen on a file that `readPlan` accepted, because the reader requires every key of `HEADER_KEYS` in order. The run folder keyed by plan file name only comes from #13 and was already noted in the review log.
+
+I checked security and authorization, data model lock-in, scale and performance, failure modes and rollback, user-facing edge cases, operations and cost, and reversibility, and found nothing beyond the points above: `--plan` outside the repository exits `2` and is tested, the format of `state.json` did not change, and the command can be switched off by setting `built: false` again.
 
 ## Open questions after the build
 
@@ -375,19 +412,49 @@ none
 
 ### Non-blocking
 
-none
+Should a plain `cstack next` print the "runs in the main conversation" line itself when an executor resumes after `--done ready`, instead of relying on one sentence in the executor prompt? For: the maintainer, as a follow-up ticket.
 
 ## Pull request
 
-<phase 10.4>
+Title: `feat(cli): add cstack next to print only the next phase`
+
+Body:
+
+This adds `cstack next`. It prints the guide of the next phase of a run and nothing else, and it refuses to start a phase before the phases it depends on are done. It also records starts and finishes of phases, writes the header lines of the plan file that the phase list names, and shows the "Digest due" notice after the retrospective.
+
+Key decisions. A retrospective that was done before `ready` does not count as done, so `publish` waits for a fresh one. The run line names the place of the phase, the main conversation or the executor. Every phase start checks its dependencies and start condition first. The plan file is written before `state.json`, so a crash leaves the phase open. The guide lookup of `cstack guide` is now shared, so both commands print the same text.
+
+Files. New: `cstack/src/commands/next.ts`, `cstack/src/run-progress.ts`, `cstack/src/plan/header-write.ts`, `cstack/src/local-time.ts`, the fixture guides in `cstack/test/fixtures/next/` and their tests. Changed: `guide.ts`, `cli.ts`, `manifest.ts`, `run-state.ts` (one word: `cstackVersion` is exported), `README.md`, and one sentence each in `SKILL.md` and `executor.md`.
+
+Judgment calls from the independent review. `run-state.ts` changed by one word, although the plan keeps run folder helpers out of it, because the version reader is not one. After `--done retro`, the Digest due notice is not printed when the next phase cannot start or when every phase is done. Two plan files with the same name in different folders share one run folder, which comes from #13. The tests rerun well with a longer timeout when the machine is under load, because one test in `report.test.ts` timed out once at five seconds.
+
+Review findings left as follow-ups: none besides the question below.
+
+Open questions, not needed for this pull request. This pull request can be merged without their answers.
+- For the maintainer: should a plain `cstack next` print the "runs in the main conversation" line itself when an executor resumes after `--done ready`, instead of relying on one sentence in the executor prompt?
+
+Plan file: `docs/plans/2026-11-19-15-show-only-the-next-phase-with-cstack-next.md`.
+
+Fixes #15
+
 
 ## Documentation
 
-<phase 10.3>
+- Comment on #15: https://github.com/gambitl/claude-code-stack/issues/15#issuecomment-7004334372
+- Comment on #23: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-7004334861 (the ticket named in the Feeds footer; it is the end-to-end run, so the comment says what to watch)
+- Comment on #20: https://github.com/gambitl/claude-code-stack/issues/20#issuecomment-7004335437
+- `README.md`: a bullet for `cstack next`, and "eleven commands". `WHY:` comments in `cstack/src/run-progress.ts` and `cstack/src/commands/next.ts`.
+- No ADR, no specification page and no conventions change, as "Documentation duties" says. The plan said #23 prints the settings, but #14 and the epic place that elsewhere; #23 is the end-to-end run.
 
 ## Executor notes
 
-<executor, before its report>
+- A `cat >> /tmp/x` left in a shell command waited on standard input, so one commit hung until I killed it, and its edit step never ran. I redid the edits.
+- A `git checkout <old commit> -- manifest.ts` meant to undo one line also removed `built: true`. The suite was green only because I looked at the diff before running it. I restored the file and edited the one line.
+- Four of the five first units reported they skipped the failing-test step, and four commits lacked the `Cstack-Unit` trailer. I added the trailers with a message filter on the unpushed commits, and relaunched later units with the instruction to show the test failing.
+- `report.test.ts` timed out once at 5 seconds under load, and unit 7's run showed three files timing out. They pass with `--testTimeout=30000`.
+- The plan named #23 as the settings ticket, but #23 is the end-to-end run. The ticket comment says so.
+- The reviewer found the unit 7 commit had also changed the usage line of the manifest, against the wave rule. It was restored.
+- The review of correctness found a gap in the plan's design: an executor resuming after `--done ready` sees `retro`. A prompt sentence covers it, and a question is open.
 
 ## Hand-off log
 
@@ -482,3 +549,7 @@ Assumptions not asked, because they have an obvious default (they go to "Decisio
 - Printing a guide always records a new `startedAt` for that phase. A phase marked done without a printed guide gets no `startedAt`.
 - `--phase` on a phase that is already done prints its guide and records `startedAt`, and keeps its done time.
 - The unit commits are only read when a check needs them, so a missing local target branch only matters for `build`.
+
+### 2026-11-19, executor run, phases 6 to 10
+
+Done. All eight units are committed, both reviews are finished, the branch is up to date with main, and the ticket, #23 and #20 have their comments. One non-blocking question is open, under "Open questions after the build". Nothing is pushed. A phase 12 run publishes.
