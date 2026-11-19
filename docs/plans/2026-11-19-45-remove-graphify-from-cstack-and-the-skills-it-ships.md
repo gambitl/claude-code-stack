@@ -189,7 +189,7 @@ The change is small and the approach is locked by the ticket. It removes text an
 
 ## Implementation units
 
-### Unit 1: Map the code with search and file reads in the guides and the prompts — status: todo
+### Unit 1: Map the code with search and file reads in the guides and the prompts — status: done
 - Files: `cstack/test/no-graphify.test.ts` (new), `cstack/guides/resolve-issue/code-map.md`, `cstack/guides/resolve-issue/review.md`, `cstack/skills/resolve-issue/agents/code-explorer.md`, `cstack/skills/resolve-issue/agents/code-architect.md`, `cstack/skills/resolve-issue/agents/code-reviewer-simplicity.md`, `cstack/skills/resolve-issue/agents/implementer.md`, `cstack/skills/resolve-issue/agents/pr-reviewer.md`, `cstack/skills/resolve-issue/settled-decisions.md`.
 - Failing test: write `cstack/test/no-graphify.test.ts` as the Decisions describe it. Run it: it fails and lists the current hits, in `code-map.md`, `review.md`, the five prompts and line 30 of `settled-decisions.md`.
 - Minimum code:
@@ -206,7 +206,7 @@ The change is small and the approach is locked by the ticket. It removes text an
 - Commit message: `feat(skill): map the code with search and file reads instead of Graphify`
 - Depends on: none.
 
-### Unit 2: Remove the Graphify item from cstack doctor and from the README — status: todo
+### Unit 2: Remove the Graphify item from cstack doctor and from the README — status: done
 - Files: `cstack/test/doctor.test.ts`, `cstack/src/doctor/requirements.ts`, `cstack/test/fixtures/doctor/graphify.txt` (deleted), `README.md`.
 - Failing test: add the case of `cstack/test/doctor.test.ts` that the Decisions describe ("never runs graphify and never prints Graphify"). Run it: it fails because doctor runs `graphify --version` and prints "Graphify (optional)".
 - Minimum code: in `requirements.ts`, remove `GRAPHIFY_HINT` (lines 24 and 25) and the Graphify item of `requirements` (lines 155 to 162). Keep the `required` parameter of `simple()`. In `README.md`, remove the Graphify line of "Requirements" (line 14) and nothing else. In `doctor.test.ts`, make the changes the Decisions list: the answers table, the `ALLOWED` set, the expected lines of the first case, the deleted "missing Graphify" case, and the "answer without a version" case rewritten with Claude Code. Delete the fixture `graphify.txt`. Run `cstack/test/doctor.test.ts` and `cstack/test/readme-requirements.test.ts`.
@@ -214,7 +214,7 @@ The change is small and the approach is locked by the ticket. It removes text an
 - Commit message: `feat(cli): stop checking Graphify in cstack doctor`
 - Depends on: none.
 
-### Unit 3: Remove cstack graph ensure from the command list — status: todo
+### Unit 3: Remove cstack graph ensure from the command list — status: done
 - Files: `cstack/test/manifest.test.ts`, `cstack/src/manifest.ts`.
 - Failing test: in `manifest.test.ts`, add the case "has no entry with the command words graph ensure", checking that no entry of `COMMANDS` has `commandWords` equal to `graph`, `ensure`. Change the counts case to ten built and four not built, with the title "holds ten built commands and four that are not built". Run it: both cases fail.
 - Minimum code: delete the entry of `cstack graph ensure` (lines 174 to 182 of `manifest.ts`), and nothing else. Then run the whole file `manifest.test.ts`, whose mention scan must still pass, and `cstack/test/cli.test.ts`.
@@ -222,7 +222,7 @@ The change is small and the approach is locked by the ticket. It removes text an
 - Commit message: `feat(cli): remove cstack graph ensure from the command list`
 - Depends on: Unit 1, because the mention scan fails while a guide or a prompt still names `cstack graph ensure`.
 
-### Unit 4: Update the specification page — status: todo
+### Unit 4: Update the specification page — status: done
 - Files: `docs/projects/skills-into-cli.md`.
 - No test: the page is prose under `docs/`, the ticket asks no test for it, and the word scan of unit 1 covers only `cstack/`.
 - Minimum code: make the four edits that the Decisions give for this page: the heading and the sentence of US-11, US-3 AC1 without Graphify, the Graphify bullet removed from "External tools", and the sentence added at the end of US-5 AC1. Change nothing else.
@@ -242,6 +242,10 @@ After the four units, run `npm test` and `npm run typecheck` in `cstack/`, and c
 - `WHY:` comments in the code: do not apply, because the change adds no code that a decision governs.
 
 ## Review log
+
+### Impact notes (phase 7)
+
+Graphify is not installed and the brief forbids running it, so these notes come from a text search over the whole repository. Changed or deleted symbols: `GRAPHIFY_HINT` and the Graphify item of `requirements` (doctor), the `cstack graph ensure` entry of `COMMANDS`, and the guide and prompt text. Outside `docs/plans/`, `docs/retros/`, `config/settings.json` and the frozen `skills/` folder, the only remaining mentions of Graphify are the new tests and the decision line in `settled-decisions.md`. Nothing depends on the deleted entry or the deleted constant. `README.md` has no command that names `graph`. The usual companions of `manifest.ts` are `manifest.test.ts`, `cli.ts` and `cli.test.ts`; `cli.test.ts` and the mention scan pass. Those of `requirements.ts` are `doctor.test.ts`, the fixtures and `README.md`, all updated. Full suite on the branch: 377 of 378 tests pass. The one failure, `report.test.ts` "names a unit without a commit...", is a 5000 ms timeout of a test that runs git; it passes alone (26 of 26) and the file is not touched by this branch.
 
 ## Briefing
 
