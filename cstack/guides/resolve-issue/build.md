@@ -4,8 +4,11 @@ In this phase you start the work and build every unit of the plan. The settings 
 
 ## Start
 
-1. Move the ticket to the tracker's "in progress" state. Use the exact state name that the tracker gives. Write in the plan file's "Hand-off log" that you did it. If the tracker has no such state, write that instead.
-2. Create the branch named on the `Branch` line of the plan file, and check it out. Never work on the default branch. If the branch already exists, check it out and keep going.
+1. Move the ticket to "in progress". Run `cstack tracker move '<key>' --to "in progress" --tracker <name>`. Write the ticket key in single quotes, because the shell reads an unquoted `#12` as a comment. Take `<name>` from the `Tracker:` line of the plan file, in lower case. Then write in the plan file's "Hand-off log" that you did it.
+   - If cstack refuses the state name, it prints the names that the tracker accepts. Run the command again with one of those names.
+   - If cstack exits with 1 because a label is missing, it prints the command that creates the label. You never create a label. Write in the "Hand-off log" that the ticket could not be moved, and copy the printed command there. Then go on.
+   - If cstack exits with exit code `4`, no client can reach the tracker. Move the ticket with your own connection to the tracker instead. Write in the "Hand-off log" that you did it that way.
+2. Check out the branch of the plan file. If you are already on a branch whose name is the short name that `cstack wave` gave the ticket, such as `issue-12` or `abc-12`, keep that branch and do not create a new one. Otherwise create the branch named on the `Branch` line of the plan file, and check it out. Never work on the default branch. If the branch already exists, check it out and keep going.
 3. Commit the plan file as the first commit of the branch, unless it is already committed.
 
 ## Build the units

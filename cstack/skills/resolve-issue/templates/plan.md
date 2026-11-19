@@ -6,7 +6,7 @@ Date: <YYYY-MM-DD>
 Ticket: <link>
 Tracker: <Linear | Jira | GitLab | GitHub | other>
 Documentation tool: <Notion | Confluence | wiki | docs/ folder | other>, ADRs in <place>
-Branch: <branch name>
+Branch: <the current branch when its name is the short name that `cstack wave` gives the ticket, such as `issue-12` or `abc-12`; otherwise a new branch name>
 Target branch: <the branch that the pull request goes into>
 Conversation language: <the language the user writes in; the conversation uses it, and every record uses the recordsLanguage of .cstack/settings.json, which is English by default>
 Status: draft
