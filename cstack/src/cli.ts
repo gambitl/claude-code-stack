@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
+import { publish } from "./commands/publish.js";
 import { planSection } from "./commands/plan-section.js";
 import { planStatus } from "./commands/plan-status.js";
 import { reportCheck } from "./commands/report-check.js";
@@ -50,6 +51,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       status: async (a, i) => planStatus(a, i, { cwd: process.cwd() }),
       section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
     }),
+  publish: (args, io) => publish(args, io),
   report: (args, io) =>
     dispatchSubcommand("report", args, io, {
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),

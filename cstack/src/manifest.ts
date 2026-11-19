@@ -197,6 +197,7 @@ export const COMMANDS: CommandEntry[] = [
     },
     file: "publish.ts",
     ticket: 20,
+    built: true,
   }),
 ];
 
