@@ -1,15 +1,17 @@
 // WHY: ADR-SIC-F. One place that picks the client for a capability and puts the checks around it.
 import { readFileSync } from "node:fs";
+import { orcaFeatures } from "../orca/features.js";
 import type { Runner } from "../orca/run.js";
-import { EXIT } from "../manifest.js";
 import { checkedTracker } from "./checked.js";
 import { checkStateName } from "./states.js";
 import { claudeFileTracker } from "./claude-file.js";
 import { createClientChooser, trackerFromRemote, type Capability } from "./choose.js";
-import { NoClientError, TrackerError } from "./errors.js";
+import { NoClientError } from "./errors.js";
 import { originRepo } from "./forge.js";
 import { githubGhTracker } from "./github-gh.js";
 import { gitlabGlabTracker } from "./gitlab-glab.js";
+import { jiraOrcaTracker } from "./jira-orca.js";
+import { linearOrcaTracker } from "./linear-orca.js";
 import type { Tracker, TrackerName } from "./types.js";
 
 export interface OpenTrackerOptions {
@@ -59,7 +61,8 @@ export async function refuseWithoutClient(
       readTicket: reject,
       listGroup: reject,
       async moveState(k, s) {
-        checkStateName(name, s);
+        // Jira and Linear offer their own state names, which cstack cannot list without a client.
+        if (name === "github" || name === "gitlab") checkStateName(name, s);
         throw NoClientError.forMove(k, s);
       },
       async addComment(k, file) {
@@ -87,7 +90,19 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
   }
   const name = options.tracker ?? trackerFromRemote(`https://${(await readOrigin()).host}/`);
   if (name === "jira" || name === "linear") {
-    throw new TrackerError(`cstack cannot reach ${name} yet. Ticket #25 builds it.`, EXIT.refused);
+    // Jira and Linear go through Orca only, so the origin remote plays no part here.
+    const feature = await orcaFeatures(run, options.env).get(name);
+    const client = await createClientChooser({ tracker: name, orcaAvailable: feature.available, runner: run })(capability);
+    if (client === "orca") {
+      const adapter = name === "jira" ? jiraOrcaTracker(run, options.env) : linearOrcaTracker(run, options.env);
+      return checkedTracker(adapter, name, warn);
+    }
+    const reason = feature.available ? "" : ` ${feature.reason}`;
+    throw new NoClientError(
+      reads
+        ? `Orca cannot reach ${name}.${reason} Ask Claude to read the tracker with its own connection and write a file in the format cstack-tracker/1, then pass it with --from-file <path>.`
+        : `Orca cannot reach ${name}.${reason} So cstack cannot change the tracker.`,
+    );
   }
 
   const { host } = await readOrigin();
