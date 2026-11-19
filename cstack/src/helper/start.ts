@@ -1,6 +1,6 @@
 // WHY: ADR-SIC-A and ADR-SIC-F. no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
 import { parseAnswer } from "../orca/answer.js";
@@ -26,7 +26,7 @@ import {
   makeHelperId,
   type HelperRole,
 } from "./record.js";
-import { childName, currentBranch, findChildWorktree, headHash, listWorktrees, ticketWorktreeProblems, type ListedWorktree } from "./child.js";
+import { childName, currentBranch, findChildWorktree, headHash, latestUnitRecord, listWorktrees, ticketWorktreeProblems, type ListedWorktree } from "./child.js";
 import { buildSpec, findInputs, type HelperInputs } from "./spec.js";
 
 export interface StartDeps {
@@ -70,7 +70,15 @@ function clearRefusal(answer: Answer | undefined): { code: string; message: stri
   return { code: error["code"], message: typeof error["message"] === "string" ? error["message"] : "" };
 }
 
-async function fallback(role: HelperRole, inputs: HelperInputs, reason: string, runDir: string, deps: StartDeps, io: Io): Promise<number> {
+async function fallback(
+  role: HelperRole,
+  inputs: HelperInputs,
+  reason: string,
+  runDir: string,
+  deps: StartDeps,
+  io: Io,
+  worktree?: { path: string; branch: string },
+): Promise<number> {
   createRecord(runDir, {
     format: "cstack-helper/1",
     id: inputs.helperId,
@@ -79,6 +87,7 @@ async function fallback(role: HelperRole, inputs: HelperInputs, reason: string, 
     startedAt: deps.now().toISOString(),
     mode: "sub-agent",
     reason,
+    ...(worktree !== undefined ? { worktree } : {}),
   });
   const lines = [
     `${reason} Start a sub-agent instead.`,
@@ -164,6 +173,18 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     }
   }
   const runDir = runFolder(located.root, located.relative);
+  // A unit whose child worktree is not collected yet keeps it: only the escalation runs there again.
+  let reuse: { path: string; branch: string } | undefined;
+  const latest = unit !== null && role !== "executor" ? latestUnitRecord(runDir, unit) : undefined;
+  if (latest?.worktree !== undefined && latest.collectedAt === undefined) {
+    if (role === "implementer") {
+      throw new HelperError(`Unit ${unit} still has its child worktree ${latest.worktree.path}. Run \`cstack unit collect ${unit}\` first.`, EXIT.refused);
+    }
+    if (!existsSync(latest.worktree.path)) {
+      throw new HelperError(`The child worktree ${latest.worktree.path} of unit ${unit} no longer exists.`, EXIT.refused);
+    }
+    reuse = latest.worktree;
+  }
   let child = request.childWorktree === true && role === "implementer" && unit !== null;
   if (child) checkChildStart(plan, unit as number, located);
   const inputs = findInputs({
@@ -176,11 +197,19 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     ...(stuckReport !== undefined ? { stuckReport } : {}),
   });
 
+  let fallbackInputs = inputs;
+  if (reuse !== undefined) {
+    const inChild = (path: string) => join(reuse.path, relative(located.root, path));
+    copyFileSync(located.path, inChild(located.path));
+    inputs.childWorktree = true;
+    fallbackInputs = { ...inputs, repoRoot: reuse.path, planFile: inChild(inputs.planFile), conventionsFile: inChild(inputs.conventionsFile) };
+  }
+
   if (deps.env["CSTACK_ORCA_WORKERS"] === "off") {
-    return fallback(role, inputs, "CSTACK_ORCA_WORKERS is off.", runDir, deps, io);
+    return fallback(role, fallbackInputs, "CSTACK_ORCA_WORKERS is off.", runDir, deps, io, reuse);
   }
   const feature = await orcaFeatures(deps.createRunner(FEATURE_TIMEOUT_MS), deps.env).get("workers");
-  if (!feature.available) return fallback(role, inputs, feature.reason, runDir, deps, io);
+  if (!feature.available) return fallback(role, fallbackInputs, feature.reason, runDir, deps, io, reuse);
 
   let note = "";
   let base = "";
@@ -214,7 +243,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     "--effort", inputs.effort,
     ...(child
       ? ["--worktree", "new-child", "--base-branch", base, "--name", name, "--setup", "skip"]
-      : ["--worktree", "current"]),
+      : ["--worktree", reuse !== undefined ? `path:${reuse.path}` : "current"]),
     "--task-title", title,
   ]);
   const answer = parseAnswer<Answer>(result);
@@ -224,7 +253,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     if (/model/i.test(refusal.code) || /model/i.test(refusal.message)) {
       throw new HelperError(`Orca refused the model of this helper: ${refusal.message || refusal.code}`, EXIT.toolFailed);
     }
-    return fallback(role, inputs, `Orca refused to start a worker: ${refusal.message || refusal.code}`, runDir, deps, io);
+    return fallback(role, fallbackInputs, `Orca refused to start a worker: ${refusal.message || refusal.code}`, runDir, deps, io, reuse);
   }
   const dispatchId = (answer?.result as { dispatchId?: unknown } | undefined)?.dispatchId;
   if (result.kind === "ok" && answer?.ok === true && typeof dispatchId === "string") {
@@ -237,7 +266,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       startedAt: deps.now().toISOString(),
       mode: "orca-worker",
       dispatchId,
-      ...(found !== undefined ? { worktree: found } : {}),
+      ...(found !== undefined || reuse !== undefined ? { worktree: found ?? reuse } : {}),
     });
     if (child && found === undefined) {
       throw new HelperError(`The worker ${inputs.helperId} runs, but cstack found no child worktree for it, so none is on record. Check \`git worktree list\`.`, EXIT.toolFailed);
