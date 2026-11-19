@@ -5,7 +5,17 @@ import { locatePlan } from "../plan/locate.js";
 import { readPlan, type PlanRead } from "../plan/read.js";
 import { pushBranch, PublishFailure, remoteBranchHead, updateBranch } from "../publish/branch.js";
 import { waitForChecks, type ChecksOutcome } from "../publish/checks.js";
-import { createGithubPullRequest, detectForge, findGithubPullRequest, readGithubChecks, readGithubHead } from "../publish/forge.js";
+import {
+  createGithubPullRequest,
+  createGitlabMergeRequest,
+  detectForge,
+  findGithubPullRequest,
+  findGitlabMergeRequest,
+  gitlabIid,
+  readGithubChecks,
+  readGithubHead,
+  readGitlabChecks,
+} from "../publish/forge.js";
 import { readPublishRecord, readTestMarker, removeTestMarker, writePublishRecord, writeTestMarker } from "../publish/record.js";
 import { runProgram } from "../publish/program.js";
 import { runFolder, type PublishRecord } from "../run-state.js";
@@ -158,10 +168,6 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
       io.stderr(`cstack publish: nothing was pushed.\n${forge.reasons.map((r) => `- ${r}\n`).join("")}`);
       return 4;
     }
-    if (forge.kind !== "github") {
-      io.stderr("cstack publish: the GitLab path is not built yet. Nothing was pushed.\n");
-      return 5;
-    }
     const options = { cwd: located.root, env: deps.env };
     const folder = runFolder(located.root, located.relative);
     const record = readPublishRecord(folder) ?? { pullRequest: "", pushes: [] };
@@ -193,10 +199,12 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
         writePublishRecord(folder, record);
         madeNow += 1;
       }
-      const found = findGithubPullRequest(forge, plan.header.Branch, options);
+      const github = forge.kind === "github";
+      const found = github ? findGithubPullRequest(forge, plan.header.Branch, options) : findGitlabMergeRequest(forge, plan.header.Branch, options);
+      const create = github ? createGithubPullRequest : createGitlabMergeRequest;
       record.pullRequest =
         found ??
-        createGithubPullRequest(
+        create(
           forge,
           { branch: plan.header.Branch, target: plan.header["Target branch"], title: plan.pullRequest!.title, body: plan.pullRequest!.body },
           options,
@@ -205,8 +213,13 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
 
       const pushedCommit = runProgram("git", ["rev-parse", "--verify", "HEAD"], options).stdout.trim();
       const url = record.pullRequest;
+      // On GitLab the pipeline carries its own commit, so the checks are empty until it shows the pushed one.
+      const iid = github ? "" : gitlabIid(url);
       const outcome = await waitForChecks({
-        read: () => ({ head: readGithubHead(forge, url, options), checks: () => readGithubChecks(forge, url, options) }),
+        read: () =>
+          github
+            ? { head: readGithubHead(forge, url, options), checks: () => readGithubChecks(forge, url, options) }
+            : { head: pushedCommit, checks: () => readGitlabChecks(forge, iid, pushedCommit, options) },
         pushed: pushedCommit,
         timeoutMs: timeoutMinutes * 60_000,
         pollMs: pollSeconds * 1000,

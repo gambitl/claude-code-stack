@@ -5,7 +5,7 @@ import { readPlan } from "../src/plan/read.js";
 import { runFolder } from "../src/run-state.js";
 import { detectForge } from "../src/publish/forge.js";
 import { publish } from "../src/commands/publish.js";
-import { PLAN_PATH, makePublishEnv, type PublishEnv } from "./helpers/publish-env.js";
+import { PLAN_PATH, makePublishEnv, type Answer, type PublishEnv } from "./helpers/publish-env.js";
 import { collect, commitFiles, commitPlan, git } from "./helpers/plan-repo.js";
 
 // Every fake gh, glab and git call starts a process, so a full run needs more than the default 5 seconds.
@@ -502,5 +502,201 @@ describe("cstack publish waits for the checks of the pushed commit on GitHub", (
     env.scenario({ ...base, "gh pr checks": { stderr: "boom\n", code: 1 } });
     const { code } = await run(env, ["--grace", "0"]);
     expect(code).toBe(5);
+  });
+});
+
+describe("cstack publish on GitLab", () => {
+  const HOST_URL = "https://gitlab.example.org/group/sub/r.git";
+  const LINK = "https://gitlab.example.org/group/sub/r/-/merge_requests/12";
+  const head = (env: PublishEnv) => git(env.repo, "rev-parse", "HEAD");
+  const record = (env: PublishEnv) =>
+    JSON.parse(readFileSync(join(runFolder(env.repo, PLAN_PATH), "publish.json"), "utf8"));
+  const glabCalls = (env: PublishEnv, sub: string) =>
+    env.calls().filter((c) => c.program === "glab" && c.args.slice(0, 2).join(" ") === sub);
+  const pipeline = (sha: string, status: string, jobs: { name: string; status: string }[] = []) => ({
+    stdout: JSON.stringify({ id: 5, sha, status, web_url: "https://gitlab.example.org/group/sub/r/-/pipelines/5", jobs }),
+  });
+  const SECOND = 1000;
+
+  const scenarioOf = (_env: PublishEnv) => ({
+    "gh auth status": { code: 1 },
+    "glab auth status": { code: 0 },
+    "glab mr create": { stdout: `Creating merge request\n${LINK}\n` },
+  });
+
+  function gitlabEnv(answers: Record<string, Answer | Answer[]> = {}) {
+    const env = makePublishEnv();
+    git(env.repo, "config", "remote.origin.url", HOST_URL);
+    git(env.repo, "config", `url.${env.bare}.insteadOf`, HOST_URL);
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `Creating merge request\n${LINK}\n` },
+      ...answers,
+    });
+    return env;
+  }
+
+  it("creates the merge request with glab and passes the title and the body", async () => {
+    const env = gitlabEnv();
+    env.scenario({ ...scenarioOf(env), "glab ci get": pipeline(head(env), "success") });
+    const { code } = await run(env, ["--grace", "0"]);
+    const plan = readPlan(readFileSync(join(env.repo, PLAN_PATH), "utf8"));
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+    const create = glabCalls(env, "mr create");
+    expect(create).toHaveLength(1);
+    expect(create[0].args).toEqual(
+      expect.arrayContaining(["--source-branch", "gambitl/units", "--target-branch", "main", `--title=${plan.pullRequest!.title}`, "--yes"]),
+    );
+    expect(env.bodies()).toEqual([plan.pullRequest!.body]);
+    expect(record(env)).toMatchObject({ pullRequest: LINK });
+    expect(env.calls().filter((c) => c.program === "gh" && c.args[0] !== "auth")).toEqual([]);
+  });
+
+  it("carries -R with the full URL on every repository call of glab", async () => {
+    const env = gitlabEnv();
+    env.scenario({ ...scenarioOf(env), "glab ci get": pipeline(head(env), "success") });
+    await run(env, ["--grace", "0"]);
+    const repoCalls = env.calls().filter((c) => c.program === "glab" && c.args[0] !== "auth");
+    expect(repoCalls.length).toBeGreaterThanOrEqual(3);
+    for (const c of repoCalls) expect(c.args).toEqual(expect.arrayContaining(["-R", "https://gitlab.example.org/group/sub/r"]));
+    for (const c of env.calls().filter((c) => c.program === "glab" && c.args[0] === "auth")) {
+      expect(c.args).toEqual(["auth", "status", "--hostname", "gitlab.example.org"]);
+    }
+  });
+
+  it("reads the pipeline with --merge-request and never with --branch", async () => {
+    const env = gitlabEnv();
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": { stderr: "no pipeline found\n", code: 1 },
+    });
+    await run(env, ["--grace", "0"]);
+    const ci = glabCalls(env, "ci get");
+    expect(ci.length).toBeGreaterThan(0);
+    expect(ci[0].args).toEqual(expect.arrayContaining(["--merge-request", "12", "--output", "json"]));
+    expect(ci[0].args).not.toContain("--branch");
+  });
+
+  it("ignores the pipeline of an older commit, then gives 0 on success", async () => {
+    const env = gitlabEnv();
+    const sha = () => head(env);
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": [pipeline("0".repeat(40), "failed", [{ name: "old-failure", status: "failed" }]), pipeline(sha(), "success")],
+    });
+    // The grace period starts with the wait on GitLab, so it must be long enough to see the second pipeline.
+    const { code, out } = await run(env, ["--grace", "30", "--poll", "20"]);
+    expect(code).toBe(0);
+    expect(out.stdout + out.stderr).not.toContain("old-failure");
+    expect(glabCalls(env, "ci get").length).toBeGreaterThanOrEqual(2);
+    expect(record(env).checks).toMatch(/passed/);
+  });
+
+  it("gives 6 with the pipeline link and the names of the failed jobs", async () => {
+    const env = gitlabEnv();
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": pipeline(head(env), "failed", [
+        { name: "unit", status: "failed" },
+        { name: "lint", status: "success" },
+        { name: "e2e", status: "failed" },
+      ]),
+    });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(6);
+    expect(out.stderr).toContain("unit");
+    expect(out.stderr).toContain("e2e");
+    expect(out.stderr).not.toContain("lint");
+    expect(out.stderr).toContain("https://gitlab.example.org/group/sub/r/-/pipelines/5");
+  });
+
+  it("gives 7 when the pipeline is still running at the timeout, and counts manual as running", async () => {
+    for (const status of ["running", "manual"]) {
+      const env = gitlabEnv();
+      env.scenario({
+        "gh auth status": { code: 1 },
+        "glab auth status": { code: 0 },
+        "glab mr create": { stdout: `${LINK}\n` },
+        "glab ci get": pipeline(head(env), status),
+      });
+      const { code } = await run(env, ["--grace", "0", "--timeout", "1", "--poll", "20"]);
+      expect(code).toBe(7);
+    }
+  });
+
+  it("passes on skipped, and fails on canceled", async () => {
+    const skipped = gitlabEnv();
+    skipped.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": pipeline(head(skipped), "skipped"),
+    });
+    expect((await run(skipped, ["--grace", "0"])).code).toBe(0);
+    const canceled = gitlabEnv();
+    canceled.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": pipeline(head(canceled), "canceled"),
+    });
+    expect((await run(canceled, ["--grace", "0"])).code).toBe(6);
+  });
+
+  it("says that no check ran after the whole grace period without a pipeline", async () => {
+    const env = gitlabEnv({ "glab ci get": { stderr: "No pipeline found for merge request\n", code: 1 } });
+    const start = env.clock.value;
+    const { code, out } = await run(env, ["--grace", "30", "--poll", "10"]);
+    expect(code).toBe(0);
+    expect(out.stdout).toContain("no check ran");
+    expect(env.clock.value - start).toBeGreaterThanOrEqual(30 * SECOND);
+  });
+
+  it("gives 5 when glab ci get fails for another reason", async () => {
+    const env = gitlabEnv({ "glab ci get": { stderr: "boom\n", code: 1 } });
+    expect((await run(env, ["--grace", "0"])).code).toBe(5);
+  });
+
+  it("reuses a merge request of this project and ignores one from a fork", async () => {
+    const env = gitlabEnv();
+    const fork = { web_url: "https://gitlab.example.org/fork/r/-/merge_requests/3", iid: 3, source_project_id: 9, target_project_id: 1 };
+    const mine = { web_url: LINK, iid: 12, source_project_id: 1, target_project_id: 1 };
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr list": { stdout: JSON.stringify([fork, mine]) },
+      "glab ci get": pipeline(head(env), "success"),
+    });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(glabCalls(env, "mr create")).toHaveLength(0);
+    expect(glabCalls(env, "mr list")[0].args).toEqual(expect.arrayContaining(["--source-branch", "gambitl/units", "--output", "json"]));
+    expect(glabCalls(env, "ci get")[0].args).toEqual(expect.arrayContaining(["--merge-request", "12"]));
+
+    const only = gitlabEnv();
+    only.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status": { code: 0 },
+      "glab mr list": { stdout: JSON.stringify([fork]) },
+      "glab mr create": { stdout: `${LINK}\n` },
+      "glab ci get": pipeline(head(only), "success"),
+    });
+    await run(only, ["--grace", "0"]);
+    expect(glabCalls(only, "mr create")).toHaveLength(1);
+  });
+
+  it("gives 4 when neither client is logged in", async () => {
+    const env = gitlabEnv({ "glab auth status": { code: 1 } });
+    const { code } = await run(env);
+    expect(code).toBe(4);
+    expect(env.pushes()).toEqual([]);
   });
 });
