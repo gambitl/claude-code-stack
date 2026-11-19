@@ -1,6 +1,6 @@
 import { DEFAULTS, type SettingKey, type Settings } from "./settings.js";
 
-/** The block that `cstack next` prints between the run line and a guide. Its format is fixed by ADR-SIC-D. */
+/** The block that `cstack next` prints between the run line and a guide. Its format is fixed by the plan of ticket #23. */
 export function settingsBlock(settings: Settings): string {
   if (!settings.found) {
     return "Settings of this repository: there is no .cstack/settings.json, so every value is the default.\n\n";

@@ -115,7 +115,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
 
   const now = options.now ?? (() => new Date());
   try {
-    // WHY: the settings are read before any state is written, so an invalid file stops every call at once (ADR-SIC-D).
+    // WHY: the settings are read before any state is written, so an invalid file stops every call at once (plan of ticket #23).
     const block = settingsBlock(readSettings(repositoryRoot(options.cwd)));
     if (values.new) {
       clearCurrentRun(options.cwd);
