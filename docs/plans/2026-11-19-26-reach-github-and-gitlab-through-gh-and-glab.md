@@ -425,6 +425,16 @@ May I change `cstack/src/tracker/choose.ts`, which is outside the share the coor
 - `cstack/src/cli.ts` holds the `tracker` dispatch. The usage line follows the order of its handler keys, which is read, list, move, comment, the order of the manifest.
 - `docs/projects/skills-into-cli.md` and the ADRs are not changed in code. They are part of the documentation duties of the next phases.
 
+### Reviewer findings
+
+Correctness reviewer. Fixed: on GitLab, `move` accepted any state name, because `moveState` never called `checkStateName`. Fixed: the GitLab milestone list left out `--all`, so closed issues were missing. Fixed: the GitLab same-project comparison was case sensitive. Fixed: the per-issue link calls all ran at once, and now run five at a time.
+
+Security reviewer. Fixed: the GitLab state name check (same as above). Fixed: the backup of `settings.json` was created with the default mode, and is now 0600. Fixed: the error for an invalid settings file repeated text from the file, and now gives only the line and column. Follow-up, not fixed: `cstack tracker comment --body-file` posts any file that the user can read, and `Bash(cstack *)` lets Claude run it without asking, so a ticket text with hidden instructions could make Claude post a private file. Fixing it changes how the command is used, so it needs the user's choice (see "Non-blocking questions"). Not fixed, below the threshold: a host whose name holds "gitlab" is treated as GitLab, so `GITLAB_TOKEN` goes to the host of `origin`.
+
+Conventions reviewer. Fixed: `--from-file` failed in a clone without `origin` when `--tracker` was not given, and the four commands each had their own copy of the host lookup. A new helper `resolveTrackerName` in `open.ts` now serves all four. Fixed: the README showed `move <key> <state>` and `comment <key> <file>`, and now shows the real usage lines. Fixed: the import order and the long handler line in `cli.ts`. Follow-up: the GitLab adapter exits with 3 for an unreadable comment file, and the GitHub adapter exits with 1. The command checks the file first, so users do not meet it.
+
+Simplicity reviewer. Fixed: the two commands `move` and `comment` shared a 20-line block, now one function `refuseWithoutClient`. Fixed: `list` read `origin` a second time. Not done: removing the `env` option of `OpenTrackerOptions`, because the coordinator fixed that interface. Not done: removing the file check in the GitHub adapter's `addComment`, because a test calls the adapter directly.
+
 ## Briefing
 
 ## Non-blocking questions
