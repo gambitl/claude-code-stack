@@ -463,7 +463,7 @@ The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills insta
 
 ## Briefing
 
-The comment-file check you chose is not built yet. The code on the branch still posts any file it can read, and the comment on the guides ticket (#31) still says the user "may want to restrict" it. The pull request should open only after the check is built and tested, and after that comment gets its extra sentence.
+The comment-file check you chose is now built (unit 16, commit `6fba60c`), and the comment on the guides ticket (#31) now says so. The advisor wrote this briefing before the check existed, and the executor built it afterwards.
 
 The rest of the ticket is built. cstack reads, lists, moves and comments on GitHub tickets through `gh` and on GitLab tickets through `glab`. It falls back to the file from Claude for reads, and `cstack skills install --add-permission` adds the rule `Bash(cstack *)`. The 902 tests and the type check passed on the branch before your answer.
 
@@ -514,6 +514,37 @@ I did not reopen the locked decisions: the `open.ts` interface and the file spli
 none
 
 ## Pull request
+
+Title: feat(cli): reach GitHub and GitLab tickets through gh and glab
+
+````markdown
+This pull request lets cstack read, list, move and comment on tickets of GitHub and GitLab through `gh` and `glab`. Claude does not need its own connection for these calls.
+
+## What was built
+
+There are four new commands: `cstack tracker read`, `list`, `move` and `comment`. On GitHub they run `gh`, and on GitLab they run `glab`. When no client is logged in, reads fall back to a file that Claude writes, and writes exit with code 4 so Claude uses its own connection. The comment text never goes through a shell. `cstack skills install --add-permission` adds the rule `Bash(cstack *)` to the Claude settings file, after it keeps a backup copy. The README explains both.
+
+## Key decisions
+
+- `comment` accepts only a file inside the repository or a temporary folder, that is not empty and has at most 65,536 bytes. With the permission rule, a ticket with hidden instructions could otherwise make Claude post a private file on a public issue. Without a real git repository, only temporary folders pass.
+- The permission hint goes to standard error, because 13 existing tests compare standard output exactly.
+- The GitLab link calls of a milestone list run five at a time.
+
+## Files touched
+
+The code is in `cstack/src/tracker/`, `cstack/src/commands/tracker-*.ts`, `cstack/src/claude-settings.ts`, `cstack/src/commands/skills.ts` and `cstack/src/manifest.ts`. The tests and the recorded `gh` answers and hand-written `glab` answers are under `cstack/test/`. The README changed too. The plan is `docs/plans/2026-11-19-26-reach-github-and-gitlab-through-gh-and-glab.md`.
+
+## Risks and follow-ups
+
+- The GitLab path never ran against a real `glab`. Its test answers were written by hand. The risk is mostly in how a missing label (404) and an expired login (401) are spotted.
+- A remote with an SSH alias, such as `git@github-work:o/r`, makes cstack say `gh` is not logged in. Claude then writes with its own connection, so nothing breaks.
+- The settings file is read before the skills install and written after. A change made by Claude Code in that short gap would be overwritten. The backup covers it.
+- `test/report.test.ts` sometimes passes its 5-second limit. Run it again if it fails there.
+
+Please merge with "Create a merge commit", as `main` does. A squash would lose the per-unit commits and their `Cstack-Unit` lines.
+
+Fixes #26
+````
 
 ## Documentation
 
