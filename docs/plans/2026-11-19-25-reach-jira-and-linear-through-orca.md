@@ -423,6 +423,10 @@ The reviewer found no blocking bug and made two commits. The first test now chec
 
 Judgment calls for the pull request body. An empty Linear epic is accepted, while an empty Jira epic is refused, and nobody has checked whether `--parent-id` accepts a key. On Jira Cloud, the footer is found only if Orca keeps the bold `**Size:` marker when it turns the description into text, which is unverified without a sandbox. A Linear issue with no state `type` would give a TypeError instead of exit 5, but Orca seems to always send it. The test `names a unit without a commit` in `test/report.test.ts` times out only in a full run, and passes alone.
 
+### After the build
+
+Both blocking questions found after the build were answered by the user, so no question stays open. Unit 10 makes a Linear list by epic read the epic first and pass its internal id, and refuses an empty list with exit 1 (commit 3c2bdaf). Unit 11 makes Orca unavailable for Linear when more than one workspace is saved (commit 0a7f72c). The whole suite passed with 881 tests after unit 10.
+
 ## Briefing
 
 ### What you should know about what was built
@@ -470,7 +474,7 @@ I did not reopen three locked decisions. They are ADR-SIC-F, the coordinator's s
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+- For the Orca maintainers, in English: "Could `orca jira issue --json` include the issue links, `orca jira search` page past 100 results, and `orca linear list-issues` filter by project milestone?" This pull request does not need the answer.
 
 ## Pull request
 
@@ -490,11 +494,14 @@ I did not reopen three locked decisions. They are ADR-SIC-F, the coordinator's s
 
 - The worktree had no `node_modules`, so `npm run typecheck` failed with "Cannot find type definition file for 'node'" in unit 3. I ran `npm ci` in `cstack/` and it passed.
 - Several implementers wrote the code before the red run, so they moved the source aside to get a real red run (units 4, 6, 8, 9).
+- Units 10 and 11 were added after the build, for the answers to blocking questions 5 and 6, and the plan file was edited to hold them.
 - The first full `npm test` run showed 1 failed test out of 873 while it ran next to other work. A second and a third run passed all 873. I did not find the cause.
 
 ## Hand-off log
 
 - 2026-11-19, executor, phase build: added the label `in progress` to ticket 25 (GitHub has no state field), committed the plan file, and built units 1 to 9 in five batches. Typecheck and the whole suite pass (873 tests).
+
+- 2026-11-19, executor, phase after-build-questions: added units 10 and 11 for the answers to questions 5 and 6, built both, filled the non-blocking questions.
 
 ## History
 
