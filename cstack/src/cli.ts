@@ -18,6 +18,7 @@ import { trackerComment } from "./commands/tracker-comment.js";
 import { trackerList } from "./commands/tracker-list.js";
 import { trackerMove } from "./commands/tracker-move.js";
 import { trackerRead } from "./commands/tracker-read.js";
+import { unitCollect } from "./commands/unit-collect.js";
 import { unitCommit } from "./commands/unit-commit.js";
 import { unitGreen } from "./commands/unit-green.js";
 import { unitOrder } from "./commands/unit-order.js";
@@ -91,6 +92,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i),
       red: (a, i) => unitRed(a, i),
       green: (a, i) => unitGreen(a, i),
+      collect: async (a, i) => unitCollect(a, i, { cwd: process.cwd(), orca: { run: createRunner(60000), env: process.env } }),
     }),
 };
 

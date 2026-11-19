@@ -70,3 +70,17 @@ test("each role gets only its own inputs", () => {
   expect(Boolean(buildSpec(x).includes("Stuck report: /s.md"))).toBe(true);
   expect(buildSpec(i).includes("Stuck report")).toBeFalsy();
 });
+
+test("the spec of an implementer in a child worktree holds relative paths and the install sentence", () => {
+  const root = repo();
+  const plan = join(root, "docs", "plans", "p.md");
+  const i = { ...inputs("implementer", { planFile: plan }, root), childWorktree: true as const };
+  const spec = buildSpec(i);
+  expect(spec.includes(root)).toBe(false);
+  expect(spec.includes("- Plan file: docs/plans/p.md")).toBe(true);
+  expect(spec.includes("- Conventions file: CLAUDE.md")).toBe(true);
+  expect(spec.includes("folder where Orca starts you")).toBe(true);
+  expect(spec.includes("Install the packages as the conventions file says before your first test run")).toBe(true);
+  expect(spec.trimEnd().endsWith(`--plan 'docs/plans/p.md'`)).toBe(true);
+  expect(buildSpec(inputs("implementer", { planFile: plan }, root)).includes(root)).toBe(true);
+});

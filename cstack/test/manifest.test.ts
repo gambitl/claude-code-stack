@@ -125,22 +125,22 @@ describe("matchMention", () => {
 describe("the flags that are not built yet", () => {
   it("names the ticket of the flag once the command is built", () => {
     const built = COMMANDS.map((e) => ({ ...e, built: true }));
-    expect(unbuiltRefusal(["helper", "start", "--child-worktree"], built)).toContain("Ticket #28 builds it.");
     expect(unbuiltRefusal(["wave", "--watch"], built)).toContain("Ticket #30 builds it.");
     expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
   });
 
   it("names the ticket of the command while the command is not built", () => {
-    expect(unbuiltRefusal(["unit", "collect"])).toContain("Ticket #28 builds it.");
+    expect(unbuiltRefusal(["unit", "collect"])).toBeUndefined();
+    expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
     expect(unbuiltRefusal(["wave"])).toBeUndefined();
     expect(unbuiltRefusal(["wave", "--watch"])).toContain("Ticket #30 builds it.");
   });
 });
 
 describe("the command list", () => {
-  it("holds twenty-two built commands and one that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(22);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(1);
+  it("holds twenty-three built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(23);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 
   it("has no entry with the command words graph ensure", () => {

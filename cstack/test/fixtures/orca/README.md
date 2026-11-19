@@ -44,6 +44,7 @@ Files written by hand:
 - `orchestration-worker-show.waiting.json` is the working answer with `observation.agentWait` set to an object that has an `evidence` field.
 - `orchestration-worker-show.exited.json` keeps the status `dispatched` and sets `result.projection.liveness.verdict` to `exited`.
 - `orchestration-worker-start.ready.json` is the answer of a worker that started, with a `dispatchId`.
+- `orchestration-worker-start.new-child.json` is the answer of a worker that started in a new child worktree. It is the ready answer with a `workspace` field, written as `<repository id>::<absolute path>`. The path is a placeholder, and the test replaces it with the path of the worktree that its fake runner creates.
 - `orchestration-worker-start.refused.json` is a clear refusal with the code `invalid_argument`.
 - `orchestration-worker-start.model-refused.json` is a clear refusal whose message names the model.
 - `orchestration-worker-start.failed-stage.json` is a failed start whose `error` also holds `failedStage`, `effects` and `residualResources`.

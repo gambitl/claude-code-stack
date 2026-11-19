@@ -60,6 +60,16 @@ describe("orca features", () => {
     expect((await features.get("workers")).available).toBe(true);
   });
 
+  it("makes only child worktrees unavailable without the worktree rm command", async () => {
+    const answer = JSON.parse(text("agent-context.current.json"));
+    answer.commands = answer.commands.filter((c: { command: string }) => c.command !== "worktree rm");
+    const { features } = setup({ "agent-context --json": JSON.stringify(answer) });
+    const child = await features.get("child-worktrees");
+    expect(child.available).toBe(false);
+    expect(child.available === false && child.reason).toContain("worktree rm");
+    expect((await features.get("workers")).available).toBe(true);
+  });
+
   it("explains two Jira sites", async () => {
     const { features } = setup({ [JIRA]: text("jira-connection.two-sites.json") });
     const jira = await features.get("jira");
