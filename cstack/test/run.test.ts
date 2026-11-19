@@ -32,6 +32,15 @@ describe("createRunner", () => {
     });
   });
 
+  it("keeps the standard output of a program that fails", async () => {
+    expect(await runner("sh", ["-c", `printf '{"ok":false}'; exit 1`])).toEqual({
+      kind: "failed",
+      exitCode: 1,
+      stdout: '{"ok":false}',
+      stderr: "",
+    });
+  });
+
   it("returns missing when the command does not exist", async () => {
     expect(await runner("cstack-no-such-command", [])).toEqual({
       kind: "missing",
