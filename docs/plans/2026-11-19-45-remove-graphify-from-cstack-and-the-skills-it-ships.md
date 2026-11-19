@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in `docs/projects/`), ADRs in `docs/decisions/`
 Branch: gambitl/remove-graphify
 Conversation language: French
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -253,6 +253,40 @@ Four reviewers ran: correctness, security, conventions and simplicity. Correctne
 
 ## Briefing
 
+### What you should know about what was built
+
+The branch removes Graphify from everything `cstack` builds and ships. `cstack doctor` no longer checks it, and the command list no longer has `cstack graph ensure`. The guides and the five agent prompts now map the code with a plain search of the repository. It does what the ticket asked. I ran the full suite (378 of 378 pass) and the type check. The frozen `skills/` folder is untouched, and the only Graphify mention left in `cstack/skills/` and `cstack/guides/` is the line that records the decision.
+
+**What you need to do**
+
+**Merge this pull request with "Create a merge commit", not with "Squash and merge".** `cstack measure` reads the date of each commit of the plan file. A squash folds them into one commit, and the measures of this run are lost. The repository allows all three buttons, and the earlier pull requests used merge commits.
+
+**What to watch**
+
+- The open pull request that adds `cstack next` (#46) conflicts with this branch in one place: the counts in `cstack/test/manifest.test.ts`. Whichever merges second must say eleven built commands and three not built. I checked with a trial merge that git merges everything else on its own.
+- The test in `cstack/test/cli.test.ts` that checks the "not built in this version yet" message picks a real unbuilt command. `cstack graph ensure` was the only one that would never be built. On the branch of #46, that test returns early when no candidate is left. Once `cstack next` and the command that publishes (#20) merge, it will pass without checking anything. I wrote a question about it in the plan file.
+- One test of `cstack/test/report.test.ts` timed out once at 5 seconds during the review, and passed alone. It passed in my run too. If the CI fails there, rerun it before you look at this branch.
+
+#### Details
+
+**What was built and whether it meets the ticket.** The branch `gambitl/remove-graphify` holds eight commits, from `ff8f386` to `ba51f7d`. `origin/main` has not moved since the branch started. The four units of the plan are done and match it. Unit 1 (`e5e352b`) changed the guides `code-map.md` and `review.md`, the five prompts and the settled decision line. Unit 2 (`08379b5`) removed the doctor item, its hint, its fixture, its tests and the README line. Unit 3 (`ee8f978`) removed the manifest entry and added its two test cases. Unit 4 (`f040851`) made the four edits to `docs/projects/skills-into-cli.md`. The retrospective of #19 came in by cherry-pick as `d50992a`, which is the same change as `1131c63` with a new hash, as a cherry-pick always gives. I checked each acceptance criterion myself. `npm test` in `cstack/` gives 33 files and 378 tests passing, and `npm run typecheck` prints nothing. `git diff origin/main --stat -- skills/` prints nothing. A case-insensitive search of `cstack/guides`, `cstack/skills` and `cstack/src` for `graphify`, `\bgraph\b` and `node id` finds only the opening sentence of `code-map.md` ("No code graph tool is used") and the decision line of `settled-decisions.md`, which is the one exception of `cstack/test/no-graphify.test.ts`. Outside `docs/plans/`, `docs/retros/` and the frozen `skills/`, the only other files that still name Graphify are the tests that check its absence, the specification lines that describe the past, and `config/settings.json` line 137, which the plan keeps on purpose.
+
+**The merge button.** `cstack/src/measure/moments.ts` lines 53 and 62 run `git log` on the plan file's path and read the author date of each commit, then look for the commit where the status became "ready for review". A squash merge replaces all the plan commits on `main` with one commit, so `cstack measure` would find a single moment for this ticket once the branch is deleted. `gh repo view` shows that merge, squash and rebase are all allowed. The history of `main` shows merge commits for #42, #43 and #44. The developer clicks the button, because the coordinator brief forbids the run to merge. If nobody thinks about it, GitHub shows the last button used, which has been a merge commit so far, so the risk is low but the cost is a lost measurement.
+
+**The conflict with the pull request of `cstack next` (#46).** `git merge-tree --write-tree --name-only HEAD origin/gambitl/next-phase` reports one conflict, in `cstack/test/manifest.test.ts`. That branch changes the counts case to eleven built and four not built, and this one changes it to ten built and four not built. After both, the list holds eleven built commands (#46 builds `next`) and three not built (`unit red`, `unit green`, `publish`). The title of the case must say "eleven built commands and three that are not built". `README.md` and `cstack/src/manifest.ts` merge cleanly. #46 adds no new Graphify mention in `cstack/guides/` or `cstack/skills/`, so `no-graphify.test.ts` keeps passing after the merge. The three other tickets of the wave (#17, #20, #24) have no open pull request yet, and each will also change those counts. The coordinator brief already says how to resolve this, with a merge commit and a full test run, so this is only a reminder.
+
+**The "not built yet" test going empty.** On `main`, `cstack/test/cli.test.ts` lines 103 to 108 run `next` as the unbuilt command. On the branch of #46, the case picks the first unbuilt entry whose first command word is not also the first word of a built entry, and it returns early with no assertion when there is none. Today the candidates are `next`, `publish` and `graph ensure`; `unit red` and `unit green` are excluded because `unit commit` and `unit order` are built. This branch removes `graph ensure`, which was the only entry that would never be built. #46 builds `next`, and #20 is meant to build `publish`. After those two merge, the case finds nothing and passes silently, so the code path in `cstack/src/cli.ts` that prints "not built in this version yet" and exits with `2` has no test. Ticket #24 may change that rule to exit `1` with the ticket name, which would also go untested. This is not a defect of this branch, and the plan required the removal. The fix belongs to whichever ticket builds the last unbuilt command, or to a small follow-up: the case could build its own command list with one fake unbuilt entry instead of reading the real one. If nobody acts, the test suite keeps passing and nobody notices that the path is untested.
+
+**The slow test in `report.test.ts`.** The impact notes record that the case "names a unit without a commit..." hit the 5000 ms timeout of vitest once in the full suite and passed alone. It runs git in a temporary repository. It passed in my full run. The file is not touched by this branch. If the CI check fails there, the first step is a rerun, as the coordinator brief already says for runner failures.
+
+**Earlier questions, and how they were resolved.** The reason for dropping Graphify was answered by the user on 2026-11-19, and the exact wording is now in `settled-decisions.md` line 30 and under the heading of US-11. The question of an ADR was answered "no", and none was written. The new scan test lives in its own file, `cstack/test/no-graphify.test.ts`, and its exception covers only the line that starts with "- Agents map the code themselves". No bullet was added to section 10 of the specification. The guides name no search tool. The replacement for `graphify affected` reuses the wording of `code-reviewer-simplicity.md` in `code-map.md`, `review.md`, `code-explorer.md`, `implementer.md` and `pr-reviewer.md`. The doctor case "reports an answer without a version as present" now uses `claude --version`. US-5 AC1 keeps its old sentence and gains the one that says the baseline had no graph. The checks of the token comparison and of the frozen skills still hold, because the branch did not touch `skills/` or the measure code.
+
+**New question.** Label: non-blocking. The run cannot settle it, and the work of this ticket is complete and correct whatever the answer. It is for the maintainer, in English, as a comment on the pull request of `cstack next` (#46) or on the ticket of `cstack publish` (#20): "Once `cstack graph ensure` is gone (#45) and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the 'not built in this version yet' message finds no unbuilt command and returns early without asserting anything. Should that case use its own command list with one fake unbuilt entry, so the message and the exit code stay tested?"
+
+**What changed since the plan.** The build followed the plan. The simplicity reviewer asked to remove the sentence "No code graph tool is used." from `code-map.md` and the manifest case about `graph ensure`; both stay, because the plan and the ticket ask for them. The only fix from the review was making `graphifyHits` private to its test file (`ba51f7d`).
+
+I checked security, data model lock-in, scale, failure and rollback, user-facing edge cases, operations and cost, and reversibility, and found nothing beyond the points above: the branch removes text, one unbuilt command entry and one optional doctor item, and every part of it can be reverted with git.
+
 ## Open questions after the build
 
 ### Blocking
@@ -261,13 +295,40 @@ none
 
 ### Non-blocking
 
-none
+For the maintainer. Once `cstack graph ensure` is gone (#45) and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message finds no unbuilt command and returns early without asserting anything. Should that case use its own command list with one fake unbuilt entry, so the message and the exit code stay tested? It can go on the pull request of `cstack next` (#46) or on the ticket of `cstack publish` (#20).
 
 ## Pull request
 
+Title: `feat(cli): remove Graphify from cstack and the skills it ships`
+
+Body:
+
+This pull request removes Graphify from everything that `cstack` builds and ships. Agents now map the code with search and file reads only.
+
+**What changed.** `cstack doctor` no longer checks for Graphify, and the README no longer lists it. The entry of `cstack graph ensure`, which was never built, left the command list. The guides `code-map.md` and `review.md` and five agent prompts now say to search the whole repository and read only the lines the search points to. The line in `settled-decisions.md` now records that no code graph tool is used. The reason is that nothing has shown that a code graph tool finds code better than an agent that searches and reads files on its own, or that it saves tokens. In the specification, US-11 is marked as dropped and Graphify is removed from the doctor criterion and the tool list.
+
+**Tests.** A new test, `cstack/test/no-graphify.test.ts`, fails if a guide or prompt names Graphify. Its only exception is the decision line. Two new cases cover the command list and `cstack doctor`. `npm test` and `npm run typecheck` pass. Nothing under `skills/` changed.
+
+**Judgment calls.** The independent review found no problem. The `required` argument of `simple()` in `requirements.ts` stays although every caller now passes `true`, so the diff stays small in a file that #24 also changes. The sentence "No code graph tool is used." stays in `code-map.md`, because the plan asked for it. One test in `report.test.ts` timed out once under load and passed alone; this branch does not touch it, so rerun the check if it fails there.
+
+**Files.** Plan: `docs/plans/2026-11-19-45-remove-graphify-from-cstack-and-the-skills-it-ships.md`. This pull request also carries the retrospective of #19, `docs/retros/2026-11-19-19.md`. When you merge, use a merge commit and not a squash, because `cstack measure` reads the dates of the plan commits.
+
+**Open questions, not needed for this pull request.** You can merge this pull request without these answers. For the maintainer: once `cstack graph ensure` is gone and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message finds no unbuilt command and returns early without asserting anything. Should it use its own command list with one fake unbuilt entry, so the message and exit code stay tested?
+
+Fixes #45
+
 ## Documentation
 
+- Ticket comment on #45: https://github.com/gambitl/claude-code-stack/issues/45#issuecomment-7004521987
+- Comment on the dependent ticket #23: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-7004522419
+- Specification page: `docs/projects/skills-into-cli.md` (unit 4, committed).
+- README: the Graphify line left "Requirements" (unit 2, committed).
+- Decision record: none, by the user's choice. The new line in `cstack/skills/resolve-issue/settled-decisions.md` records the decision.
+
 ## Executor notes
+
+- The full `npm test` run failed once on `report.test.ts` ("names a unit without a commit...", 5000 ms timeout under load) while an implementer ran it; it passed alone and in later runs.
+- Attempting to call Monitor without its schema was refused by the harness; I waited for the sub-agent notification instead.
 
 ## Hand-off log
 
