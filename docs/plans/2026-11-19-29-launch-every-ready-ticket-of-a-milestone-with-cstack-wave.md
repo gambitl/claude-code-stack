@@ -461,7 +461,50 @@ The build also changed a shared file of #24: `cstack/src/orca/run.ts` now keeps 
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): add cstack wave to start every ready ticket of a milestone
+
+````markdown
+## What this builds
+
+`cstack wave --milestone <name>` (or `--epic <key>`) lists the tickets of a wave in three groups: ready, blocked and already started. It ends with the number of finished tickets. In a terminal, it then asks "Start the N ready tickets? [y/N]". Only `y` or `yes` starts anything. Without a terminal, it prints the groups and starts nothing.
+
+After the yes, cstack reads each ready ticket again and applies the ready rule again. A ticket that is no longer ready is skipped, with its reason. When Orca offers the feature `ticket-worktrees`, cstack runs `orca worktree create` with Claude and the prompt `/resolve-issue <key>`. Otherwise it creates a git worktree next to the repository and prints one command to paste.
+
+## Key decisions and why
+
+- The check "has a worktree" has three sources: git worktrees, Orca references, and the run folders of `resolve-issue` under the common git folder. The third source catches tickets that people started by hand on a branch without the key.
+- A ticket whose branch `<short name>` already exists is skipped, because Orca would otherwise add a numeric suffix without saying so.
+- Ticket text never reaches an argument, a prompt or the printed command. Only the checked key, the short name and the checked URL do. Titles are cleaned of terminal control sequences before they are printed.
+- If `orca reference find` fails, nothing starts and the exit code is 5. If one start fails or has an unknown outcome, cstack goes on, never retries, and exits with 5 at the end.
+- The repository root is the first entry of `git worktree list --porcelain`, because Orca accepts only the main clone.
+
+## Files touched
+
+The command is `cstack/src/commands/wave.ts`. The pieces are in `cstack/src/wave/` (text cleaning, names, the worktree check, the groups, the git start, the Orca start, the answer). `cstack/src/tracker/open.ts` is a temporary copy that serves only `--from-file`: ticket #26 owns it, and whichever of #26 and #29 merges second keeps the version of #26. `cstack/src/orca/shapes.ts` and four recorded Orca answers (written by hand) are new. The `wave` entry of `cstack/src/manifest.ts`, `cstack/src/cli.ts`, their tests and `README.md` changed in their `wave` lines only. The plan is `docs/plans/2026-11-19-29-launch-every-ready-ticket-of-a-milestone-with-cstack-wave.md`.
+
+## Review
+
+Four reviewers found one real gap: real Orca writes its `--json` errors to standard output, so the reason was lost. This is fixed. A ticket skipped after the yes now says why, and `orca reference find` errors name the ticket. An independent reviewer renamed the third group heading to "Already started" and widened the hostile-title test. Typecheck is clean and 867 tests pass. I also ran the built command in a throwaway clone without Orca: without a terminal and with the answer `n` it starts nothing.
+
+Judgment calls from the independent review:
+
+- If the second read or the second worktree check throws for one ticket after the yes, the whole loop stops. It fails safe, and a new run shows the tickets already started.
+- The printed start line begins with the key, so the user copies only the part from `cd` on.
+
+## Merge notes
+
+If #26 merges first, `cstack/src/tracker/open.ts` will conflict. Keep the version of #26. The command counts in `README.md` and `cstack/test/manifest.test.ts` will conflict with the other tickets of the wave. Add the numbers instead of taking one side.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+1. For the user: should the git way create its branch with `--no-track`? The new branch tracks `origin/<default branch>`, so with `push.default=upstream` a plain `git push` there would push to the default branch. `cstack publish` is not affected.
+2. For the user: should a failure of the second read or check for one ticket skip that ticket and go on, instead of stopping the whole loop?
+3. For ticket #31: does a slash command in `--prompt` run the skill when Orca starts the agent in its chat surface?
+
+Fixes #29
+````
 
 ## Documentation
 
@@ -482,7 +525,7 @@ The build also changed a shared file of #24: `cstack/src/orca/run.ts` now keeps 
 
 ## Hand-off log
 
-2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started. All ten units are committed with their trailers, and the full suite and the typecheck pass. The report to the main conversation moves on to the next phase.
+2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started. All ten units are committed with their trailers, and the full suite and the typecheck pass. Phases review to ready were done in the same run. The plan file is `ready for review` and the done report was submitted.
 
 ## History
 
