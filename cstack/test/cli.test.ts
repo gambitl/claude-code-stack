@@ -200,6 +200,8 @@ describe("run", () => {
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("order");
       expect(out.stderr).toContain("commit");
+      expect(out.stderr).toContain("red");
+      expect(out.stderr).toContain("green");
     }
   });
 });
