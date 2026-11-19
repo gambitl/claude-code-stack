@@ -505,7 +505,7 @@ none
 
 ### Non-blocking
 
-For the coordinator of this wave: "The comment list of #24 covers #25 to #29. May I also leave a short comment on #17 and #20? #24 adds a test that fails when a file under `cstack/src/` runs a program through a shell. It allows only `cstack/src/test-run.ts`, by that exact path. So #17 must keep that file name, and the helper of `cstack publish` in #20 must use `execFile` or `spawn` without a shell." The work is complete whatever the answer, because CI catches both cases after the merge.
+none. The build raised one question for the coordinator of this wave: may a short comment go on #17 and #20 about the no-shell test? It was already answered on 2026-11-19 by the coordinator's message recorded in the History part. The coordinator told #17 and #20 directly that `cstack/src/test-run.ts` is allowed by name and that every other program runs without a shell, so no comment is needed.
 
 ## Pull request
 
@@ -545,10 +545,6 @@ This pull request builds the contract of milestone 3. It adds the code that talk
 **Files touched**
 
 About 60 files, mostly new, in `cstack/src/orca/`, `cstack/src/tracker/`, `cstack/test/`, plus `cstack/src/manifest.ts`, `cstack/src/cli.ts`, `cstack/src/plan/read.ts`, `cstack/src/doctor/`, `README.md` (the Orca line), `docs/decisions/` and `docs/projects/skills-into-cli.md`.
-
-**Open questions, not needed for this pull request**
-
-This pull request can be merged without their answers. For the coordinator of this wave: may a short comment go on #17 and #20? #24 adds a test that fails when a file under `cstack/src/` runs a program through a shell, and it allows only `cstack/src/test-run.ts`. So #17 must keep that file name, and the helper of `cstack publish` in #20 must use `execFile` or `spawn` without a shell.
 
 Merge order: this branch changes `cli.ts`, `manifest.ts` and their tests, like #15, #17 and #20. Merge it first if you can.
 
