@@ -51,3 +51,13 @@ These six files were not recorded. No Jira sandbox was available, so each answer
 - `jira-search.epic.json` follows `orca jira search <jql> --json`. Its `result` is a list of issues with the same shape.
 - `jira-status-list.current.json` follows `orca jira status list <key> --json`. Each transition has `id`, `name` and `to`. A transition name, such as "Start progress", is not always the name of the status it leads to.
 - `jira-status-set.ok.json` and `jira-comment-add.ok.json` follow the success answers of `orca jira status set` and `orca jira comment add`. Each has `result.ok` set to true.
+
+## Linear answers written by hand
+
+These seven files were not recorded. No Linear sandbox was available, so each answer was written by hand from the code of the installed Orca 1.4.263. They use only placeholder values.
+
+- `linear-issue.blocked.json` and `linear-issue.done.json` follow `orca linear issue <key> --relations --json`. The result is `{issue, relations, meta}`. The first issue, `EXA-1`, has one `blockedBy` relation to `EXA-2`. The second issue, `EXA-2`, is done and has no relation.
+- `linear-list-issues.epic.json` and `linear-list-issues.truncated.json` follow `orca linear list-issues --json`. Both hold `EXA-1` and `EXA-3`. The second one sets `truncated` to true.
+- `linear-team-states.current.json` follows `orca linear team states --team <key> --json`. It lists six states.
+- `linear-status-set.ok.json` follows `orca linear status set <key> --to <state> --json`.
+- `linear-comment-add.ok.json` follows `orca linear comment add <key> --body-file <path> --json`.

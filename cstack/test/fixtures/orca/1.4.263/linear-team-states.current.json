@@ -1,0 +1,42 @@
+{
+  "ok": true,
+  "result": {
+    "team": {
+      "id": "id-placeholder",
+      "name": "Example Team",
+      "key": "EXA"
+    },
+    "states": [
+      {
+        "id": "id-placeholder",
+        "name": "Backlog",
+        "type": "backlog"
+      },
+      {
+        "id": "id-placeholder",
+        "name": "Todo",
+        "type": "unstarted"
+      },
+      {
+        "id": "id-placeholder",
+        "name": "In Progress",
+        "type": "started"
+      },
+      {
+        "id": "id-placeholder",
+        "name": "In Review",
+        "type": "started"
+      },
+      {
+        "id": "id-placeholder",
+        "name": "Done",
+        "type": "completed"
+      },
+      {
+        "id": "id-placeholder",
+        "name": "Canceled",
+        "type": "canceled"
+      }
+    ]
+  }
+}
