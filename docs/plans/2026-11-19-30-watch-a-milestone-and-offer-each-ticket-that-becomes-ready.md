@@ -339,6 +339,8 @@ The same test file also checks these cases. A yes in the first round for two tic
 
 The same test file also checks these cases. The answers `n`, an empty line and `maybe` start nothing, in the first round and in a later round, in the git way and in the Orca way, and no worktree folder appears. Control-C during a question prints `Stopped the watch.`, starts nothing, and exits with `0`. The end of standard input during a question prints `Standard input closed` and starts nothing.
 
+Escalated: the first attempt was stuck because the test of this unit already passed. Units 2 and 7 had already put the `ignored` callback in place, so the unit adds no production code. The second attempt, `implementer-escalation`, kept the test file as written. It got an honest red run by turning the `ignored` callback off for a moment, then restored `watch.ts` and committed only the test file.
+
 ### Unit 10: Make --watch a built flag of cstack wave
 - Files: `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts`, `README.md`
 - Test: `cstack/test/manifest.test.ts`: `unbuiltRefusal(["wave", "--watch"])` is `undefined`, both with the real list and with every command built.
