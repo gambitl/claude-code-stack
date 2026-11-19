@@ -13,7 +13,7 @@ function files(dir: string): string[] {
 }
 
 // Lists "file:line" for every line that names Graphify, except the one line that records the decision.
-export function graphifyHits(): string[] {
+function graphifyHits(): string[] {
   const hits: string[] = [];
   for (const folder of ["guides", "skills"]) {
     for (const file of files(join(root, folder))) {

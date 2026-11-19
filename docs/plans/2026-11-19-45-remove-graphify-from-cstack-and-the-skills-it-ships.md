@@ -247,6 +247,10 @@ After the four units, run `npm test` and `npm run typecheck` in `cstack/`, and c
 
 Graphify is not installed and the brief forbids running it, so these notes come from a text search over the whole repository. Changed or deleted symbols: `GRAPHIFY_HINT` and the Graphify item of `requirements` (doctor), the `cstack graph ensure` entry of `COMMANDS`, and the guide and prompt text. Outside `docs/plans/`, `docs/retros/`, `config/settings.json` and the frozen `skills/` folder, the only remaining mentions of Graphify are the new tests and the decision line in `settled-decisions.md`. Nothing depends on the deleted entry or the deleted constant. `README.md` has no command that names `graph`. The usual companions of `manifest.ts` are `manifest.test.ts`, `cli.ts` and `cli.test.ts`; `cli.test.ts` and the mention scan pass. Those of `requirements.ts` are `doctor.test.ts`, the fixtures and `README.md`, all updated. Full suite on the branch: 377 of 378 tests pass. The one failure, `report.test.ts` "names a unit without a commit...", is a 5000 ms timeout of a test that runs git; it passes alone (26 of 26) and the file is not touched by this branch.
 
+### Reviews (phase 7)
+
+Four reviewers ran: correctness, security, conventions and simplicity. Correctness, security and conventions found nothing at their reporting bar. The simplicity reviewer raised three small points. First, drop the `export` of `graphifyHits` in `no-graphify.test.ts`: fixed. Second, delete the sentence "No code graph tool is used." in `code-map.md`: kept, because the plan's unit 1 asks for a paragraph that says no code graph tool is used. Third, delete the new manifest case about `graph ensure`: kept, because the plan and the ticket require it. No follow-ups.
+
 ## Briefing
 
 ## Open questions after the build
