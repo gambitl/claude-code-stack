@@ -14,6 +14,9 @@ import { WaveError } from "./errors.js";
 import { formatGroups, groupTickets } from "./groups.js";
 import { printableText } from "./title.js";
 import { loadWorktreeCheck } from "./worktrees.js";
+import { startInOrca } from "./start-orca.js";
+import { FETCH_FAILED, fetchOrigin, prepareGitStart } from "./start-git.js";
+import { startTicket, type Starter } from "./start.js";
 
 /** What the watch needs from the outside. Tests give a fake clock, a fake Control-C hook and their own input. */
 export interface WatchDeps {
@@ -63,9 +66,10 @@ export async function watchWave(
     return EXIT.refused;
   }
   let lister;
+  let reader;
   try {
     lister = await deps.openTracker("list", trackerOptions);
-    await deps.openTracker("read", trackerOptions);
+    reader = await deps.openTracker("read", trackerOptions);
   } catch (error) {
     if (!(error instanceof NoClientError)) throw error;
     io.stderr(NO_CLIENT);
@@ -92,6 +96,45 @@ export async function watchWave(
     let notifyWarned = false;
     let first = true;
     let failedInARow = 0;
+    let badStarts = 0;
+    /** Starts one ticket with a fresh fetch and a fresh worktree check, and prints one line. */
+    const startOne = async (key: string): Promise<void> => {
+      const shown = printableText(key);
+      const notStarted = () => io.stdout(`${shown}  not started, because you stopped the watch.\n`);
+      const failed = (why: string) => {
+        badStarts++;
+        io.stdout(`${shown}  failed, ${printableText(why)}.\n`);
+      };
+      try {
+        // WHY: each start runs exactly one `git fetch origin`. The git way fetches inside prepareGitStart.
+        let start: Starter;
+        if (orca) {
+          await fetchOrigin(deps.run, root);
+          start = startInOrca(deps.runLong, deps.env, root);
+        } else {
+          start = await prepareGitStart(deps.run, root);
+        }
+        const check = await loadWorktreeCheck({ run: deps.run, env: deps.env, root, tracker: name, orca });
+        const report = await startTicket(key, { reader: reader!, check, start, run: deps.run, root, tracker: name, signal: stop });
+        if (stop.aborted && report.kind !== "started" && report.kind !== "skipped") {
+          badStarts++;
+          io.stdout(`${shown}  outcome unknown, you stopped the watch while this ticket was starting. Check it by hand.\n`);
+          return;
+        }
+        io.stdout(report.line);
+        if (report.kind === "failed" || report.kind === "unknown") badStarts++;
+      } catch (error) {
+        if (stop.aborted && (error instanceof WaveError || error instanceof TrackerError || (error as Error)?.name === "AbortError")) {
+          notStarted();
+        } else if (error instanceof WaveError && error.message === FETCH_FAILED) {
+          failed("`git fetch origin` failed");
+        } else if (error instanceof WaveError || error instanceof TrackerError) {
+          failed(error.message);
+        } else {
+          throw error;
+        }
+      }
+    };
     while (!stop.aborted) {
       const started = watch.now().getTime();
       let groups;
@@ -132,6 +175,12 @@ export async function watchWave(
             offered.add(key);
             if (!isYes(answer)) declined.add(key);
           }
+          if (isYes(answer)) {
+            for (const key of readyKeys) {
+              if (stop.aborted) break;
+              await startOne(key);
+            }
+          }
         }
       } else {
         toOffer = readyKeys.filter((key) => !lastReady.has(key) && !declined.has(key));
@@ -150,19 +199,23 @@ export async function watchWave(
         if (!isYes(answer)) {
           declined.add(key);
           io.stdout(`\nNot started. The watch will not ask about ${printableText(key)} again.\n`);
+        } else {
+          io.stdout("\n");
+          await startOne(key);
         }
+        if (stop.aborted) break;
       }
       lastReady.clear();
       for (const key of readyKeys) lastReady.add(key);
       if (stop.aborted) break;
       if (groups.blocked.length === 0 && readyKeys.every((key) => offered.has(key))) {
         io.stdout("No ticket is blocked anymore and every ready ticket was offered, so the watch ended.\n");
-        return EXIT.ok;
+        return badStarts > 0 ? EXIT.toolFailed : EXIT.ok;
       }
       await watch.sleep(Math.max(0, started + interval * 60_000 - watch.now().getTime()), stop);
     }
     io.stdout(interrupted.signal.aborted ? "\nStopped the watch.\n" : "\nStandard input closed, so the watch stopped.\n");
-    return EXIT.ok;
+    return badStarts > 0 ? EXIT.toolFailed : EXIT.ok;
   } finally {
     removeInterrupt();
     answers.close();

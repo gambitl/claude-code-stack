@@ -12,10 +12,17 @@ export type StartOutcome =
 /** Quotes one argument for a shell with single quotes. Each `'` inside becomes `'\''`. */
 export const shellQuote = (s: string) => `'${s.replace(/'/g, "'\\''")}'`;
 
+export const FETCH_FAILED = "`git fetch origin` failed, so cstack started nothing.";
+
+/** Fetches origin. It throws when the fetch fails. */
+export async function fetchOrigin(run: Runner, root: string): Promise<void> {
+  const fetched = await run("git", ["fetch", "origin"], root);
+  if (fetched.kind !== "ok") throw new WaveError(FETCH_FAILED, EXIT.toolFailed);
+}
+
 /** Fetches origin and reads origin/HEAD once. It throws before any ticket when either fails. */
 export async function prepareGitStart(run: Runner, root: string) {
-  const fetched = await run("git", ["fetch", "origin"], root);
-  if (fetched.kind !== "ok") throw new WaveError("`git fetch origin` failed, so cstack started nothing.", EXIT.toolFailed);
+  await fetchOrigin(run, root);
   const head = await run("git", ["symbolic-ref", "--quiet", "refs/remotes/origin/HEAD"], root);
   const ref = head.kind === "ok" ? head.stdout.trim().replace(/^refs\/remotes\//, "") : "";
   if (ref === "") {
