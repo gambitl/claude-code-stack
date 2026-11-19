@@ -118,7 +118,7 @@ export async function watchWave(
         const report = await startTicket(key, { reader: reader!, check, start, run: deps.run, root, tracker: name, signal: stop });
         if (stop.aborted && report.kind !== "started" && report.kind !== "skipped") {
           badStarts++;
-          io.stdout(`${shown}  outcome unknown, you stopped the watch while this ticket was starting. Check it by hand.\n`);
+          io.stdout(`${shown}  the outcome is unknown, because Control-C also stopped the program that was starting it. Check ${shown} by hand.\n`);
           return;
         }
         io.stdout(report.line);
