@@ -214,6 +214,8 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
       const pushed = pushBranch(plan.header.Branch, options);
       if (pushed !== undefined) {
         record.pushes.push({ commit: pushed, time: new Date(deps.now()).toISOString() });
+        // The checks result belongs to the last push, so the result of the previous push no longer applies.
+        delete record.checks;
         writePublishRecord(folder, record);
         madeNow += 1;
       }

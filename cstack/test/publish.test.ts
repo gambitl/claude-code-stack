@@ -243,6 +243,19 @@ describe("cstack publish pushes once and opens the pull request on GitHub", () =
     expect(record(env).pullRequest).toBe(LINK);
   });
 
+  it("drops the checks result of the previous push as soon as a new push is recorded", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    await run(env, ["--grace", "0"]);
+    expect(record(env).checks).toBe("no check ran");
+    commitFiles(env.repo, ["a.txt"]);
+    env.scenario({ "gh pr list": { code: 1, stderr: "boom\n" } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(5);
+    expect(record(env).pushes).toHaveLength(2);
+    expect(record(env).checks).toBeUndefined();
+  });
+
   it("makes no push when nothing is new", async () => {
     const env = makePublishEnv();
     env.scenario(created);
