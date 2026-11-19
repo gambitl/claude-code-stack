@@ -360,7 +360,12 @@ Phase review (2026-11-19): four reviewers ran.
 - Simplicity: the duplicated reader of the latest helper record is merged in fd22d48. Not done, as follow-ups: make the Orca runner of `unitCollect` required and drop the sync overload, merge `applyUnits` into `applyInto`, split the plan text once in `withoutWorktreeLines`, reuse the unit order between `checkChildStart` and `firstBatchIsOneUnit`, and drop the name fallback of `findChildWorktree`. They only save lines.
 - Tests: full `npm run typecheck && npm test` passes, 87 files and 1102 tests.
 
-<phase independent-review: fixes and judgment calls>
+Phase independent-review (2026-11-19): one bug found and fixed in 6953a55. With `--child-worktree`, the branch and dirty-folder checks ran before cstack knew whether a child worktree would be created, so the fallbacks (no Orca, no feature, unit alone) were refused. The checks now run just before the worktree is created. Full suite passes, 87 files and 1104 tests. All acceptance criteria are met.
+Judgment calls for the pull request body:
+- A unit that reported done but made no commit gets its worker released, but its child worktree is not removed and it is never marked collected. A new implementer start for it is refused until the escalation role runs.
+- When Orca exits with 0 but prints text that is not JSON, the collect clean-up counts the release or removal as a success.
+- `--base-branch` gets a commit hash, as decided. The first real run must confirm that Orca accepts a hash.
+- After the rebase onto `main`, the command counts must become 23 built and 0 not built in `cstack/test/manifest.test.ts` and `README.md`.
 
 ## Briefing
 
