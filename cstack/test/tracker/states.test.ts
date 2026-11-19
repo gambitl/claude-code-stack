@@ -18,6 +18,12 @@ describe("forge state kinds", () => {
 });
 
 describe("jira and linear state kinds", () => {
+  it("gives unknown for names that every object has", () => {
+    for (const name of ["constructor", "__proto__", "toString", "hasOwnProperty"]) {
+      expect(jiraStateKind(name), name).toBe("unknown");
+      expect(linearStateKind(name), name).toBe("unknown");
+    }
+  });
   it("maps the Jira status category by name or key", () => {
     expect(jiraStateKind("To Do")).toBe("todo");
     expect(jiraStateKind("new")).toBe("todo");

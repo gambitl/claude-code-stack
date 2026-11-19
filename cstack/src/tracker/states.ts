@@ -4,26 +4,26 @@ import type { StateKind, TrackerName } from "./types.js";
 /** The only state names that a move accepts on GitHub and GitLab. */
 export const FORGE_STATE_NAMES = ["in progress", "in review"] as const;
 
-const JIRA: Record<string, StateKind> = {
+const JIRA = new Map<string, StateKind>(Object.entries({
   "to do": "todo", new: "todo",
   "in progress": "in-progress", indeterminate: "in-progress",
   done: "finished",
-};
+}));
 
-const LINEAR: Record<string, StateKind> = {
+const LINEAR = new Map<string, StateKind>(Object.entries({
   triage: "todo", backlog: "todo", unstarted: "todo",
   started: "in-progress",
   completed: "finished", canceled: "finished",
-};
+}));
 
 /** Maps a Jira status category (its name or its key). */
 export function jiraStateKind(category: string): StateKind {
-  return JIRA[category.toLowerCase()] ?? "unknown";
+  return JIRA.get(category.toLowerCase()) ?? "unknown";
 }
 
 /** Maps a Linear state type. */
 export function linearStateKind(type: string): StateKind {
-  return LINEAR[type.toLowerCase()] ?? "unknown";
+  return LINEAR.get(type.toLowerCase()) ?? "unknown";
 }
 
 /** Maps a GitHub or GitLab issue: closed is finished, a work label means in-progress. */
