@@ -58,3 +58,15 @@ export function makeRunner(orca: Record<string, string> = {}) {
   };
   return { run, calls };
 }
+
+/** Recorded answers that make Orca count as running, at 1.4.263, with `worktree create` and `reference find`. */
+export function orcaAnswers(extra: Record<string, string> = {}): Record<string, string> {
+  return {
+    "--version": fixture("version.current.txt"),
+    "status --json": fixture("status.running.json"),
+    "agent-context --json": fixture("agent-context.current.json"),
+    "reference find": fixture("reference-find.none.json"),
+    "worktree create": fixture("worktree-create.started.json"),
+    ...extra,
+  };
+}

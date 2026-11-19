@@ -13,6 +13,7 @@ import { WaveError } from "../wave/errors.js";
 import { formatGroups, groupTickets } from "../wave/groups.js";
 import { shortName } from "../wave/names.js";
 import { prepareGitStart } from "../wave/start-git.js";
+import { startInOrca, type OrcaOutcome } from "../wave/start-orca.js";
 import { printableText } from "../wave/title.js";
 import { loadWorktreeCheck, parseWorktreeList } from "../wave/worktrees.js";
 
@@ -104,7 +105,6 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       return EXIT.ok;
     }
     io.stdout("\n");
-    if (orca) return EXIT.ok;
 
     const reader = await deps.openTracker("read", {
       root,
@@ -115,7 +115,9 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       warn: (message) => io.stderr(`${printableText(message)}\n`),
     });
     const fresh = await loadWorktreeCheck({ run: deps.run, env: deps.env, root, tracker: name!, orca });
-    const start = await prepareGitStart(deps.run, root);
+    const start: (key: string, short: string, url: string) => Promise<OrcaOutcome> = orca
+      ? startInOrca(deps.runLong, deps.env, root)
+      : await prepareGitStart(deps.run, root);
     let failures = 0;
     for (const { ticket: listed } of groups.ready) {
       const key = printableText(listed.key);
@@ -132,10 +134,13 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
         io.stdout(`${key}  skipped, the branch ${short} already exists.\n`);
         continue;
       }
-      const outcome = await start(ticket.key, short);
+      const outcome = await start(ticket.key, short, ticket.url);
       if (outcome.kind === "started") io.stdout(`${key}  ${outcome.line}\n`);
       else if (outcome.kind === "skipped") io.stdout(`${key}  skipped, ${printableText(outcome.reason)}.\n`);
-      else {
+      else if (outcome.kind === "unknown") {
+        failures++;
+        io.stdout(`${key}  ${printableText(outcome.reason)}\n`);
+      } else {
         failures++;
         io.stdout(`${key}  failed, ${printableText(outcome.reason)}.\n`);
       }
