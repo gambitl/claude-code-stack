@@ -373,7 +373,9 @@ The ticket turns a milestone into `--project <name>`, but `create-tickets` puts 
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+The branch only adds code. Four new source files exist (`jira-orca.ts`, `linear-orca.ts`, `orca-calls.ts` and the test fake). The only existing file that changed is `cstack/src/orca/shapes.ts`, which gained ten entries, so no existing symbol changed or was deleted. Nothing outside the branch calls the new functions yet, because `openTracker` belongs to #26. The files that usually change with `shapes.ts` are its test and the fixture README, and both were updated. No `WHY:` or `DECISION:` comment conflicts with the change.
 
 ## Briefing
 
