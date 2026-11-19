@@ -66,6 +66,15 @@ describe("orca features", () => {
     expect(jira.available === false && jira.reason).toMatch(/2 .*cannot choose a site/);
   });
 
+  it("explains several saved Linear workspaces", async () => {
+    const { features } = setup({ [LINEAR]: text("linear-team-list.two-workspaces.json") });
+    const linear = await features.get("linear");
+    expect(linear.available).toBe(false);
+    expect(linear.available === false && linear.reason).toMatch(
+      /2 .*workspaces.*cannot choose a workspace/,
+    );
+  });
+
   it("explains a Linear connection error and no team", async () => {
     const { features } = setup({ [LINEAR]: text("linear-team-list.error.json") });
     const linear = await features.get("linear");

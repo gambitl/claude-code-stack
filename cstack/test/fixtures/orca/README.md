@@ -61,3 +61,7 @@ These seven files were not recorded. No Linear sandbox was available, so each an
 - `linear-team-states.current.json` follows `orca linear team states --team <key> --json`. It lists six states.
 - `linear-status-set.ok.json` follows `orca linear status set <key> --to <state> --json`.
 - `linear-comment-add.ok.json` follows `orca linear comment add <key> --body-file <path> --json`.
+
+## Linear team list with two workspaces
+
+`linear-team-list.two-workspaces.json` was written by hand from the code of the installed Orca 1.4.263, with placeholder values only. It follows `orca linear team list --workspace all --json`. It holds one team in each of two workspaces, and each workspace has an `id` and a `name`. The features test uses it to check that cstack refuses Orca for Linear when several workspaces are saved.
