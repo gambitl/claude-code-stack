@@ -39,7 +39,7 @@ export function readUnitStatus(root: string, files: string[]): { entries: UnitFi
   return { entries };
 }
 
-/** The text that tells the implementer how to start unit <n> again. Two refusals use it. */
+/** The text that tells the implementer how to start unit <n> again. Three refusals use it. */
 export function restartText(n: number): string {
   return (
     `If you made these changes yourself in this unit, discard them. Use \`git restore -- <file>\` for a changed or deleted file, and delete a new file. ` +

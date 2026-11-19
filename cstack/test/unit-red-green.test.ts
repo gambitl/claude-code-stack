@@ -468,6 +468,8 @@ describe("cstack unit green, running the test", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("cstack unit red 1");
     expect(r.stderr).not.toContain("Set the code aside");
+    expect(r.stderr).toContain("git restore");
+    expect(r.stderr).toContain("stuck");
     expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
   });
 

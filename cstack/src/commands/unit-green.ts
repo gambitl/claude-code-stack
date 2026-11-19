@@ -30,7 +30,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const script = testScript(commands, testFile);
   if (!saved || saved.command !== script || saved.testFile !== testFile) {
     io.stderr(
-      `${prefix}The test command changed since the failing run of unit ${unit.number}. Run \`cstack unit red ${unit.number}\` again before you run \`cstack unit green\`.\n`,
+      `${prefix}The test command changed since the failing run of unit ${unit.number}. ${restartText(unit.number)}\n`,
     );
     return 1;
   }
