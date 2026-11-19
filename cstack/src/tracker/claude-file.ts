@@ -1,3 +1,4 @@
+// WHY: ADR-SIC-F. This file serves reads only, so a move or a comment goes back to Claude with exit code 4.
 import { readFile } from "node:fs/promises";
 import { InvalidFileError, NoClientError } from "./errors.js";
 import { isValidKey, isValidUrl } from "./keys.js";

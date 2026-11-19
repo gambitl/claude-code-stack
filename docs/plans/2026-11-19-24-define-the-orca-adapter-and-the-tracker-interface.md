@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: the `docs/` folder of this repository (specification page `docs/projects/skills-into-cli.md`), ADRs in `docs/decisions/`
 Branch: gambitl/orca-tracker-contract
 Conversation language: French
-Status: in progress (phase 6, started 2026-11-19)
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -456,6 +456,47 @@ Follow-ups, not fixed here:
 
 ## Briefing
 
+### What you should know about what was built
+
+The branch builds the whole contract of milestone 3. It has one runner for every program, the Orca feature detection with its shape check, the tracker interface with its fake, the ready rule, and the file from Claude. It also lists the new commands, refuses every unbuilt one with its ticket, and records ADR-SIC-F. It does what the ticket asked, with the changes you approved before the plan. Typecheck passes. The full suite passes except `report.test.ts`, which timed out under load and passes when run alone. This branch does not touch that test.
+
+**What you need to do**
+
+- **Merge this pull request before the tickets that build `cstack next` (#15), `cstack unit red` (#17) and `cstack publish` (#20).** All four change `cli.ts`, `manifest.ts` and their tests, and this branch changes the "not built" rule they rely on. Merged first, it gives them one known base. Their CI then tells them at once if a helper uses a shell or if the test command file of #17 changed its name.
+
+**What to watch**
+
+- A blocker that only the footer names comes back with the state "unknown", so its ticket stays blocked. That is safe, but the tickets for Jira and Linear (#25) and for GitHub and GitLab (#26) must look up those states, or `cstack wave` will start nothing. They should take the states from the group they already listed, and read only the others one by one.
+- `report.test.ts` times out now and then when the whole suite runs. If the CI check fails on it, rerun it before you look for a bug.
+- The fixture check accepts only `github.com` and `gitlab.com` as real hosts. Real `gh` answers, which #26 will record, also hold hosts such as `api.github.com`, so #26 will meet this check.
+
+**What changed since the plan**
+
+- The review added two checks. A ticket with a badly formed blocker key is now skipped, and a state name such as `constructor` now gives "unknown".
+- Seven small follow-ups stay open, such as `ssh://` remotes and no size limit on the file from Claude. The review log lists them.
+
+#### Details
+
+The build matches the plan. All sixteen units are done, and each acceptance test of the ticket exists under the name the ticket gives, with the folder `1.4.263/` in place of `1.4.259/` as decided before the plan. I ran `npm test` and `npm run typecheck` in `cstack/` on commit `6a46fdd`. Typecheck passes. The suite gave 544 passed and 2 failed, both in `cstack/test/report.test.ts` with "Test timed out in 5000ms". Run alone, that file passes its 26 tests in 23 seconds, so each test takes close to a second and the 5-second limit is thin under parallel load. The file is not changed by this branch (`git diff main...HEAD -- cstack/test/report.test.ts` is empty), and the executor's impact notes saw the same timeout. The branch is 31 commits ahead of `origin/main` and 0 behind, and no other wave branch is pushed yet, so no merge has happened.
+
+Merge order is the one action I ask of the developer. This branch changes four shared files: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/cli.test.ts` and `cstack/test/manifest.test.ts`. In `cli.ts`, the refusal now runs in `run` before `HANDLERS`, and the old branch that exited with `2` is gone. In `manifest.ts`, the branch adds nine entries, the `notBuiltFlags` field, a `ticket` field that takes a number or a list, and a `commandWords` that stops at `(` and `-`. The manifest test now counts ten built and fourteen unbuilt commands. Tickets #15, #17 and #20 change the same files. When #15 builds `cstack next` and #17 builds `cstack unit red`, they set `built: true` and the counts move again. When #20 builds `cstack publish`, its new helper for `git`, `gh` and `glab` meets the no-shell scan of `cstack/test/run.test.ts`. #17's `cstack/src/test-run.ts` is allowed by its exact path, so a rename in #17 fails the scan. Both failures are loud in CI, not silent, which is why this is a merge-order recommendation and not a blocker. The rejected option is to merge this ticket last: it would then carry every conflict of the wave in the shared files, where wave 4 already lost a function silently. If nobody decides, the branches merge in whatever order they finish, and the plan's rule (take `origin/main` with a merge commit, look for a function kept twice in `cli.ts`) still applies.
+
+Footer-only blockers are the main thing to hand down. `mergeBlockers` in `cstack/src/tracker/blockers.ts:29` gives each footer key that the relations do not carry the state kind `unknown`, because the footer holds a key and no state. The ready rule (`cstack/src/tracker/ready.ts`) then reports the ticket as blocked, which respects the locked CTO review of the ticket (unknown means blocked). The consequence is that an adapter that returns tickets without looking up those states makes every footer-blocked ticket look blocked forever. On GitHub this is the common case unless #26 reads issue dependencies. The cost matters at scale: a wave of thirty tickets with two footer blockers each would need sixty extra reads through `gh` or Orca, at about a second each. Most blockers of a wave belong to the same group, and `listGroup` already returns their states, so the adapter should resolve footer keys from the listed group first and read only the rest. The comments for #25 and #26 should say this. The ADR and the comment of `mergeBlockers` already state the lookup duty, but not the group-first shortcut.
+
+The flaky `report.test.ts` is a pre-existing weakness that this branch makes a little more likely, because the suite grew by about 15 test files that run in parallel. The plan's rule about a job "not acquired by Runner" does not cover a timeout, so a person may read a red check as a code failure. The fix is outside this ticket: a later change could raise the timeout of that file or make its setup cheaper. By default, a failed check gets rerun once.
+
+The fixture check in `cstack/test/helpers/fixtures-public.ts` accepts a URL host only when it is a reserved example name, `github.com` or `gitlab.com`. Real `gh` JSON often carries `api.github.com`, `avatars.githubusercontent.com` or `gitlab.com` subdomains. #26 records `gh` and `glab` answers under `cstack/test/fixtures/`, so it will either replace those hosts with placeholders or widen the allow list. Replacing is better, because a widened list is a door for a private GitLab host. The check also lets any path under `github.com` through, so an owner or repository name from work would pass it. `scripts/private_names.py check` is the second line for that, and it stays mandatory before a fixture is committed. This belongs in the comment for #26.
+
+The review changed two behaviours after the units were built, both as fixes. A blocker key that fails the key pattern, in the checked wrapper and in the file from Claude, now makes cstack skip the ticket with a warning (commit `fd19196`). A state name that is a property of `Object.prototype`, such as `constructor`, now maps to `unknown` (commit `d22848d`). `cstack doctor` now reads "Orca runs" through the feature detection, so its Orca line and its feature lines cannot disagree (commit `a8d2a75`).
+
+Seven follow-ups were left open on purpose, and the review log lists them. `ssh://` remotes give a usage error that asks for `--tracker`. `claude-file.ts` has no size limit and its JSON error quotes a piece of the file, which is local data and not a leak. `failWith` in `commands/errors.ts` does not know the new tracker error classes, and #25 and #26 must map them to their exit codes. The lazy cache of `choose.ts` stays as it is. `parseVersion` drops a suffix such as `-rc1`, so an Orca release candidate counts as the release. A doctor test fails when `ORCA_CLI_COMMAND` is set on the machine, because `cstack/src/doctor/orca.ts:40` and `:59` read `process.env`. That variable is not set in the Orca terminal I checked, so the risk is low. None of these changes what the ticket delivers.
+
+The questions of the first review were all resolved. The folder is `1.4.263/` and the minimum stays `1.4.259`, both written once in `cstack/src/orca/version.ts`. Every unbuilt command and flag exits with `1` and names its tickets, through `unbuiltRefusal` in `manifest.ts`. The blockers are read only from the `Blocked by:` part of the footer and added to the relations. No fixture of a write command was recorded, and the write mode of the shape check is tested with an answer built in the test. The six direct `git` calls stay, and the no-shell scan covers `cstack/src/` with `test-run.ts` allowed by name. The command list fixture keeps only command names, placeholders use reserved names, the file from Claude has the `group` key, and arguments that start with `-` are refused before any program runs. The unconfirmed-write error exists with its retry id. The runner has a 16 MiB limit with its own `too-large` kind. GitHub comments are allowed by the coordinator. The remote Orca server point (`ORCA_ENVIRONMENT`, `ORCA_PAIRING_CODE`) stays unhandled, as decided.
+
+One new question, non-blocking, for the coordinator of this wave, in English: "The comment list of #24 covers #25 to #29. May I also leave a short comment on #17 and #20? #24 adds a test that fails when a file under `cstack/src/` runs a program through a shell. It allows only `cstack/src/test-run.ts`, by that exact path. So #17 must keep that file name, and the helper of `cstack publish` in #20 must use `execFile` or `spawn` without a shell." The work is complete whatever the answer, because CI catches both cases after the merge. The comment only saves a red build.
+
+I checked security and authorization, data model lock-in, scale, failure modes, edge cases, operations and cost, reversibility and hidden coupling. I found nothing beyond the points above: nothing here deletes data, adds a recurring cost or a service, and the `cstack-tracker/1` format and the `Tracker` interface are internal and versioned.
+
 ## Open questions after the build
 
 ### Blocking
@@ -464,15 +505,78 @@ none
 
 ### Non-blocking
 
-none
+For the coordinator of this wave: "The comment list of #24 covers #25 to #29. May I also leave a short comment on #17 and #20? #24 adds a test that fails when a file under `cstack/src/` runs a program through a shell. It allows only `cstack/src/test-run.ts`, by that exact path. So #17 must keep that file name, and the helper of `cstack publish` in #20 must use `execFile` or `spawn` without a shell." The work is complete whatever the answer, because CI catches both cases after the merge.
 
 ## Pull request
 
+Title: `feat(cli): add the Orca adapter, the tracker contract and the new command list`
+
+Body:
+
+This pull request builds the contract of milestone 3. It adds the code that talks to Orca, the interface that cstack uses for any tracker, and the ready rule. It also lists the new commands, and records ADR-SIC-F. Nothing here changes a real tracker or calls an Orca command that changes something.
+
+**What was built**
+
+- One runner, `cstack/src/orca/run.ts`, starts every program without a shell. A test scans `cstack/src/` and fails if any file uses a shell. Only `cstack/src/test-run.ts`, which ticket #17 will add, is allowed by name.
+- `cstack/src/orca/` checks the Orca version and the shape of each Orca answer. It tells, once per command, which Orca feature is available and why not. `cstack doctor` prints the minimum version and one line per feature.
+- `cstack/src/tracker/` holds the tracker types, the key and URL checks and their wrapper, the state kinds, the blockers rule, the ready rule, the file that Claude writes, and the choice of client. `cstack/test/fakes/tracker.ts` is a fake tracker for tests.
+- The ten recorded Orca answers are in `cstack/test/fixtures/orca/1.4.263/`. Five come from a real machine, and five are written by hand. A new test fails when a fixture holds a home path, a private email or a private host.
+- The command list has nine new commands. Every unbuilt command, and every unbuilt flag, exits with `1` and names its ticket. The plan reader knows the unit line `- Worktree: <absolute path>`.
+- ADR-SIC-F is in `docs/decisions/ADR-SIC-F-tracker-access.md`.
+
+**Key decisions**
+
+- The recorded answers are in the folder `1.4.263/`, not `1.4.259/`, because the folder is named after the Orca version that gave them. The minimum version stays `1.4.259`, and it is written once, in `cstack/src/orca/version.ts`.
+- cstack never stores a credential. For each capability it uses Orca first, then `gh` or `glab`, then the file that Claude writes, which serves reads only. With no client left, a move or a comment exits with `4`, and Claude does it with its own connection.
+- A ticket is ready only when every blocker is `finished`. A blocker in review is not finished, and an unknown state blocks.
+- A blocker that only the ticket footer names has the state `unknown`, so its ticket stays blocked. Tickets #25 and #26 must look up those states. This is written in the ADR.
+
+**Judgment calls from the independent review**
+
+- The `Tracker` interface is exactly the code block of the ticket, so an answer does not say which client it used. Tickets #25 and #26 can settle this.
+- `WriteShapeError` and the write mode of the shape check both add the sentence "cstack cannot tell whether the change happened". If a later adapter wraps one in the other, the sentence would appear twice.
+- The ticket-key pattern in the recorder would also rewrite text such as `UTF-8`. The recorder keeps only command names, so the risk is low.
+- The fixtures test finds host names only in URLs and emails. The check `scripts/private_names.py` is the second line.
+
+**Review findings left as follow-ups**
+
+`ssh://` remotes give a usage error that asks for `--tracker`. The file from Claude has no size limit. `failWith` does not know the new tracker errors yet. `parseVersion` drops a suffix such as `-rc1`. A doctor test fails when `ORCA_CLI_COMMAND` is set on the machine. The review log of the plan lists them all.
+
+**Files touched**
+
+About 60 files, mostly new, in `cstack/src/orca/`, `cstack/src/tracker/`, `cstack/test/`, plus `cstack/src/manifest.ts`, `cstack/src/cli.ts`, `cstack/src/plan/read.ts`, `cstack/src/doctor/`, `README.md` (the Orca line), `docs/decisions/` and `docs/projects/skills-into-cli.md`.
+
+**Open questions, not needed for this pull request**
+
+This pull request can be merged without their answers. For the coordinator of this wave: may a short comment go on #17 and #20? #24 adds a test that fails when a file under `cstack/src/` runs a program through a shell, and it allows only `cstack/src/test-run.ts`. So #17 must keep that file name, and the helper of `cstack publish` in #20 must use `execFile` or `spawn` without a shell.
+
+Merge order: this branch changes `cli.ts`, `manifest.ts` and their tests, like #15, #17 and #20. Merge it first if you can.
+
+The plan file is `docs/plans/2026-11-19-24-define-the-orca-adapter-and-the-tracker-interface.md`.
+
+Fixes #24
+
 ## Documentation
+
+- Comment on #24 (what was built, what differs, what was left out): https://github.com/gambitl/claude-code-stack/issues/24#issuecomment-7004441659
+- Hand-down comments: #25 https://github.com/gambitl/claude-code-stack/issues/25#issuecomment-7004442122, #26 https://github.com/gambitl/claude-code-stack/issues/26#issuecomment-7004442549, #27 https://github.com/gambitl/claude-code-stack/issues/27#issuecomment-7004442964, #28 https://github.com/gambitl/claude-code-stack/issues/28#issuecomment-7004443451, #29 https://github.com/gambitl/claude-code-stack/issues/29#issuecomment-7004444028
+- Decision record: `docs/decisions/ADR-SIC-F-tracker-access.md`, with `WHY: ADR-SIC-F` comments in the code where it governs. Phase 12 adds the pull request link.
+- Specification page: the ADR-SIC-F line of section 9 of `docs/projects/skills-into-cli.md` points to the record.
+- Epic #6: its ADR-SIC-F line now says the record exists, https://github.com/gambitl/claude-code-stack/issues/6
+- README: the Orca line of "Requirements". Fixture notes: `cstack/test/fixtures/orca/README.md`.
 
 ## Executor notes
 
+- Units 3, 5, 6, 8, 9 and the fixes 1, 2 and 4 of the review were first written together with their tests, so the red step was not seen. Evidence: the implementers' reports. Reviewers read those units for this.
+- Parallel implementers shared one working tree. One amended the wrong commit (unit 2) and split it back, and another ran a short `git stash`. Nothing was lost, but commit hashes changed.
+- The tracker is GitHub and the labels `in progress` and `in review` did not exist. I created both before the first state move.
+- `report.test.ts` timed out under load in two full runs and passed alone.
+- Graphify is not installed, so the impact notes came from grep and git history, as the plan says.
+- The `WHY: ADR-SIC-F` comments were missing after the units, and I added them in `choose.ts` and `claude-file.ts` in phase 10.
+
 ## Hand-off log
+
+2026-11-19, phases 6 to 10 done: 16 units built and committed, four reviews and the independent review fixed, ADR-SIC-F written, ticket and dependent tickets commented, epic #6 line updated. Waiting for the retrospective, then phase 12.
 
 ## History
 

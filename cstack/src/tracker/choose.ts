@@ -1,3 +1,4 @@
+// WHY: ADR-SIC-F. cstack holds no credential. For each capability it tries Orca, then gh or glab, then the file from Claude (reads only).
 import type { Runner } from "../orca/run.js";
 import { EXIT } from "../manifest.js";
 import { TrackerError } from "./errors.js";
