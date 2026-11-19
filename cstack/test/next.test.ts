@@ -7,6 +7,7 @@ import { readState, runFolder, currentRunPath } from "../src/run-state.js";
 import { collect, commitFiles, commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
 
 const packageRoot = join(import.meta.dirname, "fixtures/next");
+const packageVersion = (JSON.parse(readFileSync(join(import.meta.dirname, "../package.json"), "utf8")) as { version: string }).version;
 const fixture = (name: string) => readFileSync(join(import.meta.dirname, "fixtures/plans", name), "utf8");
 const NOW = () => new Date("2026-11-19T09:00:00.000Z");
 
@@ -157,7 +158,7 @@ describe("cstack next", () => {
       commitPlan(dir, draft(), PLAN);
       const result = await run(dir, "--done", "ticket", "--plan", PLAN);
       expect(result.code).toBe(0);
-      expect(planText(dir)).toContain("Written by: cstack 0.1.0\n");
+      expect(planText(dir)).toContain(`Written by: cstack ${packageVersion}\n`);
       expect(result.stdout).toContain("Phase 2 of 15: dependencies, in the main conversation.");
       expect(markers(result.stdout)).toEqual(["marker-dependencies"]);
       expect(readState(dir, PLAN)?.phases.ticket?.doneAt).toBe("2026-11-19T09:00:00.000Z");
