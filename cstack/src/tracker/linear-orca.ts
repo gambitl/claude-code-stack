@@ -1,9 +1,11 @@
 import type { Runner } from "../orca/run.js";
 import { footerBlockers, mergeBlockers } from "./blockers.js";
+import { EXIT } from "../manifest.js";
+import { NoClientError, RefusedArgumentError, TrackerError } from "./errors.js";
 import { isValidKey } from "./keys.js";
 import { orcaRead } from "./orca-calls.js";
 import { linearStateKind } from "./states.js";
-import type { StateKind, Ticket, TicketRef, Tracker } from "./types.js";
+import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
 
 type Env = Record<string, string | undefined>;
 
@@ -29,7 +31,43 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
     ((await orcaRead(run, env, SHAPE, ["linear", "issue", key, "--relations"])) as { result: LinearAnswer }).result;
 
   return {
-    async readTicket(key: string): Promise<Ticket> {
+    readTicket: (key: string) => readOne(key, new Map()),
+    async listGroup(group: Group): Promise<Ticket[]> {
+      if (!("epic" in group)) {
+        throw new NoClientError(
+          "Orca cannot filter Linear issues by project milestone. With your own connection, list the issues of that milestone and write the file yourself.",
+        );
+      }
+      const name = `orca linear list-issues --parent-id ${group.epic}`;
+      const answer = (
+        (await orcaRead(run, env, "orca linear list-issues --json", ["linear", "list-issues", "--parent-id", group.epic])) as {
+          result: { issues: { identifier: string; state?: { type: string } }[]; truncated: boolean; meta: { partial: boolean } };
+        }
+      ).result;
+      if (answer.truncated) {
+        throw new RefusedArgumentError(`\`${name}\` returned only some of the tickets, because the group has more tickets than Orca returned.`);
+      }
+      if (answer.meta.partial) {
+        throw new TrackerError(`\`${name}\` answered only for some Linear workspaces.`, EXIT.toolFailed);
+      }
+      const known = new Map<string, StateKind>();
+      for (const issue of answer.issues) {
+        known.set(issue.identifier, issue.state ? linearStateKind(issue.state.type) : "unknown");
+      }
+      const tickets: Ticket[] = [];
+      for (const issue of answer.issues) tickets.push(await readOne(issue.identifier, known));
+      return tickets;
+    },
+    async moveState(): Promise<void> {
+      throw new Error("Not built yet.");
+    },
+    async addComment(): Promise<void> {
+      throw new Error("Not built yet.");
+    },
+  };
+
+  async function readOne(key: string, known: Map<string, StateKind>): Promise<Ticket> {
+    {
       const result = await readIssue(key);
       const { issue, meta } = result;
       const body = issue.description ?? "";
@@ -47,11 +85,12 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       if (merged !== "unknown") {
         blockers = [];
         for (const blocker of merged) {
-          let stateKind: StateKind = blocker.stateKind;
-          if (stateKind === "unknown" && isValidKey("linear", blocker.key)) {
+          let stateKind: StateKind = known.get(blocker.key) ?? blocker.stateKind;
+          if (stateKind === "unknown" && !known.has(blocker.key) && isValidKey("linear", blocker.key)) {
             try {
               const state = (await readIssue(blocker.key)).issue.state;
               stateKind = state ? linearStateKind(state.type) : "unknown";
+              known.set(blocker.key, stateKind);
             } catch {
               // A blocker that cannot be read keeps the state kind unknown.
             }
@@ -68,15 +107,6 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
         stateKind: issue.state ? linearStateKind(issue.state.type) : "unknown",
         blockers,
       };
-    },
-    async listGroup(): Promise<Ticket[]> {
-      throw new Error("Not built yet.");
-    },
-    async moveState(): Promise<void> {
-      throw new Error("Not built yet.");
-    },
-    async addComment(): Promise<void> {
-      throw new Error("Not built yet.");
-    },
-  };
+    }
+  }
 }
