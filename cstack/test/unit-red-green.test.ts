@@ -226,6 +226,12 @@ describe("cstack unit red", () => {
     expect(r.stderr).toContain("Unit 1");
   });
 
+  it("exits with 3 for a No test line with an empty reason", async () => {
+    const r = await red(setup(["- No test:"], FILE_SETTINGS));
+    expect(r.code).toBe(3);
+    expect(r.stderr).toContain("No test");
+  });
+
   it("exits with 3 and names testCommands.all without settings", async () => {
     const r = await red(setup([TEST_LINE], null));
     expect(r.code).toBe(3);
