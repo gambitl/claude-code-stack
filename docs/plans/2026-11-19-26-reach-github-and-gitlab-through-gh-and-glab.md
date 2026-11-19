@@ -389,7 +389,7 @@ The approach is locked by the ticket, the interface that the coordinator fixed a
 - Commit message: `docs: explain the tracker commands and the permission rule for cstack`
 - Depends on: 13, 14
 ### Unit 16: The check of the comment file
-- Files: `cstack/src/commands/tracker-comment.ts`, `cstack/test/tracker/comment-file-check.test.ts`, `README.md`
+- Files: `cstack/src/commands/tracker-comment.ts`, `cstack/test/tracker/comment-file-check.test.ts`, `cstack/test/tracker/comment-no-shell.test.ts`, `README.md`, `docs/plans/2026-11-19-26-reach-github-and-gitlab-through-gh-and-glab.md`
 - Test: `cstack/test/tracker/comment-file-check.test.ts`: a symbolic link inside the repository that points outside is refused; a file in a temporary folder is accepted; an empty file and a file of 65,537 bytes are refused; a file outside the repository and the temporary folders is refused; without a real repository only temporary folders pass; every refusal exits with `1` and makes no call to `gh` or `glab`.
 - Minimum code: the check of "Decisions" (user's answer), on real paths, before the no-client exit `4`. The adapter receives the real path.
 - Refactor: none.
