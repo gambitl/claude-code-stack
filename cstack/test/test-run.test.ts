@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_TEST_TIMEOUT_MS, lastLines, testScript } from "../src/test-run.js";
+import { mkdtempSync, realpathSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  DEFAULT_TEST_TIMEOUT_MS,
+  MAX_OUTPUT_BYTES,
+  lastLines,
+  runTests,
+  testScript,
+} from "../src/test-run.js";
 
 describe("testScript", () => {
   const commands = { all: "npm test", file: "npx vitest run {file}" };
@@ -46,5 +55,53 @@ describe("lastLines", () => {
   it("returns a short output whole", () => {
     expect(lastLines("a\nb\n")).toBe("a\nb\n");
     expect(lastLines("")).toBe("");
+  });
+});
+
+describe("runTests", () => {
+  const dir = () => realpathSync(mkdtempSync(join(tmpdir(), "run-tests-")));
+
+  it("keeps the output in order and passes the test file as the first argument", async () => {
+    const script = `echo one; echo two >&2; echo three; printf '%s\\n' "$1"`;
+    const run = await runTests(dir(), script, "a b;$x.ts");
+    expect(run.exitCode).toBe(0);
+    expect(run.timedOut).toBe(false);
+    expect(run.script).toBe(script);
+    expect(run.output).toBe("one\ntwo\nthree\na b;$x.ts\n");
+  });
+
+  it("runs from the given folder", async () => {
+    const root = dir();
+    expect((await runTests(root, "pwd", undefined)).output).toBe(root + "\n");
+  });
+
+  it("returns the exit code, 127 for a missing command, and closes standard input", async () => {
+    expect((await runTests(dir(), "exit 3", undefined)).exitCode).toBe(3);
+    expect((await runTests(dir(), "nosuchcommand-xyz", undefined)).exitCode).toBe(127);
+    expect((await runTests(dir(), "cat", undefined)).exitCode).toBe(0);
+  });
+
+  it("kills the whole process group at the timeout", async () => {
+    const root = dir();
+    const run = await runTests(root, "sleep 30 & echo $! > pid; wait", undefined, 300);
+    expect(run.timedOut).toBe(true);
+    expect(run.exitCode).toBeUndefined();
+    const { readFileSync } = await import("node:fs");
+    const pid = Number(readFileSync(join(root, "pid"), "utf8"));
+    await new Promise((r) => setTimeout(r, 200));
+    expect(() => process.kill(pid, 0)).toThrow(/ESRCH/);
+  });
+
+  it("gives 128 plus the signal number when the shell is killed by a signal", async () => {
+    const run = await runTests(dir(), "kill -TERM $$", undefined);
+    expect(run.exitCode).toBe(143);
+    expect(run.timedOut).toBe(false);
+  });
+
+  it("keeps at most the last megabyte, starting at the beginning of a line", async () => {
+    const run = await runTests(dir(), "yes 0123456789abcdef | head -n 200000; echo last", undefined);
+    expect(Buffer.byteLength(run.output)).toBeLessThanOrEqual(MAX_OUTPUT_BYTES);
+    expect(run.output.endsWith("last\n")).toBe(true);
+    expect(run.output.startsWith("0123456789abcdef\n")).toBe(true);
   });
 });
