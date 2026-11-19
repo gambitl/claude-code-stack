@@ -43,6 +43,23 @@ describe("shape check", () => {
     }
   });
 
+  it("checks the answers of orca reference find and orca worktree create", () => {
+    const found = load("reference-find.one-worktree.json") as any;
+    expect(() => checkShape("orca reference find --json", found, "1.4.263", "read")).not.toThrow();
+    delete found.result.matches[0].workspace.id;
+    let error: unknown;
+    try {
+      checkShape("orca reference find --json", found, "1.4.263", "read");
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(ShapeError);
+    expect((error as Error).message).toContain("result.matches[].workspace.id");
+    expect(() =>
+      checkShape("orca worktree create --json", load("worktree-create.started.json"), "1.4.263", "write"),
+    ).not.toThrow();
+  });
+
   it("reads the version of the recorded text file", () => {
     expect(parseVersion(readFileSync(join(dir, "version.current.txt"), "utf8"))).toBe("1.4.263");
   });
@@ -57,8 +74,8 @@ describe("shape check", () => {
   });
 
   it("fails for a command that has no shape", () => {
-    expect(() => checkShape("orca worktree create --json", {}, "1.4.263", "read")).toThrow(/no shape/);
-    expect(() => commandOfFixture("worktree-create.ok.json")).toThrow(/no shape/);
+    expect(() => checkShape("orca worktree list --json", {}, "1.4.263", "read")).toThrow(/no shape/);
+    expect(() => commandOfFixture("worktree-list.ok.json")).toThrow(/no shape/);
   });
 
   it("does not call an answer with ok false a shape error", () => {

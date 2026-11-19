@@ -46,7 +46,7 @@ The rule only covers `cstack` commands. If `gh` or `glab` is not installed, Clau
 
 ## Commands
 
-`cstack` has twenty-one commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has twenty-two commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
@@ -67,6 +67,7 @@ The rule only covers `cstack` commands. If `gh` or `glab` is not installed, Clau
 - `cstack unit commit <n>` commits only the files that unit `n` lists in the plan, and it adds a `Cstack-Unit: <n>` line to the commit message. Right after that line, it adds each `commitAttribution` line of your settings, so that git reads them all as trailers. If your settings file is invalid, it exits with code 3 and stages nothing. It never commits a file of another unit. It refuses to commit when a rule of the plan or the test runs says no, and it lists every refusal at once. Two unit commits in one worktree wait for each other, so they never mix their files.
 - `cstack tracker read '<key>'`, `cstack tracker list --milestone <name>`, `cstack tracker move '<key>' --to "<state name>"` and `cstack tracker comment '<key>' --body-file <path>` read and write tickets through `gh` or `glab` on GitHub and GitLab. `read` prints one ticket and `list` prints the tickets of a milestone or an epic, both as JSON. `move` changes the state of a ticket, and `comment` adds the text of a file as a comment. Write a key in single quotes, such as `'#12'`, because the shell reads an unquoted `#` as the start of a comment and drops the rest of the line. GitLab runs a quick action, such as `/close`, when it is found at the start of a line of a comment, so check the text before you post it. The comment file must be inside the repository or a temporary folder, must not be empty, and must hold at most 65,536 bytes.
 - `cstack publish` publishes the branch of the plan with one push. It refuses to publish while the plan is not ready or a blocking question is open. It brings the branch up to date with its target branch and runs the tests. It pushes once. It opens the pull request or merge request with `gh` or `glab`. It then waits for the checks of the pushed commit.
+- `cstack wave (--milestone <name> | --epic <key>)` lists the tickets of a wave, and starts a worktree for each ready ticket after you answer yes. It starts nothing when there is no terminal or when you answer anything else. Add `--tracker <name>` to choose the tracker, or `--from-file <path>` to read the tickets from a file.
 
 ## Measure a run
 

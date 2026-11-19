@@ -137,16 +137,22 @@ describe("run", () => {
   });
 
   it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
-    for (const [args, text] of [
-      [["wave"], "#29"],
-    ] as const) {
+    // Its own list, because no real first word is unbuilt as a whole since cstack wave is built.
+    const entry = (usage: string, ticket: number): CommandEntry => ({
+      usage,
+      summary: "A command that no ticket builds.",
+      flags: [],
+      exitCodes: { 0: "The command did its job." },
+      file: "frob.ts",
+      ticket,
+      built: false,
+    });
+    const commands = [entry("cstack frob one", 998), entry("cstack frob two", 999)];
+    for (const args of [["frob"], ["frob", "nope"]]) {
       const { out, io } = collect();
-      expect(await run([...args], io), args.join(" ")).toBe(1);
-      expect(out.stderr, args.join(" ")).toContain(text);
+      expect(await run(args, io, commands), args.join(" ")).toBe(1);
+      expect(out.stderr, args.join(" ")).toContain("Tickets #998 and #999 build it.");
     }
-    const { out, io } = collect();
-    await run(["wave", "--watch"], io);
-    expect(out.stderr).toContain("#29");
   });
 
   it("sends cstack tracker and an unknown tracker word to the tracker usage, not to a refusal", async () => {
@@ -182,7 +188,7 @@ describe("run", () => {
   it("names the ticket of the command for the flags of unbuilt commands", async () => {
     for (const [args, ticket] of [
       [["helper", "start", "--child-worktree"], "#28"],
-      [["wave", "--watch"], "#29"],
+      [["wave", "--watch"], "#30"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io)).toBe(1);

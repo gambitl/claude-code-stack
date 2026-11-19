@@ -21,6 +21,13 @@ The recording machine has no Jira site and no Linear team, and its Orca app was 
 - `linear-team-list.connected.json` holds one Linear team.
 - `linear-team-list.error.json` holds a Linear connection error.
 
+These four files hold the answers of `orca reference find` and `orca worktree create`. They are written by hand from the fields that Orca 1.4.263 writes in its code. No ticket on the recording machine had a stored reference. No test may create a real Orca worktree.
+
+- `reference-find.none.json` is the empty answer of a ticket that has no workspace.
+- `reference-find.one-worktree.json` holds one match, a worktree that is not archived.
+- `reference-find.archived.json` holds the same match with `archived: true`.
+- `worktree-create.started.json` is the answer of a worktree that Orca created and an agent that started in it.
+
 ## Orchestration files in `1.4.263/`
 
 Orca 1.4.263 has the `orchestration` commands. Three answers were recorded from a real machine, after the placeholder pass. The terminal preview, the title, the branch name and the Orca ids were replaced by hand. The answers of `worker-start` and `send` are never recorded, because recording them would start a worker or send a message.

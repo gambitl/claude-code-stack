@@ -67,6 +67,18 @@ const SHAPES: Record<string, Field[]> = {
   ],
   "orca orchestration send --json": [{ path: "ok", type: "boolean" }],
   "orca orchestration check --json": [{ path: "ok", type: "boolean" }],
+  "orca reference find --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.matches", type: "array" },
+    { path: "result.matches[].workspace.id", type: "string" },
+    { path: "result.matches[].workspace.kind", type: "string" },
+    { path: "result.matches[].workspace.name", type: "string" },
+    { path: "result.matches[].workspace.archived", type: "boolean" },
+  ],
+  "orca worktree create --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result", type: "object" },
+  ],
   "orca linear issue --relations --json": [
     { path: "ok", type: "boolean" },
     { path: "result.issue.identifier", type: "string" },

@@ -287,7 +287,7 @@ export const COMMANDS: CommandEntry[] = [
     notBuiltFlags: { "--watch": 30 },
     file: "wave.ts",
     ticket: 29,
-    built: false,
+    built: true,
   },
 ];
 
