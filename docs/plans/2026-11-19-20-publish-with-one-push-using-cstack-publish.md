@@ -262,70 +262,70 @@ The approach is locked by the ticket's contract and the answers of phase 4, so n
 
 ## Implementation units
 
-### Unit 1: Temporary copy of the test runner of ticket #17 — status: todo
+### Unit 1: Temporary copy of the test runner of ticket #17 — status: done
 - Failing test: no test. Ticket #17 owns `cstack/src/test-run.ts` and its test file `cstack/test/test-run.test.ts`, and a test file of the same name here would collide at the merge. Unit 7 covers this copy through `cstack/test/publish.test.ts` (passing tests, failing tests and the marker file).
 - Minimum code: create `cstack/src/test-run.ts` with exactly the exports fixed for this wave: `DEFAULT_TEST_TIMEOUT_MS = 600_000`, the `TestRun` interface, `testScript(commands, testFile?)`, the asynchronous `runTests(root, script, testFile, timeoutMs?)` that returns `Promise<TestRun>`, and `lastLines(output, count = 40)`. `runTests` spawns `/bin/sh` with the arguments `-c`, the script, `cstack`, and the test file when one is given, with `cwd: root`, `detached: true` so that the shell leads its own process group, and standard output and standard error collected together in the order they arrive. At the timeout it kills the whole group with `process.kill(-pid, "SIGKILL")` and returns `timedOut: true` with `exitCode` undefined. While the tests run, it listens for SIGINT and SIGTERM; on either, it kills the whole group, removes its listeners, and sends the same signal to cstack again so that cstack exits. It removes its listeners when the run ends. Start the file with a `// WHY:` comment saying that it is the temporary copy for ticket #20, that the copy of ticket #17 replaces it at the merge, and that this is the one file of `cstack/src/` that runs a shell on purpose, because `testCommands` is a shell command line by design.
 - Refactor: none.
 - Commit message: `feat(cli): add a temporary copy of the test runner that ticket 17 owns`
 - Depends on: none
 
-### Unit 2: Run a program without a shell, and read the remote URL — status: todo
+### Unit 2: Run a program without a shell, and read the remote URL — status: done
 - Failing test: `cstack/test/publish-remote.test.ts`. `parseRemote` gives the host and the repository path for `https://github.com/o/r.git`, `https://user:secret@example.org:8443/group/sub/r.git`, `ssh://git@example.org:2222/group/r.git` and `git@github.com:o/r.git`, with the `.git` suffix removed and the user information dropped, and says that it is an SSH URL for the last two. It gives no host for `/tmp/bare.git` and `file:///tmp/bare.git`. `redact` turns `fatal: unable to access 'https://user:secret-token@example.org/o/r.git/'` into a text with `https://example.org/o/r.git/` and no `secret-token`, and leaves `git@github.com:o/r.git` as it is. `runProgram` passes the argument `$(touch pwned)` to `printf '%s'` byte for byte and no file named `pwned` appears; it reports a program that does not exist as missing; it passes the given `env` to the program.
 - Minimum code: `cstack/src/publish/program.ts` exports `runProgram(command, args, options: { cwd: string; env?: NodeJS.ProcessEnv }): { ok: boolean; code: number | undefined; stdout: string; stderr: string; missing: boolean }`, built on `spawnSync` with `encoding: "utf8"` and never `shell: true`. A header comment says that every `git`, `gh`, `glab` and `ssh` call of `cstack publish` goes through this function so that ticket #24 can switch it onto the common runner. `cstack/src/publish/remote.ts` exports `parseRemote(url): { host: string; path: string; ssh: boolean } | undefined` and `redact(text): string`, which removes everything between `://` and `@` in every URL of the text.
 - Refactor: none.
 - Commit message: `feat(cli): run publish programs without a shell and read the remote url`
 - Depends on: none
 
-### Unit 3: Read and write publish.json and the test marker — status: todo
+### Unit 3: Read and write publish.json and the test marker — status: done
 - Failing test: `cstack/test/publish-record.test.ts`. In a temporary repository with a plan, `writePublishRecord` then `readPublishRecord` keeps `pullRequest`, every push in order and `checks`. `checkReport` of `cstack/src/report/reports.ts` accepts a `published` report once the record has a link and its last push is `HEAD`, and refuses it while `pullRequest` is the empty string. `readPublishRecord` returns undefined when the file does not exist and throws a `RunStateError` when the file is not valid JSON. `writeTestMarker`, `readTestMarker` and `removeTestMarker` write, read and delete `publish-tests.json` with a `commit` and a `time`, and removing a marker that does not exist does nothing.
 - Minimum code: `cstack/src/publish/record.ts` with those five functions, each taking the run folder. They use `PublishRecord` and `writeFileAtomic` from `cstack/src/run-state.ts` without changing that file.
 - Refactor: none.
 - Commit message: `feat(cli): read and write publish.json and the test marker of a publish run`
 - Depends on: none
 
-### Unit 4: The command and its refusals before any push — status: todo
+### Unit 4: The command and its refusals before any push — status: done
 - Failing test: `cstack/test/publish.test.ts`, written first with the case of a plan whose blocking question has `- Answer: open`: `cstack publish` exits with `1`, names the question by its number and title, and the bare remote, which logs every push it receives, has received nothing (US-12 AC1). The same holds for a plan whose Status is not `ready for review`. Further cases: several broken rules are listed in one message (a modified tracked file named in the message, a `Branch` line that is not the checked-out branch, a `## Pull request` section with an empty body, `Branch` equal to `Target branch`), always with exit code `1` and no push. A broken `.cstack/settings.json` gives `3`. `--timeout 0`, `--poll abc` and an unknown positional argument give `2`. Also write the test helper `cstack/test/helpers/publish-env.ts`: it creates a repository on `main` with a ready plan committed on a feature branch, a bare repository that logs every push it receives through a `post-receive` hook, the raw `remote.origin.url` `https://github.com/o/r.git` with `url.<bare path>.insteadOf` pointing to the bare repository, `main` already on the bare repository before the log starts, and a folder of fake `gh`, `glab` and `ssh` programs written in Node. The fakes log each call with its arguments, copy any `--body-file` or `--description-file` they receive, and answer from a scenario file in the test folder. By default `gh auth status` succeeds, `gh pr list` and `glab mr list` answer `[]`, `gh pr view` answers the head of the branch in the bare repository, and `gh pr checks` answers "no checks reported" with exit code `1`. The helper returns the `deps` to pass to `publish`, with a `PATH` that starts with the fake folder, a fake `sleep` that moves a fake clock, and that clock as `now`.
 - Minimum code: `cstack/src/commands/publish.ts` exports `publish(args, io, deps)`. It parses the flags with `parseArgs` (`--timeout`, `--poll`, `--grace`, `--plan`, defaults 30, 15 and 120), finds the plan with `locatePlan`, reads it with `readPlan`, reads `readSettings(root)`, checks every rule of "Decisions" and lists the broken ones at once. Known errors become their exit codes as in `cstack/src/commands/errors.ts`, and `SettingsError` becomes `3`. In `cstack/src/manifest.ts`, set `built: true` on the `cstack publish` entry and change nothing else in it. In `cstack/src/cli.ts`, import `publish` and add one line `publish: (args, io) => publish(args, io)` to `HANDLERS`. In `cstack/test/manifest.test.ts`, change the counts to eleven built commands and four not built, in the test name and in the two numbers.
 - Refactor: none.
 - Commit message: `feat(cli): add cstack publish, which refuses to push before the plan is ready`
 - Depends on: 2
 
-### Unit 5: Find the forge and a logged-in client — status: todo
+### Unit 5: Find the forge and a logged-in client — status: done
 - Failing test: `cstack/test/publish.test.ts`. With a remote on `github.com` and a fake `gh` that is not logged in, the command exits with `4`, names `github.com` and `gh`, and pushes nothing. With a remote `https://user:secret-token@gitlab.example.org/group/r.git` and neither fake client logged in, it exits with `4`, names the host and both clients, prints the URL without `secret-token`, and pushes nothing. With a remote `git@work-alias:group/r.git`, a fake `ssh` whose `-G work-alias` prints `hostname gitlab.example.org`, and a fake `glab` logged in only for `gitlab.example.org`, the forge is GitLab (the test can stop it later with a rule or check the calls log). A remote that is a local path gives `4` and names the remote.
 - Minimum code: `cstack/src/publish/forge.ts` exports `detectForge(root, env)`, which reads `git config --get remote.origin.url`, parses it, uses `gh` for `github.com` after `gh auth status --hostname github.com`, otherwise asks `gh auth status --hostname <host>` then `glab auth status --hostname <host>`, falls back on `ssh -G <host>` for an SSH URL, and returns the forge kind, the host and the repository argument (`<host>/<path>` for `gh`, `https://<host>/<path>` for `glab`), or the reasons for exit code `4`. The command calls it right after the rules.
 - Refactor: none.
 - Commit message: `feat(cli): find the forge of origin and a logged-in client for cstack publish`
 - Depends on: 4
 
-### Unit 6: Push once and open the pull request on GitHub — status: todo
+### Unit 6: Push once and open the pull request on GitHub — status: done
 - Failing test: `cstack/test/publish.test.ts`. On the GitHub path with the fake `gh`, the bare remote receives exactly one push, of the feature branch, and the fake receives `pr create` once, with `--base main`, `--head <branch>`, the plan's title and a body file equal to the plan's body (US-12 AC2). Every repository call of `gh` carries `--repo github.com/o/r`. `publish.json` holds the link and one push whose commit is `HEAD`. A second run after a new commit, with the fake `gh pr list` now answering the open pull request, opens no second pull request and makes exactly one more push. A second run with no new commit makes no push. When the remote branch has a commit that the local branch lacks, the command exits with `1`, says that cstack never forces a push, and pushes nothing. A title that holds `$(touch pwned)` and a body with backticks reach the fake byte for byte, and no file named `pwned` appears. A local tag `v9.9.9` is never pushed, even with `push.followTags` set to `true`. A pull request listed with `isCrossRepository: true` is ignored, so a new one is created. These tests pass `--grace 0`, so that the default answer "no checks reported" ends the run with `0`.
 - Minimum code: `cstack/src/publish/branch.ts` reads the remote branch with `git ls-remote --heads origin`, fetches it, checks that it is an ancestor of `HEAD`, and pushes as "Decisions" says. `cstack/src/publish/forge.ts` gets the GitHub calls to find and create the pull request. The command records each push and the link with `cstack/src/publish/record.ts`, and prints the link and the pushes. Push and forge failures give `5`, with their standard error passed through `redact`.
 - Refactor: none.
 - Commit message: `feat(cli): push the branch once and open its pull request on GitHub`
 - Depends on: 3, 5
 
-### Unit 7: Bring the branch up to date and run the tests — status: todo
+### Unit 7: Bring the branch up to date and run the tests — status: done
 - Failing test: `cstack/test/publish.test.ts`. When `main` moved on the bare remote, the setting `rebase` puts the branch on top of it, the tests of `testCommands.all` run (a script that writes a file the test checks), and one push follows. The setting `merge` adds a merge commit instead. A conflict makes the command exit with `8`, names the file in conflict, leaves `HEAD` on the commit it had before with no rebase or merge in progress, and pushes nothing. Tests that fail after the update make it exit with `1` with no push, print the end of the test output, and write `publish-tests.json`. A second run without a fix runs the tests again and still pushes nothing. A second run after a fix commit runs the tests, deletes the marker, and pushes once. Without `testCommands`, a moved `main` still leads to one push, and the output says that the tests did not run because `.cstack/settings.json` has no `testCommands`. When `main` did not move, no test runs.
 - Minimum code: in `cstack/src/publish/branch.ts`, the update for a branch that is not on the remote yet: fetch the target with an explicit refspec, skip when `origin/<target>` is an ancestor of `HEAD`, otherwise rebase or merge as the `integration` setting says, and abort on a conflict as "Decisions" says. The command then runs the tests through `testScript` and `runTests` of `cstack/src/test-run.ts` when the update changed the branch or the marker file exists, and handles the marker as "Decisions" says.
 - Refactor: none.
 - Commit message: `feat(cli): bring the branch up to date and run the tests before cstack publish pushes`
 - Depends on: 1, 6
 
-### Unit 8: Wait for the checks of the pushed commit on GitHub — status: todo
+### Unit 8: Wait for the checks of the pushed commit on GitHub — status: done
 - Failing test: `cstack/test/publish.test.ts`. The fake `gh` first reports an older head commit with a failed check, then the pushed commit with passing checks: cstack waits for the pushed commit, never reports the old failure, and exits with `0` (US-12 AC3). A failed check makes the command exit with `6` and print its name and link. A cancelled check gives `6` too. Checks still pending at the timeout give `7` and name them. One check failed and one still pending at the timeout gives `6` and names both. No check within the grace period gives `0` and the words "no check ran". Checks that all passed before the grace period ended do not end the run until it has ended. A pull request that never shows the pushed commit gives `7`. `publish.json` holds the result of the checks. The fake clock proves that the loop waited `--poll` seconds between two reads.
 - Minimum code: `cstack/src/publish/checks.ts` exports the wait loop, which takes the forge, the pull request, the pushed commit, the three durations, `sleep` and `now`, and returns the outcome. The GitHub reading of `headRefOid` and of the checks goes in `cstack/src/publish/forge.ts`, as "Decisions" says. The command maps the outcome to `0`, `6` or `7`, records it, and prints the link, the result and the pushes in every case.
 - Refactor: none.
 - Commit message: `feat(cli): wait for the checks of the pushed commit before cstack publish ends`
 - Depends on: 6
 
-### Unit 9: Publish on GitLab — status: todo
+### Unit 9: Publish on GitLab — status: done
 - Failing test: `cstack/test/publish.test.ts`. With a remote on another host and a fake `glab` that is logged in, the merge request is created with `glab mr create`, with `--source-branch`, `--target-branch`, the plan's title, a description file equal to the plan's body and `--yes`, and the pipeline of the pushed commit is read with `glab ci get --merge-request <iid> --output json` (US-12 AC4). A pipeline of an older commit is ignored, `success` gives `0`, `failed` gives `6` with the pipeline link and the names of the failed jobs, `running` at the timeout gives `7`, and "no pipeline found" for the whole grace period gives `0` with "no check ran". A merge request whose `source_project_id` differs from its `target_project_id` is ignored. Every repository call of `glab` carries `-R https://<host>/<path>`. With neither client logged in, the command exits with `4`.
 - Minimum code: the GitLab calls in `cstack/src/publish/forge.ts`: find and create the merge request, and read the pipeline, with the status mapping of "Decisions".
 - Refactor: none.
 - Commit message: `feat(cli): publish on GitLab with glab`
 - Depends on: 8
 
-### Unit 10: Explain cstack publish in the README — status: todo
+### Unit 10: Explain cstack publish in the README — status: done
 - Failing test: no test. This unit changes prose only.
 - Minimum code: in `README.md`, change "`cstack` has ten commands" to eleven, and add one bullet for `cstack publish` after the bullet of `cstack unit commit`, in the style of the other bullets. It says that the command refuses to publish while the plan is not ready or a blocking question is open, brings the branch up to date and runs the tests, pushes once, opens the pull request or merge request with `gh` or `glab`, and waits for the checks of the pushed commit. Write each fact in its own short sentence.
 - Refactor: none.
@@ -342,6 +342,10 @@ The approach is locked by the ticket's contract and the answers of phase 4, so n
 - The publish guide `cstack/guides/resolve-issue/publish.md`: does not apply. It already says to fix and run again on exit code `1`, and to stop on `4` and `5`.
 
 ## Review log
+
+### Impact notes (phase 7)
+
+Graphify is not installed, so the notes come from search and file reads. The branch only adds files, except four small edits: `cstack/src/cli.ts` (one import and one handler line), `cstack/src/manifest.ts` (`built: true` on the publish entry), `cstack/test/manifest.test.ts` (the counts) and `README.md` (the count and one bullet). Nothing outside the diff calls the new modules. `cstack/src/report/reports.ts` reads `publish.json`, and the test of unit 3 checks that it accepts what `record.ts` writes. `cstack/test/cli.test.ts` checks that every built command has a handler and passes. The full suite passes (446 tests) and typecheck is clean. `origin/main` has not moved since the branch was created.
 
 ## Briefing
 
