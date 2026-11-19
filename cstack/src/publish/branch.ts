@@ -43,3 +43,34 @@ export function pushBranch(branch: string, options: Options): string | undefined
   if (!pushed.ok) throw new PublishFailure(`The push failed: ${redact(pushed.stderr.trim())}`, 5);
   return head;
 }
+
+/**
+ * Brings `HEAD` up to date with `origin/<target>`. Gives true when the update changed the branch.
+ * On a conflict it aborts, checks that `HEAD` is where it was, and fails with exit code 8.
+ */
+export function updateBranch(target: string, integration: "merge" | "rebase", options: Options): boolean {
+  const git = (args: string[]) => runProgram("git", args, options);
+  const ref = `refs/remotes/origin/${target}`;
+  const fetched = git(["fetch", "origin", `+refs/heads/${target}:${ref}`]);
+  if (!fetched.ok) throw new PublishFailure(`Fetching ${target} from origin failed: ${redact(fetched.stderr.trim())}`, 5);
+  if (git(["merge-base", "--is-ancestor", "--end-of-options", ref, "HEAD"]).ok) return false;
+
+  const before = git(["rev-parse", "--verify", "HEAD"]).stdout.trim();
+  const done =
+    integration === "rebase"
+      ? git(["rebase", "--end-of-options", ref])
+      : git(["merge", "--no-edit", "--end-of-options", ref]);
+  if (done.ok) return true;
+
+  const files = git(["diff", "--name-only", "--diff-filter=U"]).stdout.split("\n").filter(Boolean);
+  git([integration === "rebase" ? "rebase" : "merge", "--abort"]);
+  const back = git(["rev-parse", "--verify", "HEAD"]).stdout.trim() === before;
+  const state = back ? "The branch is as it was." : `The branch could not be put back on ${before}. Check it with git status.`;
+  if (files.length > 0) {
+    throw new PublishFailure(
+      `Updating the branch onto ${target} with ${integration} has a conflict in: ${files.join(", ")}. Nothing was pushed. ${state}`,
+      8,
+    );
+  }
+  throw new PublishFailure(`Updating the branch onto ${target} with ${integration} failed: ${redact(done.stderr.trim())} ${state}`, 5);
+}

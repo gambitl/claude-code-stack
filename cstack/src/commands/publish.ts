@@ -3,12 +3,13 @@ import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan, type PlanRead } from "../plan/read.js";
-import { pushBranch, PublishFailure } from "../publish/branch.js";
+import { pushBranch, PublishFailure, remoteBranchHead, updateBranch } from "../publish/branch.js";
 import { createGithubPullRequest, detectForge, findGithubPullRequest } from "../publish/forge.js";
-import { readPublishRecord, writePublishRecord } from "../publish/record.js";
+import { readPublishRecord, readTestMarker, removeTestMarker, writePublishRecord, writeTestMarker } from "../publish/record.js";
 import { runProgram } from "../publish/program.js";
 import { runFolder, type PublishRecord } from "../run-state.js";
 import { readSettings, SettingsError } from "../settings.js";
+import { lastLines, runTests, testScript } from "../test-run.js";
 import { failWith } from "./errors.js";
 
 export const PUBLISH_USAGE =
@@ -111,7 +112,7 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
   try {
     const located = locatePlan(deps.cwd, parsed.values.plan);
     const plan = readPlan(readFileSync(located.path, "utf8"));
-    readSettings(located.root);
+    const settings = readSettings(located.root).values;
     const problems = brokenRules(located.root, plan, deps);
     if (problems.length > 0) {
       io.stderr(`cstack publish: nothing was pushed, because ${problems.length} rule(s) are broken.\n${problems.map((p) => `- ${p}\n`).join("")}`);
@@ -131,6 +132,26 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
     const record = readPublishRecord(folder) ?? { pullRequest: "", pushes: [] };
     let madeNow = 0;
     try {
+      const branch = plan.header.Branch;
+      const updated = remoteBranchHead(branch, options) === undefined && updateBranch(plan.header["Target branch"], settings.integration, options);
+      if (updated || readTestMarker(folder) !== undefined) {
+        if (settings.testCommands === undefined) {
+          io.stdout("The tests did not run because .cstack/settings.json has no testCommands.\n");
+          removeTestMarker(folder);
+        } else {
+          const tests = await runTests(located.root, testScript(settings.testCommands), undefined);
+          if (tests.exitCode !== 0) {
+            const commit = runProgram("git", ["rev-parse", "--verify", "HEAD"], options).stdout.trim();
+            writeTestMarker(folder, { commit, time: new Date(deps.now()).toISOString() });
+            const why = tests.timedOut ? "The tests timed out." : "The tests failed.";
+            io.stderr(
+              `cstack publish: ${why} Nothing was pushed. The branch now holds the update, and the next run will test again.\n${lastLines(tests.output)}\n${summary(record, madeNow)}`,
+            );
+            return 1;
+          }
+          removeTestMarker(folder);
+        }
+      }
       const pushed = pushBranch(plan.header.Branch, options);
       if (pushed !== undefined) {
         record.pushes.push({ commit: pushed, time: new Date(deps.now()).toISOString() });

@@ -277,3 +277,115 @@ describe("cstack publish pushes once and opens the pull request on GitHub", () =
     expect(record(env)).toMatchObject({ pullRequest: "", pushes: [{ commit: head(env) }] });
   });
 });
+
+describe("cstack publish brings the branch up to date and runs the tests", () => {
+  const LINK = "https://github.com/o/r/pull/7";
+  const branchRef = "refs/heads/gambitl/units";
+  const scenario = { "gh pr create": { stdout: `${LINK}\n` } };
+  const head = (env: PublishEnv) => git(env.repo, "rev-parse", "HEAD");
+  const branchPushes = (env: PublishEnv) => env.pushes().filter((p) => p.startsWith(branchRef));
+  const marker = (env: PublishEnv) => join(runFolder(env.repo, PLAN_PATH), "publish-tests.json");
+  const settings = (env: PublishEnv, value: object) => commitPlan(env.repo, JSON.stringify({ version: 1, ...value }), ".cstack/settings.json");
+  /** Puts a new commit on main of the bare remote, then goes back to the feature branch. */
+  const moveMain = (env: PublishEnv, file = "main.txt") => {
+    git(env.repo, "checkout", "-q", "main");
+    commitFiles(env.repo, [file]);
+    git(env.repo, "push", "-q", "origin", "main");
+    git(env.repo, "checkout", "-q", "gambitl/units");
+  };
+  const touching = { testCommands: { all: "touch tests-ran" } };
+
+  it("rebases onto the moved target, runs the tests and pushes once", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, touching);
+    moveMain(env);
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(existsSync(join(env.repo, "tests-ran"))).toBe(true);
+    expect(git(env.repo, "merge-base", "--is-ancestor", "origin/main", "HEAD")).toBe("");
+    expect(git(env.repo, "rev-list", "--merges", "origin/main..HEAD")).toBe("");
+    expect(branchPushes(env)).toEqual([`${branchRef} ${head(env)}`]);
+  });
+
+  it("adds a merge commit with the setting merge", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, { ...touching, integration: "merge" });
+    moveMain(env);
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(git(env.repo, "rev-list", "--merges", "origin/main..HEAD").split("\n")).toHaveLength(1);
+    expect(existsSync(join(env.repo, "tests-ran"))).toBe(true);
+    expect(branchPushes(env)).toHaveLength(1);
+  });
+
+  it("runs no test when the target did not move", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, touching);
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(existsSync(join(env.repo, "tests-ran"))).toBe(false);
+    expect(branchPushes(env)).toHaveLength(1);
+  });
+
+  for (const integration of ["rebase", "merge"]) {
+    it(`gives 8 on a conflict with ${integration}, names the file and leaves the branch as it was`, async () => {
+      const env = makePublishEnv();
+      env.scenario(scenario);
+      settings(env, { integration });
+      commitFiles(env.repo, ["clash.txt"]);
+      const before = head(env);
+      moveMain(env, "clash.txt");
+      const { code, out } = await run(env, ["--grace", "0"]);
+      expect(code).toBe(8);
+      expect(out.stderr).toContain("clash.txt");
+      expect(head(env)).toBe(before);
+      expect(existsSync(join(env.repo, ".git", "rebase-merge"))).toBe(false);
+      expect(existsSync(join(env.repo, ".git", "MERGE_HEAD"))).toBe(false);
+      expect(env.pushes().filter((p) => p.startsWith(branchRef))).toEqual([]);
+    });
+  }
+
+  it("gives 1 with no push when the tests fail, and writes the marker", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, { testCommands: { all: "echo boom-line; exit 1" } });
+    moveMain(env);
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("boom-line");
+    expect(out.stderr).toContain("next run will test again");
+    expect(branchPushes(env)).toEqual([]);
+    expect(JSON.parse(readFileSync(marker(env), "utf8"))).toMatchObject({ commit: head(env) });
+  });
+
+  it("tests again on the next run, still pushes nothing, then pushes once after a fix", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, { testCommands: { all: "test -f fixed.txt || { echo boom-line; exit 1; }" } });
+    moveMain(env);
+    await run(env, ["--grace", "0"]);
+    const second = await run(env, ["--grace", "0"]);
+    expect(second.code).toBe(1);
+    expect(second.out.stderr).toContain("boom-line");
+    expect(branchPushes(env)).toEqual([]);
+    expect(existsSync(marker(env))).toBe(true);
+    commitFiles(env.repo, ["fixed.txt"]);
+    const third = await run(env, ["--grace", "0"]);
+    expect(third.code).toBe(0);
+    expect(existsSync(marker(env))).toBe(false);
+    expect(branchPushes(env)).toHaveLength(1);
+  });
+
+  it("pushes anyway without testCommands, and says that the tests did not run", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    moveMain(env);
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(out.stdout + out.stderr).toContain("tests did not run because .cstack/settings.json has no testCommands");
+    expect(branchPushes(env)).toHaveLength(1);
+  });
+});
