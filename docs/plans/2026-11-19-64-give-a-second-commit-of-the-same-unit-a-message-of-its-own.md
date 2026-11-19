@@ -243,7 +243,37 @@ Judgment calls for the pull request body:
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack unit commit` now takes `--message <subject>`. When the unit already has a commit, it refuses without `--message`, or with a subject the unit already used, and it shows the command to copy. It does what the ticket asked: every acceptance item has its test, and I ran the tests of the command and of the manifest again, 52 out of 52 pass.
+
+**What you need to do**
+
+- You merge the pull request yourself. If it goes in after the ticket that refuses `cstack unit red` when the code already exists (#63), git reports a conflict in `README.md`. The two branches change neighbouring bullets, so keep both sides. I checked it with `git merge-tree`: `README.md` is the only file in conflict, and `cstack/src/manifest.ts` merges on its own.
+
+**What to watch**
+
+- The end-to-end tests of the ticket that wires the guides (#31) are not written yet, so I could not check them. If one of them commits the same unit twice, it now fails with exit code 1 until it passes `--message`.
+- A second commit of a unit with a test reuses the passing run of the first commit. So tests added in that second commit are never seen failing. The new sentence in the implementer prompt gives exactly that example ("when you add tests that you skipped"). This gap existed before, but now the prompt points at it.
+- The case from #26 was a commit made by hand, with no unit trailer. This ticket does not cover it, so keep the subject under "Watching" in the digest.
+
+#### Details
+
+The build matches the plan. Unit 1 (`4d2a3f1`) adds the `message` option to `parseArgs` in `cstack/src/commands/unit-commit.ts`. An empty, blank or multi-line value exits with code 2. Any other value is trimmed and written as the subject. `checkUnit()` reads the subjects of the unit's earlier commits with one `git log --no-walk --format=%s%x00 --end-of-options` call. It adds the two refusals to the `problems` list before anything is staged. The manifest entry has the new usage line and `flags: ["--message"]`. Unit 2 (`21ec17e`) adds two sentences to step 7 of `cstack/skills/resolve-issue/agents/implementer.md` and one sentence to the `cstack unit commit` bullet of `README.md`. The independent review found one bug, an empty quoted subject at the end of the refusal, and fixed it in `0f0c0dc` with a test that failed first. I ran `npx vitest run test/unit-commit.test.ts test/manifest.test.ts` in `cstack/` after the fix, and 52 tests passed. The review log records a full run with 1231 passing tests and a clean type check.
+
+The README conflict with the ticket that refuses `cstack unit red` when the code already exists (#63, branch `gambitl/red-guard`) is real. I ran `git merge-tree --write-tree --name-only HEAD gambitl/red-guard`, and it reports `CONFLICT (content): Merge conflict in README.md` and nothing else. That branch rewrites the bullets on `cstack unit red` and `cstack unit green` (lines 65 and 66), and this branch rewrites the bullet on `cstack unit commit` (line 67). Git treats adjacent changed lines as one conflict. The fix is to keep the two new bullets of that branch and the new last sentence of this branch. `cstack/src/manifest.ts` merges cleanly, because that branch changes only the exit code texts of `cstack unit red` and `cstack unit green`. The merge with the branch of the ticket that stops `report.test.ts` from timing out (#65, `gambitl/report-timeout`) is clean. If nobody acts, whoever merges second meets the conflict in the merge or in the "update branch" phase, and the coordinator's rule already says that person runs both test suites.
+
+The local branch `gambitl/wire-orca-guides` of #31 has no commit of its own yet, so its end-to-end tests in `cstack/test/e2e/` could not be read. Today `cstack/test/e2e/resolve-issue.test.ts` on `main` does not call `cstack unit commit` twice for one unit. If a new end-to-end test of #31 does, it fails with exit code 1 and the refusal text after this merge. The coordinator's rule that whoever merges second runs both test suites covers it, so no extra action is needed beyond that rule.
+
+The gap on a second commit of a unit with a `Test` line comes from `checkUnit()` lines 69 to 76. It only checks that a passing run exists and is newer than the failing run. After the first commit, both saved runs stay in the run folder, so a second commit passes this check with the old runs. Tests added in the second commit are never seen failing. With the branch of #63, `cstack unit red` would refuse only when a code file differs from `HEAD`. In the "add skipped tests" case, the code is already committed, so `cstack unit red` runs, the new tests pass, and nothing is saved. The implementer then commits with the old runs. The pull request body already lists this as a judgment call. The new prompt sentence makes the path more likely, because it names that exact example. Rewording the prompt is not worth reopening the build, because the gap is in the command, not in the sentence. A new non-blocking question for the user follows: "Should `cstack unit commit` refuse a second commit of a unit with a `Test` line until `cstack unit red` has saved a new failing run after the unit's last commit, so that tests added in a second commit are seen failing first?" If nobody decides, the gap stays as it was before this ticket.
+
+The case from retrospective #26 (commits `c4db082` and `d6cc4c1`, same subject, no `Cstack-Unit` trailer) was made outside `cstack unit commit`. This ticket cannot prevent it. The digest item under "Watching" in `docs/retros/reviewed/2026-11-19-digest.md` should stay open, with a note that the second unit commit case is fixed by #64.
+
+The earlier questions are resolved as follows. Question 1, an option or an automatic subject, was answered by the user with the `--message` option and the refusal, and the build follows it. The sentence in step 7 of the implementer prompt covers both the first use of `--message` and the retry after the refusal, as accepted by default. The refusal quotes every earlier subject and shows `cstack unit commit <n> --message "<subject>"`, as accepted by default. The value is trimmed before it is written and before it is compared, as accepted by default. The README sentence is written at the end of the bullet on line 67, as accepted by default. The flag in the manifest entry is in place, and `cstack/test/manifest.test.ts` passes with the new mention. The question about `cstack unit collect` and a relaunched child worktree stays open and non-blocking.
+
+The command shown in the refusal has no `--plan`. That works when the worktree has a current run, because `locatePlan()` in `cstack/src/plan/locate.ts` then finds the plan. Otherwise it fails with exit code 2 and the clear message "Give the plan file with --plan <file>". The implementer prompt already says that every command takes `--plan`, so this costs at most one retry and is not worth a change.
+
+I checked security and authorization, data model lock-in, scale and performance, failure modes and rollback, operations and cost, and reversibility, and found nothing new. The subject goes through `git commit -F`, and the hashes go after `--end-of-options`. A line break in the subject is refused, so no fake trailer is possible. The change adds one `git log` call on a few hashes. A revert of the two unit commits restores the old behaviour.
 
 ## Non-blocking questions
 
