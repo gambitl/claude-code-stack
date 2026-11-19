@@ -4,7 +4,7 @@ This file tells Claude and the skills how work is organised in this repository. 
 
 ## Where things live
 
-- **Tracker.** The tickets are GitHub issues in this repository. A project is an epic, which is a parent issue with the `epic` label. The tickets of an epic are its sub-issues. A wave is a set of tickets that can start at the same time. Each wave is a GitHub milestone.
+- **Tracker.** The tickets are GitHub issues in this repository. A project is an epic, which is a parent issue with the `epic` label. The tickets of an epic are its sub-issues. A wave is a set of tickets that can start at the same time. Each wave is a GitHub milestone. GitHub issues have no "in progress" or "in review" state. The labels `in progress` and `in review` play that role, and a ticket carries at most one of them.
 - **Specification pages.** Each project has one specification page, at `docs/projects/<project-slug>.md`. The epic links to it, and it links back to the epic.
 - **Architecture decision records.** An architecture decision record (ADR) explains one technical choice and its reasons. ADRs live in `docs/decisions/`.
 - **Layer labels.** `cstack` is the command-line tool that this repository builds. The `cli` label marks work on its code. The `skill` label marks work on the prose of skills and agent prompts. The `tests` label marks work on tests and continuous integration.
