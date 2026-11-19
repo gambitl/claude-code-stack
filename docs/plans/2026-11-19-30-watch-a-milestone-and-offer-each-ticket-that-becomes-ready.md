@@ -470,7 +470,57 @@ Locked decisions I respected and did not reopen: the CTO review of the ticket, A
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): watch a milestone and offer each ticket that becomes ready
+
+````markdown
+## What this does
+
+`cstack wave --watch` keeps `cstack wave` running in an interactive terminal. It reads the milestone or the epic again every `watchIntervalMinutes` minutes. The default is five minutes. When a ticket becomes ready, it sends a macOS notification and asks "Start <key> now? [y/N]". A ticket starts only after a typed `y` or `yes`.
+
+The first round works like `cstack wave`. It prints the three groups and asks one question for all the tickets that are ready. After that, the watch asks about each ticket that has just become ready, in the order of the group.
+
+## Key decisions
+
+- **The start of a ticket is one shared function.** `startTicket` in `cstack/src/wave/start.ts` holds the body of the old start loop. `cstack wave` and the watch both call it. The existing wave tests pass without any edit, so `cstack wave` prints the same lines as before.
+- **The notification holds no ticket data.** It runs `/usr/bin/osascript` with fixed script lines. The text reaches the script only as an argument, and it holds the checked key and fixed words. A test uses a title with a double quote and `& do shell script "rm -rf ~"`, and checks that no part of it reaches any argument.
+- **The watch ends on its own** when no ticket is blocked and every ready ticket was offered. The ticket said "no ticket is ready or blocked", which a single "no" would never reach. The user agreed to this change.
+- **One reader of standard input.** A line typed while no question waits is thrown away, and the watch prints one line that says so. The user agreed to this change. It protects the rule that nothing starts before a yes.
+- **A fresh `git fetch origin` before each start.** A ticket becomes ready because a blocker just merged, so an old copy of the default branch would lack that merge.
+- **Control-C.** During a question, it starts nothing. Before a worktree is created, the ticket is reported as not started. While a worktree is being created, the outcome is reported as unknown, and the exit code is 5.
+- **Three failed reads in a row** stop the watch with the exit code of the last error. `--watch` is refused without a terminal (1), with `--from-file` (2), with a bad settings file (3), and without a tracker client (4).
+- `--watch` is no longer an unbuilt flag. The counts after the rebase are 23 built commands and 0 not built.
+
+## Files touched
+
+- New in `cstack/src/wave/`: `watch.ts`, `start.ts`, `answers.ts`, `notify.ts`.
+- Changed: `cstack/src/commands/wave.ts`, `confirm.ts`, `start-git.ts`, `cstack/src/manifest.ts`, `README.md`.
+- Tests: new files `watch-*.test.ts`, `start.test.ts`, `answers.test.ts` and `notify.test.ts` in `cstack/test/wave/`, and a helper in `cstack/test/helpers/watch.ts`. The tests of the manifest and of the command line use their own made-up command for an unbuilt flag, because no real unbuilt flag is left.
+
+## How it was checked
+
+`npm run typecheck` and `npm test` pass in `cstack/`: 105 files, 1220 tests. The tests use a fake clock and a recorded runner. They never run the real `osascript`, `orca`, `gh` or `glab`. Nobody has run the watch for real against a tracker, and nobody has shown a real notification. Please try it once on a Mac before you merge, and check that the command `/usr/bin/osascript` shows a notification. If nothing shows, allow notifications for Script Editor in the system settings.
+
+## Judgment calls and follow-ups from the reviews
+
+- The independent reviewer found no bug. It added four tests.
+- The plan lists a few more test cases than were written, for example the cases without a client for Linear and GitHub, the round that starts at minute 7 after a slow answer, and the checks of the real clock and the real Control-C hook. The ticket does not require them.
+- With an interval of one minute, the first line says "every 1 minutes".
+- The watch keeps its own Control-C listener, so a second Control-C cannot force-quit a program that hangs. The user then waits for the timeout of the runner, two minutes, or ten for `orca worktree create`.
+- The watch finds a failed fetch by comparing the error message with a fixed string. A dedicated error class would be safer.
+- When standard input closes during a start that then fails, the "outcome unknown" line still blames Control-C.
+- Two commits of unit 8 share one subject, because the second one fixed the first.
+
+The plan file is `docs/plans/2026-11-19-30-watch-a-milestone-and-offer-each-ticket-that-becomes-ready.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+1. For the Orca maintainers: "When `orca worktree create` gets no `--base-branch`, does it fetch the remote first, and does it branch from the remote default branch or from the local one?" The watch is correct whatever the answer, because it fetches before each start.
+2. For the maintainer of this repository: a half-typed `y` without Enter stays in the terminal, and it answers the next question when you press Enter. Fixing it needs raw mode of the terminal, which the plan rejected on purpose. Should the README warn about it, or is it fine as it is?
+
+Fixes #30
+````
 
 ## Documentation
 
@@ -490,6 +540,8 @@ Locked decisions I respected and did not reopen: the CTO review of the ticket, A
 ## Hand-off log
 
 2026-11-19, executor run 1: moved ticket #30 to in progress by adding the label `in progress`. The branch `gambitl/wave-watch` already existed and was checked out. Started the build phase.
+
+2026-11-19, executor run 1, ready phase: filled the pull request section and the executor notes, then closed the build. Reports: done.
 
 2026-11-19, executor run 1, build phase finished: units 1 to 10 are committed (unit 9 after one escalation, unit 8 after one follow-up commit). The full suite and the typecheck passed on unit 9. The branch is not yet rebased on main.
 
