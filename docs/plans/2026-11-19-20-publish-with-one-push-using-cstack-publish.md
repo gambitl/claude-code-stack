@@ -347,6 +347,17 @@ The approach is locked by the ticket's contract and the answers of phase 4, so n
 
 Graphify is not installed, so the notes come from search and file reads. The branch only adds files, except four small edits: `cstack/src/cli.ts` (one import and one handler line), `cstack/src/manifest.ts` (`built: true` on the publish entry), `cstack/test/manifest.test.ts` (the counts) and `README.md` (the count and one bullet). Nothing outside the diff calls the new modules. `cstack/src/report/reports.ts` reads `publish.json`, and the test of unit 3 checks that it accepts what `record.ts` writes. `cstack/test/cli.test.ts` checks that every built command has a handler and passes. The full suite passes (446 tests) and typecheck is clean. `origin/main` has not moved since the branch was created.
 
+### Findings of the four reviewers (phase 7)
+
+Fixed in commit `bbc6482`, each with a test: the refusal message cut the name of a staged rename; an https remote lost its port for `glab -R`; the test output was printed without removing credentials; a host starting with a dash was accepted; check names could carry terminal control characters; the GitLab "no check ran" message now says that merged results pipelines are not recognised. Cheap simplifications applied: one shared options type, a shared helper to create the request, a JSON parsing helper, and no build-then-strip of the summary line. The conventions review found nothing that breaks a rule.
+
+Left as follow-ups (low confidence or a design question for the maintainer, no change made):
+- A branch pushed by hand before `cstack publish` leaves no push in `publish.json`, so `cstack report submit published` refuses. This is the first non-blocking question already recorded.
+- `test-run.ts` installs signal handlers, which ADR-SIC-H keeps for `bin.ts`. Ticket #17 owns that file and should keep or remove the handlers on purpose.
+- The three forge branches in `publish.ts` could become one forge interface. This is a preference.
+- `ProgramResult.code` is not read by any code.
+- On GitLab, merged results pipelines are still not matched, as the third non-blocking question says. The command now says so in its message instead of staying silent.
+
 ## Briefing
 
 ## Open questions after the build
