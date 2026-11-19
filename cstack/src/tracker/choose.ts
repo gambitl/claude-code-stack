@@ -30,15 +30,17 @@ export interface ChooserOptions {
   /** Whether the Orca feature for this tracker is available. Only Jira and Linear use it. */
   orcaAvailable: boolean;
   runner: Runner;
+  /** The host of the origin remote, when it is known. The login check is then made for this host only. */
+  host?: string;
 }
 
 /** Choose the client of each capability: Orca, then gh or glab, then the file (reads only). */
-export function createClientChooser({ tracker, orcaAvailable, runner }: ChooserOptions): (capability: Capability) => Promise<Client> {
+export function createClientChooser({ tracker, orcaAvailable, runner, host }: ChooserOptions): (capability: Capability) => Promise<Client> {
   const forge = tracker === "github" ? "gh" : tracker === "gitlab" ? "glab" : undefined;
   let forgeLoggedIn: Promise<boolean> | undefined;
   // Checked lazily and at most once.
   const loggedIn = (): Promise<boolean> => {
-    forgeLoggedIn ??= runner(forge as string, ["auth", "status"]).then((result) => result.kind === "ok");
+    forgeLoggedIn ??= runner(forge as string, host ? ["auth", "status", "--hostname", host] : ["auth", "status"]).then((result) => result.kind === "ok");
     return forgeLoggedIn;
   };
 

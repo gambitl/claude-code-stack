@@ -39,6 +39,17 @@ describe("client choice", () => {
     expect(gl.calls).toEqual(["glab auth status"]);
   });
 
+  it("checks the login for the given host, and with no other argument when there is none", async () => {
+    const withHost = fake(true);
+    await createClientChooser({ tracker: "github", orcaAvailable: false, runner: withHost.runner, host: "github.com" })("read");
+    expect(withHost.calls).toEqual(["gh auth status --hostname github.com"]);
+    for (const tracker of ["github", "gitlab"] as const) {
+      const bare = fake(true);
+      await createClientChooser({ tracker, orcaAvailable: false, runner: bare.runner })("read");
+      expect(bare.calls).toEqual([`${tracker === "github" ? "gh" : "glab"} auth status`]);
+    }
+  });
+
   it("falls back to the file for reads and no client for writes when the forge is not logged in", async () => {
     const { runner, calls } = fake(false);
     const choose = createClientChooser({ tracker: "github", orcaAvailable: false, runner });

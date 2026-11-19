@@ -1,0 +1,14 @@
+{
+  "id": 55,
+  "name": "in progress",
+  "description": "",
+  "description_html": "",
+  "text_color": "#FFFFFF",
+  "color": "#428BCA",
+  "subscribed": false,
+  "priority": null,
+  "is_project_label": true,
+  "open_issues_count": 1,
+  "closed_issues_count": 0,
+  "open_merge_requests_count": 0
+}

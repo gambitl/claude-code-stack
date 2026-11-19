@@ -75,11 +75,15 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   {
-    usage: "cstack skills install [--adopt <name>]...",
+    usage: "cstack skills install [--adopt <name>]... [--add-permission]",
     summary: "Install the skills that this version ships.",
     flags: ["--adopt", "--add-permission"],
-    notBuiltFlags: { "--add-permission": 26 },
-    exitCodes: { 0: "Every shipped skill is in place.", 1: "A skill was skipped or the user is root.", 2: USAGE },
+    exitCodes: {
+      0: "Every shipped skill is in place.",
+      1: "A skill was skipped, the user is root or a backup copy already exists.",
+      2: USAGE,
+      3: "The settings file cannot be edited, so nothing was changed.",
+    },
     file: "skills.ts",
     ticket: 9,
     built: true,
@@ -203,7 +207,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-read.ts",
     ticket: [25, 26],
-    built: false,
+    built: true,
   },
   {
     usage: "cstack tracker list (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>]",
@@ -212,7 +216,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-list.ts",
     ticket: [25, 26],
-    built: false,
+    built: true,
   },
   {
     usage: "cstack tracker move <key> --to <state name> [--tracker <name>]",
@@ -221,7 +225,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-move.ts",
     ticket: [25, 26],
-    built: false,
+    built: true,
   },
   {
     usage: "cstack tracker comment <key> --body-file <path> [--tracker <name>]",
@@ -230,7 +234,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-comment.ts",
     ticket: [25, 26],
-    built: false,
+    built: true,
   },
   {
     usage: "cstack helper start <executor|implementer|implementer-escalation> --plan <file> [--unit <n>] [--child-worktree]",
