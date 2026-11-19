@@ -7,7 +7,7 @@ Documentation tool: docs/ folder (specification page `docs/projects/skills-into-
 Branch: gambitl/end-to-end-release
 Target branch: main
 Conversation language: French
-Status: in progress
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -422,6 +422,51 @@ Phase 9: main had not moved, so no rebase was needed. The repository has no form
 
 ## Briefing
 
+### What you should know about what was built
+
+This branch delivers the code half of the ticket. The settings of the repository now reach `cstack next` and `cstack unit commit`, `cstack measure` reads plan files of the new format, and a scripted test runs the whole resolve-issue skill without Claude or the network. It does what the ticket asked for this half: the suite passes (805 tests), and the scripted test found no guide that calls a command the wrong way. The release, the install and the real run with Claude remain after the merge, so the ticket stays open.
+
+**What you need to do**
+
+- Merge with "Create a merge commit", not "Squash and merge". `cstack measure` reads the author dates of this plan's commits, and a squash would erase them. The first line of the pull request description says it too.
+- After the merge, push the tag `v0.2.0` on the merge commit of `main`, install the release, then run the skill on a small private test repository. Both reference runs of the ticket that measures today's skill (#12) are recorded, so nothing holds the install back. The outcome goes in a comment on #23, with figures from the test repository only.
+
+**What to watch**
+
+- The real run with Claude is the first one that follows the prose steps between the conversation and the agent that builds: starting the retrospective after the build, then launching that agent again to publish. The scripted test checks the order of the commands only. The step that resumes the retrospective is checked against the bare words `cstack next`, which almost every guide contains.
+- `cstack publish` meets GitHub for the first time. An exit code 0 with "no check ran" can hide checks that GitHub has not registered yet. The test repository needs `testCommands`, with `file`, or `cstack unit red` stops with exit code 3.
+- After `cstack skills install --adopt resolve-issue`, the prose skill is gone for every repository, and the new skill refuses a plan file without a `Format:` line. Finish or drop any prose run still in progress before you install.
+
+**What changed since the plan**
+
+- One commit in the middle of the branch (`8ac337b`) has two failing tests, fixed in the next commit, because of a concurrent amend. It stays, because the history and the author dates are kept. Remember it if you ever run `git bisect`.
+- The independent review added two fixes. `cstack measure` now refuses a time that does not exist (it printed `NaN` and exited with 0). The bare repository of the test now logs refused pushes too.
+- The scripted test takes about 12 seconds on its own, not the half minute I expected.
+
+#### Details
+
+**What was built against the ticket.** Units 1 to 9 are done, and they cover scope steps 1 to 6, step 11 and the version part of step 7, as the coordinator split it. `readSettings` (`cstack/src/settings.ts`, around line 166) opens the file with `O_RDONLY | O_NONBLOCK`, checks it with `fstatSync`, and refuses anything that is not a regular file. It also refuses a `commitAttribution` line whose key is `Cstack-Unit` in any case. `cstack next` (`cstack/src/commands/next.ts`) finds the root and reads the settings at the start of its `try` block, before `--new`, `--done`, `--plan` or a plain call writes anything. `printGuide` writes the block from `cstack/src/settings-block.ts` between the run line and the guide. `cstack unit commit` reads the settings before the lock and appends the attribution lines right after `Cstack-Unit: <n>`. `cstack measure` reads the header of a plan with a `Format:` line through `readPlan`, with a `source` field that keeps the "less than a minute" check for history-based moments only (`cstack/src/measure/moments.ts`, `cstack/src/commands/measure.ts`). The two CI guards are `cstack/test/manifest-implemented.test.ts` and `cstack/test/guides/phases-have-guides.test.ts`. The scripted test is `cstack/test/e2e/resolve-issue.test.ts`, with fixtures under `cstack/test/fixtures/e2e/`. No file under `cstack/guides/` or `cstack/skills/` changed, so the scripted test found no mismatch between a guide and a command. The review log reports `npm test` (805 tests) and `npm run typecheck` green. I ran the scripted test alone on 2026-11-19: 9 tests passed in 12.4 seconds. The acceptance criteria about the GitHub release, the backup folder on the maintainer's machine and the comment on the run with Claude cannot be met by this pull request. They belong to steps 7 to 10, which the coordinator moved after the merge, and the pull request closes with `Part of #23` so the ticket stays open.
+
+**Merge with a merge commit.** This plan file has no `Format:` line, so `cstack measure` reads its two moments from the author dates of its commits (the method of #11). A squash would replace them with one commit, and the comment of #20 on this ticket asks for a merge commit for that reason. The pull request body starts with that instruction, as "Decisions" says. If someone squashes, this run can no longer be measured, and the history of commit `8ac337b` disappears too, which is harmless.
+
+**After-merge steps.** Step 7 needs the tag `v0.2.0` on the merge commit of `main`; `.github/workflows/release.yml` checks that the tag matches `cstack/package.json`, which now says `0.2.0`. Step 8 is unblocked: the "Dependencies" section records that #12 closed with both baseline runs recorded. Steps 9 and 10 follow the ticket. The comment on #23 must hold figures from the test repository only, because of the public text rule of `CLAUDE.md`. Nothing happens by default: if nobody does these steps, the release does not exist and the ticket stays open.
+
+**The prose steps between the conversation and the building agent.** The comment of #15 on this ticket says these hand-overs are prose and that no test runs them. The scripted test runs the commands in the order of the real guides and checks, through `follow()`, that the text that led to each command names it. For the resume of the retrospective (line 365 of the test), the source text is `cstack/guides/resolve-issue/plan.md`, whose "done" branch (line 55) does say "Run `cstack next`". The check is right but weak, because the bare `cstack next` appears in almost every guide. The review log lists it as follow-up 3. The case where the building agent stops after `cstack next --done ready` and before its report is still covered only by one sentence of the executor prompt, as #15 said. The run of step 9 is the first real test of all this, so read its transcript at those points.
+
+**`cstack publish` on a real forge.** The comment of #20 on this ticket says that exit 0 with "no check ran" can hide checks that a slow forge has not registered yet, and that the GitLab JSON fields were only assumed. The test repository of step 9 has a GitHub Actions workflow, so that message would be a false success there. The comment of #22 says that `.cstack/settings.json` must give `testCommands`, and `testCommands.file` when units run in parallel, or `cstack unit red` exits with 3. The scripted test sets both, so it does not show what happens without them. The default `--grace` of 120 seconds applies in the real run, unlike in the test.
+
+**The install removes the prose skill everywhere.** `cstack skills install --adopt resolve-issue` moves the prose folder to `~/.claude/skill-backups/<stamp>/resolve-issue`. The new skill's plan reader refuses a plan file without a `Format:` line with "This plan file has no Format line. The prose skill wrote it before cstack existed." (`cstack/src/plan/read.ts`, around line 210). So any prose run still in progress on the maintainer's machine cannot resume after the install. Only this worktree is in flight today (`git worktree list`), and this run ends before the merge. The README now gives the full way back (`./pull-skills.sh --apply`, or move the backup back after moving the current folder away).
+
+**Commit `8ac337b` has two failing tests.** The review log records that unit 3's commit holds two tests whose fix landed in `6135f79`, unit 2's commit, because of a concurrent amend. The final tree is correct. Rewriting the commit would change dates or need an interactive rebase, and the coordinator forbids `--reset-author`, `--ignore-date` and `--committer-date-is-author-date`. The independent reviewer kept it as a judgment call for the pull request. The only effect is on a future `git bisect`, which would see that commit as broken.
+
+**Fixes from the independent review.** `cstack measure` printed `NaN` and exited 0 for a header time such as `T25:00:00`. Commit `7f140ea` now refuses a time whose `Date` is invalid. I checked that JavaScript still accepts an impossible day such as `2026-02-30T10:00:00+01:00` and rolls it to 2 March without an error. `cstack next` writes those times itself, so this matters only for a hand-edited header. The shared plan reader is out of scope here, as the independent review said. Commit `cab687c` moved the push log of the bare repository from `post-receive` to `pre-receive`, as the plan asked, so a refused push is logged too.
+
+**Earlier questions, and how they were resolved.** Question 1 asked how to read the command list test. The test does what was approved: it checks each built entry for its file, its export and its routing, and each unbuilt entry for exit 1 and its tickets. Question 2 asked how the test starts `cstack`. It builds the code once with `tsc` into a temporary folder and runs `node <folder>/dist/bin.js`, and it never touches the real `dist/`. Question 3 asked about a settings file that is not a regular file. `readSettings` refuses it in one place, and a named pipe case was added after the fix. Question 4 asked about a broken version 1 plan in `cstack measure`. The command prints a fixed sentence and exits with 1. The independent review added the refusal of a time that does not exist. Question 5 asked for the format of the settings block. It follows "Decisions", with `testCommands: not set (default)`. Question 6 asked whether every call of `cstack next` reads the settings first. It does. `repositoryRoot` repeats the `git rev-parse --show-toplevel` call of `locatePlan`, and the review log lists this as follow-up 1. Question 7 asked when `cstack unit commit` reads the settings. It reads them before it stages anything. It has its own `SettingsError` branch instead of `failWith`, which is follow-up 2. Question 8 asked about the version in `cstack/test/next.test.ts`. That test now reads `cstack/package.json`. Question 9 asked what to do when a guide does not fit a command. It never happened. Question 10 asked about `--grace 0`. The test passes it through its short list `EXTRA_FLAGS`. Question 11 asked about the time of the suite. The scripted test takes about 12 seconds alone, which is less than expected. Question 12 asked where the documentation goes. The README is done by unit 9. The comments on #23, #31 and #32 belong to the documentation step, and none of them is posted yet. The earlier block raised two README points, the way back and the two measuring methods, and both are in the README. The comment on #32 must repeat the second one.
+
+**New questions.** The build raised no new question, blocking or not. The three review follow-ups are cleanups that do not change behaviour.
+
+I checked security, data model lock-in, scale, failure and rollback, user interface edge cases, operations and cost, reversibility and hidden coupling. Beyond the points above, none of them holds anything for this branch: there is no tenant, no schema, no new recurring cost, and the version bump is undone by installing `0.1.0` as the README says.
+
 ## Open questions after the build
 
 ### Blocking
@@ -430,9 +475,47 @@ Phase 9: main had not moved, so no rebase was needed. The repository has no form
 
 ## Pull request
 
+Title: `feat(cli): wire the settings and the plan format into cstack and test resolve-issue end to end`
+
+Body:
+
+Merge this pull request with a merge commit, not a squash, because `cstack measure` reads the author dates of the plan commits.
+
+This pull request wires the settings file and the version 1 plan format into the commands that still lacked them. It also adds the last automatic tests of milestone 2, and raises the version of `cstack` to 0.2.0.
+
+**What was built.** `cstack next` reads `.cstack/settings.json` before it writes any state. An invalid file stops it with exit code 3, and a valid one prints a "Settings of this repository" block above each guide. `cstack unit commit` adds the `commitAttribution` lines right after `Cstack-Unit: <n>`. `cstack measure` reads the approval and ready times from the header of a plan file that has a `Format:` line. Three new tests check that every built command is implemented, that every guide has a phase, and that the whole skill runs end to end with the built `cstack`, a local bare remote and a fake `gh`. The README explains all of this and the way back to the prose skill.
+
+**Key decisions.** The settings reader now refuses a settings file that is not a regular file, because a pipe or a device could hang it. It also refuses a `commitAttribution` line with the key `Cstack-Unit`, because that key belongs to `cstack`. A plan file with a `Format:` line is measured from its header, so its window is slightly longer than with the old method, to its disadvantage. No new decision record was needed.
+
+**Judgment calls from the independent review.** The review fixed two things with tests: `cstack measure` printed `NaN` for an impossible header time, and the end-to-end remote used a hook that hid refused pushes. Commit `8ac337b` alone has two failing tests, fixed in the next commit, because of a concurrent amend. It stays in history because the author dates must be kept. A day that does not exist, such as February 30, is still accepted by the shared plan reader, which is out of scope here.
+
+**Follow-ups left.** The helper that finds the repository root in `next.ts` repeats a call that exists elsewhere. `unit-commit.ts` could share `failWith` for settings errors. The end-to-end step that resumes the retrospective checks its command against a guide that proves little.
+
+**Files touched.** `cstack/src/settings.ts`, `cstack/src/settings-block.ts`, `cstack/src/commands/next.ts`, `cstack/src/commands/errors.ts`, `cstack/src/commands/unit-commit.ts`, `cstack/src/commands/measure.ts`, `cstack/src/measure/moments.ts`, the matching tests, the new tests and fixtures under `cstack/test/`, `cstack/package.json`, `cstack/package-lock.json` and `README.md`. The plan is at `docs/plans/2026-11-19-23-run-the-new-resolve-issue-end-to-end-and-release-it.md`.
+
+**After the merge.** These steps of ticket #23 are done by hand:
+1. Push the tag `v0.2.0` on the merge commit.
+2. Install the release on the maintainer's machine with `cstack skills install --adopt resolve-issue`.
+3. Run the new skill with Claude on a private test repository.
+4. If that run finds a bug, fix it with a test and release again.
+
+Part of #23
+
 ## Documentation
 
+- README.md: written by unit 9 (commit cc5834f).
+- Comment on #23: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-7007026776
+- Hand-down comment on #31: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7007027302
+- Hand-down comment on #32: https://github.com/gambitl/claude-code-stack/issues/32#issuecomment-7007027743
+- No decision record: none was needed, as the plan says.
+
 ## Executor notes
+
+- Unit 3's implementer ran `git commit --amend` after unit 2 had committed on top, so unit 2's commit changed hash (now 6135f79) and 8ac337b has two failing tests. Cause: parallel units in one worktree. Left as is to keep dates.
+- Unit 3's first `sed -i` used GNU syntax and failed on macOS (BSD sed); fixed with `sed -i ''`.
+- The unit 8 first run failed twice, both in test setup: a missing fake `gh` log, and a CommonJS fake under a `"type": "module"` folder.
+- The independent review reversed two unit choices: a NaN in `cstack measure` and a `post-receive` hook where `pre-receive` was asked.
+- The CTO briefing said the e2e step for the retro resume checks its command against `plan.md`, which proves little.
 
 ## Hand-off log
 
