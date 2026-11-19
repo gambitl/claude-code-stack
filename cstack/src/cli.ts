@@ -14,7 +14,7 @@ import { unitCommit } from "./commands/unit-commit.js";
 import { unitOrder } from "./commands/unit-order.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
-import { COMMANDS, type CommandEntry, EXIT, commandWords } from "./manifest.js";
+import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
 
 const BUILT = COMMANDS.filter((entry) => entry.built);
 
@@ -66,12 +66,13 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
     io.stderr(USAGE);
     return EXIT.usage;
   }
+  const refusal = unbuiltRefusal(args);
+  if (refusal !== undefined) {
+    io.stderr(`cstack: ${refusal}\n`);
+    return EXIT.refused;
+  }
   if (Object.hasOwn(HANDLERS, first) && BUILT.some((e) => commandWords(e)[0] === first))
     return HANDLERS[first](args.slice(1), io);
-  if (COMMANDS.some((e) => commandWords(e)[0] === first)) {
-    io.stderr(`cstack: "${first}" is not built in this version yet.\n`);
-    return EXIT.usage;
-  }
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {

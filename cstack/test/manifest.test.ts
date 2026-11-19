@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { COMMANDS, commandWords, EXIT, matchMention } from "../src/manifest.js";
+import { COMMANDS, type CommandEntry, commandWords, EXIT, matchMention, unbuiltRefusal } from "../src/manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -107,21 +107,52 @@ describe("matchMention", () => {
     expect(matchMention("guide hello --skill=cstack-example").ok).toBe(true);
   });
 
+  it("reads the command words of a usage line that has a group in parentheses", () => {
+    const wave = COMMANDS.find((c) => c.usage.startsWith("cstack wave"));
+    expect(commandWords(wave as CommandEntry)).toEqual(["wave"]);
+  });
+
+  it("stops the command words at a flag", () => {
+    const entry = { ...COMMANDS[0], usage: "cstack demo --flag <x>" } as CommandEntry;
+    expect(commandWords(entry)).toEqual(["demo"]);
+  });
+
   it("refuses an unknown command", () => {
     expect(matchMention("frobnicate").ok).toBe(false);
   });
 });
 
+describe("the flags that are not built yet", () => {
+  it("names the ticket of the flag once the command is built", () => {
+    const built = COMMANDS.map((e) => ({ ...e, built: true }));
+    expect(unbuiltRefusal(["helper", "start", "--child-worktree"], built)).toContain("Ticket #28 builds it.");
+    expect(unbuiltRefusal(["wave", "--watch"], built)).toContain("Ticket #30 builds it.");
+    expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
+  });
+
+  it("names the ticket of the command while the command is not built", () => {
+    expect(unbuiltRefusal(["helper", "start"])).toContain("Ticket #27 builds it.");
+    expect(unbuiltRefusal(["wave"])).toContain("Ticket #29 builds it.");
+  });
+});
+
 describe("the command list", () => {
-  it("holds eleven built commands and four that are not built", () => {
+  it("holds eleven built commands and thirteen that are not built", () => {
     expect(COMMANDS.filter((c) => c.built)).toHaveLength(11);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(4);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(13);
   });
 
   it("names a file for every entry, and the file exists when the entry is built", () => {
     for (const entry of COMMANDS) {
       expect(entry.file).toMatch(/^[a-z-]+\.ts$/);
       if (entry.built) expect(existsSync(join(root, "src", "commands", entry.file))).toBe(true);
+    }
+  });
+
+  it("gives --plan to the new commands that work on a run", () => {
+    for (const words of ["helper start", "helper done", "unit collect"]) {
+      const entry = COMMANDS.find((c) => commandWords(c).join(" ") === words);
+      expect(entry?.flags, words).toContain("--plan");
     }
   });
 

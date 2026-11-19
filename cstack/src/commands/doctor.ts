@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { Io } from "../io.js";
 import { requirements, type DoctorInput } from "../doctor/requirements.js";
-import { createRunner, findOnPath } from "../doctor/runner.js";
+import { createRunner, findOnPath } from "../orca/run.js";
 
 const TIMEOUT_MS = 5000;
 
