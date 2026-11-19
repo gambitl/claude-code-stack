@@ -289,13 +289,14 @@ The ticket says that `cstack unit green` refuses a changed file that is older th
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The full `npm test` run failed once on `test/report.test.ts` ("names a unit without a commit") with a 5000 ms timeout. It passed when run alone (27 of 27), as the conventions file predicts.
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
 - 2026-11-19: The executor moved issue #63 to "in progress" by adding the `in progress` label, then started the build.
+- 2026-11-19: The build phase finished. Units 1 and 4 ran in parallel, then units 2 and 3 in order. All four are committed. Typecheck passes and the full test run passes, apart from one timeout that passed alone.
 
 ## History
 
