@@ -278,6 +278,8 @@ I checked security and authorization, data model lock-in, scale and performance,
 ## Non-blocking questions
 
 - When a unit already collected from a child worktree is relaunched in a new child worktree, should `cstack unit collect` bring its new commits back, instead of skipping the unit because the ticket branch already has a commit of it? For: the user. Raised before the plan, open, not needed for this ticket.
+- A second commit of a unit that has a `Test` line reuses the passing test run saved for the first commit, so tests added in the second commit are never seen failing first. Should `cstack unit commit` or `cstack unit red` close that gap? For: the user. It was true before this ticket and is not needed for it.
+- If an end-to-end test of #31 commits the same unit twice, it now needs `--message`. Should the coordinator check that when #31 merges? For: the coordinator of the wave.
 
 ## Pull request
 
