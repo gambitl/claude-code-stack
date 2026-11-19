@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { COMMANDS, type CommandEntry, commandWords, EXIT, matchMention } from "../src/manifest.js";
+import { COMMANDS, type CommandEntry, commandWords, EXIT, matchMention, unbuiltRefusal } from "../src/manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -114,6 +114,20 @@ describe("matchMention", () => {
 
   it("refuses an unknown command", () => {
     expect(matchMention("frobnicate").ok).toBe(false);
+  });
+});
+
+describe("the flags that are not built yet", () => {
+  it("names the ticket of the flag once the command is built", () => {
+    const built = COMMANDS.map((e) => ({ ...e, built: true }));
+    expect(unbuiltRefusal(["helper", "start", "--child-worktree"], built)).toContain("Ticket #28 builds it.");
+    expect(unbuiltRefusal(["wave", "--watch"], built)).toContain("Ticket #30 builds it.");
+    expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
+  });
+
+  it("names the ticket of the command while the command is not built", () => {
+    expect(unbuiltRefusal(["helper", "start"])).toContain("Ticket #27 builds it.");
+    expect(unbuiltRefusal(["wave"])).toContain("Ticket #29 builds it.");
   });
 });
 

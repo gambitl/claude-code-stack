@@ -119,7 +119,8 @@ describe("run", () => {
       for (const [flag, ticket] of Object.entries(entry.notBuiltFlags ?? {})) {
         const { out, io } = collect();
         expect(await run([...commandWords(entry), flag], io), flag).toBe(1);
-        for (const t of tickets(ticket)) expect(out.stderr, flag).toContain(t);
+        // An unbuilt command is refused as a whole, with its own ticket, before its flags are read.
+        for (const t of tickets(entry.built ? ticket : entry.ticket)) expect(out.stderr, flag).toContain(t);
       }
   });
 
@@ -146,6 +147,17 @@ describe("run", () => {
     const two = collect();
     await run(["tracker", "read"], two.io);
     expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
+  });
+
+  it("names the ticket of the command for the flags of unbuilt commands", async () => {
+    for (const [args, ticket] of [
+      [["helper", "start", "--child-worktree"], "#27"],
+      [["wave", "--watch"], "#29"],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io)).toBe(1);
+      expect(out.stderr).toContain(ticket);
+    }
   });
 
   it("prints the usage line of every built entry and of no other entry", async () => {
