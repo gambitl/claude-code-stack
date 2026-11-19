@@ -206,6 +206,8 @@ The only blocker is #24, which is closed as completed. Its code is on `main`.
 - The real prompt reads exactly one line from standard input and then closes its reader, so the process can end without `process.exit()`. The end of input (Ctrl-D) counts as no. (2026-11-19, the user's answer: accepted by default)
 - When the first entry of `git worktree list --porcelain` is a bare repository, cstack refuses with exit `1` and a clear message, before it lists anything. It never passes that path to Orca and never builds a folder next to it. (2026-11-19, the user's answer: accepted by default, from the review before the plan)
 - The repository root is the folder of the first entry of `git worktree list --porcelain`, which is the main worktree. cstack uses it for `--repo path:` and for the folder of the git way, wherever the command runs inside the clone. (2026-11-19, tested answer, see "Blocking questions")
+- The git way creates its branch with `git worktree add --no-track`, so the new branch has no upstream. A plain `git push` in that worktree then never sends the ticket's commits to the default branch. (2026-11-19, the user's answer to non-blocking question 1)
+- When the second read of a ticket or the second worktree check fails after the yes, the whole loop stops and the command exits with the error's own code. A new run lists the tickets already started under "Already started", so nothing starts twice. (2026-11-19, the user's answer to non-blocking question 2)
 
 ### Assumptions not asked (2026-11-19)
 
@@ -453,8 +455,8 @@ The build also changed a shared file of #24: `cstack/src/orca/run.ts` now keeps 
 
 ## Non-blocking questions
 
-1. Should the git way create its branch with `--no-track`? The new branch now tracks `origin/<default branch>`. With `push.default=upstream`, a plain `git push` in that worktree would push the ticket's commits to the default branch. `cstack publish` is not affected. It costs one argument and one test assertion. For: the user. This is non-blocking because the default git settings refuse such a push, and the plan fixes the exact command.
-2. Should a failure of the second read or the second worktree check, for one ticket after the yes, skip that ticket and go on, instead of stopping the whole loop? Today the loop stops, and a new run puts the tickets already started into "Already started". For: the user. Non-blocking because nothing starts twice.
+1. Should the git way create its branch with `--no-track`? The new branch now tracks `origin/<default branch>`. With `push.default=upstream`, a plain `git push` in that worktree would push the ticket's commits to the default branch. `cstack publish` is not affected. It costs one argument and one test assertion. For: the user. This is non-blocking because the default git settings refuse such a push, and the plan fixes the exact command. The user answered yes on 2026-11-19. The git way now passes `--no-track`, and a test checks that the new branch has no upstream.
+2. Should a failure of the second read or the second worktree check, for one ticket after the yes, skip that ticket and go on, instead of stopping the whole loop? Today the loop stops, and a new run puts the tickets already started into "Already started". For: the user. Non-blocking because nothing starts twice. The user answered no on 2026-11-19. The loop keeps stopping, because a second read that fails almost always means that the tracker fails for every ticket.
 3. Does a slash command in `--prompt` run the skill when Orca starts the agent in its chat surface? Nobody checked, because it needs a real launch. For: ticket #31, which checks it end to end.
 
 ## Pull request
@@ -477,6 +479,7 @@ After the yes, cstack reads each ready ticket again and applies the ready rule a
 - Ticket text never reaches an argument, a prompt or the printed command. Only the checked key, the short name and the checked URL do. Titles are cleaned of terminal control sequences before they are printed.
 - If `orca reference find` fails, nothing starts and the exit code is 5. If one start fails or has an unknown outcome, cstack goes on, never retries, and exits with 5 at the end.
 - The repository root is the first entry of `git worktree list --porcelain`, because Orca accepts only the main clone.
+- The git way creates its branch with `--no-track`. Without it, the branch would track `origin/<default branch>`. With `push.default=upstream`, a plain `git push` in that worktree would then send the ticket's commits to the default branch.
 
 ## Files touched
 
@@ -488,7 +491,7 @@ Four reviewers found one real gap: real Orca writes its `--json` errors to stand
 
 Judgment calls from the independent review:
 
-- If the second read or the second worktree check throws for one ticket after the yes, the whole loop stops. It fails safe, and a new run shows the tickets already started.
+- If the second read or the second worktree check throws for one ticket after the yes, the whole loop stops. It fails safe, and a new run shows the tickets already started. The maintainer chose to keep this behavior.
 - The printed start line begins with the key, so the user copies only the part from `cd` on.
 
 ## Merge notes
@@ -497,11 +500,9 @@ If #26 merges first, `cstack/src/tracker/open.ts` will conflict. Keep the versio
 
 ## Open questions, not needed for this pull request
 
-This pull request can be merged without these answers.
+This pull request can be merged without this answer.
 
-1. For the user: should the git way create its branch with `--no-track`? The new branch tracks `origin/<default branch>`, so with `push.default=upstream` a plain `git push` there would push to the default branch. `cstack publish` is not affected.
-2. For the user: should a failure of the second read or check for one ticket skip that ticket and go on, instead of stopping the whole loop?
-3. For ticket #31: does a slash command in `--prompt` run the skill when Orca starts the agent in its chat surface?
+1. For ticket #31: does a slash command in `--prompt` run the skill when Orca starts the agent in its chat surface? Nobody checked, because it needs a real launch.
 
 Fixes #29
 ````
@@ -526,6 +527,8 @@ Fixes #29
 ## Hand-off log
 
 2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started. All ten units are committed with their trailers, and the full suite and the typecheck pass. Phases review to ready were done in the same run. The plan file is `ready for review` and the done report was submitted.
+
+2026-11-19, main conversation: the user answered the non-blocking questions 1 and 2. The main conversation added `--no-track` to `cstack/src/wave/start-git.ts` with one test assertion, because no phase was left to send this answer back to the executor. The typecheck is clean and the 867 tests pass. Question 2 needed no code change.
 
 ## History
 
