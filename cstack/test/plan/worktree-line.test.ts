@@ -21,7 +21,7 @@ describe("the Worktree line of a unit", () => {
   it("returns the path for the unit that holds the line", () => {
     const plan = readPlan(withWorktree("/tmp/repo-unit-2"));
     expect(plan.units.find((unit) => unit.worktree)?.worktree).toBe("/tmp/repo-unit-2");
-    expect(plan.format).toBe(PLAN_FORMAT);
+    expect(PLAN_FORMAT).toBe("cstack-plan/1");
   });
 
   it("reads a plan without the line, and its units have no worktree", () => {
