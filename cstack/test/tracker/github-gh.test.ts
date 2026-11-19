@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult, Runner } from "../../src/orca/run.js";
+import { trackerMove } from "../../src/commands/tracker-move.js";
 import { trackerList } from "../../src/commands/tracker-list.js";
 import { githubGhTracker } from "../../src/tracker/github-gh.js";
 
@@ -205,5 +206,23 @@ describe("cstack tracker list", () => {
     const printed = JSON.parse(out);
     expect(printed).toMatchObject({ format: "cstack-tracker/1", tracker: "github", group: { milestone: "cstack recording" } });
     expect(printed.tickets.find((t: { key: string }) => t.key === "#5").blockers).toEqual([{ key: "#4", stateKind: "todo" }]);
+  });
+});
+
+describe("cstack tracker move", () => {
+  it("runs gh issue edit with the two label options and prints one line", async () => {
+    const calls: string[][] = [];
+    const run: Runner = async (command, args) => {
+      if (command === "git") return { kind: "ok", stdout: "https://github.com/example-owner/example-repo.git\n" };
+      calls.push(args);
+      return { kind: "ok", stdout: "" };
+    };
+    let out = "";
+    const io = { stdout: (t: string) => void (out += t), stderr: (t: string) => void (out += t) };
+    expect(await trackerMove(["#12", "--to", "in progress"], io, { cwd: "/repo", run, env: {} })).toBe(0);
+    expect(calls.find((a) => a[0] === "issue")).toEqual([
+      "issue", "edit", "12", "--repo", "github.com/example-owner/example-repo", "--add-label", "in progress", "--remove-label", "in review",
+    ]);
+    expect(out).toBe("Moved '#12' to \"in progress\".\n");
   });
 });

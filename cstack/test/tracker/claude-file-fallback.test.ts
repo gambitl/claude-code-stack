@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { trackerMove } from "../../src/commands/tracker-move.js";
 import { trackerRead } from "../../src/commands/tracker-read.js";
 import type { Runner } from "../../src/orca/run.js";
 
@@ -48,5 +49,26 @@ describe("cstack tracker read with no client", () => {
     expect(out.stderr).toContain("'#12'");
     expect(out.stderr).toContain("Usage: cstack tracker read <key>");
     expect(await trackerRead(["#7", "--tracker", "svn"], io, deps)).toBe(2);
+  });
+});
+
+describe("cstack tracker move with no client", () => {
+  it("writes nothing, exits with 4 and names the key and the state name", async () => {
+    const { calls, out, io, deps } = setup();
+    expect(await trackerMove(["#12", "--to", "in progress"], io, deps)).toBe(4);
+    expect(out.stderr).toContain("#12");
+    expect(out.stderr).toContain("in progress");
+    expect(out.stdout).toBe("");
+    expect(calls.some((c) => c.startsWith("gh issue"))).toBe(false);
+  });
+
+  it("still exits with 1 for a bad key or a bad state name, and with 2 for a missing key or --to", async () => {
+    const { out, io, deps } = setup();
+    expect(await trackerMove(["12", "--to", "in progress"], io, deps)).toBe(1);
+    expect(await trackerMove(["#12", "--to", "done"], io, deps)).toBe(1);
+    expect(await trackerMove([], io, deps)).toBe(2);
+    expect(out.stderr).toContain("'#12'");
+    expect(await trackerMove(["#12"], io, deps)).toBe(2);
+    expect(await trackerMove(["#12", "--to", "in progress", "--from-file", "x"], io, deps)).toBe(2);
   });
 });
