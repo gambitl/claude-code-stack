@@ -435,6 +435,15 @@ Conventions reviewer. Fixed: `--from-file` failed in a clone without `origin` wh
 
 Simplicity reviewer. Fixed: the two commands `move` and `comment` shared a 20-line block, now one function `refuseWithoutClient`. Fixed: `list` read `origin` a second time. Not done: removing the `env` option of `OpenTrackerOptions`, because the coordinator fixed that interface. Not done: removing the file check in the GitHub adapter's `addComment`, because a test calls the adapter directly.
 
+### Independent review
+
+The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills install --add-permission` read the clock twice, so the name of the backup copy that it checked could differ from the name it wrote. It now reads the time once. All tests pass. Judgment calls that it left alone, for the pull request body:
+
+- An empty comment file is not refused. `glab issue note` with an empty `--message` may try to open an editor, and `gh` will probably fail. A check in `tracker-comment.ts` would give a clear exit 1 instead of exit 5.
+- The settings file is read before the skills are installed and written after. A change that Claude Code makes in that short gap would be overwritten.
+- An SSH remote with a host alias, such as `git@github-work:o/r`, gives `--hostname github-work`, and the user then gets a misleading "not logged in" message. This comes from the existing remote parsing.
+- `Bash(cstack *)` lets Claude post any readable file as a comment without asking. The user needs to choose how to limit it.
+
 ## Briefing
 
 ## Non-blocking questions
