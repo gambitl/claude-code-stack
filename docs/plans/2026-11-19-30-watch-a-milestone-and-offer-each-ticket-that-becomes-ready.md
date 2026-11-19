@@ -403,11 +403,17 @@ While the watch waits between two rounds, a line that you type in the terminal s
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Unit 9 was stuck: its test already passed because units 2 and 7 had put the `ignored` callback in place, so `cstack unit red 9` refused. The escalation got a red run by turning the callback off for a moment.
+- Units 7 and 10 wrote production code before `cstack unit red`, so `cstack unit green` warned that the test changed after the red run. Unit 7 also fixed a bug of its own (`t.key` instead of `t.ticket.key`) after the red run.
+- Unit 8 first skipped three tests the plan lists and used its own wording for the "outcome unknown" line. I sent it back, and the follow-up commit `ae65657` fixed both.
+- Unit 6 used `git stash` briefly, although the stash stack is shared with other worktrees. It dropped only its own entry.
+- The plan says the failure lines of a failed round go to standard error, and unit 6 did that, but the unit text itself did not say which stream. Unit 10 left the counts of built commands untouched, because #28 is not merged on this branch yet; the rebase in the update-branch phase has to apply the coordinator's decision line.
 
 ## Hand-off log
 
 2026-11-19, executor run 1: moved ticket #30 to in progress by adding the label `in progress`. The branch `gambitl/wave-watch` already existed and was checked out. Started the build phase.
+
+2026-11-19, executor run 1, build phase finished: units 1 to 10 are committed (unit 9 after one escalation, unit 8 after one follow-up commit). The full suite and the typecheck passed on unit 9. The branch is not yet rebased on main.
 
 ## History
 
