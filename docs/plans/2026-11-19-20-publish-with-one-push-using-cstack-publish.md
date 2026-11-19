@@ -440,19 +440,19 @@ Then it finds the forge from the raw URL of `origin` and a logged-in client, `gh
 - The checks are read only after the pull request shows the pushed commit, so an old red check is never reported.
 - On GitHub the pull request is found with `gh pr list --head`. On GitLab the pipeline is read with `glab ci get --merge-request`.
 - Every call that touches the repository names it explicitly, and credentials in a remote URL are removed from anything printed.
-- `cstack/src/test-run.ts` is a temporary copy of the test runner that ticket #17 owns. The copy of #17 replaces it at merge.
+- `cstack/src/commands/publish.ts` uses the test runner `cstack/src/test-run.ts` that is now on `main`. Its own temporary copy was dropped when `main` was merged.
 
 ## Files
 
-New: `cstack/src/commands/publish.ts`, `cstack/src/publish/` (program, remote, record, forge, branch, checks), `cstack/src/test-run.ts`, and their tests and helper in `cstack/test/`. Small edits: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts` and `README.md`. After merging `main`, the command count is twelve built and twelve not built.
+New: `cstack/src/commands/publish.ts`, `cstack/src/publish/` (program, remote, record, forge, branch, checks), and their tests and helper in `cstack/test/`. Small edits: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts` and `README.md`. After merging `main`, the command count is fourteen built and ten not built.
 
 ## For the reviewer
 
-Please merge with a merge commit, not a squash, because `cstack measure` reads the author date of each commit. If #17 merges first, keep its `test-run.ts` and fix the command counts.
+Please merge with a merge commit, not a squash, because `cstack measure` reads the author date of each commit. Ticket #17 already merged, so its `test-run.ts` is the one used here.
 
 Judgment calls from the independent review: the grace period of 120 seconds may be short for a slow GitLab runner. Exit 4 on `github.com` names only `gh`, because only `gh` is tried there. The code follows the recorded decisions (`gh pr list --head`, `glab ci get --merge-request`) and not the commands the ticket text names.
 
-Review findings left as follow-ups: `test-run.ts` installs signal handlers, which ADR-SIC-H keeps for `bin.ts`, and ticket #17 should decide on them. The three forge branches in `publish.ts` could become one forge interface. No test touches a real forge, so the GitLab JSON fields were assumed from the `glab` help.
+Review findings left as follow-ups: The three forge branches in `publish.ts` could become one forge interface. No test touches a real forge, so the GitLab JSON fields were assumed from the `glab` help.
 
 The plan file is `docs/plans/2026-11-19-20-publish-with-one-push-using-cstack-publish.md`.
 

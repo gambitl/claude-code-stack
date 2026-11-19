@@ -12,7 +12,9 @@ import { reportCheck } from "./commands/report-check.js";
 import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { unitCommit } from "./commands/unit-commit.js";
+import { unitGreen } from "./commands/unit-green.js";
 import { unitOrder } from "./commands/unit-order.js";
+import { unitRed } from "./commands/unit-red.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
 import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
@@ -59,7 +61,12 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
       check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
     }),
-  unit: (args, io) => dispatchSubcommand("unit", args, io, { order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i) }),
+  unit: (args, io) =>
+    dispatchSubcommand("unit", args, io, {
+      order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i),
+      red: (a, i) => unitRed(a, i),
+      green: (a, i) => unitGreen(a, i),
+    }),
 };
 
 export async function run(args: string[], io: Io = processIo): Promise<number> {

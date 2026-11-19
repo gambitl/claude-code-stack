@@ -138,12 +138,13 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   planCommand({
+    built: true,
     usage: "cstack unit red <n> [--timeout <minutes>]",
     summary: "Run the test of a unit, require a failure and save the run.",
     flags: ["--timeout"],
     exitCodes: {
       0: OK,
-      1: "The test passes or the unit has no test.",
+      1: "The test passes, the unit has no test, or its test file cannot be used.",
       2: USAGE,
       3: INVALID,
       5: "The test command cannot start or runs past the timeout.",
@@ -152,12 +153,13 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 17,
   }),
   planCommand({
+    built: true,
     usage: "cstack unit green <n> [--timeout <minutes>]",
     summary: "Run the test of a unit, require success and save the run.",
     flags: ["--timeout"],
     exitCodes: {
       0: OK,
-      1: "No failing run is saved or the test still fails.",
+      1: "No failing run is saved, the test command changed since it, or the test still fails.",
       2: USAGE,
       3: INVALID,
       5: "The test command cannot start or runs past the timeout.",

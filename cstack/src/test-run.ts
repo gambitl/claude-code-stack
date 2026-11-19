@@ -1,96 +1,128 @@
-// WHY: This is the temporary copy of the test runner for ticket #20. Ticket #17 owns this file,
-// and the copy of ticket #17 replaces this one at the merge without any change to an import.
-// This is the one file of cstack/src/ that runs a shell on purpose, because `testCommands`
-// is a shell command line by design.
 import { spawn } from "node:child_process";
+import { closeSync, fstatSync, mkdtempSync, openSync, readSync, rmSync } from "node:fs";
+import { constants, tmpdir } from "node:os";
+import { join } from "node:path";
 import type { TestCommands } from "./settings.js";
 
-/** Ten minutes, the default timeout of a test run. */
+/** The time a test run may take before cstack stops it: ten minutes. */
 export const DEFAULT_TEST_TIMEOUT_MS = 600_000;
 
-export interface TestRun {
-  /** The script given to `/bin/sh -c`. */
-  script: string;
-  /** The exit code of `/bin/sh`. It is undefined when the run was stopped at the timeout. */
-  exitCode: number | undefined;
-  timedOut: boolean;
-  /** Standard output and standard error together, in the order they were written. */
-  output: string;
-}
+/** The most output bytes that a run keeps: the last megabyte. */
+export const MAX_OUTPUT_BYTES = 1_048_576;
 
-/** `testCommands.file` with `{file}` replaced by `"$1"` when it is set and `testFile` is given. Otherwise `testCommands.all`. */
+/** The result of one test run. */
+export type TestRun = {
+  /** The exact script handed to `/bin/sh -c`. */
+  script: string;
+  /** The exit code of the shell, or undefined when the run reached its timeout. */
+  exitCode: number | undefined;
+  /** True when the run was stopped because it reached its timeout. */
+  timedOut: boolean;
+  /**
+   * The output of the run, standard output and standard error in the order written.
+   * It keeps at most the last `MAX_OUTPUT_BYTES` bytes. When the output is longer,
+   * the kept part starts just after the first line break inside that last megabyte.
+   */
+  output: string;
+};
+
+/**
+ * Returns the script that runs the tests. With a test file and a `file` command,
+ * `{file}` becomes `"$1"`, so the path reaches the shell as an argument and never
+ * appears in the script text. Otherwise the whole-suite command is returned.
+ */
 export function testScript(commands: TestCommands, testFile?: string): string {
   if (commands.file !== undefined && testFile !== undefined) {
-    return commands.file.split("{file}").join('"$1"');
+    return commands.file.replace("{file}", () => '"$1"');
   }
   return commands.all;
 }
 
-/** Runs `/bin/sh -c <script> cstack [testFile]` from `root`, with no other shell, and waits until it ends or times out. */
-export function runTests(
+/**
+ * Returns the last `count` lines of an output. A final line break does not count
+ * as an extra empty line. An output with fewer lines comes back whole.
+ */
+export function lastLines(output: string, count = 40): string {
+  const body = output.endsWith("\n") ? output.slice(0, -1) : output;
+  const lines = body.split("\n");
+  if (lines.length <= count) return output;
+  return lines.slice(-count).join("\n") + (output.endsWith("\n") ? "\n" : "");
+}
+
+/** Kills a whole process group. The pid must be a whole number above 1. */
+function killGroup(pid: number | undefined, signal: NodeJS.Signals): void {
+  // WHY: process.kill(-0) or a missing pid would kill the group of cstack itself.
+  if (pid === undefined || !Number.isInteger(pid) || pid <= 1) return;
+  try {
+    process.kill(-pid, signal);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ESRCH") throw error;
+  }
+}
+
+function readTail(fd: number): string {
+  const size = fstatSync(fd).size;
+  const length = Math.min(size, MAX_OUTPUT_BYTES);
+  const buffer = Buffer.alloc(length);
+  readSync(fd, buffer, 0, length, size - length);
+  if (size <= MAX_OUTPUT_BYTES) return buffer.toString("utf8");
+  const newline = buffer.indexOf(10);
+  return buffer.subarray(newline === -1 ? length : newline + 1).toString("utf8");
+}
+
+/**
+ * Runs the script with `/bin/sh -c` from `root`. The test file, when given, is the
+ * first argument of the script (`$1`). The run stops at the timeout.
+ */
+export async function runTests(
   root: string,
   script: string,
   testFile: string | undefined,
   timeoutMs: number = DEFAULT_TEST_TIMEOUT_MS,
 ): Promise<TestRun> {
-  return new Promise((resolve) => {
+  // WHY: one file for both streams keeps their order, and a stray child of the
+  // shell cannot keep a file open the way it keeps a pipe open.
+  const dir = mkdtempSync(join(tmpdir(), "cstack-test-run-"));
+  const fd = openSync(join(dir, "output.log"), "w+");
+  try {
+    // WHY: the script gets the path as "$1", so the path is never parsed as shell text.
     const args = ["-c", script, "cstack", ...(testFile === undefined ? [] : [testFile])];
-    const child = spawn("/bin/sh", args, {
-      cwd: root,
-      detached: true,
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    let output = "";
+    // WHY: a shell that leads its own process group lets us kill its children too.
+    const child = spawn("/bin/sh", args, { cwd: root, detached: true, stdio: ["ignore", fd, fd] });
     let timedOut = false;
-    let settled = false;
-    const killGroup = (): void => {
-      try {
-        if (child.pid !== undefined) process.kill(-child.pid, "SIGKILL");
-      } catch {
-        // The group is already gone.
-      }
-    };
-    const onSignal = (signal: NodeJS.Signals): void => {
-      killGroup();
-      cleanup();
-      process.kill(process.pid, signal);
-    };
-    const onInt = (): void => onSignal("SIGINT");
-    const onTerm = (): void => onSignal("SIGTERM");
     const timer = setTimeout(() => {
       timedOut = true;
-      killGroup();
+      killGroup(child.pid, "SIGKILL");
     }, timeoutMs);
-    function cleanup(): void {
-      clearTimeout(timer);
+    // WHY: when cstack is stopped, the children of the shell must not outlive it.
+    // Our own listeners replace the default end of the process, so after killing the
+    // group we remove them and send the same signal again to end cstack the usual way.
+    const stop = (received: NodeJS.Signals) => {
+      killGroup(child.pid, "SIGKILL");
+      removeListeners();
+      process.kill(process.pid, received);
+    };
+    const onInt = () => stop("SIGINT");
+    const onTerm = () => stop("SIGTERM");
+    const removeListeners = () => {
       process.removeListener("SIGINT", onInt);
       process.removeListener("SIGTERM", onTerm);
-    }
+    };
     process.on("SIGINT", onInt);
     process.on("SIGTERM", onTerm);
-    child.stdout.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => (output += chunk.toString()));
-    const finish = (code: number | null): void => {
-      if (settled) return;
-      settled = true;
-      cleanup();
-      resolve({
-        script,
-        exitCode: timedOut || code === null ? undefined : code,
-        timedOut,
-        output,
-      });
-    };
-    child.on("error", (error) => {
-      output += String(error);
-      finish(1);
+    const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((resolve, reject) => {
+      child.once("error", reject);
+      child.once("close", (c, s) => resolve([c, s]));
+    }).finally(() => {
+      clearTimeout(timer);
+      removeListeners();
     });
-    child.on("close", finish);
-  });
-}
-
-/** The last `count` lines of the output, 40 by default. */
-export function lastLines(output: string, count = 40): string {
-  const lines = output.replace(/\n$/, "").split("\n");
-  return lines.slice(-count).join("\n");
+    const exitCode = timedOut
+      ? undefined
+      : (code ?? 128 + (signal === null ? 0 : (constants.signals[signal] ?? 0)));
+    return { script, exitCode, timedOut, output: readTail(fd) };
+  } finally {
+    closeSync(fd);
+    rmSync(dir, { recursive: true, force: true });
+  }
 }
