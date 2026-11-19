@@ -82,12 +82,13 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   planCommand({
-    usage: "cstack next [--done <phase>] [--phase <phase>] [--plan <file>] [--new]",
+    usage: "cstack next [--done <phase> | --phase <phase> | --new] [--plan <file>]",
     summary: "Print the guide of the next phase and record that it started.",
     flags: ["--done", "--phase", "--new"],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID },
     file: "next.ts",
     ticket: 15,
+    built: true,
   }),
   planCommand({
     usage: "cstack plan status [--plan <file>] [--json]",

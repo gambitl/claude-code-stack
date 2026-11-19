@@ -101,11 +101,20 @@ describe("run", () => {
     }
   });
   it("answers that a command of the list is not built yet, with exit code 2", async () => {
+    const builtWords = new Set(COMMANDS.filter((e) => e.built).map((e) => commandWords(e)[0]));
+    const notBuilt = COMMANDS.find((e) => !e.built && !builtWords.has(commandWords(e)[0]));
+    if (notBuilt === undefined) return;
     const { out, io } = collect();
-    const code = await run(["next"], io);
+    const code = await run([commandWords(notBuilt)[0]], io);
     expect(out.stderr).toContain("not built in this version yet");
     expect(out.stdout).toBe("");
     expect(code).toBe(2);
+  });
+
+  it("runs cstack next and lists the phase names for an unknown phase", async () => {
+    const { out, io } = collect();
+    expect(await run(["next", "--phase", "deploy"], io)).toBe(2);
+    expect(out.stderr).toContain("ticket, dependencies, code-map");
   });
 
   it("prints the usage line of every built entry and of no other entry", async () => {
