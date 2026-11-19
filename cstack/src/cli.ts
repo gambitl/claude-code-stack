@@ -4,6 +4,10 @@ import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
+import { planSection } from "./commands/plan-section.js";
+import { planStatus } from "./commands/plan-status.js";
+import { reportCheck } from "./commands/report-check.js";
+import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
@@ -39,6 +43,16 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
+  plan: (args, io) =>
+    dispatchSubcommand("plan", args, io, {
+      status: async (a, i) => planStatus(a, i, { cwd: process.cwd() }),
+      section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
+    }),
+  report: (args, io) =>
+    dispatchSubcommand("report", args, io, {
+      submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
+      check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
+    }),
 };
 
 export async function run(args: string[], io: Io = processIo): Promise<number> {
@@ -69,4 +83,17 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
   // (exit code 1) and is not mistaken for a usage error (exit code 2).
   if (values.version) return version(io);
   return fail(io, "no command given");
+}
+
+/** Sends `cstack <group> <word> ...` to the handler of the second word. */
+export async function dispatchSubcommand(
+  group: string,
+  args: string[],
+  io: Io,
+  handlers: Record<string, (args: string[], io: Io) => Promise<number>>,
+): Promise<number> {
+  const word = args[0];
+  if (word !== undefined && Object.hasOwn(handlers, word)) return handlers[word](args.slice(1), io);
+  io.stderr(`cstack: usage: cstack ${group} <${Object.keys(handlers).join("|")}>\n`);
+  return EXIT.usage;
 }

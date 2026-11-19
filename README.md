@@ -37,12 +37,16 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 
 ## Commands
 
-`cstack` has four commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has eight commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
 - `cstack measure <plan file>` prints how many tokens and how much time one run of `resolve-issue` used. The "Measure a run" section below explains it.
 - `cstack skills install` copies the skills that this version of `cstack` ships into `~/.claude/skills`. The "Install cstack" section above explains what it does with a folder that it did not write.
+- `cstack plan status` prints, for each unit of the plan, whether git has a commit for it. It exits with 1 when git and the plan disagree.
+- `cstack plan section <name>` prints one section of the plan file and nothing else.
+- `cstack report submit <kind>` reads the text of a helper's report on standard input. It saves the report only when the plan and git prove it.
+- `cstack report check` prints the oldest accepted report that nobody has read yet.
 
 ## Measure a run
 

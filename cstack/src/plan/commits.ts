@@ -55,3 +55,28 @@ export function listUnitCommits(repoDir: string, targetBranch: string): UnitComm
   }
   return result;
 }
+
+/**
+ * Lists the files that each commit changes, sorted. A renamed file counts with
+ * both its old and its new path. The `-z` flag keeps non-ASCII names unquoted.
+ */
+export function listCommitFiles(repoDir: string, hashes: string[]): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const hash of hashes) {
+    const out = git(repoDir, [
+      "diff-tree",
+      "-r",
+      "-z",
+      "--name-only",
+      "--no-renames",
+      "--no-commit-id",
+      "--end-of-options",
+      hash,
+    ]);
+    if (out.status !== 0) {
+      throw new PlanFormatError(`git diff-tree failed: ${out.stderr.trim()}`);
+    }
+    result[hash] = out.stdout.split("\0").filter(Boolean).sort();
+  }
+  return result;
+}
