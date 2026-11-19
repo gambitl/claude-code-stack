@@ -345,15 +345,16 @@ The approach is locked by the ticket, the interface that the coordinator fixed a
 - Depends on: 9
 
 ### Unit 11: The command cstack tracker list
-- Files: `cstack/src/commands/tracker-list.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/github-gh.test.ts`
+- Files: `cstack/src/commands/tracker-list.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/github-gh.test.ts`, `cstack/test/cli.test.ts`
 - Test: `cstack/test/tracker/github-gh.test.ts`: `cstack tracker list --milestone "cstack recording"` on a repository whose `origin` is on `github.com` runs `gh issue list` once and prints, in the format of the file from Claude, the blocked issue with one open blocker and its state kind.
 - Minimum code: `cstack/src/commands/tracker-list.ts`, which needs exactly one of `--milestone` and `--epic`. Add `list` to the `tracker` handler. Set the entry to built and change the counts to sixteen and seven.
 - Refactor: none.
 - Commit message: `feat(cli): add cstack tracker list for a milestone or an epic`
+- Escalated: the first attempt stopped on two failing cases of `cstack/test/cli.test.ts`, which was added to `Files`. The second attempt fixed them. Departures: the usage test now builds its expected line from the built `tracker` entries of the manifest, and the whole singular and plural test uses a command list of its own.
 - Depends on: 10, 5
 
 ### Unit 12: The command cstack tracker move
-- Files: `cstack/src/commands/tracker-move.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/claude-file-fallback.test.ts`, `cstack/test/tracker/github-gh.test.ts`
+- Files: `cstack/src/commands/tracker-move.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/claude-file-fallback.test.ts`, `cstack/test/tracker/github-gh.test.ts`, `cstack/test/cli.test.ts`
 - Test: `cstack/test/tracker/claude-file-fallback.test.ts`: `cstack tracker move '#12' --to "in progress"` with no client writes nothing, exits with `4` and prints the key `#12` and the state name `in progress`.
 - Minimum code: `cstack/src/commands/tracker-move.ts`. Add `move` to the `tracker` handler. Set the entry to built and change the counts to seventeen and six. Add, test first, the case of `github-gh.test.ts` where `cstack tracker move '#12' --to "in progress"` runs `gh issue edit` with the two label options.
 - Refactor: none.
@@ -361,7 +362,7 @@ The approach is locked by the ticket, the interface that the coordinator fixed a
 - Depends on: 10, 6
 
 ### Unit 13: The command cstack tracker comment
-- Files: `cstack/src/commands/tracker-comment.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/comment-no-shell.test.ts`
+- Files: `cstack/src/commands/tracker-comment.ts`, `cstack/src/commands/tracker-common.ts`, `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/tracker/comment-no-shell.test.ts`, `cstack/test/cli.test.ts`
 - Test: `cstack/test/tracker/comment-no-shell.test.ts`: `cstack tracker comment '#12' --body-file <file>`, where the file holds `$(rm -rf ~)`, backticks and quotes, reaches `gh` only as the file path on a GitHub repository, and `glab` only as the one argument after `--message` on a GitLab repository. The fake runner records every call, and no call runs `sh`, `bash` or `zsh`. Without a client, the command exits with `4` and prints the key and the path.
 - Minimum code: `cstack/src/commands/tracker-comment.ts`. Add `comment` to the `tracker` handler. Set the entry to built and change the counts to eighteen and five.
 - Refactor: none.
@@ -427,6 +428,8 @@ May I change `cstack/src/tracker/choose.ts`, which is outside the share the coor
 ## Executor notes
 
 ## Hand-off log
+
+- 2026-11-19 (executor, build): unit 11 stopped because `cstack/test/cli.test.ts` had to change. No unfinished unit listed it, so it was added to the `Files` line of units 11, 12 and 13, and unit 11 was launched again. The same file already belonged to unit 10.
 
 - 2026-11-19 (executor, build): added the label `in progress` to issue #26, because GitHub has no such state. The branch `gambitl/tracker-gh-glab` was already checked out.
 - 2026-11-19 (implementer, unit 1): on the private sandbox `gambitl/resolve-issue-e2e`, created the milestone `cstack recording` and four issues in it (#3 epic, #4 blocker, #5 blocked by #4, #6 with its blocker in the footer). Made #4 and #5 sub-issues of #3, and made #5 blocked by #4. Created the labels `in progress` and `in review`. Added the label `in progress` to #5, and one comment on #5. Closed #3, #4, #5 and #6, and the milestone. Nothing was deleted. The labels stay.
