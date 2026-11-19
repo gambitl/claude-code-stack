@@ -11,6 +11,7 @@ type Env = Record<string, string | undefined>;
 
 interface LinearAnswer {
   issue: {
+    id?: string;
     identifier: string;
     title: string;
     description?: string | null;
@@ -26,6 +27,7 @@ interface LinearAnswer {
 }
 
 const SHAPE = "orca linear issue --relations --json";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const COMMENT_CAP = 65000;
 
 export function linearOrcaTracker(run: Runner, env: Env): Tracker {
@@ -82,9 +84,17 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
           "Orca cannot filter Linear issues by project milestone. With your own connection, list the issues of that milestone and write the file yourself.",
         );
       }
-      const name = `orca linear list-issues --parent-id ${group.epic}`;
+      const epic = (await readIssue(group.epic)).issue as LinearAnswer["issue"] | undefined;
+      if (!epic) {
+        throw new RefusedArgumentError(`Orca answered with no issue for ${group.epic}, so the epic has no sub-issue.`);
+      }
+      const parentId = epic.id;
+      if (typeof parentId !== "string" || !UUID.test(parentId)) {
+        throw new TrackerError(`\`orca linear issue ${group.epic}\` answered with an internal id that is not a UUID.`, EXIT.toolFailed);
+      }
+      const name = `orca linear list-issues --parent-id ${parentId}`;
       const answer = (
-        (await orcaRead(run, env, "orca linear list-issues --json", ["linear", "list-issues", "--parent-id", group.epic])) as {
+        (await orcaRead(run, env, "orca linear list-issues --json", ["linear", "list-issues", "--parent-id", parentId])) as {
           result: { issues: { identifier: string; state?: { type: string } }[]; truncated: boolean; meta: { partial: boolean } };
         }
       ).result;
@@ -93,6 +103,9 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       }
       if (answer.meta.partial) {
         throw new TrackerError(`\`${name}\` answered only for some Linear workspaces.`, EXIT.toolFailed);
+      }
+      if (answer.issues.length === 0) {
+        throw new RefusedArgumentError(`\`${name}\` returned no ticket, because the epic has no sub-issue.`);
       }
       const known = new Map<string, StateKind>();
       for (const issue of answer.issues) {

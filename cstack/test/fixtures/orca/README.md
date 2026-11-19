@@ -65,3 +65,7 @@ These seven files were not recorded. No Linear sandbox was available, so each an
 ## Linear team list with two workspaces
 
 `linear-team-list.two-workspaces.json` was written by hand from the code of the installed Orca 1.4.263, with placeholder values only. It follows `orca linear team list --workspace all --json`. It holds one team in each of two workspaces, and each workspace has an `id` and a `name`. The features test uses it to check that cstack refuses Orca for Linear when several workspaces are saved.
+
+## Linear epic
+
+`linear-issue.epic.json` was written by hand from the code of the installed Orca 1.4.263, with placeholder values only. It follows `orca linear issue <key> --relations --json` for the epic `EXA-9`. Its `issue.id` is the UUID-shaped placeholder `00000000-0000-0000-0000-000000000009`. The list test uses it to check that cstack passes this internal id, and not the key, to `--parent-id`.

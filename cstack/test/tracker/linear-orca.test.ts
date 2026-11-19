@@ -85,11 +85,13 @@ describe("linear through orca: read", () => {
 });
 
 describe("linear through orca: list", () => {
-  const list = "linear list-issues --parent-id EXA-9 --json";
+  const epic = "linear issue EXA-9 --relations --json";
+  const list = "linear list-issues --parent-id 00000000-0000-0000-0000-000000000009 --json";
   const three = "linear issue EXA-3 --relations --json";
 
   it("lists an epic without a limit, then reads each ticket", async () => {
     const { run, calls } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
       [list]: answer("linear-list-issues.epic.json"),
       [one]: answer("linear-issue.blocked.json"),
       [two]: answer("linear-issue.done.json"),
@@ -99,7 +101,8 @@ describe("linear through orca: list", () => {
       }),
     });
     const tickets = await linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" });
-    expect(calls[0]).toEqual(["linear", "list-issues", "--parent-id", "EXA-9", "--json"]);
+    expect(calls[0]).toEqual(["linear", "issue", "EXA-9", "--relations", "--json"]);
+    expect(calls[1]).toEqual(["linear", "list-issues", "--parent-id", "00000000-0000-0000-0000-000000000009", "--json"]);
     expect(calls.flat()).not.toContain("--limit");
     expect(tickets.map((t) => t.key)).toEqual(["EXA-1", "EXA-3"]);
     expect(tickets[0]!.stateKind).toBe("in-progress");
@@ -108,6 +111,7 @@ describe("linear through orca: list", () => {
 
   it("reads a blocker that is also in the list from the list, not again", async () => {
     const { run, calls } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
       [list]: answer("linear-list-issues.epic.json", (r) => {
         r.issues[1].identifier = "EXA-2";
       }),
@@ -121,16 +125,18 @@ describe("linear through orca: list", () => {
 
   it("refuses a listed identifier that is not a key, with no Orca call for it", async () => {
     const { run, calls } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
       [list]: answer("linear-list-issues.epic.json", (r) => {
         r.issues[0].identifier = "--bad";
       }),
     });
     await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 1 });
-    expect(calls.map((c) => c.join(" ")).filter((c) => c.startsWith("linear issue"))).toEqual([]);
+    expect(calls.map((c) => c.join(" ")).filter((c) => c.startsWith("linear issue"))).toEqual([epic]);
   });
 
   it("reads a blocker that cannot be read only once", async () => {
     const { run, calls } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
       [list]: answer("linear-list-issues.epic.json"),
       [one]: answer("linear-issue.blocked.json"),
       [two]: { kind: "failed", exitCode: 1 },
@@ -144,17 +150,41 @@ describe("linear through orca: list", () => {
   });
 
   it("refuses a truncated list with exit 1", async () => {
-    const { run } = fakeOrcaRun({ [list]: answer("linear-list-issues.truncated.json") });
+    const { run } = fakeOrcaRun({ [epic]: answer("linear-issue.epic.json"), [list]: answer("linear-list-issues.truncated.json") });
     await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 1 });
   });
 
   it("stops with exit 5 on a partial answer", async () => {
     const { run } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
       [list]: answer("linear-list-issues.epic.json", (r) => {
         r.meta.partial = true;
       }),
     });
     await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 5 });
+  });
+
+  it("stops with exit 5 before the list when the epic id is not a UUID", async () => {
+    const { run, calls } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json", (r) => {
+        r.issue.id = "EXA-9";
+      }),
+    });
+    await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 5 });
+    expect(calls.map((c) => c[1])).not.toContain("list-issues");
+  });
+
+  it("refuses an empty list with exit 1 and says the epic has no sub-issue", async () => {
+    const { run } = fakeOrcaRun({
+      [epic]: answer("linear-issue.epic.json"),
+      [list]: answer("linear-list-issues.epic.json", (r) => {
+        r.issues = [];
+      }),
+    });
+    await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({
+      exitCode: 1,
+      message: expect.stringContaining("no sub-issue"),
+    });
   });
 
   it("sends a milestone back to Claude before any Orca call", async () => {
