@@ -2,13 +2,13 @@ import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { COMMANDS, commandWords, EXIT } from "../manifest.js";
 import { orcaFeatures } from "../orca/features.js";
-import type { Runner } from "../orca/run.js";
+import { createRunner, type Runner } from "../orca/run.js";
 import { readyState } from "../tracker/ready.js";
 import { trackerFromRemote } from "../tracker/choose.js";
 import { TrackerError } from "../tracker/errors.js";
-import type { openTracker as OpenTracker } from "../tracker/open.js";
+import { openTracker, type openTracker as OpenTracker } from "../tracker/open.js";
 import type { Group, TrackerName } from "../tracker/types.js";
-import { isYes } from "../wave/confirm.js";
+import { isYes, readAnswer } from "../wave/confirm.js";
 import { WaveError } from "../wave/errors.js";
 import { formatGroups, groupTickets } from "../wave/groups.js";
 import { shortName } from "../wave/names.js";
@@ -29,6 +29,19 @@ export interface WaveDeps {
   /** Reads one line from standard input. */
   readAnswer(): Promise<string>;
   openTracker: typeof OpenTracker;
+}
+
+/** The real dependencies of `wave`. */
+export function defaultWaveDeps(): WaveDeps {
+  return {
+    cwd: process.cwd(),
+    env: process.env,
+    run: createRunner(120_000),
+    runLong: createRunner(600_000),
+    isTerminal: () => process.stdin.isTTY === true,
+    readAnswer: () => readAnswer(process.stdin),
+    openTracker,
+  };
 }
 
 const TRACKERS: TrackerName[] = ["jira", "linear", "github", "gitlab"];

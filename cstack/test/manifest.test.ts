@@ -132,14 +132,15 @@ describe("the flags that are not built yet", () => {
 
   it("names the ticket of the command while the command is not built", () => {
     expect(unbuiltRefusal(["unit", "collect"])).toContain("Ticket #28 builds it.");
-    expect(unbuiltRefusal(["wave"])).toContain("Ticket #29 builds it.");
+    expect(unbuiltRefusal(["wave"])).toBeUndefined();
+    expect(unbuiltRefusal(["wave", "--watch"])).toContain("Ticket #30 builds it.");
   });
 });
 
 describe("the command list", () => {
-  it("holds seventeen built commands and six that are not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(17);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(6);
+  it("holds eighteen built commands and five that are not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(18);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
   });
 
   it("has no entry with the command words graph ensure", () => {

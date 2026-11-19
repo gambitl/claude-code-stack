@@ -167,7 +167,7 @@ describe("run", () => {
   it("names the ticket of the command for the flags of unbuilt commands", async () => {
     for (const [args, ticket] of [
       [["helper", "start", "--child-worktree"], "#28"],
-      [["wave", "--watch"], "#29"],
+      [["wave", "--watch"], "#30"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io)).toBe(1);
