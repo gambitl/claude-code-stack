@@ -1,0 +1,7 @@
+{
+  "version": 1,
+  "testCommands": {
+    "all": "cd cstack && npm run typecheck && npm test",
+    "file": "cd cstack && npx vitest run ../{file}"
+  }
+}
