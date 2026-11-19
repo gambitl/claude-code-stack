@@ -113,9 +113,13 @@ describe("matchMention", () => {
 });
 
 describe("the command list", () => {
-  it("holds ten built commands and five that are not built", () => {
+  it("holds ten built commands and four that are not built", () => {
     expect(COMMANDS.filter((c) => c.built)).toHaveLength(10);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(4);
+  });
+
+  it("has no entry with the command words graph ensure", () => {
+    expect(COMMANDS.some((c) => commandWords(c).join(" ") === "graph ensure")).toBe(false);
   });
 
   it("names a file for every entry, and the file exists when the entry is built", () => {
