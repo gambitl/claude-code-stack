@@ -445,6 +445,8 @@ Judgment calls for the pull request body, none of them changed in code:
 
 2026-11-19, executor run 1, build phase finished: units 1 to 10 are committed (unit 9 after one escalation, unit 8 after one follow-up commit). The full suite and the typecheck passed on unit 9. The branch is not yet rebased on main.
 
+2026-11-19, executor run 1, update-branch phase: rebased the branch onto main (6f989c3) with author dates kept. Only the commit of unit 10 conflicted, in `cstack/test/cli.test.ts` and `cstack/test/manifest.test.ts`. Resolved with the decision about made-up commands: each of the two tests got its own small list with an unbuilt flag. No conflict marker is left and no function was kept twice. The counts are 23 built commands and 0 not built. The typecheck and the whole suite passed (105 files, 1220 tests), and all ten units still show as done.
+
 ## History
 
 <!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
@@ -538,4 +540,3 @@ The smallest-change blueprint keeps everything for the watch inside `watch.ts`: 
 The cleanest-structure blueprint gives each rule its own small file: `answers.ts` for the one reader, `notify.ts` for the fixed `osascript` lines, and `start.ts` with `startTicket(key, context)` for one ticket, with a check of the stop signal right before the start. It adds `startAllQuestion(n)` to `confirm.ts`, so both modes ask with the same words. It makes `WaveDeps` extend a new `WatchDeps`, which adds one spread line to each of the four existing wave test files. It follows the written decision for "just became ready", with the keys of the last good round and the declined keys. It has ten units.
 
 Recommended, and written under "Architecture": the cleanest structure, with one change taken from the smallest-change blueprint. The watch's dependencies come as a fourth parameter of `wave()` with a default value, instead of extending `WaveDeps`. The small files make each security rule easy to find and to test on its own, and the per-ticket `startTicket` with its stop check closes the case where a cut `git show-ref` looks like "no branch". The fourth parameter keeps the four existing wave test files byte for byte, which is the best proof that `cstack wave` did not change. The smallest-change blueprint would be the better choice if the reviewer wants fewer files. Extending `WaveDeps` would be the better choice if `cstack wave` itself needed the clock later.
-
