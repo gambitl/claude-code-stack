@@ -6,7 +6,7 @@ import { checkReport, saveReport } from "../report/reports.js";
 import type { SavedReport } from "../run-state.js";
 import { failWith } from "./errors.js";
 
-const MAX_BYTES = 65_536;
+export const MAX_BYTES = 65_536;
 const USAGE = "Usage: cstack report submit <kind> [--plan <file>]";
 
 /** Reads standard input, and stops as soon as more than the limit has arrived. Returns nothing when standard input is a terminal. */

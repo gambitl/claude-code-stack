@@ -120,6 +120,12 @@ function checkImplementer(report: Report, where: Where, plan: PlanRead): string[
     } catch {
       reasons.push(`Unit ${unit.number} has a Test line, and its failing run (${red}) is not saved.`);
     }
+    const green = join(runFolder(where.root, where.planFile), "units", String(unit.number), "green.json");
+    try {
+      readFileSync(green);
+    } catch {
+      reasons.push(`Unit ${unit.number} has a Test line, and its passing run (${green}) is not saved.`);
+    }
   }
   return reasons;
 }
@@ -139,12 +145,11 @@ export function checkReport(report: Report, where: Where): string[] {
 
 const reportsFolder = (where: Where) => join(runFolder(where.root, where.planFile), "reports");
 
-/** Writes `reports/<time>-<kind>.json`. It never replaces a report that exists. Returns the path. */
-export function saveReport(where: Where, report: { kind: SavedReport["kind"]; text: string }, now = new Date()): string {
-  const folder = reportsFolder(where);
+/** Writes `<folder>/<time>-<kind>.json` and never replaces a file that exists. Returns the path. */
+function saveInFolder(folder: string, record: { kind: string; text: string; helper?: string }, now: Date): string {
   mkdirSync(folder, { recursive: true });
   const time = now.toISOString();
-  const content = `${JSON.stringify({ kind: report.kind, text: report.text, time }, null, 2)}\n`;
+  const content = `${JSON.stringify({ ...record, time }, null, 2)}\n`;
   const temporary = join(folder, `.${process.pid}-${Date.now()}.tmp`);
   const fd = openSync(temporary, "wx");
   try {
@@ -153,7 +158,7 @@ export function saveReport(where: Where, report: { kind: SavedReport["kind"]; te
     closeSync(fd);
   }
   try {
-    const stem = `${time.replace(/:/g, "-")}-${report.kind}`;
+    const stem = `${time.replace(/:/g, "-")}-${record.kind}`;
     for (let counter = 0; ; counter++) {
       const target = join(folder, `${stem}${counter ? `-${counter + 1}` : ""}.json`);
       try {
@@ -167,6 +172,69 @@ export function saveReport(where: Where, report: { kind: SavedReport["kind"]; te
   } finally {
     rmSync(temporary, { force: true });
   }
+}
+
+/** Writes `reports/<time>-<kind>.json`. It never replaces a report that exists. Returns the path. */
+export function saveReport(where: Where, report: { kind: SavedReport["kind"]; text: string }, now = new Date()): string {
+  return saveInFolder(reportsFolder(where), { kind: report.kind, text: report.text }, now);
+}
+
+export interface UnitReport {
+  kind: "done" | "stuck";
+  text: string;
+  helper: string;
+  time: string;
+}
+
+const unitReportsFolder = (where: Where, unit: number) =>
+  join(runFolder(where.root, where.planFile), "units", String(unit), "reports");
+
+/** Writes `units/<n>/reports/<time>-<kind>.json`. It never replaces a report that exists. Returns the path. */
+export function saveUnitReport(
+  where: Where,
+  unit: number,
+  report: { kind: UnitReport["kind"]; text: string; helper: string },
+  now = new Date(),
+): string {
+  return saveInFolder(unitReportsFolder(where, unit), report, now);
+}
+
+function readUnitReports(where: Where, unit: number): { path: string; report: UnitReport }[] {
+  const folder = unitReportsFolder(where, unit);
+  let names: string[];
+  try {
+    names = readdirSync(folder).filter((name) => name.endsWith(".json"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+  return names.map((name) => {
+    const path = join(folder, name);
+    try {
+      return { path, report: JSON.parse(readFileSync(path, "utf8")) as UnitReport };
+    } catch {
+      throw new RunStateError(`The report file ${path} is not valid JSON.`);
+    }
+  });
+}
+
+const byTime = (a: { path: string; report: UnitReport }, b: { path: string; report: UnitReport }) =>
+  Date.parse(a.report.time) - Date.parse(b.report.time) || (a.path < b.path ? -1 : 1);
+
+/** The latest report of a helper for a unit, or nothing. */
+export function latestUnitReport(where: Where, unit: number, helper: string): UnitReport | undefined {
+  return readUnitReports(where, unit)
+    .filter(({ report }) => report.helper === helper)
+    .sort(byTime)
+    .at(-1)?.report;
+}
+
+/** The path of the latest stuck report of a unit, or nothing. */
+export function latestStuckReportPath(where: Where, unit: number): string | undefined {
+  return readUnitReports(where, unit)
+    .filter(({ report }) => report.kind === "stuck")
+    .sort(byTime)
+    .at(-1)?.path;
 }
 
 function readReports(where: Where): { path: string; report: SavedReport }[] {

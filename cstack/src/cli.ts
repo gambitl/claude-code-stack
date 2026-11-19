@@ -2,6 +2,9 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
+import { helperDone } from "./commands/helper-done.js";
+import { helperStart } from "./commands/helper-start.js";
+import { helperWait } from "./commands/helper-wait.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
 import { next } from "./commands/next.js";
@@ -60,6 +63,12 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
     dispatchSubcommand("report", args, io, {
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
       check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
+    }),
+  helper: (args, io) =>
+    dispatchSubcommand("helper", args, io, {
+      start: (a, i) => helperStart(a, i),
+      wait: (a, i) => helperWait(a, i),
+      done: (a, i) => helperDone(a, i),
     }),
   unit: (args, io) =>
     dispatchSubcommand("unit", args, io, {

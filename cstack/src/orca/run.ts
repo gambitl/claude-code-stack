@@ -4,7 +4,7 @@ import { delimiter, join } from "node:path";
 
 export type RunResult =
   | { kind: "ok"; stdout: string; stderr?: string }
-  | { kind: "failed"; exitCode: number; stderr?: string }
+  | { kind: "failed"; exitCode: number; stdout?: string; stderr?: string }
   | { kind: "missing" }
   | { kind: "timeout" }
   | { kind: "too-large" };
@@ -47,6 +47,7 @@ export function createRunner(timeoutMs: number): Runner {
             resolve({
               kind: "failed",
               exitCode: typeof e.code === "number" ? e.code : 1,
+              ...(stdout ? { stdout } : {}),
               stderr,
             });
         },

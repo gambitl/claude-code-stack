@@ -7,7 +7,10 @@ import { readStdin, reportSubmit } from "../src/commands/report-submit.js";
 import {
   checkReport,
   lastAcceptedDoneReportAt,
+  latestStuckReportPath,
+  latestUnitReport,
   saveReport,
+  saveUnitReport,
   takeOldestUnreadReport,
 } from "../src/report/reports.js";
 import { runFolder } from "../src/run-state.js";
@@ -145,6 +148,8 @@ describe("checkReport, implementer", () => {
     const red = join(runFolder(dir, PLAN), "units", "1", "red.json");
     mkdirSync(join(runFolder(dir, PLAN), "units", "1"), { recursive: true });
     writeFileSync(red, "{}");
+    expect(joined(checkReport(report(1), where))).toContain("passing run");
+    writeFileSync(join(runFolder(dir, PLAN), "units", "1", "green.json"), "{}");
     expect(checkReport(report(1), where)).toEqual([]);
   });
 
@@ -160,6 +165,22 @@ describe("checkReport, implementer", () => {
 
 describe("saving and reading reports", () => {
   const at = new Date("2026-11-18T10:15:30.123Z");
+
+  it("saves unit reports apart from the run reports and finds the latest of a helper", () => {
+    const { dir, where } = setup();
+    const first = saveUnitReport(where, 3, { kind: "stuck", text: "a", helper: "h1" }, new Date("2026-11-18T10:00:00Z"));
+    expect(first).toContain(join("units", "3", "reports"));
+    expect(first).toContain("-stuck.json");
+    saveUnitReport(where, 3, { kind: "done", text: "b", helper: "h1" }, new Date("2026-11-18T11:00:00Z"));
+    saveUnitReport(where, 3, { kind: "done", text: "c", helper: "h2" }, new Date("2026-11-18T12:00:00Z"));
+    expect(latestUnitReport(where, 3, "h1")).toMatchObject({ kind: "done", text: "b", helper: "h1" });
+    expect(latestUnitReport(where, 3, "nobody")).toBeUndefined();
+    expect(latestUnitReport(where, 4, "h1")).toBeUndefined();
+    expect(latestStuckReportPath(where, 3)).toBe(first);
+    expect(latestStuckReportPath(where, 4)).toBeUndefined();
+    expect(takeOldestUnreadReport(where)).toBeUndefined();
+    expect(existsSync(join(runFolder(dir, PLAN), "reports"))).toBe(false);
+  });
 
   it("saves, then takes a report once and sets readAt", () => {
     const { dir, where } = setup();

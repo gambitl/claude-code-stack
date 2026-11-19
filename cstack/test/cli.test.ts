@@ -140,15 +140,15 @@ describe("run", () => {
     for (const [args, text] of [
       [["tracker"], "Tickets #25 and #26 build it."],
       [["tracker", "nope"], "Tickets #25 and #26 build it."],
-      [["helper"], "#27"],
+      [["wave"], "#29"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io), args.join(" ")).toBe(1);
       expect(out.stderr, args.join(" ")).toContain(text);
     }
     const { out, io } = collect();
-    await run(["helper"], io);
-    expect(out.stderr).toContain("#28");
+    await run(["wave", "--watch"], io);
+    expect(out.stderr).toContain("#29");
   });
 
   it("uses the singular and the plural correctly when it names tickets", async () => {
@@ -166,7 +166,7 @@ describe("run", () => {
 
   it("names the ticket of the command for the flags of unbuilt commands", async () => {
     for (const [args, ticket] of [
-      [["helper", "start", "--child-worktree"], "#27"],
+      [["helper", "start", "--child-worktree"], "#28"],
       [["wave", "--watch"], "#29"],
     ] as const) {
       const { out, io } = collect();
