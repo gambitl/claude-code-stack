@@ -433,6 +433,10 @@ Security by design: this ticket has no endpoint, no database query and no creden
 
 ## Review log
 
+### Impact notes (phase 7)
+
+Graphify is not installed, so these notes come from grep and git history. The old runner path `doctor/runner` has no reference left in `cstack/src`, `cstack/test` or the README. The only code that prints the "not built" refusal is `manifest.ts` (`unbuiltRefusal`) and its use in `cli.ts`. In the history of `cli.ts`, the usual companions are `cli.test.ts` and `manifest.test.ts`, and both changed on this branch. `manifest.ts` is also a companion of `cli.ts`, and it changed too. The full suite, typecheck and build pass; `test/report.test.ts` times out now and then under load, and passes on rerun (it is not part of this change).
+
 ## Briefing
 
 ## Open questions after the build
