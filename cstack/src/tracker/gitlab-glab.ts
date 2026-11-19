@@ -5,10 +5,12 @@ import { EXIT } from "../manifest.js";
 import { footerBlockers, mergeBlockers } from "./blockers.js";
 import { InvalidFileError, RefusedArgumentError, TrackerError } from "./errors.js";
 import { MAX_GROUP, forgeFailure, forgeStateName, originRepo, settleBlockers } from "./forge.js";
-import { forgeStateKind } from "./states.js";
+import { checkStateName, forgeStateKind } from "./states.js";
 import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
 
 const PAGE_SIZE = 100;
+/** How many issue-links calls run at the same time. */
+const LINK_CONCURRENCY = 5;
 
 /** The fields of a GitLab issue that cstack reads. */
 interface GlabIssue {
@@ -58,7 +60,7 @@ export function gitlabGlabTracker(run: Runner, root: string, warn: (message: str
     let unknown = false;
     for (const l of found) {
       if (l.link_type !== "is_blocked_by") continue;
-      const sameProject = l.references?.full?.startsWith(`${t.remote.path}#`) ?? false;
+      const sameProject = l.references?.full?.toLowerCase().startsWith(`${t.remote.path.toLowerCase()}#`) ?? false;
       if (!sameProject) {
         if (isOpen(l)) {
           unknown = true;
@@ -104,7 +106,7 @@ export function gitlabGlabTracker(run: Runner, root: string, warn: (message: str
       const issues: GlabIssue[] = [];
       for (let page = 1; ; page++) {
         const batch = await json<GlabIssue[]>([
-          "issue", "list", "--milestone", group.milestone, "-R", t.repo, "--output", "json", "--per-page", String(PAGE_SIZE), "--page", String(page),
+          "issue", "list", "--milestone", group.milestone, "-R", t.repo, "--all", "--output", "json", "--per-page", String(PAGE_SIZE), "--page", String(page),
         ]);
         issues.push(...batch);
         if (issues.length >= MAX_GROUP) {
@@ -113,13 +115,21 @@ export function gitlabGlabTracker(run: Runner, root: string, warn: (message: str
         if (batch.length < PAGE_SIZE) break;
       }
       // A closed issue keeps the blockers of its footer, because the ready rule leaves it out before it looks at blockers.
-      const tickets = await Promise.all(
-        issues.map(async (issue) => toTicket(issue, isOpen(issue) ? await linkBlockers(t, issue.iid) : undefined)),
-      );
+      const tickets: Ticket[] = new Array(issues.length);
+      let next = 0;
+      const worker = async (): Promise<void> => {
+        while (next < issues.length) {
+          const i = next++;
+          const issue = issues[i];
+          tickets[i] = toTicket(issue, isOpen(issue) ? await linkBlockers(t, issue.iid) : undefined);
+        }
+      };
+      await Promise.all(Array.from({ length: Math.min(LINK_CONCURRENCY, issues.length) }, worker));
       return settle(t, tickets);
     },
 
     async moveState(key, stateName) {
+      checkStateName("gitlab", stateName);
       const t = await target();
       const other = stateName === "in progress" ? "in review" : "in progress";
       // GitLab creates a missing label silently when an update adds it, so cstack checks both labels first.

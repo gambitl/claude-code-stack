@@ -36,7 +36,7 @@ function fake(answers: Record<string, RunResult | ((n: number) => RunResult)>) {
 }
 const view = (n: number) => `glab issue view ${n} -R ${R} --output json`;
 const links = (n: number) => `glab api --hostname gitlab.com ${API}/issues/${n}/links`;
-const list = (page: number) => `glab issue list --milestone cstack recording -R ${R} --output json --per-page 100 --page ${page}`;
+const list = (page: number) => `glab issue list --milestone cstack recording -R ${R} --all --output json --per-page 100 --page ${page}`;
 
 describe("gitlabGlabTracker readTicket", () => {
   it("reads the issue and its links, and takes the blocker from the is_blocked_by link and the footer", async () => {
@@ -54,6 +54,15 @@ describe("gitlabGlabTracker readTicket", () => {
     });
     expect(t.blockers).toEqual([{ key: "#5", stateKind: "todo" }, { key: "#3", stateKind: "finished" }]);
     expect(warnings).toEqual([]);
+  });
+
+  it("treats a link whose project path differs only in letters case as the same project", async () => {
+    const { runner } = fake({
+      [view(7)]: ok(JSON.stringify(issue(7))),
+      [links(7)]: ok(JSON.stringify([link(5, "is_blocked_by", { references: { full: "Example-Group/Example-Project#5" } })])),
+    });
+    const t = await gitlabGlabTracker(runner, "/root", () => {}).readTicket("#7");
+    expect(t.blockers).toEqual([{ key: "#5", stateKind: "todo" }]);
   });
 
   it("takes the blockers from the footer when the links hold only relates_to", async () => {
@@ -121,6 +130,25 @@ describe("gitlabGlabTracker listGroup", () => {
     expect(glab().filter((c) => c.includes("/links"))).toHaveLength(2);
   });
 
+  it("runs at most 5 links calls at the same time", async () => {
+    let running = 0;
+    let peak = 0;
+    const runner: Runner = async (command, args) => {
+      if (command === "git") return ok("https://gitlab.com/example-group/example-project.git\n");
+      const line = args.join(" ");
+      if (line.startsWith("issue list")) return ok(JSON.stringify(Array.from({ length: 12 }, (_, i) => issue(i + 1))));
+      running++;
+      peak = Math.max(peak, running);
+      await new Promise((r) => setTimeout(r, 5));
+      running--;
+      return ok("[]");
+    };
+    const tickets = await gitlabGlabTracker(runner, "/root", () => {}).listGroup({ milestone: "m" });
+    expect(tickets.map((t) => t.key)).toEqual(Array.from({ length: 12 }, (_, i) => `#${i + 1}`));
+    expect(peak).toBeLessThanOrEqual(5);
+    expect(peak).toBeGreaterThan(1);
+  });
+
   it("reads pages of 100 until a short page", async () => {
     const page = (from: number, n: number) => ok(JSON.stringify(Array.from({ length: n }, (_, i) => issue(from + i, { state: "closed" }))));
     const { runner, glab } = fake({ [list(1)]: page(1, 100), [list(2)]: page(101, 30) });
@@ -162,6 +190,13 @@ describe("gitlabGlabTracker moveState", () => {
     expect(err.exitCode).toBe(1);
     expect(err.message).toContain(`glab label create --name "in review" -R ${R}`);
     expect(glab().some((c) => c.startsWith("glab issue update"))).toBe(false);
+  });
+
+  it("refuses a state name that is not a state, and makes no glab call", async () => {
+    const { runner, glab } = fake({});
+    const err = await gitlabGlabTracker(runner, "/root").moveState("#7", "done").catch((e) => e);
+    expect(err.exitCode).toBe(1);
+    expect(glab()).toEqual([]);
   });
 
   it("gives exit 4 for a 401 and exit 5 for a timeout", async () => {
