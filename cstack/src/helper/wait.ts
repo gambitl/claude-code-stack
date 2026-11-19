@@ -1,4 +1,4 @@
-// WHY: `worker-show` is the only proof of the state of a worker. The `check` call is only a signal to look again, so its answer is never read.
+// WHY: ADR-SIC-A. `worker-show` is the only proof of the state of a worker. The `check` call is only a signal to look again, so its answer is never read.
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
 import { parseAnswer } from "../orca/answer.js";

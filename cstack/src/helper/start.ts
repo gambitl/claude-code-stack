@@ -1,4 +1,4 @@
-// WHY: no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
+// WHY: ADR-SIC-A and ADR-SIC-F. no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Io } from "../io.js";
