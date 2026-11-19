@@ -68,6 +68,8 @@ export async function measureSessions(
   root: string,
   windowStart: Date,
   windowEnd: Date,
+  listed: string[],
+  planned: string[],
 ): Promise<Result> {
   const result: Result = {
     mainSessions: 0,
@@ -81,10 +83,18 @@ export async function measureSessions(
   const unreadable = () => {
     result.unreadableFiles++;
   };
-  const inside = async (cwd: string): Promise<boolean> => {
-    const resolved = await resolveLoose(cwd);
-    return resolved === root || resolved.startsWith(root + sep);
+  const holds = (folder: string, path: string): boolean => path === folder || path.startsWith(folder + sep);
+  // The paths of the plan count as written and resolved. A removed folder is resolved through its parent.
+  const plannedPaths = new Set(planned);
+  for (const path of planned) plannedPaths.add(await resolveLoose(path));
+  // The deepest listed worktree that holds the path decides. Without one, only a path of the plan can hold it.
+  const counts = (path: string): boolean => {
+    let deepest: string | undefined;
+    for (const folder of listed) if (holds(folder, path) && (!deepest || folder.length > deepest.length)) deepest = folder;
+    if (deepest !== undefined) return deepest === root || plannedPaths.has(deepest);
+    return [...plannedPaths].some((folder) => holds(folder, path));
   };
+  const inside = async (cwd: string): Promise<boolean> => counts(cwd) || counts(await resolveLoose(cwd));
   // One answer is written on several lines with the same id. Only output_tokens grows, so keep the largest.
   // A line without an id gets a key of its own, so it is always counted.
   const answers = new Map<string, { model: string; totals: Totals }>();
