@@ -414,7 +414,51 @@ No new question came up after the build, so nothing new needs an answer before t
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): give each parallel implementer its own child worktree
+
+````markdown
+## What this does
+
+Until now, implementers that ran at the same time shared one folder and could get in each other's way. Now `cstack helper start implementer --unit <n> --child-worktree` starts an implementer in its own child worktree, which Orca creates from the ticket branch. cstack records the folder in the helper record and in a `- Worktree:` line under the unit in the plan file.
+
+When the implementers are done, `cstack unit collect <n>...` copies their commits onto the ticket branch with `git cherry-pick`, in plan order. It refuses a commit that has no `Cstack-Unit` trailer or that touches a file the unit does not list. It stops at the first conflict and leaves the branch as it was. After a successful collect, it releases the workers and removes the clean child worktrees. It never pushes and never uses `--force`.
+
+## Key decisions
+
+- The work comes back by cherry-pick, not by a merge commit, because `cstack plan status` reads the unit trailers. The reason is a `WHY:` comment in `cstack/src/unit/collect.ts`.
+- The worker gets paths relative to its own worktree, because Orca creates the worktree after the spec is written. The start passes `--setup skip`, and the spec tells the worker to install the packages.
+- When only one unit can run, or Orca lacks the feature, the helper starts in the current worktree and says so.
+- A start is refused when its files overlap a unit that still runs in a child worktree.
+- The feature `child-worktrees` also needs `worker-release` and `worktree rm` in the Orca command list.
+
+## Files touched
+
+The code is in `cstack/src/helper/` (`start.ts`, `child.ts`, `spec.ts`, `record.ts`), `cstack/src/unit/collect.ts`, `cstack/src/commands/unit-collect.ts`, `cstack/src/plan/unit-line.ts`, `cstack/src/orca/features.ts`, `cstack/src/manifest.ts` and `cstack/src/cli.ts`. The tests are in `cstack/test/`. `README.md` lists the new command. The plan is `docs/plans/2026-11-19-28-give-each-parallel-implementer-its-own-child-worktree.md`.
+
+## Review
+
+Four reviewers and one independent reviewer found three bugs, and all are fixed: a new unit could start next to a running one, the fallbacks were refused too early, and a second attempt blocked the removal of its worktree. Two hardening points on the child path and on a symbolic link are fixed too. The full suite passes after the update onto `main`.
+
+Judgment calls from the independent review:
+
+- A unit that reported done without a commit gets its worker released, but its child worktree stays and the unit is not marked collected. A new implementer start for it is refused until the escalation role runs.
+- When Orca exits with 0 but prints text that is not JSON, the clean-up counts the release or the removal as a success.
+- `--base-branch` gets a commit hash, as decided. The first real run must confirm that Orca accepts a hash.
+
+Review findings left as follow-ups: make the Orca runner of `unitCollect` required, merge `applyUnits` into `applyInto`, split the plan text once in `withoutWorktreeLines`, and reuse the unit order in the start checks. They only save lines.
+
+The guides of the skill do not use the new flag yet. Ticket #31 does that.
+
+## Open questions, not needed for this pull request
+
+You can merge this pull request without an answer to these questions.
+
+- Does Orca accept a commit hash as the value of `--base-branch` of `worker-start`? The help of Orca 1.4.263 says "Base branch/ref to create the worktree from", but nobody started a real worker to check it. For: the person who runs ticket #31 on a real machine.
+- Should a unit that reported done without a commit get its child worktree removed, or marked as collected, by `cstack unit collect`? For: the owner of the cstack design.
+- Should the small simplifications of the review be done? For: the owner of the cstack design.
+
+Fixes #28
+````
 
 ## Documentation
 
