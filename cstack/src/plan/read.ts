@@ -97,6 +97,7 @@ export interface PlanUnit {
   dependsOn: number[];
   designSpecification?: string;
   blocked?: string;
+  worktree?: string;
 }
 
 export interface BlockingQuestion {
@@ -292,9 +293,10 @@ const UNIT_FIELDS = [
   ["Depends on"],
   ["Design specification"],
   ["Blocked"],
+  ["Worktree"],
 ] as const;
 const REQUIRED_FIELDS = 6;
-const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|Depends on|Design specification|Blocked):(?: (.*))?$/;
+const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|Depends on|Design specification|Blocked|Worktree):(?: (.*))?$/;
 
 function readUnit(region: Region, number: number, heading: PlanHeading, last: number): PlanUnit {
   const { problems } = region;
@@ -387,8 +389,15 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
   if (values["No test"]) unit.noTest = values["No test"].text;
   if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;
   if (values["Blocked"]) unit.blocked = values["Blocked"].text;
+  if (values["Worktree"]) {
+    const { text, line } = values["Worktree"];
+    // eslint-disable-next-line no-control-regex
+    if (!text.startsWith("/") || /[\u0000-\u001f\u007f]/.test(text)) {
+      problems.push({ line, rule: "`- Worktree:` holds one absolute path with no control character." });
+    } else unit.worktree = text;
+  }
   // An empty Blocked line would let the build check skip a unit with no reason.
-  for (const label of ["Minimum code", "Refactor", "Commit message", "Depends on", "No test", "Blocked"]) {
+  for (const label of ["Minimum code", "Refactor", "Commit message", "Depends on", "No test", "Blocked", "Worktree"]) {
     if (values[label] && values[label].text === "") {
       problems.push({ line: values[label].line, rule: `\`- ${label}:\` is empty.` });
     }

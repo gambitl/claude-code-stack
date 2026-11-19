@@ -11,7 +11,15 @@
     "sites": [
       {
         "id": "site-1",
-        "siteUrl": "https://example.atlassian.net",
+        "siteUrl": "https://jira.example.com",
+        "email": "person@example.com",
+        "displayName": "Example Person",
+        "accountId": "account-1",
+        "authType": "api-token"
+      },
+      {
+        "id": "site-2",
+        "siteUrl": "https://jira2.example.com",
         "email": "person@example.com",
         "displayName": "Example Person",
         "accountId": "account-1",
