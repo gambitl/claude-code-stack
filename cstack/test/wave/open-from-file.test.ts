@@ -20,13 +20,11 @@ function write(name: string, tracker: string, group: unknown, keys: string[]): s
   writeFileSync(path, JSON.stringify({ format: "cstack-tracker/1", tracker, group, tickets: keys.map(ticket) }));
   return path;
 }
-const run: Runner = async (command, args) =>
-  command === "git" && args.join(" ") === "remote get-url origin"
-    ? { kind: "ok", stdout: "https://github.com/example/repo.git\n" }
-    : { kind: "missing" };
+// No program answers, so the tracker name can only come from the file.
+const run: Runner = async () => ({ kind: "missing" });
 
 describe("openTracker with a file from Claude", () => {
-  it("takes the tracker from the origin remote and lists the group", async () => {
+  it("takes the tracker from the file and lists the group, as cstack wave does", async () => {
     const fromFile = write("gh.json", "github", { milestone: "M3" }, ["#1", "#2"]);
     const tracker = await openTracker("list", { root: dir, fromFile, run, env: {}, warn: () => {} });
     const tickets = await tracker.listGroup({ milestone: "M3" });
