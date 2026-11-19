@@ -1,84 +1,111 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PlanLocationError, locatePlan } from "../../src/plan/locate.js";
-import { RUN_FORMAT, writeCurrentRun, writeState } from "../../src/run-state.js";
+import { RunStateError, createRun, writeCurrentRun, writeState } from "../../src/run-state.js";
+import { readPlan } from "../../src/plan/read.js";
 
 const git = (cwd: string, ...args: string[]) =>
-  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", ...args], { cwd, encoding: "utf8" }).trim();
+  execFileSync("git", ["-c", "user.name=t", "-c", "user.email=t@example.com", "-c", "commit.gpgsign=false", ...args], {
+    cwd,
+    encoding: "utf8",
+  }).trim();
 
-const repo = () => {
-  const dir = mkdtempSync(join(tmpdir(), "cstack-locate-"));
-  git(dir, "init", "-b", "main");
-  mkdirSync(join(dir, "docs/plans"), { recursive: true });
-  mkdirSync(join(dir, "sub"));
-  writeFileSync(join(dir, "docs/plans/x.md"), "# Plan\n");
-  return dir;
-};
+const PLAN = "docs/plans/x.md";
 
-const failure = (fn: () => unknown): PlanLocationError => {
+function setup() {
+  const base = realpathSync(mkdtempSync(join(tmpdir(), "cstack-locate-")));
+  const repo = join(base, "repo");
+  mkdirSync(join(repo, "docs", "plans"), { recursive: true });
+  mkdirSync(join(repo, "sub"));
+  git(repo, "init", "-b", "main");
+  writeFileSync(join(repo, PLAN), "# plan\n");
+  writeFileSync(join(repo, "docs", "plans", "y.md"), "# other\n");
+  writeFileSync(join(base, "outside.md"), "# outside\n");
+  git(repo, "add", ".");
+  git(repo, "commit", "-m", "chore: start");
+  return { base, repo, sub: join(repo, "sub") };
+}
+
+function failure(fn: () => unknown): Error & { exitCode?: number } {
   try {
     fn();
   } catch (error) {
-    expect(error).toBeInstanceOf(PlanLocationError);
-    return error as PlanLocationError;
+    return error as Error;
   }
-  throw new Error("did not throw");
-};
+  throw new Error("expected an error");
+}
 
-describe("locatePlan with --plan", () => {
-  it("returns the real root, the real path and the relative path", () => {
-    const dir = repo();
-    const root = realpathSync(dir);
-    expect(locatePlan(dir, "docs/plans/x.md")).toEqual({ root, path: join(root, "docs/plans/x.md"), relative: "docs/plans/x.md" });
-    expect(locatePlan(join(dir, "sub"), "../docs/plans/x.md").relative).toBe("docs/plans/x.md");
-  });
-
-  it("refuses a path outside the repository with exit code 2", () => {
-    const dir = repo();
-    const other = mkdtempSync(join(tmpdir(), "cstack-other-"));
-    writeFileSync(join(other, "o.md"), "x");
-    expect(failure(() => locatePlan(dir, "../outside.md")).exitCode).toBe(2);
-    expect(failure(() => locatePlan(dir, join(other, "o.md"))).exitCode).toBe(2);
-    symlinkSync(join(other, "o.md"), join(dir, "docs/plans/link.md"));
-    expect(failure(() => locatePlan(dir, "docs/plans/link.md")).exitCode).toBe(2);
-  });
-
-  it("accepts an absolute path that reaches the repository through a symbolic link", () => {
-    const dir = repo();
-    const alias = join(mkdtempSync(join(tmpdir(), "cstack-alias-")), "repo");
-    symlinkSync(dir, alias);
-    expect(locatePlan(dir, join(alias, "docs/plans/x.md")).relative).toBe("docs/plans/x.md");
-    // The non-real form of the temporary folder, as macOS gives it (/var instead of /private/var).
-    expect(locatePlan(dir, join(dir, "docs/plans/x.md")).relative).toBe("docs/plans/x.md");
-  });
-
-  it("exits with 3 when the file inside the repository does not exist", () => {
-    expect(failure(() => locatePlan(repo(), "docs/plans/missing.md")).exitCode).toBe(3);
-  });
-});
-
-describe("locatePlan without --plan", () => {
-  it("uses the current run, also from a subfolder, and writes nothing", () => {
-    const dir = repo();
-    writeCurrentRun(dir, "docs/plans/x.md");
-    writeState(dir, "docs/plans/x.md", { format: RUN_FORMAT, writtenBy: "t", plan: "docs/plans/x.md", phases: {} });
-    const found = locatePlan(join(dir, "sub"), undefined);
-    expect(found.relative).toBe("docs/plans/x.md");
-    expect(found.path).toBe(join(realpathSync(dir), "docs/plans/x.md"));
-  });
-
-  it("exits with 2 and asks for --plan when there is no current run", () => {
-    const error = failure(() => locatePlan(repo(), undefined));
-    expect(error.exitCode).toBe(2);
+describe("locatePlan", () => {
+  it("asks for --plan when there is no flag and no current run", () => {
+    const { repo } = setup();
+    const error = failure(() => locatePlan(repo, undefined));
+    expect(error).toBeInstanceOf(PlanLocationError);
+    expect((error as PlanLocationError).exitCode).toBe(2);
     expect(error.message).toContain("--plan <file>");
   });
 
-  it("exits with 3 when the run has no state.json", () => {
-    const dir = repo();
-    writeCurrentRun(dir, "docs/plans/x.md");
-    expect(failure(() => locatePlan(dir, undefined)).exitCode).toBe(3);
+  it("returns the real root, the real path and a relative path with forward slashes", () => {
+    const { repo, sub } = setup();
+    writeFileSync(join(sub, "p.md"), "# p\n");
+    const found = locatePlan(sub, "../docs/plans/x.md");
+    expect(found).toEqual({ root: repo, path: join(repo, PLAN), relative: PLAN });
+    expect(locatePlan(sub, "p.md").relative).toBe("sub/p.md");
+  });
+
+  it("follows symbolic links before it compares paths", () => {
+    const { base, repo } = setup();
+    symlinkSync(join(base, "outside.md"), join(repo, "link.md"));
+    expect((failure(() => locatePlan(repo, "link.md")) as PlanLocationError).exitCode).toBe(2);
+    symlinkSync(repo, join(base, "alias"));
+    expect(locatePlan(join(base, "alias"), PLAN).path).toBe(join(repo, PLAN));
+  });
+
+  it("refuses a plan path outside the repository with exit code 2", () => {
+    const { base, repo } = setup();
+    expect((failure(() => locatePlan(repo, "../outside.md")) as PlanLocationError).exitCode).toBe(2);
+    expect((failure(() => locatePlan(repo, join(base, "outside.md"))) as PlanLocationError).exitCode).toBe(2);
+    expect((failure(() => locatePlan(repo, "../missing.md")) as PlanLocationError).exitCode).toBe(2);
+  });
+
+  it("gives exit code 3 for a missing or unreadable plan file inside the repository", () => {
+    const { repo } = setup();
+    expect((failure(() => locatePlan(repo, "docs/plans/none.md")) as PlanLocationError).exitCode).toBe(3);
+    expect((failure(() => locatePlan(repo, "docs")) as PlanLocationError).exitCode).toBe(3);
+  });
+
+  it("reads the plan path from the state of the current run", () => {
+    const { repo, sub } = setup();
+    const plan = readPlan(readFileSync(new URL("../fixtures/plans/approved.md", import.meta.url), "utf8"));
+    createRun(repo, PLAN, plan);
+    writeCurrentRun(repo, PLAN);
+    expect(locatePlan(sub, undefined)).toEqual({ root: repo, path: join(repo, PLAN), relative: PLAN });
+  });
+
+  it("lets --plan win over the current run", () => {
+    const { repo } = setup();
+    const plan = readPlan(readFileSync(new URL("../fixtures/plans/approved.md", import.meta.url), "utf8"));
+    createRun(repo, PLAN, plan);
+    writeCurrentRun(repo, PLAN);
+    expect(locatePlan(repo, "docs/plans/y.md").relative).toBe("docs/plans/y.md");
+  });
+
+  it("gives exit code 3 when the current run has no state file", () => {
+    const { repo } = setup();
+    writeCurrentRun(repo, PLAN);
+    const error = failure(() => locatePlan(repo, undefined));
+    expect(error).toBeInstanceOf(PlanLocationError);
+    expect((error as PlanLocationError).exitCode).toBe(3);
+  });
+
+  it("keeps the RunStateError of a state file that cannot be read", () => {
+    const { repo } = setup();
+    const plan = readPlan(readFileSync(new URL("../fixtures/plans/approved.md", import.meta.url), "utf8"));
+    const state = createRun(repo, PLAN, plan);
+    writeState(repo, PLAN, { ...state, format: "cstack-run/9" as never });
+    writeCurrentRun(repo, PLAN);
+    expect(failure(() => locatePlan(repo, undefined))).toBeInstanceOf(RunStateError);
   });
 });

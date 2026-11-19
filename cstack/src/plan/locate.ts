@@ -1,6 +1,5 @@
-// WHY: every plan command finds its plan file here, from --plan or from the current run. It only reads, and it compares real paths because macOS gives /private/var where Node gives /var.
 import { spawnSync } from "node:child_process";
-import { realpathSync, statSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { readCurrentRun, readState } from "../run-state.js";
 
@@ -13,7 +12,7 @@ export interface LocatedPlan {
   relative: string;
 }
 
-/** Exit code 2 is a usage problem. Exit code 3 is a file or a run that cannot be used. */
+/** An error about finding the plan file. Exit code 2 is a usage problem, and 3 is an input problem. */
 export class PlanLocationError extends Error {
   readonly exitCode: 2 | 3;
   constructor(message: string, exitCode: 2 | 3) {
@@ -23,48 +22,56 @@ export class PlanLocationError extends Error {
   }
 }
 
-const isInside = (root: string, path: string): boolean => {
+function insideRoot(root: string, path: string): string | undefined {
   const rel = relative(root, path);
-  return rel !== "" && rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
-};
-
-function repositoryRoot(cwd: string): string {
-  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
-  const top = result.stdout?.trim();
-  if (result.status !== 0 || !top) throw new PlanLocationError(`"${cwd}" is not inside a git repository.`, 2);
-  return realpathSync(top);
+  if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return undefined;
+  return rel.split(sep).join("/");
 }
 
-function locateFile(root: string, absolute: string, label: string): LocatedPlan {
-  let real: string;
+function realOrUndefined(path: string): string | undefined {
   try {
-    real = realpathSync(absolute);
-    if (!statSync(real).isFile()) throw new Error("not a file");
+    return realpathSync(path);
   } catch {
-    // The path does not exist. A path that is lexically outside the repository is still a usage problem.
-    if (!isInside(root, absolute)) {
-      throw new PlanLocationError(`The plan file ${label} is outside the repository.`, 2);
-    }
-    throw new PlanLocationError(`The plan file ${label} does not exist or cannot be read.`, 3);
+    return undefined;
   }
-  if (!isInside(root, real)) {
-    throw new PlanLocationError(`The plan file ${label} points outside the repository.`, 2);
-  }
-  return { root, path: real, relative: relative(root, real).split(sep).join("/") };
 }
 
+/**
+ * Finds the plan file: `--plan <file>` wins, then the plan of the current run of this worktree.
+ * It only reads. Pointing the current run at a plan is the job of `cstack next`.
+ */
 export function locatePlan(cwd: string, planFlag: string | undefined): LocatedPlan {
-  const root = repositoryRoot(cwd);
+  const top = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
+  if (top.status !== 0 || !top.stdout.trim()) {
+    throw new PlanLocationError(`"${cwd}" is not inside a git repository.`, 2);
+  }
+  const root = realpathSync(top.stdout.trim());
+
+  let candidate: string;
   if (planFlag !== undefined) {
-    return locateFile(root, resolve(realpathSync(cwd), planFlag), planFlag);
+    candidate = resolve(realpathSync(cwd), planFlag);
+  } else {
+    const name = readCurrentRun(cwd);
+    if (name === undefined) {
+      throw new PlanLocationError("There is no current run in this worktree. Give the plan file with --plan <file>.", 2);
+    }
+    const state = readState(cwd, name);
+    if (state === undefined) {
+      throw new PlanLocationError(`The current run "${name}" has no state file. Give the plan file with --plan <file>.`, 3);
+    }
+    candidate = join(root, state.plan);
   }
-  const name = readCurrentRun(cwd);
-  if (name === undefined) {
-    throw new PlanLocationError("No run is current in this worktree. Pass the plan file with --plan <file>.", 2);
+
+  const real = realOrUndefined(candidate);
+  const rel = insideRoot(root, real ?? candidate);
+  if (rel === undefined) {
+    throw new PlanLocationError(`The plan file "${candidate}" is outside the repository "${root}".`, planFlag !== undefined ? 2 : 3);
   }
-  const state = readState(cwd, name);
-  if (state === undefined) {
-    throw new PlanLocationError(`The run of ${name} has no state.json. Pass the plan file with --plan <file>.`, 3);
+  try {
+    if (real === undefined) throw new Error("missing");
+    readFileSync(real);
+  } catch {
+    throw new PlanLocationError(`The plan file "${rel}" does not exist or cannot be read.`, 3);
   }
-  return locateFile(root, join(root, state.plan), state.plan);
+  return { root, path: real, relative: rel };
 }

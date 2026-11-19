@@ -122,14 +122,17 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 16,
     built: true,
   }),
-  planCommand({
-    usage: "cstack unit order [--json]",
-    summary: "Print the units in batches that can run in parallel.",
-    flags: ["--json"],
-    exitCodes: { 0: OK, 1: "The Depends on lines form a cycle.", 2: USAGE, 3: INVALID },
-    file: "unit-order.ts",
-    ticket: 18,
-  }),
+  {
+    ...planCommand({
+      usage: "cstack unit order [--json]",
+      summary: "Print the units in batches that can run in parallel.",
+      flags: ["--json"],
+      exitCodes: { 0: OK, 1: "The Depends on lines form a cycle.", 2: USAGE, 3: INVALID },
+      file: "unit-order.ts",
+      ticket: 18,
+    }),
+    built: true,
+  },
   planCommand({
     usage: "cstack unit red <n> [--timeout <minutes>]",
     summary: "Run the test of a unit, require a failure and save the run.",
@@ -158,13 +161,16 @@ export const COMMANDS: CommandEntry[] = [
     file: "unit-green.ts",
     ticket: 17,
   }),
-  planCommand({
-    usage: "cstack unit commit <n>",
-    summary: "Commit the files of a unit with its message and trailer.",
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: "git commit failed, for example because of a commit hook." },
-    file: "unit-commit.ts",
-    ticket: 18,
-  }),
+  {
+    ...planCommand({
+      usage: "cstack unit commit <n>",
+      summary: "Commit the files of a unit with its message and trailer.",
+      exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: "git commit failed, for example because of a commit hook." },
+      file: "unit-commit.ts",
+      ticket: 18,
+    }),
+    built: true,
+  },
   {
     usage: "cstack graph ensure",
     summary: "Update the code graph when it differs from the current commit.",
