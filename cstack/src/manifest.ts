@@ -264,24 +264,21 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 27,
     built: false,
   },
-  {
+  planCommand({
     usage: "cstack helper done <kind> --helper <helper id>",
     summary: "Read the report of a helper on standard input, check it, save it and end the helper.",
     flags: ["--helper"],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
     file: "helper-done.ts",
     ticket: 27,
-    built: false,
-  },
-  {
+  }),
+  planCommand({
     usage: "cstack unit collect <n>...",
     summary: "Bring the commits of units from their child worktrees onto the ticket branch.",
-    flags: [],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
     file: "unit-collect.ts",
     ticket: 28,
-    built: false,
-  },
+  }),
   {
     usage: "cstack wave (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>] [--watch]",
     summary: "List a wave and start its ready tickets.",

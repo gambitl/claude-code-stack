@@ -144,6 +144,13 @@ describe("the command list", () => {
     }
   });
 
+  it("gives --plan to the new commands that work on a run", () => {
+    for (const words of ["helper start", "helper done", "unit collect"]) {
+      const entry = COMMANDS.find((c) => commandWords(c).join(" ") === words);
+      expect(entry?.flags, words).toContain("--plan");
+    }
+  });
+
   it("has no two entries with the same command words", () => {
     const words = COMMANDS.map((c) => commandWords(c).join(" "));
     expect(new Set(words).size).toBe(words.length);
