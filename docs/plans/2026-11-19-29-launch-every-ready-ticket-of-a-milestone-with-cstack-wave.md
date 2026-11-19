@@ -532,6 +532,8 @@ Fixes #29
 
 2026-11-19, main conversation: the branch was rebased onto `main` at 4b2869d, after ticket #27 merged. Seven files had a conflict. `cstack/src/orca/shapes.ts` and `cstack/test/fixtures/orca/README.md` keep both sides. `README.md`, `cstack/test/manifest.test.ts` and `cstack/test/cli.test.ts` keep both sides, with the counts added up to 18 built and 5 not built. `cstack/src/orca/run.ts` and `cstack/test/run.test.ts` keep the version of `main`, because #27 made the same change. A test of `cstack/test/cli.test.ts` used `wave` as its example of an unbuilt command, so commit f3517cb removes that example. The typecheck is clean and 935 tests pass.
 
+2026-11-19, main conversation: after the pull request opened, tickets #25 and #26 merged into `main` at 21521d3. The branch took `main` with a merge commit, because the pull request is open. `cstack/src/tracker/open.ts` is now the file of #26, and the temporary copy is gone. The counts are 22 built and 1 not built. The test of an unbuilt first word in `cstack/test/cli.test.ts` now uses its own command list, because no real first word is unbuilt as a whole any more. The typecheck is clean and 1115 tests pass.
+
 ## History
 
 <!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
