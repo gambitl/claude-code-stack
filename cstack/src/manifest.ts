@@ -207,7 +207,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-read.ts",
     ticket: [25, 26],
-    built: false,
+    built: true,
   },
   {
     usage: "cstack tracker list (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>]",

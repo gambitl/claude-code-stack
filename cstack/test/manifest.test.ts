@@ -137,9 +137,9 @@ describe("the flags that are not built yet", () => {
 });
 
 describe("the command list", () => {
-  it("holds seventeen built commands and six that are not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(17);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(6);
+  it("holds eighteen built commands and five that are not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(18);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
   });
 
   it("has no entry with the command words graph ensure", () => {

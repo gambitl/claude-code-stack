@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult, Runner } from "../../src/orca/run.js";
+import { trackerRead } from "../../src/commands/tracker-read.js";
 import { gitlabGlabTracker } from "../../src/tracker/gitlab-glab.js";
 
 const dir = new URL("../fixtures/glab/1.119.0/", import.meta.url);
@@ -201,5 +202,29 @@ describe("gitlabGlabTracker addComment", () => {
     expect((await gitlabGlabTracker(a.runner, "/root").addComment("#7", path).catch((e) => e)).exitCode).toBe(4);
     const b = fake({ [call]: { kind: "timeout" } });
     expect((await gitlabGlabTracker(b.runner, "/root").addComment("#7", path).catch((e) => e)).name).toBe("WriteShapeError");
+  });
+});
+
+describe("cstack tracker read on a GitLab repository", () => {
+  it("prints the blocker from the is_blocked_by link", async () => {
+    const calls: string[] = [];
+    const answers: Record<string, RunResult> = {
+      "git config --get remote.origin.url": ok("https://gitlab.com/example-group/example-project.git\n"),
+      "git rev-parse --show-toplevel": ok("/root\n"),
+      "glab auth status --hostname gitlab.com": ok(""),
+      [view(7)]: ok(fixture("issue-view.opened.json")),
+      [links(7)]: ok(fixture("api-issue-links.blocked-by.json")),
+      [view(3)]: ok(JSON.stringify(issue(3, { state: "closed" }))),
+    };
+    const run: Runner = async (command, args) => {
+      const line = [command, ...args].join(" ");
+      calls.push(line);
+      return answers[line] ?? { kind: "failed", exitCode: 1, stderr: `unexpected call: ${line}` };
+    };
+    let stdout = "";
+    const io = { stdout: (t: string) => void (stdout += t), stderr: () => {} };
+    expect(await trackerRead(["#7"], io, { cwd: "/root", run, env: {} })).toBe(0);
+    expect(JSON.parse(stdout).blockers).toEqual([{ key: "#5", stateKind: "todo" }, { key: "#3", stateKind: "finished" }]);
+    expect(calls.some((c) => c.startsWith("gh "))).toBe(false);
   });
 });

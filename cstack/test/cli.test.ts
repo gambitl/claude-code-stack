@@ -138,8 +138,6 @@ describe("run", () => {
 
   it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
     for (const [args, text] of [
-      [["tracker"], "Tickets #25 and #26 build it."],
-      [["tracker", "nope"], "Tickets #25 and #26 build it."],
       [["wave"], "#29"],
     ] as const) {
       const { out, io } = collect();
@@ -151,6 +149,14 @@ describe("run", () => {
     expect(out.stderr).toContain("#29");
   });
 
+  it("sends cstack tracker and an unknown tracker word to the tracker usage, not to a refusal", async () => {
+    for (const args of [["tracker"], ["tracker", "nope"]]) {
+      const { out, io } = collect();
+      expect(await run(args, io), args.join(" ")).toBe(2);
+      expect(out.stderr).toContain("usage: cstack tracker <read>");
+    }
+  });
+
   it("uses the singular and the plural correctly when it names tickets", async () => {
     // The first unbuilt entry built by one ticket. `cstack next` was the example until #15 built it.
     const single = COMMANDS.find((e) => !e.built && typeof e.ticket === "number");
@@ -160,7 +166,7 @@ describe("run", () => {
       expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
     }
     const two = collect();
-    await run(["tracker", "read"], two.io);
+    await run(["tracker", "list"], two.io);
     expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
   });
 
