@@ -3,7 +3,8 @@ import { join, relative } from "node:path";
 import { describe, expect, it } from "vitest";
 import { findPrivateText } from "./helpers/fixtures-public.js";
 
-const root = join(import.meta.dirname, "fixtures");
+// The fake programs and the helper of the end-to-end tests are public text too.
+const roots = [join(import.meta.dirname, "fixtures"), join(import.meta.dirname, "e2e")];
 
 function filesUnder(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -36,10 +37,12 @@ describe("findPrivateText", () => {
   });
 });
 
-describe("every fixture", () => {
-  for (const file of filesUnder(root)) {
-    it(`${relative(root, file)} holds no home path, email or private host`, () => {
-      expect(findPrivateText(readFileSync(file, "utf8"))).toEqual([]);
-    });
+describe("every fixture and every end-to-end file", () => {
+  for (const root of roots) {
+    for (const file of filesUnder(root)) {
+      it(`${relative(import.meta.dirname, file)} holds no home path, email or private host`, () => {
+        expect(findPrivateText(readFileSync(file, "utf8"))).toEqual([]);
+      });
+    }
   }
 });
