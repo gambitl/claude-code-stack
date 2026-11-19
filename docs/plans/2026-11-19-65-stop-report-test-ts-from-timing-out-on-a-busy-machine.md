@@ -113,6 +113,11 @@ clear
 
 **Governing decisions.** No ADR covers the tests. No `WHY:` or `DECISION:` comment exists in `report.test.ts`, `publish.test.ts` or `cstack/test/helpers/`. The conventions file says how long the full suite takes and what to do when `report.test.ts` times out (`CLAUDE.md`, line 22).
 
+**Measures after the change.** Each line says what else ran. All 27 cases passed in every run, and the unit 1 implementer found no case over 5,000 ms. Its `ps` check showed only its own shell, but I saw seven vitest processes of other worktrees on the machine right after, so other workers probably ran too.
+- Alone, started at 20:48:33. The slowest cases took 420 ms, 361 ms and 356 ms. Before the change, alone, the slowest took 1,515 ms, 1,306 ms and 1,023 ms (run 1).
+- Beside a full `vitest run` of this worktree, started at 20:48:44, with `report.test.ts` about eight seconds later. The slowest cases took 975 ms, 886 ms and 668 ms. Before the change, under the same kind of load, they took 2,210 ms, 1,567 ms and 1,523 ms.
+- Two full `npm test` runs at the same time, started at 20:50:39. Both passed. In the first, the slowest cases took 3,586 ms, 1,532 ms and 925 ms. In the second, they took 2,894 ms, 1,312 ms and 1,244 ms. This load is heavier than the two measures above, because two full suites ran together. There is no measure before the change under this load. The slowest case is still under the 5-second timeout, but the margin is smaller here, so the timeout can still happen on a very busy machine.
+
 ## Decisions
 
 - When the plan gives a behaviour and its test, both go to the same unit. When an earlier unit already builds what a later unit's test checks, that test passes at once, and the later unit cannot prove that its test failed first. (2026-11-19, from the coordinator of the wave)
@@ -253,11 +258,11 @@ After the speed-up, should the 5-second timeout of the cases stay as it is, whil
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The unit 1 implementer made no measure before the change, because the unit text asked only for measures after it, and the plan already holds the earlier numbers. The measure of two full runs has no earlier number to compare with.
 
 ## Hand-off log
 
-- 2026-11-19, executor run 1: added the label `in progress` to ticket #65 and started the build phase on the branch gambitl/report-timeout.
+- 2026-11-19, executor run 1: added the label `in progress` to ticket #65 and started the build phase on the branch gambitl/report-timeout. Units 1 and 2 are done (commits 2b2a96a and 554c2ce).
 
 ## History
 
