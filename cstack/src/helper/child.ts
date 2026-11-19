@@ -66,7 +66,7 @@ export function listWorktrees(root: string): ListedWorktree[] {
 
 /**
  * Finds the child worktree that a worker start made. The first choice is the path in the `workspace`
- * field of the answer. The second is the one new worktree whose branch ends with the name that cstack passed.
+ * field of the answer, when it is not a worktree that existed before and is not the ticket worktree. The second is the one new worktree whose branch ends with the name that cstack passed.
  */
 export function findChildWorktree(root: string, before: ListedWorktree[], workspace: unknown, name: string): { path: string; branch: string } | undefined {
   const now = listWorktrees(root);
@@ -79,7 +79,9 @@ export function findChildWorktree(root: string, before: ListedWorktree[], worksp
       return a === b;
     }
   };
-  let match = fromAnswer === undefined ? undefined : now.find((w) => same(w.path, fromAnswer));
+  // The answer counts only when it names a new worktree: never one that existed before, and never the ticket worktree.
+  const usable = fromAnswer !== undefined && !same(fromAnswer, root) && !before.some((w) => same(w.path, fromAnswer));
+  let match = usable ? now.find((w) => same(w.path, fromAnswer)) : undefined;
   if (match === undefined) {
     const fresh = now.filter((w) => !known.has(w.path) && w.branch !== undefined && w.branch.endsWith(name));
     if (fresh.length === 1) match = fresh[0];
