@@ -349,8 +349,8 @@ The approach is locked by the ticket, the interface that the coordinator fixed a
 - Test: `cstack/test/tracker/github-gh.test.ts`: `cstack tracker list --milestone "cstack recording"` on a repository whose `origin` is on `github.com` runs `gh issue list` once and prints, in the format of the file from Claude, the blocked issue with one open blocker and its state kind.
 - Minimum code: `cstack/src/commands/tracker-list.ts`, which needs exactly one of `--milestone` and `--epic`. Add `list` to the `tracker` handler. Set the entry to built and change the counts to sixteen and seven.
 - Refactor: none.
+  Escalated: the first attempt stopped on two failing cases of `cstack/test/cli.test.ts`, which was added to `Files`. The second attempt fixed them. Departures: the usage test now builds its expected line from the built `tracker` entries of the manifest, and the whole singular and plural test uses a command list of its own.
 - Commit message: `feat(cli): add cstack tracker list for a milestone or an epic`
-- Escalated: the first attempt stopped on two failing cases of `cstack/test/cli.test.ts`, which was added to `Files`. The second attempt fixed them. Departures: the usage test now builds its expected line from the built `tracker` entries of the manifest, and the whole singular and plural test uses a command list of its own.
 - Depends on: 10, 5
 
 ### Unit 12: The command cstack tracker move
