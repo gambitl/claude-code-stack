@@ -225,7 +225,14 @@ When a unit already has a commit, should `cstack unit commit` ask for a subject 
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: `unit-commit.ts` is read only by `cli.ts` and its tests. `cstack unit collect` reads only the trailer and the files of a commit, never its subject. The usual companions (`manifest.ts`, `unit-commit.test.ts`, `manifest.test.ts`) are covered: the manifest has the new usage and flag, and the mention scan passes. The three `WHY:` comments are kept. No recorded decision conflicts with the change.
+
+Correctness reviewer: no finding. Two notes below the bar: the refusal says "subject" when several earlier subjects are quoted, and a git `commit.cleanup=strip` setting would drop a subject that starts with `#`. Neither is caused by this diff.
+Security reviewer: no finding. The subject goes through `git commit -F`, hashes get `--end-of-options`, and a line break is refused, so no fake trailer is possible.
+Conventions reviewer: no finding.
+Simplicity reviewer: two small cuts, not applied. The message is trimmed in two places, and the trim of earlier subjects may be redundant. Both are correct and cost two lines, so they stay.
+
+No fix commit was needed. Typecheck and the full test run pass.
 
 ## Briefing
 
@@ -247,11 +254,11 @@ When a unit already has a commit, should `cstack unit commit` ask for a subject 
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The first full `npm test` run had one failing test in one file, and the second and third runs passed all 1230 tests. I did not see which file failed in the first run, so I could not tell whether it was the known `report.test.ts` timeout.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-19: Moved #64 to the `in progress` label, committed the plan, built units 1 and 2 with implementers, and ran the four reviewers with no fix needed. Continuing with the next phases.
 
 ## History
 
