@@ -346,7 +346,21 @@ A worker that starts in a child worktree must work on the files of that worktree
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes (executor, 2026-11-19):
+- `buildSpec`, `startHelper` and `HelperRecord` changed. Callers are `helper/start.ts`, `commands/helper-start.ts`, `helper/done.ts` and `helper/wait.ts`. The new `HelperRecord` fields are optional, so `done.ts` and `wait.ts` need no change. `test/helper/start.test.ts` and `spec.test.ts` exercise the old paths and still pass in the full suite.
+- `notBuiltFlags` is removed from `helper start` in `manifest.ts`. Its only other users are `cli.test.ts` and `manifest.test.ts`, both updated in unit 10.
+- Usual companions of `manifest.ts` are `cli.ts`, `README.md` and the two test files. All are in the diff.
+- No `WHY:` or `DECISION:` comment in the changed files conflicts with the branch.
+
+Phase review (2026-11-19): four reviewers ran.
+- Correctness: one bug. The first-batch check forgot units still running in a child worktree. Fixed in 7fde273.
+- Security: no finding above the bar. Two hardening points fixed: the child path from Orca is never an existing worktree or the ticket worktree (5f85e68), and the plan copy refuses a symbolic link and an unlisted path (d0221fb).
+- Correctness note: after a second attempt the copied plan file made `worktree rm` refuse. Fixed in 1209d63.
+- Conventions: no violation.
+- Simplicity: the duplicated reader of the latest helper record is merged in fd22d48. Not done, as follow-ups: make the Orca runner of `unitCollect` required and drop the sync overload, merge `applyUnits` into `applyInto`, split the plan text once in `withoutWorktreeLines`, reuse the unit order between `checkChildStart` and `firstBatchIsOneUnit`, and drop the name fallback of `findChildWorktree`. They only save lines.
+- Tests: full `npm run typecheck && npm test` passes, 87 files and 1102 tests.
+
+<phase independent-review: fixes and judgment calls>
 
 ## Briefing
 
