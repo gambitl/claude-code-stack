@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult } from "../../src/orca/run.js";
@@ -139,5 +140,75 @@ describe("linear through orca: list", () => {
       message: expect.stringContaining("milestone"),
     });
     expect(calls).toHaveLength(0);
+  });
+});
+
+describe("linear through orca: write", () => {
+  const states = "linear team states --team EXA --json";
+  const issueOne = () => answer("linear-issue.blocked.json");
+  const states_ = () => ({ kind: "ok", stdout: readFileSync(join(dir, "linear-team-states.current.json"), "utf8") }) as RunResult;
+  const setIt = "linear status set EXA-1 --to In Review --json";
+  const setOk = () => ({ kind: "ok", stdout: readFileSync(join(dir, "linear-status-set.ok.json"), "utf8") }) as RunResult;
+  const body = (content: string): string => {
+    const p = join(mkdtempSync(join(tmpdir(), "linear-comment-")), "body.md");
+    writeFileSync(p, content);
+    return p;
+  };
+
+  it("refuses a state that the team does not have, lists the states, and runs no status set", async () => {
+    const { run, calls } = fakeOrcaRun({ [one]: issueOne(), [states]: states_() });
+    const e = await linearOrcaTracker(run, {}).moveState("EXA-1", "Blocked").catch((x) => x);
+    expect(e.exitCode).toBe(1);
+    expect(e.message).toContain("In Review");
+    expect(calls).toEqual([
+      ["linear", "issue", "EXA-1", "--relations", "--json"],
+      ["linear", "team", "states", "--team", "EXA", "--json"],
+    ]);
+  });
+
+  it("sets a known state with the name as one argument", async () => {
+    const { run, calls } = fakeOrcaRun({ [one]: issueOne(), [states]: states_(), [setIt]: setOk() });
+    await linearOrcaTracker(run, {}).moveState("EXA-1", "In Review");
+    expect(calls.at(-1)).toEqual(["linear", "status", "set", "EXA-1", "--to", "In Review", "--json"]);
+  });
+
+  it("takes the team from the answer, not from the key", async () => {
+    const { run, calls } = fakeOrcaRun({
+      [one]: answer("linear-issue.blocked.json", (r) => {
+        r.issue.team.key = "OTH";
+      }),
+      "linear team states --team OTH --json": states_(),
+      [setIt]: setOk(),
+    });
+    await linearOrcaTracker(run, {}).moveState("EXA-1", "In Review");
+    expect(calls[1]).toEqual(["linear", "team", "states", "--team", "OTH", "--json"]);
+  });
+
+  it("refuses a team key that is not safe, with no states call", async () => {
+    const { run, calls } = fakeOrcaRun({
+      [one]: answer("linear-issue.blocked.json", (r) => {
+        r.issue.team.key = "--bad";
+      }),
+    });
+    await expect(linearOrcaTracker(run, {}).moveState("EXA-1", "In Review")).rejects.toMatchObject({ exitCode: 1 });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("adds a comment from a file", async () => {
+    const p = body("Hello");
+    const { run, calls } = fakeOrcaRun({
+      [`linear comment add EXA-1 --body-file ${p} --json`]: {
+        kind: "ok",
+        stdout: readFileSync(join(dir, "linear-comment-add.ok.json"), "utf8"),
+      } as RunResult,
+    });
+    await linearOrcaTracker(run, {}).addComment("EXA-1", p);
+    expect(calls).toEqual([["linear", "comment", "add", "EXA-1", "--body-file", p, "--json"]]);
+  });
+
+  it("refuses a body of 65001 characters with no call", async () => {
+    const { run, calls } = fakeOrcaRun({});
+    await expect(linearOrcaTracker(run, {}).addComment("EXA-1", body("x".repeat(65001)))).rejects.toMatchObject({ exitCode: 1 });
+    expect(calls).toEqual([]);
   });
 });

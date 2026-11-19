@@ -3,8 +3,8 @@ import { footerBlockers, mergeBlockers } from "./blockers.js";
 import { EXIT } from "../manifest.js";
 import { NoClientError, RefusedArgumentError, TrackerError } from "./errors.js";
 import { isValidKey } from "./keys.js";
-import { orcaRead } from "./orca-calls.js";
-import { linearStateKind } from "./states.js";
+import { checkCommentBody, orcaRead, orcaWrite } from "./orca-calls.js";
+import { checkStateName, linearStateKind } from "./states.js";
 import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
 
 type Env = Record<string, string | undefined>;
@@ -16,6 +16,7 @@ interface LinearAnswer {
     description?: string | null;
     url: string;
     state?: { name: string; type: string };
+    team?: { key?: string };
   };
   relations?: unknown;
   meta?: {
@@ -58,11 +59,22 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       for (const issue of answer.issues) tickets.push(await readOne(issue.identifier, known));
       return tickets;
     },
-    async moveState(): Promise<void> {
-      throw new Error("Not built yet.");
+    async moveState(key: string, stateName: string): Promise<void> {
+      const team = (await readIssue(key)).issue.team?.key;
+      if (typeof team !== "string" || !/^[A-Z][A-Z0-9_]*$/.test(team)) {
+        throw new RefusedArgumentError(`Orca answered with a team key for ${key} that cstack does not accept.`);
+      }
+      const { states } = (
+        (await orcaRead(run, env, "orca linear team states --json", ["linear", "team", "states", "--team", team])) as {
+          result: { states: { name: string }[] };
+        }
+      ).result;
+      checkStateName("linear", stateName, states.map((s) => s.name));
+      await orcaWrite(run, env, "orca linear status set --json", ["linear", "status", "set", key, "--to", stateName]);
     },
-    async addComment(): Promise<void> {
-      throw new Error("Not built yet.");
+    async addComment(key: string, bodyFile: string): Promise<void> {
+      checkCommentBody(bodyFile, 65000);
+      await orcaWrite(run, env, "orca linear comment add --json", ["linear", "comment", "add", key, "--body-file", bodyFile]);
     },
   };
 
