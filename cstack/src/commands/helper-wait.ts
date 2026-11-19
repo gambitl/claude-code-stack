@@ -1,10 +1,9 @@
 // WHY: the helper id becomes part of a file path, so it is checked against one strict pattern before any file is read.
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
-import { checkHelperId, HelperError } from "../helper/record.js";
+import { checkHelperId } from "../helper/record.js";
 import { waitHelper, type WaitDeps } from "../helper/wait.js";
 import { createRunner } from "../orca/run.js";
-import { TrackerError } from "../tracker/errors.js";
 import { failWith } from "./errors.js";
 
 export const HELPER_WAIT_USAGE = "Usage: cstack helper wait <helper id>";
@@ -34,10 +33,6 @@ export async function helperWait(args: string[], io: Io, deps: Partial<WaitDeps>
       ...deps,
     });
   } catch (error) {
-    if (error instanceof HelperError || error instanceof TrackerError) {
-      io.stderr(`${prefix}${error.message}\n`);
-      return error.exitCode;
-    }
     return failWith(error, io, prefix);
   }
 }

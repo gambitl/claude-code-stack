@@ -2,10 +2,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
-import { HelperError, type HelperRole } from "../helper/record.js";
+import type { HelperRole } from "../helper/record.js";
 import { startHelper, type StartDeps } from "../helper/start.js";
 import { createRunner } from "../orca/run.js";
-import { TrackerError } from "../tracker/errors.js";
 import { failWith } from "./errors.js";
 
 export const HELPER_START_USAGE =
@@ -53,10 +52,6 @@ export async function helperStart(args: string[], io: Io, deps: Partial<StartDep
       },
     );
   } catch (error) {
-    if (error instanceof HelperError || error instanceof TrackerError) {
-      io.stderr(`${prefix}${error.message}\n`);
-      return error.exitCode;
-    }
     return failWith(error, io, prefix);
   }
 }

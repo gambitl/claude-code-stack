@@ -3,6 +3,7 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
+import { parseAnswer } from "../orca/answer.js";
 import { callOrca } from "../orca/call.js";
 import { orcaFeatures } from "../orca/features.js";
 import type { Runner, RunResult } from "../orca/run.js";
@@ -50,17 +51,6 @@ interface Answer {
   result?: unknown;
   error?: Record<string, unknown>;
   [key: string]: unknown;
-}
-
-function parseAnswer(result: RunResult): Answer | undefined {
-  const text = result.kind === "ok" || result.kind === "failed" ? result.stdout : undefined;
-  if (text === undefined) return undefined;
-  try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value) ? (value as Answer) : undefined;
-  } catch {
-    return undefined;
-  }
 }
 
 const STAGE_FIELDS = ["failedStage", "stage", "effects", "residualResources"];
@@ -165,7 +155,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     "--worktree", "current",
     "--task-title", title,
   ]);
-  const answer = parseAnswer(result);
+  const answer = parseAnswer<Answer>(result);
 
   const refusal = clearRefusal(answer);
   if (refusal !== undefined) {

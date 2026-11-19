@@ -1,6 +1,7 @@
 // WHY: `worker-show` is the only proof of the state of a worker. The `check` call is only a signal to look again, so its answer is never read.
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
+import { parseAnswer } from "../orca/answer.js";
 import { callOrca } from "../orca/call.js";
 import type { Runner, RunResult } from "../orca/run.js";
 import { checkShape } from "../orca/shapes.js";
@@ -33,17 +34,6 @@ interface ShowAnswer {
   };
 }
 
-function parse(result: RunResult): ShowAnswer | undefined {
-  const text = result.kind === "ok" || result.kind === "failed" ? result.stdout : undefined;
-  if (text === undefined) return undefined;
-  try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 /** The report of a finished helper, as `<kind>`, a newline and the text. Exits with 1 when there is none. */
 function printReport(record: HelperRecord, where: { root: string; planFile: string }, io: Io): number {
   const report =
@@ -67,7 +57,7 @@ export async function waitHelper(helper: string, io: Io, deps: WaitDeps): Promis
   const deadline = deps.now().getTime() + DEADLINE_MS;
   for (;;) {
     const shown = await callOrca(deps.createRunner(SHOW_TIMEOUT_MS), deps.env, ["orchestration", "worker-show", "--dispatch", record.dispatchId ?? "", "--full"]);
-    const answer = parse(shown);
+    const answer = parseAnswer<ShowAnswer>(shown);
     try {
       if (shown.kind !== "ok" || answer === undefined) throw new Error("no answer");
       checkShape("orca orchestration worker-show --full --json", answer, "unknown", "read");

@@ -2,16 +2,12 @@
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { doneHelper, type DoneDeps } from "../helper/done.js";
-import { checkHelperId, HelperError } from "../helper/record.js";
+import { checkHelperId } from "../helper/record.js";
 import { createRunner } from "../orca/run.js";
-import { TrackerError } from "../tracker/errors.js";
 import { failWith } from "./errors.js";
-import { readStdin } from "./report-submit.js";
+import { MAX_BYTES, readStdin } from "./report-submit.js";
 
 export const HELPER_DONE_USAGE = "Usage: cstack helper done <kind> --helper <helper id> [--plan <file>]";
-
-// The same limit as `cstack report submit`.
-const MAX_BYTES = 65_536;
 
 export async function helperDone(
   args: string[],
@@ -55,10 +51,6 @@ export async function helperDone(
       { cwd: process.cwd(), env: process.env, createRunner, now: () => new Date(), ...deps },
     );
   } catch (error) {
-    if (error instanceof HelperError || error instanceof TrackerError) {
-      io.stderr(`${prefix}${error.message}\n`);
-      return error.exitCode;
-    }
     return failWith(error, io, prefix);
   }
 }
