@@ -471,7 +471,15 @@ Should cstack read an environment variable such as `CSTACK_ORCA_WORKERS=off`, wh
 
 ### Reviewer findings
 
-<to be filled below>
+Correctness reviewer: no bug at the bar. Three notes below it. The retry outcome and the unquoted path were fixed. The third note stays a follow-up.
+
+Security reviewer: two findings, both fixed in commit d2f3269. The plan path in the final `cstack helper done` line of the spec was unquoted, and a worker runs that line in a shell, so it is now single-quoted. A second `helper done` after a failed send took the kind from the new command line, so a saved stuck report could go out as `succeeded`. It now reads the kind from the saved report.
+
+Conventions reviewer: four findings. Three were fixed in commit 3e4cf0e: the Orca answer parser was written three times, the same catch block sat in three command files, and the 64 KB limit was written twice. The fourth, putting exit code 6 into `EXIT` of the manifest, is not done, because the plan decides that `EXIT` holds only the common codes. The README remarks (the Orca bullet sits in the middle of the command list, and exit 6 is not explained there) are left as they are.
+
+Simplicity reviewer: five findings. The parser duplication was fixed. The rest were not applied: the unused `check` shape and the `reason` field in the record are written by the plan's Decisions, and the two small input-list refactors save few lines and carry risk.
+
+Follow-ups, not done: `helper wait` says "still working" for a worker that saved a report but could not send it, and the README could explain exit code 6. After the fixes, the whole suite passes (874 tests) and the type check is clean.
 
 ## Briefing
 
