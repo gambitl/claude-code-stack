@@ -483,11 +483,16 @@ Should cstack read an environment variable such as `CSTACK_ORCA_WORKERS=off`, wh
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Unit 10 was stuck: the usage line printed by `helper start` differed from the manifest line, and `helper-start.ts` was not on its Files line. I added the file and relaunched the unit with the escalation agent, which finished it (commit d990a68).
+- Unit 5: the implementer wrote code before the first red run, so it moved the file aside to save a real red run. `cstack unit green` warned that the test file changed.
+- Unit 7: the saved red run was not a true red, because the fallback already existed from unit 6. `cstack unit green` warned about the changed test file.
+- Unit 8: the implementer committed with a failing fallback test, because its green run covered only `done.test.ts`. A second commit df1c653 fixed it.
+- Unit 9 and unit 10: `cstack unit green` warned that the test file changed after the red run.
+- The first full-suite run showed two timeouts in `done.test.ts` and `report.test.ts` under parallel load. They passed alone and in the later full run.
 
 ## Hand-off log
 
-- 2026-11-19, executor run 1 started the build. GitHub has no "in progress" state, so it added the label `in progress` to ticket #27, as the plan says.
+- 2026-11-19, executor run 1 started the build. GitHub has no "in progress" state, so it added the label `in progress` to ticket #27, as the plan says. Later in the same run it built all eleven units. Unit 10 was escalated once and then finished. The run then ended the build phase.
 
 ## History
 
