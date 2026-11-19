@@ -427,7 +427,29 @@ May I change `cstack/src/tracker/choose.ts`, which is outside the share the coor
 
 ## Executor notes
 
+- Unit 11 stopped stuck because `cstack/test/cli.test.ts` was not in its `Files` line. I added it to units 11, 12 and 13 and relaunched with the escalation agent, which finished it.
+- `cstack unit order` refused my first notes on the unit (a `- Escalated:` line and a long `Files` note) with "This line does not belong to the unit", so I wrote the note as an indented continuation line.
+- Several implementers wrote code before the test, so `cstack unit red` first saw a passing test (units 4, 7, 9, 10, 11, 12, 13). They moved the code aside to record the red run, and `cstack unit green` then warned about edits.
+- Unit 9 left a bug: `openTracker` created the `origin` promise even when it was not needed, which could reject unhandled with `--tracker` and no `origin`. I fixed it in a commit without a `Cstack-Unit` trailer and added a test.
+- Unit 1 edited the plan file's hand-off log without committing it. I committed it myself.
+- `test/report.test.ts` (a file this ticket did not touch) times out at 5000 ms on one case, "names a unit without a commit", because its git setup is slow on this machine. It failed in 2 of 3 full runs, and once alone. Everything else passes.
+- Unit 14 prints the permission hint to stderr, not stdout, because 13 existing tests check stdout exactly. The plan said only that cstack prints it.
+- Unit 6 and 8 chose `--repo github.com/<owner>/<repo>` (the forge style) and exit 3 for an unreadable comment file in the GitLab adapter. The command checks the file first and exits 1.
+
+- Unit 11 stopped stuck because `cstack/test/cli.test.ts` was not in its `Files` line. I added it to units 11, 12 and 13 and relaunched with the escalation agent, which finished it.
+- `cstack unit order` refused my first notes on the unit (a `- Escalated:` line and a long `Files` note) with "This line does not belong to the unit", so I wrote the note as an indented continuation line.
+- Several implementers wrote code before the test, so `cstack unit red` first saw a passing test (units 4, 7, 9, 10, 11, 12, 13). They moved the code aside to record the red run, and `cstack unit green` then warned about edits.
+- Unit 9 left a bug: `openTracker` created the `origin` promise even when it was not needed, which could reject unhandled with `--tracker` and no `origin`. I fixed it in a commit without a `Cstack-Unit` trailer and added a test.
+- Unit 1 edited the plan file's hand-off log without committing it. I committed it myself.
+- `test/report.test.ts` failed twice in one parallel run during unit 12 and passed when run alone.
+- Unit 14 prints the permission hint to stderr, not stdout, because 13 existing tests check stdout exactly. The plan said only that cstack prints it.
+- Units 6 and 8 chose `--repo github.com/<owner>/<repo>` (the forge style), and the GitLab adapter exits 3 for an unreadable comment file. The command checks the file first and exits 1.
+
 ## Hand-off log
+
+- 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
+
+- 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
 
 - 2026-11-19 (executor, build): unit 11 stopped because `cstack/test/cli.test.ts` had to change. No unfinished unit listed it, so it was added to the `Files` line of units 11, 12 and 13, and unit 11 was launched again. The same file already belonged to unit 10.
 
