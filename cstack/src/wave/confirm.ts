@@ -1,6 +1,11 @@
 import { createInterface } from "node:readline";
 
 
+/** The question that asks whether to start all the ready tickets. */
+export function startAllQuestion(n: number): string {
+  return `Start the ${n} ready ${n === 1 ? "ticket" : "tickets"}? [y/N] `;
+}
+
 /** True only for `y` and `yes`, in any case, after trimming. Anything else, even an empty answer, means no. */
 export function isYes(answer: string): boolean {
   return ["y", "yes"].includes(answer.trim().toLowerCase());
