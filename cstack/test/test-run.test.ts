@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { mkdtempSync, realpathSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { existsSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -103,5 +104,34 @@ describe("runTests", () => {
     expect(Buffer.byteLength(run.output)).toBeLessThanOrEqual(MAX_OUTPUT_BYTES);
     expect(run.output.endsWith("last\n")).toBe(true);
     expect(run.output.startsWith("0123456789abcdef\n")).toBe(true);
+  });
+
+  describe("when cstack is interrupted", () => {
+    const interrupt = async (signal: "SIGINT" | "SIGTERM") => {
+      const root = dir();
+      const source = new URL("../src/test-run.ts", import.meta.url).href;
+      const code = `
+        import { runTests } from ${JSON.stringify(source)};
+        await runTests(process.argv[1], "sleep 30 & echo $! > pid; wait", undefined);
+      `;
+      const child = spawn(process.execPath, ["--input-type=module", "-e", code, root], { stdio: "inherit" });
+      const ended = new Promise<NodeJS.Signals | null>((resolve) => child.on("exit", (_c, s) => resolve(s)));
+      for (let i = 0; i < 200 && !existsSync(join(root, "pid")); i++) await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 100));
+      child.kill(signal);
+      expect(await ended).toBe(signal);
+      const pid = Number(readFileSync(join(root, "pid"), "utf8"));
+      await new Promise((r) => setTimeout(r, 200));
+      expect(() => process.kill(pid, 0)).toThrow(/ESRCH/);
+    };
+
+    it("stops the sleep process and ends with SIGINT", () => interrupt("SIGINT"), 30_000);
+    it("stops the sleep process and ends with SIGTERM", () => interrupt("SIGTERM"), 30_000);
+
+    it("removes its signal listeners after a normal run", async () => {
+      const before = [process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")];
+      await runTests(dir(), "true", undefined);
+      expect([process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]).toEqual(before);
+    });
   });
 });

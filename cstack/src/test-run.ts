@@ -94,10 +94,29 @@ export async function runTests(
       timedOut = true;
       killGroup(child.pid, "SIGKILL");
     }, timeoutMs);
+    // WHY: when cstack is stopped, the children of the shell must not outlive it.
+    // Our own listeners replace the default end of the process, so after killing the
+    // group we remove them and send the same signal again to end cstack the usual way.
+    const stop = (received: NodeJS.Signals) => {
+      killGroup(child.pid, "SIGKILL");
+      removeListeners();
+      process.kill(process.pid, received);
+    };
+    const onInt = () => stop("SIGINT");
+    const onTerm = () => stop("SIGTERM");
+    const removeListeners = () => {
+      process.removeListener("SIGINT", onInt);
+      process.removeListener("SIGTERM", onTerm);
+    };
+    process.on("SIGINT", onInt);
+    process.on("SIGTERM", onTerm);
     const [code, signal] = await new Promise<[number | null, NodeJS.Signals | null]>((resolve, reject) => {
       child.once("error", reject);
       child.once("close", (c, s) => resolve([c, s]));
-    }).finally(() => clearTimeout(timer));
+    }).finally(() => {
+      clearTimeout(timer);
+      removeListeners();
+    });
     const exitCode = timedOut
       ? undefined
       : (code ?? 128 + (signal === null ? 0 : (constants.signals[signal] ?? 0)));
