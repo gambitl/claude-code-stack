@@ -75,11 +75,15 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   {
-    usage: "cstack skills install [--adopt <name>]...",
+    usage: "cstack skills install [--adopt <name>]... [--add-permission]",
     summary: "Install the skills that this version ships.",
     flags: ["--adopt", "--add-permission"],
-    notBuiltFlags: { "--add-permission": 26 },
-    exitCodes: { 0: "Every shipped skill is in place.", 1: "A skill was skipped or the user is root.", 2: USAGE },
+    exitCodes: {
+      0: "Every shipped skill is in place.",
+      1: "A skill was skipped, the user is root or a backup copy already exists.",
+      2: USAGE,
+      3: "The settings file cannot be edited, so nothing was changed.",
+    },
     file: "skills.ts",
     ticket: 9,
     built: true,
