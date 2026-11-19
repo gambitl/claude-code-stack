@@ -26,6 +26,7 @@ const IMPLEMENTER = read(CSTACK, "skills", "resolve-issue", "agents", "implement
 const EXECUTOR = read(CSTACK, "skills", "resolve-issue", "agents", "executor.md");
 const READY_GUIDE = read(GUIDES, "ready.md");
 const RETRO_GUIDE = read(GUIDES, "retro.md");
+const PLAN_GUIDE = read(GUIDES, "plan.md");
 
 interface Result {
   code: number;
@@ -42,6 +43,16 @@ let home: string;
 let env: NodeJS.ProcessEnv;
 // The text of the guide that the last `cstack next` printed.
 let lastGuide = "";
+
+// The id that `cstack helper start` printed on its last line.
+let helperId = "";
+
+function startExecutor(): void {
+  const started = follow(PLAN_GUIDE, ["helper", "start", "executor", "--plan", PLAN]);
+  expect(started.code, started.stderr).toBe(6);
+  expect(started.stdout).toContain("Sub-agent: resolve-issue:executor");
+  helperId = started.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
+}
 
 function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: project, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -60,6 +71,7 @@ function written(args: string[]): string {
     if (at >= 0) words.splice(at, extra.length);
   }
   words = words.map((w) => (w === PLAN ? "<plan file>" : w));
+  if (words[0] === "helper" && words[1] === "wait") words[2] = "<helper id>";
   if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
   if (words[0] === "plan" && words[1] === "section") words[2] = "<name>";
   return `cstack ${words.join(" ")}`;
@@ -188,6 +200,9 @@ beforeAll(() => {
     GIT_ALLOW_PROTOCOL: "file",
     FAKE_BARE: bare,
     FAKE_BRANCH: BRANCH,
+    // No Orca worker runs in this test, so `cstack helper start` falls back to a sub-agent and never reaches the real Orca.
+    CSTACK_ORCA_WORKERS: "off",
+    ORCA_CLI_COMMAND: join(temp, "no-such-orca"),
   };
 
   execFileSync("git", ["init", "--bare", "-b", "main", bare], { env, stdio: "ignore" });
@@ -349,6 +364,9 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     git("add", PLAN);
     git("commit", "-m", "docs: mark the plan ready for review");
 
+    // The main conversation starts the executor. No Orca worker runs, so cstack names the sub-agent and prints the helper id last.
+    startExecutor();
+
     // The guide that was printed last is the ready guide, and it names the report command.
     const submitted = follow(guide, ["report", "submit", "done", "--plan", PLAN], "Two functions and a README section were added.\n");
     expect(submitted.code, submitted.stderr).toBe(0);
@@ -356,7 +374,7 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     expect(wrong.code).toBe(1);
     expect(wrong.stderr).toContain("complete");
 
-    const checked = follow(RETRO_GUIDE, ["report", "check", "--plan", PLAN]);
+    const checked = follow(PLAN_GUIDE, ["helper", "wait", helperId]);
     expect(checked.code, checked.stderr).toBe(0);
     expect(checked.stdout).toBe("done\nTwo functions and a README section were added.\n");
   });
@@ -371,6 +389,10 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     const retro = follow(lastGuide, ["next", "--done", "retro", "--plan", PLAN]);
     expect(retro.code, retro.stderr).toBe(0);
     expect(retro.stdout).toContain("publish, runs in the executor");
+    // The retro guide starts the executor again for the publish phase.
+    const again = follow(RETRO_GUIDE, ["helper", "start", "executor", "--plan", PLAN]);
+    expect(again.code, again.stderr).toBe(6);
+    helperId = again.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
     expectGuide(follow(EXECUTOR, ["next", "--plan", PLAN]), "publish");
 
     // US-12: the answer is set back to open in the working tree, so nothing may leave the machine.
@@ -408,6 +430,9 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     expect(done.stdout).toContain("The run is finished");
     const report = follow(lastGuide, ["report", "submit", "published", "--plan", PLAN], `Pull request: ${LINK}\n`);
     expect(report.code, report.stderr).toBe(0);
+    const waited = follow(PLAN_GUIDE, ["helper", "wait", helperId]);
+    expect(waited.code, waited.stderr).toBe(0);
+    expect(waited.stdout).toBe(`published\nPull request: ${LINK}\n`);
   });
 
   it("never touched the home folder", () => {

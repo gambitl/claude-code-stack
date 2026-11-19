@@ -22,4 +22,4 @@ Commit the file on the current branch with a `docs` commit. If the run stopped b
 
 ## Hand over
 
-Run `cstack next --done retro --plan <plan file>`. When it says that `publish` comes next, launch the executor again with the same inputs. Its plan file now says "ready for review", so it runs only the `publish` phase. When the executor returns, run `cstack report check --plan <plan file>`. Handle the report as the `plan` guide says.
+Run `cstack next --done retro --plan <plan file>`. When it says that `publish` comes next, run `cstack helper start executor --plan <plan file>`. The plan file now says "ready for review", so the executor runs only the `publish` phase. Start and wait for it as the `plan` guide says in "Hand off to the executor". Run `cstack helper wait <helper id>` with a shell timeout of ten minutes. Handle the report as the `plan` guide says.
