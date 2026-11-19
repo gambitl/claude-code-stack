@@ -26,7 +26,7 @@ export type Moments = {
   source: "header" | "history";
 };
 
-// "not yet" is a missing moment. Any other value was checked by the plan reader.
+// "not yet" is a missing moment. Any other value has the shape that the plan reader checked.
 const headerMoment = (value: string): Date | undefined => (value === "not yet" ? undefined : new Date(value));
 
 // The header is every line before the first line that starts with "## ".
@@ -65,8 +65,12 @@ export async function readMoments(planArgument: string): Promise<Moments> {
       throw new MomentsError("the plan file is not a valid cstack plan file.");
     }
     const approval = headerMoment(header["Approved at"]);
-    if (!approval) throw new MomentsError("the plan file has no approval moment yet.");
     const ready = headerMoment(header["Ready for review at"]);
+    // The plan reader checks the shape of a time only, so an hour of 25 or a month of 13 still reaches this point.
+    if ([approval, ready].some((moment) => moment !== undefined && Number.isNaN(moment.getTime()))) {
+      throw new MomentsError("the plan file holds a time that does not exist.");
+    }
+    if (!approval) throw new MomentsError("the plan file has no approval moment yet.");
     if (ready && ready.getTime() < approval.getTime()) {
       throw new MomentsError("the ready moment of the plan file comes before its approval moment.");
     }
