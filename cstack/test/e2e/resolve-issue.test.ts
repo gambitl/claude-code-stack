@@ -204,7 +204,8 @@ beforeAll(() => {
   git("commit", "-m", "chore: start the project");
   git("push", "-u", "origin", "main");
   // The hook is written after main arrived, so the log holds only the pushes of the run.
-  const hook = join(bare, "hooks", "post-receive");
+  // WHY: a pre-receive hook runs before git accepts the push, so it logs a push attempt that git then refuses too.
+  const hook = join(bare, "hooks", "pre-receive");
   writeFileSync(hook, `#!/bin/sh\nwhile read old new ref; do echo "$ref $new" >> "${join(temp, "pushes.log")}"; done\n`);
   chmodSync(hook, 0o755);
   writeFileSync(
