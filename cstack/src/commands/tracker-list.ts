@@ -1,8 +1,6 @@
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
-import { trackerFromRemote } from "../tracker/choose.js";
-import { originRepo } from "../tracker/forge.js";
-import { openTracker } from "../tracker/open.js";
+import { openTracker, resolveTrackerName } from "../tracker/open.js";
 import type { Group } from "../tracker/types.js";
 import { KEY_HINT, type TrackerDeps, failTracker, findRoot, parseTrackerArgs, trackerName, usageError, warnTo } from "./tracker-common.js";
 
@@ -23,16 +21,17 @@ export async function trackerList(args: string[], io: Io, deps: TrackerDeps): Pr
   const group: Group = milestone !== undefined ? { milestone } : { epic: epic as string };
   try {
     const root = await findRoot(deps);
+    const fromFile = parsed.values["from-file"];
+    const name = await resolveTrackerName({ root, tracker, fromFile, run: deps.run });
     const opened = await openTracker("list", {
       root,
-      tracker,
-      fromFile: parsed.values["from-file"],
+      tracker: name,
+      fromFile,
       run: deps.run,
       env: deps.env,
       warn: warnTo(io),
     });
     const tickets = await opened.listGroup(group);
-    const name = tracker ?? trackerFromRemote(`https://${(await originRepo(deps.run, root)).host}/`);
     io.stdout(`${JSON.stringify({ format: "cstack-tracker/1", tracker: name, group, tickets }, null, 2)}\n`);
     return EXIT.ok;
   } catch (error) {

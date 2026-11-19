@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { trackerMove } from "../../src/commands/tracker-move.js";
+import { trackerList } from "../../src/commands/tracker-list.js";
 import { trackerRead } from "../../src/commands/tracker-read.js";
 import type { Runner } from "../../src/orca/run.js";
 
@@ -41,6 +42,24 @@ describe("cstack tracker read with no client", () => {
     expect(JSON.parse(out.stdout)).toEqual(ticket);
     expect(out.stdout.endsWith("}\n")).toBe(true);
     expect(calls.some((c) => c.startsWith("gh"))).toBe(false);
+  });
+
+  it("reads and lists from --from-file with no --tracker in a clone that has no origin", async () => {
+    const calls: string[] = [];
+    const run: Runner = async (command, args) => {
+      calls.push([command, ...args].join(" "));
+      return command === "git" && args[0] === "config" ? { kind: "failed", exitCode: 1 } : { kind: "failed", exitCode: 1, stderr: "unexpected" };
+    };
+    const out = { stdout: "", stderr: "" };
+    const io = { stdout: (t: string) => void (out.stdout += t), stderr: (t: string) => void (out.stderr += t) };
+    const file = join(mkdtempSync(join(tmpdir(), "cstack-")), "t.json");
+    const ticket = { key: "#7", title: "T", body: "B", url: "https://github.com/example-org/example-repo/issues/7", stateName: "open", stateKind: "todo", blockers: [] };
+    writeFileSync(file, JSON.stringify({ format: "cstack-tracker/1", tracker: "github", group: { milestone: "m" }, tickets: [ticket] }));
+    const deps = { cwd: "/repo", run, env: {} };
+    expect(await trackerRead(["#7", "--from-file", file], io, deps)).toBe(0);
+    expect(await trackerList(["--milestone", "m", "--from-file", file], io, deps)).toBe(0);
+    expect(out.stderr).toBe("");
+    expect(calls.filter((c) => c.startsWith("git config"))).toEqual([]);
   });
 
   it("gives a usage error with the quoting hint when the key is missing, and for a bad --tracker", async () => {

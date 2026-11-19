@@ -1,7 +1,9 @@
 // WHY: ADR-SIC-F. One place that picks the client for a capability and puts the checks around it.
+import { readFileSync } from "node:fs";
 import type { Runner } from "../orca/run.js";
 import { EXIT } from "../manifest.js";
 import { checkedTracker } from "./checked.js";
+import { checkStateName } from "./states.js";
 import { claudeFileTracker } from "./claude-file.js";
 import { createClientChooser, trackerFromRemote, type Capability } from "./choose.js";
 import { NoClientError, TrackerError } from "./errors.js";
@@ -19,6 +21,59 @@ export interface OpenTrackerOptions {
   warn: (message: string) => void;
 }
 
+const TRACKER_NAMES: TrackerName[] = ["jira", "linear", "github", "gitlab"];
+
+/**
+ * The tracker name of a command. `--tracker` wins. Then, with `--from-file`, the "tracker" field of a
+ * readable file in the format cstack-tracker/1. Only then does cstack read the origin remote, so a
+ * clone with no origin still works with a file.
+ */
+export async function resolveTrackerName(
+  options: Pick<OpenTrackerOptions, "root" | "tracker" | "fromFile" | "run">,
+): Promise<TrackerName> {
+  if (options.tracker) return options.tracker;
+  if (options.fromFile) {
+    try {
+      const raw = JSON.parse(readFileSync(options.fromFile, "utf8")) as { format?: unknown; tracker?: unknown };
+      if (raw.format === "cstack-tracker/1" && (TRACKER_NAMES as unknown[]).includes(raw.tracker)) return raw.tracker as TrackerName;
+    } catch {
+      // An unreadable file is reported later, by the file tracker.
+    }
+  }
+  return trackerFromRemote(`https://${(await originRepo(options.run, options.root)).host}/`);
+}
+
+/**
+ * Handles a move or a comment when no client is logged in. The key and the argument are still checked,
+ * so a bad one exits with 1 before the exit code 4. It always throws.
+ */
+export async function refuseWithoutClient(
+  error: NoClientError,
+  options: Pick<OpenTrackerOptions, "root" | "tracker" | "run" | "warn">,
+  write: { move: { key: string; stateName: string } } | { comment: { key: string; path: string } },
+): Promise<never> {
+  const name = await resolveTrackerName(options);
+  const reject = () => Promise.reject(error);
+  const tracker = checkedTracker(
+    {
+      readTicket: reject,
+      listGroup: reject,
+      async moveState(k, s) {
+        checkStateName(name, s);
+        throw NoClientError.forMove(k, s);
+      },
+      async addComment(k, file) {
+        throw NoClientError.forComment(k, file);
+      },
+    },
+    name,
+    options.warn,
+  );
+  if ("move" in write) await tracker.moveState(write.move.key, write.move.stateName);
+  else await tracker.addComment(write.comment.key, write.comment.path);
+  throw error;
+}
+
 /** Opens the tracker that serves one capability, inside the key and argument checks. */
 export async function openTracker(capability: Capability, options: OpenTrackerOptions): Promise<Tracker> {
   const { root, run, warn } = options;
@@ -26,11 +81,11 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
   // The origin remote is read at most once.
   let origin: ReturnType<typeof originRepo> | undefined;
   const readOrigin = () => (origin ??= originRepo(run, root));
-  const name = options.tracker ?? trackerFromRemote(`https://${(await readOrigin()).host}/`);
-
   if (options.fromFile && reads) {
-    return checkedTracker(claudeFileTracker(options.fromFile, name, warn), name, warn);
+    const fileName = await resolveTrackerName(options);
+    return checkedTracker(claudeFileTracker(options.fromFile, fileName, warn), fileName, warn);
   }
+  const name = options.tracker ?? trackerFromRemote(`https://${(await readOrigin()).host}/`);
   if (name === "jira" || name === "linear") {
     throw new TrackerError(`cstack cannot reach ${name} yet. Ticket #25 builds it.`, EXIT.refused);
   }

@@ -1,11 +1,7 @@
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
-import { checkedTracker } from "../tracker/checked.js";
 import { NoClientError } from "../tracker/errors.js";
-import { trackerFromRemote } from "../tracker/choose.js";
-import { originRepo } from "../tracker/forge.js";
-import { openTracker } from "../tracker/open.js";
-import { checkStateName } from "../tracker/states.js";
+import { openTracker, refuseWithoutClient } from "../tracker/open.js";
 import { KEY_HINT, type TrackerDeps, failTracker, findRoot, parseTrackerArgs, trackerName, usageError, warnTo } from "./tracker-common.js";
 
 /** `cstack tracker move <key> --to <state name>`: moves a ticket to a state. */
@@ -27,22 +23,7 @@ export async function trackerMove(args: string[], io: Io, deps: TrackerDeps): Pr
       opened = await openTracker("move", { root, tracker, run: deps.run, env: deps.env, warn });
     } catch (error) {
       if (!(error instanceof NoClientError)) throw error;
-      // With no client, the key and the state name are still checked, so a bad one exits with 1 before the exit code 4.
-      const name = tracker ?? trackerFromRemote(`https://${(await originRepo(deps.run, root)).host}/`);
-      await checkedTracker(
-        {
-          readTicket: () => Promise.reject(error),
-          listGroup: () => Promise.reject(error),
-          addComment: () => Promise.reject(error),
-          async moveState(k, s) {
-            checkStateName(name, s);
-            throw NoClientError.forMove(k, s);
-          },
-        },
-        name,
-        warn,
-      ).moveState(key, stateName);
-      throw error;
+      throw await refuseWithoutClient(error, { root, tracker, run: deps.run, warn }, { move: { key, stateName } });
     }
     await opened.moveState(key, stateName);
     io.stdout(`Moved '${key}' to "${stateName}".\n`);

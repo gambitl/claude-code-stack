@@ -2,11 +2,8 @@ import { accessSync, constants, statSync } from "node:fs";
 import { resolve } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
-import { checkedTracker } from "../tracker/checked.js";
 import { NoClientError } from "../tracker/errors.js";
-import { trackerFromRemote } from "../tracker/choose.js";
-import { originRepo } from "../tracker/forge.js";
-import { openTracker } from "../tracker/open.js";
+import { openTracker, refuseWithoutClient } from "../tracker/open.js";
 import { KEY_HINT, type TrackerDeps, failTracker, findRoot, parseTrackerArgs, trackerName, usageError, warnTo } from "./tracker-common.js";
 
 /** True when the path is a file that cstack can read. */
@@ -44,21 +41,7 @@ export async function trackerComment(args: string[], io: Io, deps: TrackerDeps):
       opened = await openTracker("comment", { root, tracker, run: deps.run, env: deps.env, warn });
     } catch (error) {
       if (!(error instanceof NoClientError)) throw error;
-      // With no client, the key is still checked, so a bad one exits with 1 before the exit code 4.
-      const name = tracker ?? trackerFromRemote(`https://${(await originRepo(deps.run, root)).host}/`);
-      await checkedTracker(
-        {
-          readTicket: () => Promise.reject(error),
-          listGroup: () => Promise.reject(error),
-          moveState: () => Promise.reject(error),
-          async addComment(k, file) {
-            throw NoClientError.forComment(k, file);
-          },
-        },
-        name,
-        warn,
-      ).addComment(key, path);
-      throw error;
+      throw await refuseWithoutClient(error, { root, tracker, run: deps.run, warn }, { comment: { key, path } });
     }
     await opened.addComment(key, path);
     io.stdout(`Added the text of ${path} as a comment on '${key}'.\n`);
