@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -248,5 +249,34 @@ describe("review hardening", () => {
   it("gives a SettingsError, not a stack overflow, for deep nesting", () => {
     const e = refusal(repo("[".repeat(200000)));
     expect(e).toBeInstanceOf(SettingsError);
+  });
+});
+
+describe("settings file that is not a regular file", () => {
+  it("refuses a link to a folder", () => {
+    const root = repo();
+    mkdirSync(join(root, ".cstack"));
+    mkdirSync(join(root, "elsewhere"));
+    symlinkSync(join(root, "elsewhere"), join(root, ".cstack", "settings.json"));
+    const e = refusal(root);
+    expect(e.message).toContain(".cstack/settings.json");
+    expect(e.message).toContain("not a regular file");
+  });
+  it("refuses a named pipe at once", () => {
+    const root = repo();
+    mkdirSync(join(root, ".cstack"));
+    execFileSync("mkfifo", [join(root, ".cstack", "settings.json")]);
+    expect(refusal(root).message).toContain("not a regular file");
+  });
+});
+
+describe("attribution line with the Cstack-Unit key", () => {
+  it("refuses the key in any case", () => {
+    for (const line of ["cstack-unit: 2", "CSTACK-UNIT: 2", "Cstack-Unit: 2"]) {
+      const e = refusal(repo({ version: 1, commitAttribution: ["Co-Authored-By: A <a@b.c>", line] }));
+      expect(e.problems.map((p) => p.path)).toEqual(["commitAttribution[1]"]);
+      expect(e.message).toContain("Cstack-Unit");
+      expect(e.message).toContain("belongs to cstack");
+    }
   });
 });
