@@ -453,7 +453,9 @@ The build also changed a shared file of #24: `cstack/src/orca/run.ts` now keeps 
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+1. Should the git way create its branch with `--no-track`? The new branch now tracks `origin/<default branch>`. With `push.default=upstream`, a plain `git push` in that worktree would push the ticket's commits to the default branch. `cstack publish` is not affected. It costs one argument and one test assertion. For: the user. This is non-blocking because the default git settings refuse such a push, and the plan fixes the exact command.
+2. Should a failure of the second read or the second worktree check, for one ticket after the yes, skip that ticket and go on, instead of stopping the whole loop? Today the loop stops, and a new run puts the tickets already started into "Already started". For: the user. Non-blocking because nothing starts twice.
+3. Does a slash command in `--prompt` run the skill when Orca starts the agent in its chat surface? Nobody checked, because it needs a real launch. For: ticket #31, which checks it end to end.
 
 ## Pull request
 
