@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/child-worktrees
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-19T16:58:06+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-19T17:32:58+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -474,11 +474,13 @@ Fixes #28
 - Unit 3, unit 7 and unit 4 found `tsc` unable to run until `npm ci` was done in `cstack/`. Unit 7 ran it, and unit 4 also built `cstack/dist`.
 - Unit 9 made the Orca runner of `unitCollect` optional, so the real command skipped the cleanup until unit 10 wired it. Unit 10 had to be told in its prompt.
 - Unit 10 reports that `main` may now hold more built commands than the 21 and 2 in the unit text. The counts need a re-check after the rebase.
+- During the rebase onto main, a `sed -i` call failed on macOS because BSD needs `-i ''`, so the count fix was missing from the rebased commit until a follow-up commit.
 
 ## Hand-off log
 
 2026-11-19: build phase. Moved ticket 28 to the label `in progress`, committed the plan file, and built units 1 to 10 in five batches. All units have a commit. No unit was escalated or blocked.
 2026-11-19: update-branch. Rebased onto main (9658d72). Conflicts in README.md, cli.test.ts and manifest.test.ts were resolved by keeping main's lines for tickets 29 and 30 and adding ours. The command count is now 23 built and 0 not built. Full suite passes, 96 files and 1170 tests.
+2026-11-19: document, briefing, after-build-questions and ready phases done. Returned a done report.
 
 ## History
 
