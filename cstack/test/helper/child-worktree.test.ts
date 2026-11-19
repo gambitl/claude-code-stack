@@ -1,9 +1,10 @@
-import { readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { helperStart } from "../../src/commands/helper-start.js";
 import type { Runner } from "../../src/orca/run.js";
-import { collect, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
+import { updateRecord } from "../../src/helper/record.js";
+import { collect, commitFiles, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
 
 const PKG = join(import.meta.dirname, "..", "..");
 const fixtures = join(PKG, "test", "fixtures", "orca", "1.4.263");
@@ -110,5 +111,28 @@ describe("cstack helper start --child-worktree", () => {
     expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
     expect(arg(t.starts()[0]!.args, "--worktree")).toBe("current");
     expect(t.out.stdout.split("\n")[1]).toMatch(/only/);
+  });
+
+  it("refuses a unit that shares a file with a unit still running in a child worktree, also after another unit is collected", async () => {
+    const text = full.slice(0, full.indexOf("### Unit 1:")) + [
+      ["1", "src/a.ts", "none"],
+      ["2", "src/f.ts", "1"],
+      ["3", "src/f.ts`, `src/g.ts", "none"],
+    ].map(([n, files, dep]) => `### Unit ${n}: Thing ${n}\n- Files: \`${files}\`\n- No test: prose only.\n- Minimum code: Write it.\n- Refactor: None.\n- Commit message: \`feat(cli): add ${n}\`\n- Depends on: ${dep}\n`).join("\n") + "\n" + full.slice(full.indexOf("## Documentation duties"));
+    const t = setup({ plan: text });
+    expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
+    expect(await t.run(["implementer", "--unit", "3", "--plan", PLAN, "--child-worktree"])).toBe(0);
+    // Unit 1 is collected: its commit is on the ticket branch and its record says so.
+    commitFiles(t.dir, ["src/a.ts"], 1);
+    const folder = join(t.dir, ".git", "cstack", "runs", "full");
+    const first = readdirSync(join(folder, "helpers")).find((n) => n.endsWith("-implementer-1.json"))!;
+    updateRecord(folder, first.slice(0, -5), { collectedAt: "2026-11-19T15:00:00.000Z" });
+    git(t.dir, "add", "-A");
+    git(t.dir, "commit", "-m", "docs: plan lines");
+    const before = t.starts().length;
+    expect(await t.run(["implementer", "--unit", "2", "--plan", PLAN, "--child-worktree"])).toBe(1);
+    expect(t.out.stderr).toContain("src/f.ts");
+    expect(t.out.stderr).toContain("unit 3");
+    expect(t.starts()).toHaveLength(before);
   });
 });

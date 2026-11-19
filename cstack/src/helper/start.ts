@@ -125,6 +125,15 @@ function orderOf(plan: ReturnType<typeof readPlan>, root: string) {
   return orderUnits(plan.units, new Set(Object.keys(commits.units).map(Number)));
 }
 
+/** The other units of the plan that still run in a child worktree: their latest helper record has a worktree and no `collectedAt`. */
+function runningUnits(plan: ReturnType<typeof readPlan>, runDir: string, except: number): ReturnType<typeof readPlan>["units"] {
+  return plan.units.filter((u) => {
+    if (u.number === except) return false;
+    const record = latestUnitRecord(runDir, u.number);
+    return record?.worktree !== undefined && record.collectedAt === undefined;
+  });
+}
+
 /** True when the first batch of `cstack unit order` holds only one unit. */
 function firstBatchIsOneUnit(plan: ReturnType<typeof readPlan>, root: string): boolean {
   const order = orderOf(plan, root);
@@ -132,7 +141,7 @@ function firstBatchIsOneUnit(plan: ReturnType<typeof readPlan>, root: string): b
 }
 
 /** The checks before a new child worktree. They refuse with 1 and start nothing. */
-function checkChildStart(plan: ReturnType<typeof readPlan>, unit: number, located: { root: string; relative: string }): void {
+function checkChildStart(plan: ReturnType<typeof readPlan>, unit: number, located: { root: string; relative: string }, running: ReturnType<typeof readPlan>["units"]): void {
   const order = orderOf(plan, located.root);
   if (!order.ok) throw new HelperError(`The Depends on lines form a cycle: units ${order.cycle.join(", ")}.`, EXIT.refused);
   if (!order.order.batches[0]?.includes(unit)) {
@@ -141,6 +150,13 @@ function checkChildStart(plan: ReturnType<typeof readPlan>, unit: number, locate
       order.order.setAside.find((s) => s.unit === unit)?.reason ??
       (order.order.committed.includes(unit) ? "it already has a commit" : "it is not in a batch");
     throw new HelperError(`Unit ${unit} is not in the first batch of \`cstack unit order\`: ${reason}. A parallel start needs a unit of the first batch.`, EXIT.refused);
+  }
+  const mine = new Set((plan.units.find((u) => u.number === unit)?.files ?? []).map((f) => f.toLowerCase()));
+  for (const other of running) {
+    const shared = other.files.filter((f) => mine.has(f.toLowerCase()));
+    if (shared.length > 0) {
+      throw new HelperError(`Unit ${unit} shares ${shared.map((f) => `\`${f}\``).join(", ")} with unit ${other.number}, which still runs in a child worktree. Collect unit ${other.number} first.`, EXIT.refused);
+    }
   }
   const branch = currentBranch(located.root);
   if (branch !== plan.header["Branch"]) {
@@ -186,7 +202,8 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     reuse = latest.worktree;
   }
   let child = request.childWorktree === true && role === "implementer" && unit !== null;
-  if (child) checkChildStart(plan, unit as number, located);
+  const running = child ? runningUnits(plan, runDir, unit as number) : [];
+  if (child) checkChildStart(plan, unit as number, located, running);
   const inputs = findInputs({
     role,
     helperId: makeHelperId(role, unit, deps.now()),
@@ -215,7 +232,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
   let base = "";
   let before: ListedWorktree[] = [];
   if (child) {
-    const alone = firstBatchIsOneUnit(plan, located.root);
+    const alone = running.length === 0 && firstBatchIsOneUnit(plan, located.root);
     const childFeature = await orcaFeatures(deps.createRunner(FEATURE_TIMEOUT_MS), deps.env).get("child-worktrees");
     if (alone) {
       child = false;
