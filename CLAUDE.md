@@ -17,7 +17,7 @@ This repository is public. Never write the name of an employer or a client in it
 
 ## Commands
 
-You run these commands from the `cstack/` folder. `npm ci` installs the packages. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
+You run these commands from the `cstack/` folder. `npm ci` installs the packages. A new worktree has no `node_modules`, so run `npm ci` there before the first type check or test run. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
 
 The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. Every command also has an entry in `cstack/src/manifest.ts`, which defines the common exit codes. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
 
