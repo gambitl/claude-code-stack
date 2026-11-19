@@ -78,7 +78,7 @@ describe("jira through orca: read", () => {
     };
     const run: Runner = async (_c, args) => ({ kind: "ok", stdout: answers[args.join(" ")] ?? "" });
     const jira = await orcaFeatures(run, {}).get("jira");
-    expect(jira.available).toBe(false);
+    expect(jira).toEqual({ available: false, reason: expect.stringContaining("2 saved Jira sites") });
     const choose = createClientChooser({ tracker: "jira", orcaAvailable: jira.available, runner: run });
     expect(await choose("read")).toBe("file");
     expect(await choose("move")).toBe("none");
