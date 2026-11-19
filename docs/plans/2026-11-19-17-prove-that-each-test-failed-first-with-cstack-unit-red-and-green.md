@@ -269,7 +269,7 @@ Graphify is not installed on this machine, and the coordinator's brief forbids i
 - `cstack/src/cli.ts` adds `red` and `green` to the `unit` handlers of `HANDLERS`, next to `order` and `commit`, and nothing else. After any merge of `origin/main`, check that `cli.ts` holds one definition of each function. (2026-11-19, the coordinator)
 - `cstack/test/manifest.test.ts` counts twelve built commands and three not built. After a merge of another ticket of the wave, the counts follow the merged list, and the whole suite runs again. (2026-11-19, the coordinator)
 - `cstack/test/cli.test.ts` line 134 uses an unknown second word, such as `frobnicate`, instead of `red`, and the test expects `order`, `commit`, `red` and `green` in the message. (2026-11-19, code mapping)
-- `cstack/skills/resolve-issue/agents/implementer.md` gets one sentence in step 4. It tells the implementer to give the shell call of `cstack unit red` and `cstack unit green` a timeout of at least ten minutes. The first `cstack unit red` of the file must stay before the first `cstack unit green`, which `cstack/test/prompts.test.ts` checks. (2026-11-19, accepted by default)
+- `cstack/skills/resolve-issue/agents/implementer.md` gets one sentence in step 4. It tells the implementer to run `cstack unit red` and `cstack unit green` with `--timeout 9`, in a shell call whose own timeout is ten minutes. cstack then stops the tests and saves its result before the shell tool of Claude Code stops cstack. The first `cstack unit red` of the file must stay before the first `cstack unit green`, which `cstack/test/prompts.test.ts` checks. (2026-11-19, the user's answer to the open question after the build, through the coordinator)
 - Nothing under the top-level `skills/` folder is edited. Graphify code and `cstack graph ensure` are not touched, because #45 removes them. (2026-11-19, the coordinator)
 - When #20 merges first with its own copy of `cstack/src/test-run.ts`, this branch keeps its own copy, deletes the other, and runs the tests of both tickets against it. (2026-11-19, the coordinator)
 - `cstack skills install` never runs against the real home folder, and nothing under `~/.claude/skills/` changes. Tests use a temporary home folder. Nothing under `~/comparison/` is read or run. (2026-11-19, the coordinator)
@@ -444,7 +444,7 @@ none
 
 ### Non-blocking
 
-The sentence added to the implementer prompt asks for a shell timeout of at least ten minutes, but the shell tool of Claude Code stops at ten minutes, the same as the default timeout of cstack. Should the sentence ask for a ten-minute shell call with `cstack unit red <n> --timeout 9` (and the same for green)? For: the maintainer. If nobody decides, the prompt stays as it is, and only suites longer than about nine minutes are exposed.
+The sentence added to the implementer prompt asks for a shell timeout of at least ten minutes, but the shell tool of Claude Code stops at ten minutes, the same as the default timeout of cstack. Should the sentence ask for a ten-minute shell call with `cstack unit red <n> --timeout 9` (and the same for green)? For: the maintainer. If nobody decides, the prompt stays as it is, and only suites longer than about nine minutes are exposed. Answered on 2026-11-19: yes, the sentence now asks for `--timeout 9` in a ten-minute shell call (see "Decisions").
 
 ## Pull request
 
@@ -469,8 +469,6 @@ Judgment calls from the independent review:
 - A refused red run keeps an older passing run, because a refused run says nothing about the current code.
 
 Follow-ups left open: about 25 lines are repeated between the two commands. The temporary output folder stays when cstack is stopped by a signal. A log of more than one megabyte with no line break is saved empty.
-
-Open questions, not needed for this pull request: this pull request can be merged without their answers. The sentence added to the implementer prompt asks for a shell timeout of at least ten minutes, but the shell tool of Claude Code stops at ten minutes, the same as the default timeout of cstack. Should the sentence ask for a ten-minute shell call with `--timeout 9`? This is for the maintainer.
 
 Another pull request of the wave may merge first. Then the counts of commands in `manifest.test.ts` and the README must follow the merged list, and the copy of `test-run.ts` of this branch is the one to keep.
 
