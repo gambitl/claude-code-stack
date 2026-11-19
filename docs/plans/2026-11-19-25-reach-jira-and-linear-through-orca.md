@@ -377,6 +377,16 @@ The ticket turns a milestone into `--project <name>`, but `create-tickets` puts 
 
 The branch only adds code. Four new source files exist (`jira-orca.ts`, `linear-orca.ts`, `orca-calls.ts` and the test fake). The only existing file that changed is `cstack/src/orca/shapes.ts`, which gained ten entries, so no existing symbol changed or was deleted. Nothing outside the branch calls the new functions yet, because `openTracker` belongs to #26. The files that usually change with `shapes.ts` are its test and the fixture README, and both were updated. No `WHY:` or `DECISION:` comment conflicts with the change.
 
+### Findings and fixes
+
+Correctness. A Jira list lost every footer blocker, because real Orca returns an empty description in a search. Fixed: `listGroup` now reads each hit again with `orca jira issue`, and the search fixture and the README say the description is empty. Also fixed: the `meta.includeErrors` check now reads the object shape that Orca uses, and an unreadable Linear blocker is stored as unknown, so it is read once.
+
+Security. A key from a Linear list answer reached an Orca argument without `isValidKey`. Fixed: a bad key now stops the list with exit 1 before any Orca call.
+
+Conventions and simplicity. The bare block in `readOne` was flattened and `COMMENT_CAP` was named on the Linear side.
+
+Follow-ups, not done. The blocker loop is nearly the same in both adapters, and a shared helper could remove it. A Linear epic list that returns nothing is not refused, and Orca may need the internal id for `--parent-id`, which nobody could check without a Linear workspace. A Jira search that returns a short page is not detected.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
