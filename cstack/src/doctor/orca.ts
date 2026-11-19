@@ -1,50 +1,43 @@
+import { callOrca } from "../orca/call.js";
+import { orcaFeatures, type OrcaFeatureName } from "../orca/features.js";
+import type { Runner } from "../orca/run.js";
+import {
+  MIN_ORCA_VERSION,
+  NEWEST_TESTED_ORCA_VERSION,
+  compareVersions,
+  parseVersion,
+} from "../orca/version.js";
 import type { DoctorInput, Outcome } from "./requirements.js";
 
 export const ORCA_HINT =
   "Download it from https://github.com/stablyai/orca/releases.";
 
-// Reads the JSON answer of an Orca command. Anything unusual gives undefined.
-async function answer(
-  input: DoctorInput,
-  args: string[],
-): Promise<Record<string, any> | undefined> {
-  const result = await input.run("orca", args);
-  if (result.kind !== "ok") return undefined;
-  try {
-    const body = JSON.parse(result.stdout);
-    return body?.ok === true ? (body.result ?? {}) : undefined;
-  } catch {
-    return undefined;
-  }
+const FEATURE_LABELS: [OrcaFeatureName, string][] = [
+  ["workers", "Orca workers"],
+  ["child-worktrees", "Child worktrees"],
+  ["ticket-worktrees", "Worktrees linked to tickets"],
+  ["jira", "Jira through Orca"],
+  ["linear", "Linear through Orca"],
+];
+
+// Runs each command once, so doctor and the feature detection share their answers.
+function remember(run: Runner): Runner {
+  const seen = new Map<string, ReturnType<Runner>>();
+  return (command, args, cwd) => {
+    const key = [command, ...args].join(" ");
+    if (!seen.has(key)) seen.set(key, run(command, args, cwd));
+    return seen.get(key)!;
+  };
 }
 
-const hasItems = (value: unknown) => Array.isArray(value) && value.length > 0;
-
-async function trackers(input: DoctorInput): Promise<string[]> {
-  const found: string[] = [];
-  const jira = await answer(input, ["jira", "connection", "--json"]);
-  if (hasItems(jira?.sites)) found.push("Jira");
-  const linear = await answer(input, [
-    "linear",
-    "team",
-    "list",
-    "--workspace",
-    "all",
-    "--json",
-  ]);
-  if (hasItems(linear?.teams)) found.push("Linear");
-  else if (hasItems(linear?.meta?.workspaceErrors))
-    found.push("Linear (connection error)");
-  return found;
-}
-
-// Orca has three parts: is it available, which version, which trackers.
-// Only the tracker names and the version are printed, never an Orca answer.
+// Prints the version, the minimum, whether the version is supported, and one
+// line per feature. Only features and reasons are printed, never an Orca answer.
 export async function checkOrca(
   input: DoctorInput,
   install: string,
 ): Promise<Outcome> {
-  const version = await input.run("orca", ["--version"]);
+  const run = remember(input.run);
+  const version = await callOrca(run, process.env, ["--version"]);
   if (version.kind === "missing")
     return { ok: false, text: `Orca is not installed. ${install}` };
   if (version.kind === "timeout")
@@ -52,20 +45,29 @@ export async function checkOrca(
       ok: false,
       text: `did not answer within ${Math.round(input.timeoutMs / 1000)} seconds`,
     };
+  if (version.kind === "too-large")
+    return { ok: false, text: "gave more output than cstack reads" };
   if (version.kind === "failed")
     return { ok: false, text: `failed with exit code ${version.exitCode}` };
-  const shown =
-    /(\d+\.\d+\.\d+\S*)/.exec(version.stdout)?.[1] ?? "present, version unknown";
+  const found = parseVersion(version.stdout);
+  if (found === null) return { ok: true, text: "present, version unknown" };
 
-  const status = await answer(input, ["status", "--json"]);
-  if (status?.runtime?.reachable !== true)
-    return {
-      ok: true,
-      text: `${shown}, installed but not running. Trackers were not checked.`,
-    };
-  const found = await trackers(input);
-  return {
-    ok: true,
-    text: `${shown}, running. Trackers: ${found.length ? found.join(", ") : "none"}`,
-  };
+  const supported = compareVersions(found, MIN_ORCA_VERSION) >= 0;
+  let first = `${found}, minimum ${MIN_ORCA_VERSION}, ${supported ? "supported" : "not supported"}`;
+  if (supported && compareVersions(found, NEWEST_TESTED_ORCA_VERSION) > 0)
+    first += `. This version has not been tested, and cstack still uses it`;
+  const features = orcaFeatures(run, process.env);
+  if (!supported) first += ".";
+  else {
+    const running = await features.running();
+    first += running.available ? ", running." : `. ${running.reason}`;
+  }
+  const lines = [first];
+  for (const [name, label] of FEATURE_LABELS) {
+    const feature = await features.get(name);
+    lines.push(
+      `  ${label}: ${feature.available ? "available" : `not available. ${feature.reason}`}`,
+    );
+  }
+  return { ok: true, text: lines.join("\n") };
 }

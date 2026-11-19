@@ -14,7 +14,7 @@ The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing
 - **Graphify**: optional. Install it with `uv tool install graphifyy`. This needs uv, which you can install with `brew install uv`. If the command is still not found, run `uv tool update-shell`.
 - **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
 - **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
-- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases.
+- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
 
 ## Install cstack
 
@@ -37,11 +37,12 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 
 ## Commands
 
-`cstack` has twelve commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has thirteen commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
 - `cstack measure <plan file>` prints how many tokens and how much time one run of `resolve-issue` used. The "Measure a run" section below explains it.
+- `cstack next` prints the guide of the next phase of your plan and records that this phase started. It keeps that record in the git folder of the repository, not in the plan file. Add `--done <phase>` to record that a phase is finished, or `--phase <phase>` to choose the phase yourself.
 - `cstack skills install` copies the skills that this version of `cstack` ships into `~/.claude/skills`. The "Install cstack" section above explains what it does with a folder that it did not write.
 - `cstack plan status` prints, for each unit of the plan, whether git has a commit for it. It exits with 1 when git and the plan disagree.
 - `cstack plan section <name>` prints one section of the plan file and nothing else.

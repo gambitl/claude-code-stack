@@ -48,6 +48,19 @@ describe("the executor prompt", () => {
     const kinds = new Set([...text.matchAll(/cstack report submit (\S+)/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
   });
+
+  it("tells the executor not to follow a guide whose run line says in the main conversation", () => {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    expect(sentences.some((s) => s.includes("in the main conversation") && s.includes("run line") && s.includes("do not follow"))).toBe(true);
+  });
+});
+
+describe("the short skill", () => {
+  it("tells the main conversation not to follow a guide whose run line says in the executor", () => {
+    const text = read("../skills/resolve-issue/SKILL.md");
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    expect(sentences.some((s) => s.includes("in the executor") && s.includes("run line") && s.includes("do not follow"))).toBe(true);
+  });
 });
 
 describe("the push rule", () => {

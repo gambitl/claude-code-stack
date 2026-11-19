@@ -53,6 +53,7 @@ Ready for review at: not yet
 - Depends on: unit numbers separated by ", ", or the word none
 - Design specification: optional, for user-interface units only
 - Blocked: <reason>, optional, written by the executor
+- Worktree: <absolute path>, optional, written by cstack when a unit runs in a child worktree, never by a person
 Free notes come after these lines.
 Each unit commit carries the trailer "Cstack-Unit: <n>" in the final paragraph of its message, together with any other trailer such as Co-Authored-By. git does not read a trailer outside the final paragraph. A commit with two Cstack-Unit lines counts for both units. -->
 

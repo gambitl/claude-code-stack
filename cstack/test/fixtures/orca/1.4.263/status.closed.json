@@ -15,7 +15,7 @@
       "reachable": false,
       "connectionState": "disconnected",
       "runtimeId": null,
-      "appVersion": "1.4.262",
+      "appVersion": "1.4.263",
       "remoteUpdateSupport": {
         "installMode": "interactive",
         "automatic": true,

@@ -4,6 +4,7 @@ import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
+import { next } from "./commands/next.js";
 import { planSection } from "./commands/plan-section.js";
 import { planStatus } from "./commands/plan-status.js";
 import { reportCheck } from "./commands/report-check.js";
@@ -15,7 +16,7 @@ import { unitOrder } from "./commands/unit-order.js";
 import { unitRed } from "./commands/unit-red.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
-import { COMMANDS, type CommandEntry, EXIT, commandWords } from "./manifest.js";
+import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
 
 const BUILT = COMMANDS.filter((entry) => entry.built);
 
@@ -46,6 +47,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   doctor: (args, io) => (args.length > 0 ? fail(io, "doctor takes no argument") : doctor(io)),
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
+  next: (args, io) => next(args, io, { cwd: process.cwd(), packageRoot }),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
   plan: (args, io) =>
     dispatchSubcommand("plan", args, io, {
@@ -71,12 +73,13 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
     io.stderr(USAGE);
     return EXIT.usage;
   }
+  const refusal = unbuiltRefusal(args);
+  if (refusal !== undefined) {
+    io.stderr(`cstack: ${refusal}\n`);
+    return EXIT.refused;
+  }
   if (Object.hasOwn(HANDLERS, first) && BUILT.some((e) => commandWords(e)[0] === first))
     return HANDLERS[first](args.slice(1), io);
-  if (COMMANDS.some((e) => commandWords(e)[0] === first)) {
-    io.stderr(`cstack: "${first}" is not built in this version yet.\n`);
-    return EXIT.usage;
-  }
   if (!first.startsWith("-")) return fail(io, `unknown command "${first}"`);
   let values: { version?: boolean };
   try {

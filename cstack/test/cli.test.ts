@@ -100,12 +100,77 @@ describe("run", () => {
       expect(out.stderr).toContain("Usage: cstack skills install");
     }
   });
-  it("answers that a command of the list is not built yet, with exit code 2", async () => {
+  it("answers that a command of the list is not built yet, with exit code 1", async () => {
+    const builtWords = new Set(COMMANDS.filter((e) => e.built).map((e) => commandWords(e)[0]));
+    const notBuilt = COMMANDS.find((e) => !e.built && !builtWords.has(commandWords(e)[0]));
+    if (notBuilt === undefined) return;
     const { out, io } = collect();
-    const code = await run(["next"], io);
+    const code = await run([commandWords(notBuilt)[0]], io);
     expect(out.stderr).toContain("not built in this version yet");
     expect(out.stdout).toBe("");
-    expect(code).toBe(2);
+    expect(code).toBe(1);
+  });
+
+  it("refuses every unbuilt command and every unbuilt flag with exit code 1 and its tickets", async () => {
+    const tickets = (t: number | number[]) => [t].flat().map((n) => `#${n}`);
+    for (const entry of COMMANDS.filter((e) => !e.built)) {
+      const { out, io } = collect();
+      expect(await run(commandWords(entry), io), entry.usage).toBe(1);
+      for (const t of tickets(entry.ticket)) expect(out.stderr, entry.usage).toContain(t);
+    }
+    for (const entry of COMMANDS.filter((e) => e.notBuiltFlags !== undefined))
+      for (const [flag, ticket] of Object.entries(entry.notBuiltFlags ?? {})) {
+        const { out, io } = collect();
+        expect(await run([...commandWords(entry), flag], io), flag).toBe(1);
+        // An unbuilt command is refused as a whole, with its own ticket, before its flags are read.
+        for (const t of tickets(entry.built ? ticket : entry.ticket)) expect(out.stderr, flag).toContain(t);
+      }
+  });
+
+  it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
+    for (const [args, text] of [
+      [["tracker"], "Tickets #25 and #26 build it."],
+      [["tracker", "nope"], "Tickets #25 and #26 build it."],
+      [["helper"], "#27"],
+      [["graph"], "Ticket #19 builds it."],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io), args.join(" ")).toBe(1);
+      expect(out.stderr, args.join(" ")).toContain(text);
+    }
+    const { out, io } = collect();
+    await run(["helper"], io);
+    expect(out.stderr).toContain("#28");
+  });
+
+  it("uses the singular and the plural correctly when it names tickets", async () => {
+    // The first unbuilt entry built by one ticket. `cstack next` was the example until #15 built it.
+    const single = COMMANDS.find((e) => !e.built && typeof e.ticket === "number");
+    if (single !== undefined) {
+      const one = collect();
+      await run(commandWords(single), one.io);
+      expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
+    }
+    const two = collect();
+    await run(["tracker", "read"], two.io);
+    expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
+  });
+
+  it("names the ticket of the command for the flags of unbuilt commands", async () => {
+    for (const [args, ticket] of [
+      [["helper", "start", "--child-worktree"], "#27"],
+      [["wave", "--watch"], "#29"],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io)).toBe(1);
+      expect(out.stderr).toContain(ticket);
+    }
+  });
+
+  it("runs cstack next and lists the phase names for an unknown phase", async () => {
+    const { out, io } = collect();
+    expect(await run(["next", "--phase", "deploy"], io)).toBe(2);
+    expect(out.stderr).toContain("ticket, dependencies, code-map");
   });
 
   it("prints the usage line of every built entry and of no other entry", async () => {
@@ -131,7 +196,7 @@ describe("run", () => {
   });
 
   it("routes the unit group and lists its words when the second word is missing or unknown", async () => {
-    for (const args of [["unit"], ["unit", "frobnicate"]]) {
+    for (const args of [["unit"], ["unit", "nope", "1"]]) {
       const { out, io } = collect();
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("order");

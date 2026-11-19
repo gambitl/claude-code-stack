@@ -1,0 +1,21 @@
+const RESERVED = /(^|\.)(example\.(com|org|net)|example|test|invalid|localhost)$/i;
+const ALLOWED_HOSTS = new Set(["github.com", "gitlab.com"]);
+
+function reserved(host: string): boolean {
+  return RESERVED.test(host) || ALLOWED_HOSTS.has(host.toLowerCase());
+}
+
+/** Lists what a fixture text holds that must not be public. */
+export function findPrivateText(text: string): string[] {
+  const found: string[] = [];
+  for (const m of text.matchAll(/\/Users\/[^\s"'<>]+/g)) {
+    found.push(`home path ${m[0]}`);
+  }
+  for (const m of text.matchAll(/[A-Za-z0-9._%+-]+@([A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+)/g)) {
+    if (!RESERVED.test(m[1])) found.push(`email ${m[0]}`);
+  }
+  for (const m of text.matchAll(/https?:\/\/([A-Za-z0-9.-]+)/g)) {
+    if (!reserved(m[1])) found.push(`host ${m[1]}`);
+  }
+  return found;
+}

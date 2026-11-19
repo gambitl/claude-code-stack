@@ -1,0 +1,1026 @@
+{
+  "schemaVersion": 1,
+  "commandCount": 340,
+  "commands": [
+    {
+      "command": "account add"
+    },
+    {
+      "command": "account list"
+    },
+    {
+      "command": "account rm"
+    },
+    {
+      "command": "account select"
+    },
+    {
+      "command": "agent hooks off"
+    },
+    {
+      "command": "agent hooks on"
+    },
+    {
+      "command": "agent hooks prepare-codex"
+    },
+    {
+      "command": "agent hooks status"
+    },
+    {
+      "command": "agent installed"
+    },
+    {
+      "command": "agent launch"
+    },
+    {
+      "command": "agent list"
+    },
+    {
+      "command": "agent read"
+    },
+    {
+      "command": "agent show"
+    },
+    {
+      "command": "agent-context"
+    },
+    {
+      "command": "artifacts delete"
+    },
+    {
+      "command": "artifacts list"
+    },
+    {
+      "command": "artifacts share"
+    },
+    {
+      "command": "artifacts unshare"
+    },
+    {
+      "command": "artifacts update"
+    },
+    {
+      "command": "automations create"
+    },
+    {
+      "command": "automations edit"
+    },
+    {
+      "command": "automations list"
+    },
+    {
+      "command": "automations remove"
+    },
+    {
+      "command": "automations run"
+    },
+    {
+      "command": "automations runs"
+    },
+    {
+      "command": "automations show"
+    },
+    {
+      "command": "back"
+    },
+    {
+      "command": "browser identity get"
+    },
+    {
+      "command": "browser identity set"
+    },
+    {
+      "command": "capture start"
+    },
+    {
+      "command": "capture stop"
+    },
+    {
+      "command": "chat rename"
+    },
+    {
+      "command": "check"
+    },
+    {
+      "command": "claude-teams"
+    },
+    {
+      "command": "clear"
+    },
+    {
+      "command": "click"
+    },
+    {
+      "command": "clipboard read"
+    },
+    {
+      "command": "clipboard write"
+    },
+    {
+      "command": "computer capabilities"
+    },
+    {
+      "command": "computer click"
+    },
+    {
+      "command": "computer drag"
+    },
+    {
+      "command": "computer get-app-state"
+    },
+    {
+      "command": "computer hotkey"
+    },
+    {
+      "command": "computer launch-app"
+    },
+    {
+      "command": "computer list-apps"
+    },
+    {
+      "command": "computer list-windows"
+    },
+    {
+      "command": "computer paste-text"
+    },
+    {
+      "command": "computer perform-secondary-action"
+    },
+    {
+      "command": "computer permissions"
+    },
+    {
+      "command": "computer press-key"
+    },
+    {
+      "command": "computer scroll"
+    },
+    {
+      "command": "computer set-value"
+    },
+    {
+      "command": "computer type-text"
+    },
+    {
+      "command": "computer wait"
+    },
+    {
+      "command": "console"
+    },
+    {
+      "command": "cookie delete"
+    },
+    {
+      "command": "cookie get"
+    },
+    {
+      "command": "cookie set"
+    },
+    {
+      "command": "dblclick"
+    },
+    {
+      "command": "diagnostics memory"
+    },
+    {
+      "command": "dialog accept"
+    },
+    {
+      "command": "dialog dismiss"
+    },
+    {
+      "command": "download"
+    },
+    {
+      "command": "drag"
+    },
+    {
+      "command": "emulator attach"
+    },
+    {
+      "command": "emulator ax"
+    },
+    {
+      "command": "emulator button"
+    },
+    {
+      "command": "emulator devices"
+    },
+    {
+      "command": "emulator exec"
+    },
+    {
+      "command": "emulator gesture"
+    },
+    {
+      "command": "emulator install"
+    },
+    {
+      "command": "emulator kill"
+    },
+    {
+      "command": "emulator launch"
+    },
+    {
+      "command": "emulator list"
+    },
+    {
+      "command": "emulator logcat"
+    },
+    {
+      "command": "emulator permissions"
+    },
+    {
+      "command": "emulator rotate"
+    },
+    {
+      "command": "emulator shutdown"
+    },
+    {
+      "command": "emulator tap"
+    },
+    {
+      "command": "emulator type"
+    },
+    {
+      "command": "environment add"
+    },
+    {
+      "command": "environment cancel-stop"
+    },
+    {
+      "command": "environment forget"
+    },
+    {
+      "command": "environment list"
+    },
+    {
+      "command": "environment recover"
+    },
+    {
+      "command": "environment rm"
+    },
+    {
+      "command": "environment rollback"
+    },
+    {
+      "command": "environment show"
+    },
+    {
+      "command": "environment status"
+    },
+    {
+      "command": "environment stop"
+    },
+    {
+      "command": "environment update"
+    },
+    {
+      "command": "eval"
+    },
+    {
+      "command": "exec"
+    },
+    {
+      "command": "extension list"
+    },
+    {
+      "command": "extension reload"
+    },
+    {
+      "command": "file diff"
+    },
+    {
+      "command": "file open"
+    },
+    {
+      "command": "file open-changed"
+    },
+    {
+      "command": "fill"
+    },
+    {
+      "command": "find"
+    },
+    {
+      "command": "focus"
+    },
+    {
+      "command": "forward"
+    },
+    {
+      "command": "full-screenshot"
+    },
+    {
+      "command": "geolocation"
+    },
+    {
+      "command": "get"
+    },
+    {
+      "command": "goto"
+    },
+    {
+      "command": "highlight"
+    },
+    {
+      "command": "host list"
+    },
+    {
+      "command": "host name"
+    },
+    {
+      "command": "host rm"
+    },
+    {
+      "command": "hover"
+    },
+    {
+      "command": "inserttext"
+    },
+    {
+      "command": "intercept disable"
+    },
+    {
+      "command": "intercept enable"
+    },
+    {
+      "command": "intercept list"
+    },
+    {
+      "command": "is"
+    },
+    {
+      "command": "jira assignee clear"
+    },
+    {
+      "command": "jira assignee list"
+    },
+    {
+      "command": "jira assignee set"
+    },
+    {
+      "command": "jira comment add"
+    },
+    {
+      "command": "jira comment list"
+    },
+    {
+      "command": "jira connection"
+    },
+    {
+      "command": "jira create"
+    },
+    {
+      "command": "jira issue"
+    },
+    {
+      "command": "jira label add"
+    },
+    {
+      "command": "jira label rm"
+    },
+    {
+      "command": "jira label set"
+    },
+    {
+      "command": "jira list"
+    },
+    {
+      "command": "jira priority clear"
+    },
+    {
+      "command": "jira priority list"
+    },
+    {
+      "command": "jira priority set"
+    },
+    {
+      "command": "jira project fields"
+    },
+    {
+      "command": "jira project list"
+    },
+    {
+      "command": "jira project types"
+    },
+    {
+      "command": "jira search"
+    },
+    {
+      "command": "jira status list"
+    },
+    {
+      "command": "jira status set"
+    },
+    {
+      "command": "keypress"
+    },
+    {
+      "command": "linear assignee clear"
+    },
+    {
+      "command": "linear assignee set"
+    },
+    {
+      "command": "linear attach"
+    },
+    {
+      "command": "linear comment add"
+    },
+    {
+      "command": "linear comment delete"
+    },
+    {
+      "command": "linear comment edit"
+    },
+    {
+      "command": "linear connect"
+    },
+    {
+      "command": "linear create"
+    },
+    {
+      "command": "linear due-date clear"
+    },
+    {
+      "command": "linear due-date set"
+    },
+    {
+      "command": "linear estimate clear"
+    },
+    {
+      "command": "linear estimate set"
+    },
+    {
+      "command": "linear issue"
+    },
+    {
+      "command": "linear label add"
+    },
+    {
+      "command": "linear label remove"
+    },
+    {
+      "command": "linear label set"
+    },
+    {
+      "command": "linear list"
+    },
+    {
+      "command": "linear list-issues"
+    },
+    {
+      "command": "linear priority clear"
+    },
+    {
+      "command": "linear priority set"
+    },
+    {
+      "command": "linear project list"
+    },
+    {
+      "command": "linear relation add"
+    },
+    {
+      "command": "linear relation remove"
+    },
+    {
+      "command": "linear save-issue"
+    },
+    {
+      "command": "linear search"
+    },
+    {
+      "command": "linear status set"
+    },
+    {
+      "command": "linear team labels"
+    },
+    {
+      "command": "linear team list"
+    },
+    {
+      "command": "linear team members"
+    },
+    {
+      "command": "linear team states"
+    },
+    {
+      "command": "mouse down"
+    },
+    {
+      "command": "mouse move"
+    },
+    {
+      "command": "mouse up"
+    },
+    {
+      "command": "mouse wheel"
+    },
+    {
+      "command": "network"
+    },
+    {
+      "command": "open"
+    },
+    {
+      "command": "open-url"
+    },
+    {
+      "command": "orchestration ask"
+    },
+    {
+      "command": "orchestration check"
+    },
+    {
+      "command": "orchestration coordinator-start"
+    },
+    {
+      "command": "orchestration coordinator-stop"
+    },
+    {
+      "command": "orchestration deny"
+    },
+    {
+      "command": "orchestration dispatch"
+    },
+    {
+      "command": "orchestration dispatch-show"
+    },
+    {
+      "command": "orchestration gate-create"
+    },
+    {
+      "command": "orchestration gate-list"
+    },
+    {
+      "command": "orchestration gate-resolve"
+    },
+    {
+      "command": "orchestration inbox"
+    },
+    {
+      "command": "orchestration reply"
+    },
+    {
+      "command": "orchestration request-show"
+    },
+    {
+      "command": "orchestration reset"
+    },
+    {
+      "command": "orchestration run-create"
+    },
+    {
+      "command": "orchestration run-current"
+    },
+    {
+      "command": "orchestration run-list"
+    },
+    {
+      "command": "orchestration run-show"
+    },
+    {
+      "command": "orchestration run-use"
+    },
+    {
+      "command": "orchestration send"
+    },
+    {
+      "command": "orchestration task-create"
+    },
+    {
+      "command": "orchestration task-list"
+    },
+    {
+      "command": "orchestration task-update"
+    },
+    {
+      "command": "orchestration worker-abandon"
+    },
+    {
+      "command": "orchestration worker-keep-open"
+    },
+    {
+      "command": "orchestration worker-list"
+    },
+    {
+      "command": "orchestration worker-read"
+    },
+    {
+      "command": "orchestration worker-release"
+    },
+    {
+      "command": "orchestration worker-show"
+    },
+    {
+      "command": "orchestration worker-start"
+    },
+    {
+      "command": "orchestration worker-stop"
+    },
+    {
+      "command": "pair"
+    },
+    {
+      "command": "pdf"
+    },
+    {
+      "command": "plugin catalog add"
+    },
+    {
+      "command": "plugin catalog list"
+    },
+    {
+      "command": "plugin catalog rm"
+    },
+    {
+      "command": "plugin check"
+    },
+    {
+      "command": "plugin create"
+    },
+    {
+      "command": "plugin dev emit"
+    },
+    {
+      "command": "plugin dev hook"
+    },
+    {
+      "command": "plugin dev inspect"
+    },
+    {
+      "command": "plugin dev load"
+    },
+    {
+      "command": "plugin dev reload"
+    },
+    {
+      "command": "plugin dev request"
+    },
+    {
+      "command": "plugin dev unload"
+    },
+    {
+      "command": "plugin dev watch"
+    },
+    {
+      "command": "plugin disable"
+    },
+    {
+      "command": "plugin enable"
+    },
+    {
+      "command": "plugin inspect"
+    },
+    {
+      "command": "plugin install"
+    },
+    {
+      "command": "plugin list"
+    },
+    {
+      "command": "plugin logs"
+    },
+    {
+      "command": "plugin open"
+    },
+    {
+      "command": "plugin release-entry"
+    },
+    {
+      "command": "plugin restart"
+    },
+    {
+      "command": "plugin shot"
+    },
+    {
+      "command": "plugin system off"
+    },
+    {
+      "command": "plugin system on"
+    },
+    {
+      "command": "plugin test"
+    },
+    {
+      "command": "plugin types"
+    },
+    {
+      "command": "plugin uninstall"
+    },
+    {
+      "command": "plugin update"
+    },
+    {
+      "command": "plugin validate"
+    },
+    {
+      "command": "ports"
+    },
+    {
+      "command": "profile state exports"
+    },
+    {
+      "command": "profile state rollback"
+    },
+    {
+      "command": "project list"
+    },
+    {
+      "command": "project setup-clone"
+    },
+    {
+      "command": "project setup-create"
+    },
+    {
+      "command": "project setup-delete"
+    },
+    {
+      "command": "project setup-existing-folder"
+    },
+    {
+      "command": "project setup-update"
+    },
+    {
+      "command": "project setups"
+    },
+    {
+      "command": "reference add"
+    },
+    {
+      "command": "reference find"
+    },
+    {
+      "command": "reference list"
+    },
+    {
+      "command": "reference remove"
+    },
+    {
+      "command": "reload"
+    },
+    {
+      "command": "repo add"
+    },
+    {
+      "command": "repo hide"
+    },
+    {
+      "command": "repo list"
+    },
+    {
+      "command": "repo search-refs"
+    },
+    {
+      "command": "repo set"
+    },
+    {
+      "command": "repo set-base-ref"
+    },
+    {
+      "command": "repo show"
+    },
+    {
+      "command": "repo unhide"
+    },
+    {
+      "command": "screenshot"
+    },
+    {
+      "command": "scroll"
+    },
+    {
+      "command": "scrollintoview"
+    },
+    {
+      "command": "search"
+    },
+    {
+      "command": "select"
+    },
+    {
+      "command": "select-all"
+    },
+    {
+      "command": "serve"
+    },
+    {
+      "command": "serve reset-identity"
+    },
+    {
+      "command": "serve restore resume"
+    },
+    {
+      "command": "serve service install"
+    },
+    {
+      "command": "serve service status"
+    },
+    {
+      "command": "serve service uninstall"
+    },
+    {
+      "command": "set credentials"
+    },
+    {
+      "command": "set device"
+    },
+    {
+      "command": "set headers"
+    },
+    {
+      "command": "set media"
+    },
+    {
+      "command": "set offline"
+    },
+    {
+      "command": "skills get"
+    },
+    {
+      "command": "skills install"
+    },
+    {
+      "command": "skills installed"
+    },
+    {
+      "command": "skills list"
+    },
+    {
+      "command": "skills share"
+    },
+    {
+      "command": "skills update"
+    },
+    {
+      "command": "snapshot"
+    },
+    {
+      "command": "speech openai-key clear"
+    },
+    {
+      "command": "speech openai-key set"
+    },
+    {
+      "command": "speech openai-key status"
+    },
+    {
+      "command": "status"
+    },
+    {
+      "command": "storage local clear"
+    },
+    {
+      "command": "storage local get"
+    },
+    {
+      "command": "storage local set"
+    },
+    {
+      "command": "storage session clear"
+    },
+    {
+      "command": "storage session get"
+    },
+    {
+      "command": "storage session set"
+    },
+    {
+      "command": "tab annotations"
+    },
+    {
+      "command": "tab close"
+    },
+    {
+      "command": "tab create"
+    },
+    {
+      "command": "tab current"
+    },
+    {
+      "command": "tab list"
+    },
+    {
+      "command": "tab profile clone"
+    },
+    {
+      "command": "tab profile create"
+    },
+    {
+      "command": "tab profile delete"
+    },
+    {
+      "command": "tab profile list"
+    },
+    {
+      "command": "tab profile set"
+    },
+    {
+      "command": "tab profile show"
+    },
+    {
+      "command": "tab profile use-default"
+    },
+    {
+      "command": "tab show"
+    },
+    {
+      "command": "tab switch"
+    },
+    {
+      "command": "terminal close"
+    },
+    {
+      "command": "terminal create"
+    },
+    {
+      "command": "terminal list"
+    },
+    {
+      "command": "terminal read"
+    },
+    {
+      "command": "terminal rename"
+    },
+    {
+      "command": "terminal send"
+    },
+    {
+      "command": "terminal set-pane-title"
+    },
+    {
+      "command": "terminal show"
+    },
+    {
+      "command": "terminal split"
+    },
+    {
+      "command": "terminal switch"
+    },
+    {
+      "command": "terminal wait"
+    },
+    {
+      "command": "terminal-daemon restart"
+    },
+    {
+      "command": "terminal-daemon status"
+    },
+    {
+      "command": "type"
+    },
+    {
+      "command": "uncheck"
+    },
+    {
+      "command": "upload"
+    },
+    {
+      "command": "viewport"
+    },
+    {
+      "command": "vm env doctor"
+    },
+    {
+      "command": "vm recipe doctor"
+    },
+    {
+      "command": "wait"
+    },
+    {
+      "command": "workspace cleanup preview"
+    },
+    {
+      "command": "workspace cleanup report"
+    },
+    {
+      "command": "workspace cleanup run"
+    },
+    {
+      "command": "worktree activate"
+    },
+    {
+      "command": "worktree create"
+    },
+    {
+      "command": "worktree current"
+    },
+    {
+      "command": "worktree list"
+    },
+    {
+      "command": "worktree ps"
+    },
+    {
+      "command": "worktree rm"
+    },
+    {
+      "command": "worktree set"
+    },
+    {
+      "command": "worktree show"
+    }
+  ]
+}
