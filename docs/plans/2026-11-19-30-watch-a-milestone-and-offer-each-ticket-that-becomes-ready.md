@@ -400,6 +400,19 @@ Wording slip, not fixed: when standard input ends during a start that then fails
 
 Tests: `npm run typecheck` is clean and `npm test` passed, 97 files and 1166 tests.
 
+
+### Independent review (phase independent-review)
+
+The independent reviewer found no bug in the code. It added four tests, in two commits, and every one passed against the existing code. Two cover the acceptance criteria that had no test: a blocker that moves to "in review" sends no notification and asks no question, and a ticket title with a double quote and `& do shell script "rm -rf ~"` never reaches any argument or question. Two others cover the refusals of scope item 1: no terminal exits with 1 before the tracker opens, and a bad settings file exits with 3 before the terminal check. After its commits, `npm test` passed with 97 files and 1170 tests, and the typecheck was clean.
+
+Judgment calls for the pull request body, none of them changed in code:
+
+1. The plan lists more test cases under units 4 to 8 than were written, for example the Linear and GitHub cases without a client, the round that starts at minute 7 after a slow answer, the order of two tickets that become ready together, and the checks of `defaultWatchDeps`. The ticket does not require them.
+2. With `watchIntervalMinutes` set to 1, the first line reads "every 1 minutes".
+3. The watch keeps its own `SIGINT` listener while it runs, so a second Control-C cannot force-quit a program that hangs. The user would wait for the two-minute timeout of the runner.
+4. The watch finds a failed fetch by comparing the error message with `FETCH_FAILED`. A dedicated error class would be safer.
+5. Two commits of unit 8 share one subject.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
