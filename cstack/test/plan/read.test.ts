@@ -248,3 +248,10 @@ describe("isBranchName", () => {
     expect(isBranchName(name)).toBe(false);
   });
 });
+
+describe("Windows line endings", () => {
+  it("reads a plan with CRLF line endings like the same plan with LF", () => {
+    const text = fixture("approved");
+    expect(readPlan(text.replace(/\n/g, "\r\n"))).toEqual(readPlan(text));
+  });
+});

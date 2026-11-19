@@ -4,6 +4,10 @@ import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
 import { guide } from "./commands/guide.js";
 import { measure } from "./commands/measure.js";
+import { planSection } from "./commands/plan-section.js";
+import { planStatus } from "./commands/plan-status.js";
+import { reportCheck } from "./commands/report-check.js";
+import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { unitCommit } from "./commands/unit-commit.js";
 import { unitOrder } from "./commands/unit-order.js";
@@ -35,29 +39,22 @@ function fail(io: Io, problem: string): number {
 
 const packageRoot = fileURLToPath(new URL("..", import.meta.url));
 
-/**
- * Routes `cstack <group> <word> ...` on the second word. A missing or unknown second word
- * prints the known words of the group on stderr and returns 2.
- */
-export async function dispatchSubcommand(
-  group: string,
-  args: string[],
-  io: Io,
-  handlers: Record<string, (args: string[], io: Io) => Promise<number>>,
-): Promise<number> {
-  const word = args[0];
-  if (word !== undefined && Object.hasOwn(handlers, word)) return handlers[word](args.slice(1), io);
-  const known = COMMANDS.map((e) => commandWords(e)).filter((w) => w[0] === group && w[1] !== undefined).map((w) => w[1]);
-  io.stderr(`cstack ${group}: ${word === undefined ? "give a command" : `unknown command "${word}"`}.\nUsage: cstack ${group} <${known.join("|")}>\n`);
-  return EXIT.usage;
-}
-
 /** The calls to the built commands, keyed by the first word of their usage line. */
 export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promise<number>> = {
   doctor: (args, io) => (args.length > 0 ? fail(io, "doctor takes no argument") : doctor(io)),
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
+  plan: (args, io) =>
+    dispatchSubcommand("plan", args, io, {
+      status: async (a, i) => planStatus(a, i, { cwd: process.cwd() }),
+      section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
+    }),
+  report: (args, io) =>
+    dispatchSubcommand("report", args, io, {
+      submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
+      check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
+    }),
   unit: (args, io) => dispatchSubcommand("unit", args, io, { order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i) }),
 };
 
@@ -89,4 +86,17 @@ export async function run(args: string[], io: Io = processIo): Promise<number> {
   // (exit code 1) and is not mistaken for a usage error (exit code 2).
   if (values.version) return version(io);
   return fail(io, "no command given");
+}
+
+/** Sends `cstack <group> <word> ...` to the handler of the second word. */
+export async function dispatchSubcommand(
+  group: string,
+  args: string[],
+  io: Io,
+  handlers: Record<string, (args: string[], io: Io) => Promise<number>>,
+): Promise<number> {
+  const word = args[0];
+  if (word !== undefined && Object.hasOwn(handlers, word)) return handlers[word](args.slice(1), io);
+  io.stderr(`cstack: usage: cstack ${group} <${Object.keys(handlers).join("|")}>\n`);
+  return EXIT.usage;
 }

@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { HANDLERS, run } from "../src/cli.js";
+import { HANDLERS, dispatchSubcommand, run } from "../src/cli.js";
 import { COMMANDS, commandWords } from "../src/manifest.js";
 import type { Io } from "../src/io.js";
 
@@ -136,6 +136,45 @@ describe("run", () => {
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("order");
       expect(out.stderr).toContain("commit");
+    }
+  });
+});
+
+describe("the plan and report groups", () => {
+  it("returns 2 and lists the second words of the group when the second word is missing or unknown", async () => {
+    for (const [args, words] of [
+      [["plan"], "status|section"],
+      [["report", "nope"], "submit|check"],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io)).toBe(2);
+      expect(out.stderr).toContain(words);
+    }
+  });
+});
+
+describe("dispatchSubcommand", () => {
+  it("sends the arguments after the second word to its handler and returns its exit code", async () => {
+    const { out, io } = collect();
+    let received: string[] = [];
+    const fake = async (args: string[]) => {
+      received = args;
+      return 7;
+    };
+    const code = await dispatchSubcommand("plan", ["status", "--json"], io, { status: fake });
+    expect(received).toEqual(["--json"]);
+    expect(code).toBe(7);
+    expect(out.stderr).toBe("");
+  });
+
+  it("prints a usage line and returns 2 when the second word is missing or unknown", async () => {
+    for (const args of [[], ["nope"]]) {
+      const { out, io } = collect();
+      const code = await dispatchSubcommand("plan", args, io, { status: async () => 0 });
+      expect(code).toBe(2);
+      expect(out.stderr).toContain("plan");
+      expect(out.stderr).toContain("status");
+      expect(out.stdout).toBe("");
     }
   });
 });

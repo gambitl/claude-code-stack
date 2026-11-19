@@ -37,12 +37,16 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 
 ## Commands
 
-`cstack` has six commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has ten commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
 - `cstack measure <plan file>` prints how many tokens and how much time one run of `resolve-issue` used. The "Measure a run" section below explains it.
 - `cstack skills install` copies the skills that this version of `cstack` ships into `~/.claude/skills`. The "Install cstack" section above explains what it does with a folder that it did not write.
+- `cstack plan status` prints, for each unit of the plan, whether git has a commit for it. It exits with 1 when git and the plan disagree.
+- `cstack plan section <name>` prints one section of the plan file and nothing else.
+- `cstack report submit <kind>` reads the text of a helper's report on standard input. It saves the report only when the plan and git prove it.
+- `cstack report check` prints the oldest accepted report that nobody has read yet.
 - `cstack unit order [--json]` reads the plan file and tells you which units can run at the same time. A batch is a group of units that share no file and whose dependencies are done. The units of one batch can run together, and the next batch starts after it. Units that already have a commit, and units that are blocked, are listed apart.
 - `cstack unit commit <n>` commits only the files that unit `n` lists in the plan, and it adds a `Cstack-Unit: <n>` line to the commit message. It never commits a file of another unit. It refuses to commit when a rule of the plan or the test runs says no, and it lists every refusal at once. Two unit commits in one worktree wait for each other, so they never mix their files.
 

@@ -39,9 +39,9 @@ const TOOL_FAILED = "A tool that cstack ran failed.";
 const PLAN = "--plan";
 
 function planCommand(
-  entry: Omit<CommandEntry, "flags" | "built"> & { flags?: string[] },
+  entry: Omit<CommandEntry, "flags" | "built"> & { flags?: string[]; built?: boolean },
 ): CommandEntry {
-  return { ...entry, flags: [...(entry.flags ?? []), PLAN], built: false };
+  return { ...entry, flags: [...(entry.flags ?? []), PLAN], built: entry.built ?? false };
 }
 
 export const COMMANDS: CommandEntry[] = [
@@ -90,33 +90,37 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 15,
   }),
   planCommand({
-    usage: "cstack plan status [--json]",
+    usage: "cstack plan status [--plan <file>] [--json]",
     summary: "Print the status of each unit, taken from the commits.",
     flags: ["--json"],
-    exitCodes: { 0: OK, 1: "A commit names a unit that the plan does not have.", 2: USAGE, 3: INVALID },
+    exitCodes: { 0: OK, 1: "Git and the plan disagree: a commit names a unit that the plan does not have, or a unit commit changes a file outside its Files.", 2: USAGE, 3: INVALID },
     file: "plan-status.ts",
     ticket: 16,
+    built: true,
   }),
   planCommand({
-    usage: "cstack plan section <name>",
+    usage: "cstack plan section <name> [--plan <file>]",
     summary: "Print exactly one section of the plan file.",
     exitCodes: { 0: OK, 2: "No heading matches the name.", 3: "Two headings match, or the plan file is invalid." },
     file: "plan-section.ts",
     ticket: 16,
+    built: true,
   }),
   planCommand({
-    usage: "cstack report submit <kind>",
+    usage: "cstack report submit <kind> [--plan <file>]",
     summary: "Check and save the report of the executor.",
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID },
     file: "report-submit.ts",
     ticket: 16,
+    built: true,
   }),
   planCommand({
-    usage: "cstack report check",
+    usage: "cstack report check [--plan <file>]",
     summary: "Print the oldest accepted report that was not shown yet.",
     exitCodes: { 0: OK, 1: "There is no accepted report to show.", 2: USAGE, 3: INVALID },
     file: "report-check.ts",
     ticket: 16,
+    built: true,
   }),
   {
     ...planCommand({
