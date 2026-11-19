@@ -203,6 +203,7 @@ export const COMMANDS: CommandEntry[] = [
     },
     file: "publish.ts",
     ticket: 20,
+    built: true,
   }),
   {
     usage: "cstack tracker read <key> [--tracker <name>] [--from-file <path>]",
