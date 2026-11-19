@@ -1,7 +1,8 @@
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { reportCheck } from "../src/commands/report-check.js";
 import { readStdin, reportSubmit } from "../src/commands/report-submit.js";
 import {
@@ -19,12 +20,31 @@ import { collect, commitFiles, commitPlan, git, makeRepo } from "./helpers/plan-
 const full = readFileSync(new URL("./fixtures/plans/full.md", import.meta.url), "utf8");
 const PLAN = "docs/plans/full.md";
 
-/** A repository on a branch with the plan committed and a commit for each given unit. */
+const ALL_UNITS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const PREPARED_UNITS = [ALL_UNITS, ALL_UNITS.filter((unit) => unit !== 3), []];
+const prepared = new Map<string, string>();
+
+// WHY: the hook builds three git repositories at once, and a timeout of the hook would fail all 27 cases together.
+beforeAll(() => {
+  for (const units of PREPARED_UNITS) {
+    const dir = makeRepo();
+    git(dir, "checkout", "-b", "feature");
+    for (const unit of units) commitFiles(dir, [`src/u${unit}.ts`], unit);
+    prepared.set(units.join(","), dir);
+  }
+}, 60_000);
+
+/**
+ * A copy of a prepared repository on the feature branch, with a commit for each given unit.
+ * The plan is committed last, on the feature branch.
+ */
 function setup(options: { text?: string; units?: number[] } = {}) {
-  const dir = makeRepo();
+  const units = options.units ?? ALL_UNITS;
+  const source = prepared.get(units.join(","));
+  if (source === undefined) throw new Error(`No repository is prepared for the units [${units.join(", ")}]`);
+  const dir = mkdtempSync(join(tmpdir(), "cstack-plan-"));
+  cpSync(source, dir, { recursive: true });
   commitPlan(dir, options.text ?? full);
-  git(dir, "checkout", "-b", "feature");
-  for (const unit of options.units ?? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) commitFiles(dir, [`src/u${unit}.ts`], unit);
   return { dir, where: { root: dir, planFile: PLAN } };
 }
 
