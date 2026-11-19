@@ -2,8 +2,8 @@
 import type { Runner } from "../orca/run.js";
 import { footerBlockers, mergeBlockers } from "./blockers.js";
 import { isValidKey } from "./keys.js";
-import { orcaRead } from "./orca-calls.js";
-import { jiraStateKind } from "./states.js";
+import { checkCommentBody, orcaRead, orcaWrite } from "./orca-calls.js";
+import { checkStateName, jiraStateKind } from "./states.js";
 import { RefusedArgumentError } from "./errors.js";
 import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
 
@@ -24,6 +24,13 @@ const SEARCH_SHAPE = "orca jira search --json";
 const unescape = (text: string): string => text.replace(/\\([\\`*_{}[\]()#+\-.!|~<>])/g, "$1");
 
 const LIMIT = 100;
+const COMMENT_CAP = 100000;
+
+interface Transition {
+  id: string;
+  name: string;
+  to: { name: string };
+}
 
 /** Builds the JQL of a group, or refuses a name that could change the query. */
 export function jiraGroupQuery(group: Group): string {
@@ -104,11 +111,27 @@ export function jiraOrcaTracker(run: Runner, env: Env): Tracker {
       for (const issue of issues) tickets.push(await toTicket(issue, states));
       return tickets;
     },
-    async moveState(): Promise<void> {
-      throw new Error("Not built yet.");
+    async moveState(key: string, stateName: string): Promise<void> {
+      const transitions = (
+        (await orcaRead(run, env, "orca jira status list --json", ["jira", "status", "list", key])) as {
+          result: Transition[];
+        }
+      ).result;
+      const matches = transitions.filter((t) => t.name === stateName || t.to.name === stateName);
+      if (matches.length === 1 && /^\d+$/.test(matches[0].id)) {
+        await orcaWrite(run, env, "orca jira status set --json", ["jira", "status", "set", key, "--to-id", matches[0].id]);
+        return;
+      }
+      // A resumed run finds the ticket already in the asked state, so nothing is written.
+      if ((await readIssue(key)).status.name.toLowerCase() === stateName.toLowerCase()) return;
+      checkStateName("jira", stateName, transitions.flatMap((t) => [t.name, t.to.name]));
+      throw new RefusedArgumentError(
+        `"${stateName}" matches ${matches.length === 1 ? "a transition with an id that is not a number" : "several transitions"} of ${key}.`,
+      );
     },
-    async addComment(): Promise<void> {
-      throw new Error("Not built yet.");
+    async addComment(key: string, bodyFile: string): Promise<void> {
+      checkCommentBody(bodyFile, COMMENT_CAP);
+      await orcaWrite(run, env, "orca jira comment add --json", ["jira", "comment", "add", key, "--body-file", bodyFile]);
     },
   };
 }
