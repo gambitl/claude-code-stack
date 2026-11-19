@@ -1,0 +1,15 @@
+{
+  "id": "00000000-0000-0000-0000-000000000000",
+  "ok": true,
+  "result": {
+    "worktree": {
+      "id": "repo-1::/home/user/work/example-worktrees/abc-12",
+      "path": "/home/user/work/example-worktrees/abc-12",
+      "branch": "abc-12",
+      "displayName": "abc-12"
+    },
+    "lineage": null,
+    "launch": { "agent": "claude", "operationId": "id-placeholder", "terminalHandle": "id-placeholder" }
+  },
+  "_meta": { "runtimeId": "00000000-0000-0000-0000-000000000000" }
+}
