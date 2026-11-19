@@ -4,8 +4,10 @@ import { callOrca } from "../orca/call.js";
 import type { Runner, RunResult } from "../orca/run.js";
 import { checkShape, ShapeError } from "../orca/shapes.js";
 import type { TrackerName } from "../tracker/types.js";
+import { EXIT } from "../manifest.js";
 import { WaveError } from "./errors.js";
 import { runTicketId, shortName } from "./names.js";
+import { mentionsLaunch, orcaErrorMessage } from "./orca-error.js";
 import { printableText } from "./title.js";
 
 export interface WorktreeEntry {
@@ -13,8 +15,6 @@ export interface WorktreeEntry {
   /** The branch without refs/heads/. Empty when the worktree has none. */
   branch: string;
   bare: boolean;
-  detached: boolean;
-  prunable: boolean;
 }
 
 export type WorktreeAnswer = { found: false } | { found: true; reason: string };
@@ -27,18 +27,18 @@ export interface WorktreeCheck {
 export function parseWorktreeList(text: string): WorktreeEntry[] {
   const entries: WorktreeEntry[] = [];
   for (const block of text.split(/\r?\n\r?\n/)) {
-    const entry: WorktreeEntry = { path: "", branch: "", bare: false, detached: false, prunable: false };
+    const entry: WorktreeEntry = { path: "", branch: "", bare: false };
     for (const line of block.split(/\r?\n/)) {
       if (line.startsWith("worktree ")) entry.path = line.slice("worktree ".length);
       else if (line.startsWith("branch ")) entry.branch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
       else if (line === "bare") entry.bare = true;
-      else if (line === "detached") entry.detached = true;
-      else if (line === "prunable" || line.startsWith("prunable ")) entry.prunable = true;
     }
     if (entry.path !== "") entries.push(entry);
   }
   return entries;
 }
+
+const FIND_COMMAND = "orca reference find --json";
 
 const escape = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
@@ -49,7 +49,7 @@ function hasWord(text: string, word: string): boolean {
 
 function failed(what: string, result: RunResult): never {
   const why = result.kind === "failed" ? `exit code ${result.exitCode}` : result.kind;
-  throw new WaveError(`${what} failed (${why}).`, 5);
+  throw new WaveError(`${what} failed (${why}).`, EXIT.toolFailed);
 }
 
 async function git(run: Runner, root: string, args: string[]): Promise<string> {
@@ -79,24 +79,40 @@ export async function loadWorktreeCheck(options: {
   const common = (await git(run, root, ["rev-parse", "--path-format=absolute", "--git-common-dir"])).trim();
   const folders = runFolders(common);
 
-  async function viaOrca(url: string): Promise<WorktreeAnswer> {
-    const command = "orca reference find --json";
+  async function viaOrca(key: string, url: string): Promise<WorktreeAnswer> {
+    const fail = (message: string): never => {
+      throw new WaveError(`${printableText(key)}: ${message}`, EXIT.toolFailed);
+    };
     const result = await callOrca(run, env, ["reference", "find", url]);
-    if (result.kind !== "ok") return failed("`orca reference find`", result);
+    if (result.kind === "failed") {
+      const message = orcaErrorMessage(result.stdout);
+      if (message !== undefined) {
+        const hint = mentionsLaunch(message) ? " Check Orca before running the wave again." : "";
+        return fail(`Orca refused \`orca reference find\`: ${message}.${hint}`);
+      }
+    }
+    if (result.kind !== "ok") {
+      try {
+        return failed("`orca reference find`", result);
+      } catch (error) {
+        if (error instanceof WaveError) return fail(error.message);
+        throw error;
+      }
+    }
     let answer: unknown;
     try {
       answer = JSON.parse(result.stdout);
     } catch {
-      throw new WaveError("`orca reference find` did not answer with JSON.", 5);
+      return fail("`orca reference find` did not answer with JSON.");
     }
     try {
-      checkShape(command, answer, "unknown", "read");
+      checkShape(FIND_COMMAND, answer, "unknown", "read");
     } catch (error) {
-      if (error instanceof ShapeError) throw new WaveError(printableText(error.message), 5);
+      if (error instanceof ShapeError) return fail(printableText(error.message));
       throw error;
     }
     const body = answer as { ok: boolean; result?: { matches: { workspace: { id: string; name: string; kind: string; archived: boolean } }[] } };
-    if (!body.ok) throw new WaveError("`orca reference find` answered ok: false.", 5);
+    if (!body.ok) return fail("`orca reference find` answered ok: false.");
     for (const { workspace } of body.result!.matches) {
       if (workspace.archived) continue;
       const at = workspace.id.indexOf("::");
@@ -121,7 +137,7 @@ export async function loadWorktreeCheck(options: {
       if (folder !== undefined) {
         return { found: true, reason: `a resolve-issue run exists in ${printableText(join(common, "cstack", "runs", folder))}` };
       }
-      return orca ? viaOrca(ticket.url) : { found: false };
+      return orca ? viaOrca(ticket.key, ticket.url) : { found: false };
     },
   };
 }

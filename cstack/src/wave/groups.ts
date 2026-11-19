@@ -1,5 +1,5 @@
 import type { StateKind, Ticket } from "../tracker/types.js";
-import { readyState } from "../tracker/ready.js";
+import { readyState, type ReadyState } from "../tracker/ready.js";
 import { printableText, printableTitle } from "./title.js";
 import type { WorktreeCheck } from "./worktrees.js";
 
@@ -24,6 +24,18 @@ const KIND_NAMES: Record<StateKind, string> = {
   unknown: "unknown state",
 };
 
+/** Why a blocked ticket is blocked, in words. */
+export function blockedReason(ticket: Ticket, state: Extract<ReadyState, { kind: "blocked" }>): string {
+  if (state.reason === "unknown-state") return `unknown state "${printableText(ticket.stateName)}"`;
+  if (state.reason !== "blocked-by") return "blockers unknown";
+  const open = Array.isArray(ticket.blockers) ? ticket.blockers : [];
+  const named = state.blockers.map((key) => {
+    const kind = open.find((b) => b.key === key)?.stateKind ?? "unknown";
+    return `${printableText(key)} (${KIND_NAMES[kind]})`;
+  });
+  return `blocked by ${named.join(", ")}`;
+}
+
 /** Sorts the tickets with the one ready rule of the tracker. Only a ticket that is to do needs the worktree check. */
 export async function groupTickets(tickets: Ticket[], check: WorktreeCheck): Promise<Groups> {
   const groups: Groups = { ready: [], blocked: [], started: [], finished: 0 };
@@ -41,17 +53,7 @@ export async function groupTickets(tickets: Ticket[], check: WorktreeCheck): Pro
         groups.started.push({ ticket, reason: answer.found ? answer.reason : "in progress" });
         break;
       case "blocked": {
-        let reason: string;
-        if (state.reason === "unknown-state") reason = `unknown state "${printableText(ticket.stateName)}"`;
-        else if (state.reason !== "blocked-by") reason = "blockers unknown";
-        else {
-          const open = Array.isArray(ticket.blockers) ? ticket.blockers : [];
-          const named = state.blockers.map((key) => {
-            const kind = open.find((b) => b.key === key)?.stateKind ?? "unknown";
-            return `${printableText(key)} (${KIND_NAMES[kind]})`;
-          });
-          reason = `blocked by ${named.join(", ")}`;
-        }
+        const reason = blockedReason(ticket, state);
         groups.blocked.push({ ticket, reason });
         break;
       }

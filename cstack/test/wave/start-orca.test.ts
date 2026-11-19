@@ -61,11 +61,20 @@ describe("cstack wave: start with Orca", () => {
   it("prints a failure for ok: false, goes on, and exits with 5", async () => {
     const failed = JSON.stringify({ ok: false, error: { message: "no space left" } });
     const { longCalls, out, io, deps } = setup([ticket("ABC-12"), ticket("ABC-13")], {
-      create: (name) => (name === "abc-12" ? { kind: "ok", stdout: failed } : undefined),
+      create: (name) => (name === "abc-12" ? { kind: "failed", exitCode: 1, stdout: failed } : undefined),
     });
     expect(await wave(args, io, deps)).toBe(5);
     expect(out.stdout).toMatch(/ABC-12.*failed.*no space left/);
     expect(longCalls.map((c) => c.args[c.args.indexOf("--name") + 1])).toEqual(["abc-12", "abc-13"]);
+  });
+
+  it("treats an ok: false answer that mentions a retry or a launch as an unknown outcome", async () => {
+    const stdout = JSON.stringify({ ok: false, error: { code: "retry-launch", message: "retry-launch: the agent launch failed\u001b[31m" } });
+    const { longCalls, out, io, deps } = setup([ticket("ABC-12")], { create: () => ({ kind: "failed", exitCode: 1, stdout }) });
+    expect(await wave(args, io, deps)).toBe(5);
+    expect(out.stdout).toMatch(/ABC-12.*unknown.*retry-launch.*check Orca before running the wave again/i);
+    expect(out.stdout).not.toContain("\u001b");
+    expect(longCalls).toHaveLength(1);
   });
 
   it("reports an unknown outcome after a timeout, never retries, and exits with 5", async () => {

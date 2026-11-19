@@ -2,6 +2,7 @@ import { callOrca } from "../orca/call.js";
 import type { Runner } from "../orca/run.js";
 import { checkShape, ShapeError } from "../orca/shapes.js";
 import type { StartOutcome } from "./start-git.js";
+import { mentionsLaunch, orcaErrorMessage } from "./orca-error.js";
 import { printableText } from "./title.js";
 
 export type OrcaOutcome = StartOutcome | { kind: "unknown"; reason: string };
@@ -20,6 +21,13 @@ export function startInOrca(runLong: Runner, env: Record<string, string | undefi
       case "missing":
         return { kind: "failed", reason: "Orca is not installed" };
       case "failed": {
+        const message = orcaErrorMessage(result.stdout);
+        if (message !== undefined) {
+          if (mentionsLaunch(message)) {
+            return { kind: "unknown", reason: `the outcome is unknown, Orca said: ${message}. ${CHECK_ORCA}` };
+          }
+          return { kind: "failed", reason: `Orca refused: ${message}` };
+        }
         const lines = (result.stderr ?? "").trim().split(/\r?\n/).filter((l) => l !== "").join(" ");
         return { kind: "failed", reason: `\`orca worktree create\` failed (exit code ${result.exitCode})${lines ? `: ${lines}` : ""}` };
       }

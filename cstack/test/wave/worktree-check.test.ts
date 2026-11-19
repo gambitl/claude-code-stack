@@ -18,9 +18,9 @@ describe("worktree check", () => {
   it("parses blocks", () => {
     const text = "worktree /a\nHEAD x\nbranch refs/heads/main\n\nworktree /b\nbare\n\nworktree /c\ndetached\nprunable gone\n";
     expect(parseWorktreeList(text)).toEqual([
-      { path: "/a", branch: "main", bare: false, detached: false, prunable: false },
-      { path: "/b", branch: "", bare: true, detached: false, prunable: false },
-      { path: "/c", branch: "", bare: false, detached: true, prunable: true },
+      { path: "/a", branch: "main", bare: false },
+      { path: "/b", branch: "", bare: true },
+      { path: "/c", branch: "", bare: false },
     ]);
   });
 
@@ -72,6 +72,20 @@ describe("worktree check", () => {
     const { check } = await checker(root, "jira", { "reference find": JSON.stringify({ ok: false, error: { message: "no" } }) });
     const error = await check.check(ticket("ABC-12")).catch((e) => e);
     expect(error).toBeInstanceOf(WaveError);
+    expect(error.exitCode).toBe(5);
+    expect(error.message).toMatch(/^ABC-12: /);
+  });
+
+  it("reads the error that Orca writes to standard output, with the ticket key in front", async () => {
+    const { root } = makeClone();
+    const stdout = JSON.stringify({ ok: false, error: { message: "no such repo" } });
+    const real = makeRunner({});
+    const run: typeof real.run = async (c, a, cwd) =>
+      c === "git" ? real.run(c, a, cwd) : { kind: "failed", exitCode: 1, stdout };
+    const check = await loadWorktreeCheck({ run, env, root, tracker: "jira", orca: true });
+    const error = await check.check(ticket("ABC-12")).catch((e) => e);
+    expect(error).toBeInstanceOf(WaveError);
+    expect(error.message).toBe("ABC-12: Orca refused `orca reference find`: no such repo.");
     expect(error.exitCode).toBe(5);
   });
 

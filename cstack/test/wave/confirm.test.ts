@@ -90,6 +90,17 @@ describe("cstack wave never starts a ticket without a yes", () => {
     expect(await wave(args, io, deps)).toBe(0);
     expect(started()).toEqual([]);
     expect(existsSync(folder)).toBe(false);
-    expect(out.stdout).toContain("ABC-12  skipped, it is no longer ready.");
+    expect(out.stdout).toContain("ABC-12  skipped, it is no longer ready (blocked by ABC-1 (to do)).");
+  });
+
+  it("skips a ticket when the fresh read answers with another key", async () => {
+    const { out, io, deps, started } = setup({
+      onAsk: (fake) => {
+        fake.tickets.set("ABC-12", ticket("ABC-99"));
+      },
+    });
+    expect(await wave(args, io, deps)).toBe(0);
+    expect(started()).toEqual([]);
+    expect(out.stdout).toMatch(/ABC-12  skipped, .*ABC-99/);
   });
 });

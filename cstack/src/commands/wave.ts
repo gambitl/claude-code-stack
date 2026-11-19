@@ -10,7 +10,7 @@ import { openTracker, type openTracker as OpenTracker } from "../tracker/open.js
 import type { Group, TrackerName } from "../tracker/types.js";
 import { isYes, readAnswer } from "../wave/confirm.js";
 import { WaveError } from "../wave/errors.js";
-import { formatGroups, groupTickets } from "../wave/groups.js";
+import { blockedReason, formatGroups, groupTickets } from "../wave/groups.js";
 import { shortName } from "../wave/names.js";
 import { prepareGitStart } from "../wave/start-git.js";
 import { startInOrca, type OrcaOutcome } from "../wave/start-orca.js";
@@ -92,17 +92,19 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       const origin = await deps.run("git", ["remote", "get-url", "origin"], root);
       if (origin.kind === "ok") name = trackerFromRemote(origin.stdout);
     }
-    const tracker = await deps.openTracker("list", {
+    const trackerOptions = {
       root,
       tracker: name,
       fromFile: values["from-file"],
       run: deps.run,
       env: deps.env,
-      warn: (message) => io.stderr(`${printableText(message)}\n`),
-    });
+      warn: (message: string) => io.stderr(`${printableText(message)}\n`),
+    };
+    const tracker = await deps.openTracker("list", trackerOptions);
     const tickets = await tracker.listGroup(group);
     const orca = (await orcaFeatures(deps.run, deps.env).get("ticket-worktrees")).available;
-    const check = await loadWorktreeCheck({ run: deps.run, env: deps.env, root, tracker: name!, orca });
+    const checkArgs = { run: deps.run, env: deps.env, root, tracker: name!, orca };
+    const check = await loadWorktreeCheck(checkArgs);
     const groups = await groupTickets(tickets, check);
     io.stdout(formatGroups(groups));
 
@@ -119,15 +121,8 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
     }
     io.stdout("\n");
 
-    const reader = await deps.openTracker("read", {
-      root,
-      tracker: name,
-      fromFile: values["from-file"],
-      run: deps.run,
-      env: deps.env,
-      warn: (message) => io.stderr(`${printableText(message)}\n`),
-    });
-    const fresh = await loadWorktreeCheck({ run: deps.run, env: deps.env, root, tracker: name!, orca });
+    const reader = await deps.openTracker("read", trackerOptions);
+    const fresh = await loadWorktreeCheck(checkArgs);
     const start: (key: string, short: string, url: string) => Promise<OrcaOutcome> = orca
       ? startInOrca(deps.runLong, deps.env, root)
       : await prepareGitStart(deps.run, root);
@@ -135,10 +130,18 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
     for (const { ticket: listed } of groups.ready) {
       const key = printableText(listed.key);
       const ticket = await reader.readTicket(listed.key);
+      if (ticket.key !== listed.key) {
+        io.stdout(`${key}  skipped, the tracker answered with the ticket ${printableText(ticket.key)} instead.\n`);
+        continue;
+      }
       const found = ticket.stateKind === "todo" ? await fresh.check(ticket) : { found: false as const };
       const state = readyState(ticket, found.found);
       if (state.kind !== "ready") {
-        io.stdout(`${key}  skipped, it is no longer ready${found.found ? ` (${found.reason})` : ""}.\n`);
+        let why: string;
+        if (state.kind === "blocked") why = blockedReason(ticket, state);
+        else if (state.kind === "started") why = found.found ? found.reason : "in progress";
+        else why = "done";
+        io.stdout(`${key}  skipped, it is no longer ready (${why}).\n`);
         continue;
       }
       const short = shortName(name!, ticket.key);
@@ -148,7 +151,7 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
         continue;
       }
       const outcome = await start(ticket.key, short, ticket.url);
-      if (outcome.kind === "started") io.stdout(`${key}  ${outcome.line}\n`);
+      if (outcome.kind === "started") io.stdout(`${key}  ${printableText(outcome.line)}\n`);
       else if (outcome.kind === "skipped") io.stdout(`${key}  skipped, ${printableText(outcome.reason)}.\n`);
       else if (outcome.kind === "unknown") {
         failures++;
