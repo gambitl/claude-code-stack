@@ -64,7 +64,7 @@ function describeFailure(command: string, result: RunResult): string {
 export function orcaFeatures(
   run: Runner,
   env: Record<string, string | undefined>,
-): { get(name: OrcaFeatureName): Promise<Feature> } {
+): { get(name: OrcaFeatureName): Promise<Feature>; running(): Promise<Feature> } {
   const cache = new Map<string, Promise<any>>();
   const once = <T>(key: string, make: () => Promise<T>): Promise<T> => {
     if (!cache.has(key)) cache.set(key, make());
@@ -149,15 +149,19 @@ export function orcaFeatures(
     },
   };
 
+  const asFeature = async (check: () => Promise<void>): Promise<Feature> => {
+    try {
+      await check();
+      return { available: true };
+    } catch (e) {
+      if (e instanceof Unavailable) return { available: false, reason: e.message };
+      throw e;
+    }
+  };
+
   return {
-    async get(name) {
-      try {
-        await detect[name]();
-        return { available: true };
-      } catch (e) {
-        if (e instanceof Unavailable) return { available: false, reason: e.message };
-        throw e;
-      }
-    },
+    get: (name) => asFeature(detect[name]),
+    // Is Orca running? The reason says why not, including a status answer of the wrong shape.
+    running: () => asFeature(running),
   };
 }

@@ -30,18 +30,6 @@ function remember(run: Runner): Runner {
   };
 }
 
-// Is Orca running? Only the two fields of the status answer are read.
-async function isRunning(run: Runner): Promise<boolean> {
-  const result = await callOrca(run, process.env, ["status"]);
-  if (result.kind !== "ok") return false;
-  try {
-    const body = JSON.parse(result.stdout);
-    return body?.result?.app?.running === true && body?.result?.runtime?.reachable === true;
-  } catch {
-    return false;
-  }
-}
-
 // Prints the version, the minimum, whether the version is supported, and one
 // line per feature. Only features and reasons are printed, never an Orca answer.
 export async function checkOrca(
@@ -68,9 +56,12 @@ export async function checkOrca(
   let first = `${found}, minimum ${MIN_ORCA_VERSION}, ${supported ? "supported" : "not supported"}`;
   if (supported && compareVersions(found, NEWEST_TESTED_ORCA_VERSION) > 0)
     first += `. This version has not been tested, and cstack still uses it`;
-  first += supported && (await isRunning(run)) ? ", running." : supported ? ", installed but not running." : ".";
-
   const features = orcaFeatures(run, process.env);
+  if (!supported) first += ".";
+  else {
+    const running = await features.running();
+    first += running.available ? ", running." : `. ${running.reason}`;
+  }
   const lines = [first];
   for (const [name, label] of FEATURE_LABELS) {
     const feature = await features.get(name);

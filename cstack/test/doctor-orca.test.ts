@@ -112,6 +112,17 @@ describe("doctor and Orca", () => {
     expect(code).toBe(0);
   });
 
+  it("prints the shape error on the Orca line when the status answer has no reachable field", async () => {
+    const body = JSON.parse(readFileSync(join(orcaDir, "status.running.json"), "utf8"));
+    body.result.runtime.reachableRenamed = body.result.runtime.reachable;
+    delete body.result.runtime.reachable;
+    const { orca } = await run({ [STATUS]: { kind: "ok", stdout: JSON.stringify(body) } });
+    expect(orca[0]).not.toContain(", running.");
+    expect(orca[0]).toContain("reachable");
+    expect(orca[1]).toContain("not available");
+    expect(orca[1]).toContain("reachable");
+  });
+
   it("gives the reason of a feature that is not available", async () => {
     const { orca } = await run({ [JIRA]: orcaText("jira-connection.empty.json") });
     expect(orca).toContain("  Jira through Orca: not available. Orca has no saved Jira site.");
