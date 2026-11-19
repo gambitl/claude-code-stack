@@ -199,6 +199,45 @@ describe("cstack unit commit", () => {
     expect(existsSync(join(dir, "pwned2"))).toBe(false);
   });
 
+  const saveSettings = (dir: string, text: string) => {
+    mkdirSync(join(dir, ".cstack"));
+    writeFileSync(join(dir, ".cstack/settings.json"), text);
+  };
+  const body = (dir: string) => git(dir, "log", "-1", "--format=%B").trimEnd().split("\n");
+
+  it("adds the attribution lines right after the trailer, and git still reads them as trailers", async () => {
+    const dir = setup(two);
+    saveSettings(dir, JSON.stringify({ commitAttribution: ["Assisted-by: test agent <agent@example.com>"] }));
+    write(dir, "src/a.ts");
+    const r = await commit(dir);
+    expect(r.code).toBe(0);
+    expect(body(dir).slice(-2)).toEqual(["Cstack-Unit: 1", "Assisted-by: test agent <agent@example.com>"]);
+    expect(git(dir, "log", "-1", "--format=%(trailers:key=Cstack-Unit,valueonly)").trim()).toBe("1");
+    expect(git(dir, "log", "-1", "--format=%(trailers:key=Assisted-by,valueonly)").trim()).toBe("test agent <agent@example.com>");
+  });
+
+  it("keeps the unit trailer last with no settings file or an empty list", async () => {
+    const dir = setup(two);
+    write(dir, "src/a.ts");
+    expect((await commit(dir)).code).toBe(0);
+    expect(body(dir).at(-1)).toBe("Cstack-Unit: 1");
+    saveSettings(dir, JSON.stringify({ commitAttribution: [] }));
+    write(dir, "src/b.ts");
+    expect((await commit(dir, "2")).code).toBe(0);
+    expect(body(dir).at(-1)).toBe("Cstack-Unit: 2");
+  });
+
+  it("exits with 3 and stages nothing when the settings file is invalid", async () => {
+    const dir = setup(two);
+    saveSettings(dir, JSON.stringify({ reviewer: "x" }));
+    write(dir, "src/a.ts");
+    const r = await commit(dir);
+    expect(r.code).toBe(3);
+    expect(r.stderr).toContain("cstack unit commit: ");
+    expect(r.stderr).toContain("reviewer");
+    expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+  });
+
   it("exits with 1 and names the holder when the lock is taken", async () => {
     const dir = setup(two);
     write(dir, "src/a.ts");
