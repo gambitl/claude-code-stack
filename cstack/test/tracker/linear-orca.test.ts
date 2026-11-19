@@ -36,7 +36,7 @@ describe("linear through orca: read", () => {
   it("takes the blockers from the footer when the relations section failed", async () => {
     const { run } = fakeOrcaRun({
       [one]: answer("linear-issue.blocked.json", (r) => {
-        r.meta.includeErrors = ["relations"];
+        r.meta.includeErrors = [{ include: "relations", code: "ERR", message: "failed" }];
         r.relations = [];
         r.issue.description = "x\n**Size: S** · Blocked by: EXA-2";
       }),

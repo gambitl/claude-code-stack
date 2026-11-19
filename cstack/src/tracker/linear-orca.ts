@@ -20,7 +20,7 @@ interface LinearAnswer {
   };
   relations?: unknown;
   meta?: {
-    includeErrors?: string[];
+    includeErrors?: { include?: string; code?: string; message?: string }[];
     sections?: { relations?: { hasMore?: boolean } };
   };
 }
@@ -90,7 +90,7 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       const body = issue.description ?? "";
       const countable =
         Array.isArray(result.relations) &&
-        !(meta?.includeErrors ?? []).includes("relations") &&
+        !(meta?.includeErrors ?? []).some((e) => e?.include === "relations") &&
         meta?.sections?.relations?.hasMore !== true;
       const relations = countable
         ? (result.relations as { relationship?: string; relatedIssue?: { identifier?: string } }[])
