@@ -414,6 +414,12 @@ Impact notes (phase 7, from `git grep`, because Graphify is not used):
 - `writeFakePrograms` is used by `publish-env.ts` and the end-to-end test. `publish.test.ts` is unchanged and passes.
 - Unit 3 history note: commit `8ac337b` holds two failing tests whose fix landed in `6135f79` (unit 2's commit), because of a concurrent amend. The final tree is correct.
 
+Reviews (phase 7): correctness, security and conventions found nothing at the reporting threshold. Fixed: two comments cited ADR-SIC-D for rules it does not cover, now pointing at the plan (commit after the reviews). Follow-ups, not done: (1) `repositoryRoot` in `next.ts` repeats the `git rev-parse --show-toplevel` call of `locatePlan` and `moments.ts`; (2) `unit-commit.ts` could share `failWith` for `SettingsError`; (3) the e2e step that resumes the retro phase checks the `cstack next` call against `plan.md`, which proves little.
+
+Independent review (phase 8): found two things and fixed both with tests. `cstack measure` printed `NaN` and exited 0 for a header time such as `T25:00:00` (commit 7f140ea). The e2e bare repository used `post-receive` instead of the `pre-receive` hook the plan asks for, which hid refused pushes (commit cab687c). Judgment calls for the pull request: commit 8ac337b alone has two failing tests, fixed in 6135f79, because of a concurrent amend, and it stays in history since the merge is a merge commit and author dates must be kept; an impossible calendar day such as February 30 is still accepted by the shared plan reader, out of scope here.
+
+Phase 9: main had not moved, so no rebase was needed. The repository has no formatter or linter. `npm test` (805 tests) and `npm run typecheck` pass.
+
 ## Briefing
 
 ## Open questions after the build
