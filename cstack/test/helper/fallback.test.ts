@@ -104,6 +104,8 @@ describe("cstack helper done in sub-agent mode", () => {
     commitPlan(dir, text);
     writeFileSync(join(dir, "CLAUDE.md"), "rules\n");
     git(dir, "checkout", "-b", "feature");
+    git(dir, "add", "CLAUDE.md");
+    git(dir, "commit", "-m", "chore: add the conventions");
     for (let unit = 1; unit <= 10; unit++) commitFiles(dir, [`src/u${unit}.ts`], unit);
     const calls: string[][] = [];
     const runner: Runner = async (_command, args) => {
