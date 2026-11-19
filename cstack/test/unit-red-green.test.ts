@@ -295,3 +295,75 @@ describe("cstack unit red", () => {
     expect(readRed(dir, 2).exitCode).toBe(1);
   }, 30_000);
 });
+
+describe("cstack unit green, running the test", () => {
+  async function redThenCode(settings = FILE_SETTINGS) {
+    const dir = setup([TEST_LINE], settings);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    return dir;
+  }
+  const code = (dir: string) => {
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+  };
+  const readGreen = (dir: string) => JSON.parse(readFileSync(join(unitFiles(dir), "green.json"), "utf8"));
+
+  it("saves the passing run after the code is written", async () => {
+    const dir = await redThenCode();
+    await new Promise((r) => setTimeout(r, 20));
+    code(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain("green.json");
+    expect(r.stderr).toBe("");
+    const saved = readGreen(dir);
+    expect(saved.exitCode).toBe(0);
+    expect(Date.parse(saved.time)).toBeGreaterThan(Date.parse(readRed(dir).time));
+    expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(true);
+  });
+
+  it("exits with 1 and saves nothing while the test still fails", async () => {
+    const dir = await redThenCode();
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("still fails");
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+
+  it("exits with 1 and runs nothing when the settings changed since the failing run", async () => {
+    const dir = await redThenCode();
+    code(dir);
+    writeFileSync(join(dir, ".cstack/settings.json"), '{"version":1,"testCommands":{"all":"true","file":"sh -e {file}"}}');
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cstack unit red 1");
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+
+  it("warns when the test file changed but the test passes", async () => {
+    const dir = await redThenCode();
+    code(dir);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n# edited\n");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(r.stderr).toContain("changed since the failing run");
+  });
+
+  it("exits with 5 when the test command cannot start", async () => {
+    const dir = setup([TEST_LINE], '{"version":1,"testCommands":{"all":"cstack-no-such-program"}}');
+    saveRed(dir);
+    writeFileSync(join(runDir(dir), "units/1/red.json"), JSON.stringify({ time: new Date().toISOString(), command: "cstack-no-such-program", exitCode: 1, commit: "x", testFile: "test/a.test.ts", testFileSha256: "0" }));
+    const r = await green(dir);
+    expect(r.code).toBe(5);
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+
+  it("exits with 5 at the timeout", async () => {
+    const dir = await redThenCode();
+    writeFileSync(join(dir, "test/a.test.ts"), "sleep 30\n");
+    const r = await green(dir, "1", "--plan", "plan.md", "--timeout", "0.01");
+    expect(r.code).toBe(5);
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+});
