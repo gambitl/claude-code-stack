@@ -429,7 +429,12 @@ Judgment calls for the pull request body:
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #29, the outcome: https://github.com/gambitl/claude-code-stack/issues/29#issuecomment-7011450889
+- Comment on #30, the check, the names and the cleaning it reuses: https://github.com/gambitl/claude-code-stack/issues/30#issuecomment-7011451395
+- Comment on #31, the branch and folder names and the question about the chat and terminal surfaces: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7011451937
+- Comment on #26, the temporary `cstack/src/tracker/open.ts` and who deletes it: https://github.com/gambitl/claude-code-stack/issues/26#issuecomment-7011452534
+- `README.md`: "fifteen commands" and one bullet for `cstack wave` (unit 10). `cstack/test/fixtures/orca/README.md`: the four hand-written answers (unit 3).
+- Decision record: none, as the plan says. No new architectural decision.
 
 ## Executor notes
 
