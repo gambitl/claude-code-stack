@@ -1,5 +1,5 @@
 // WHY: ADR-SIC-A and ADR-SIC-F. no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
-import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
@@ -199,6 +199,20 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     }
     if (!existsSync(latest.worktree.path)) {
       throw new HelperError(`The child worktree ${latest.worktree.path} of unit ${unit} no longer exists.`, EXIT.refused);
+    }
+    const same = (a: string, b: string) => {
+      try {
+        return realpathSync(a) === realpathSync(b);
+      } catch {
+        return a === b;
+      }
+    };
+    if (!listWorktrees(located.root).some((w) => same(w.path, latest.worktree!.path))) {
+      throw new HelperError(`The folder ${latest.worktree.path} of unit ${unit} is no longer a git worktree of this repository, so cstack does not use it.`, EXIT.refused);
+    }
+    const copy = join(latest.worktree.path, located.relative);
+    if (lstatSync(copy, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw new HelperError(`The plan file ${copy} in the child worktree is a symbolic link, so cstack does not copy the plan file over it.`, EXIT.refused);
     }
     reuse = latest.worktree;
   }

@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { helperStart } from "../../src/commands/helper-start.js";
@@ -86,6 +86,25 @@ describe("the second attempt of a stuck unit in a child worktree", () => {
   it("refuses when the recorded child folder is gone", async () => {
     const t = await stuckChild();
     rmSync(t.child, { recursive: true });
+    expect(await t.run(["implementer-escalation", "--unit", "2", "--plan", PLAN])).toBe(1);
+    expect(t.starts()).toHaveLength(1);
+  });
+
+  it("refuses to copy the plan file over a symbolic link in the child", async () => {
+    const t = await stuckChild();
+    const target = join(t.dir, "elsewhere.md");
+    writeFileSync(target, "keep\n");
+    rmSync(join(t.child, PLAN));
+    symlinkSync(target, join(t.child, PLAN));
+    expect(await t.run(["implementer-escalation", "--unit", "2", "--plan", PLAN])).toBe(1);
+    expect(readFileSync(target, "utf8")).toBe("keep\n");
+    expect(t.starts()).toHaveLength(1);
+  });
+
+  it("refuses when the recorded folder exists but git no longer lists it as a worktree", async () => {
+    const t = await stuckChild();
+    git(t.dir, "worktree", "remove", "--force", t.child);
+    mkdirSync(join(t.child, "docs"), { recursive: true });
     expect(await t.run(["implementer-escalation", "--unit", "2", "--plan", PLAN])).toBe(1);
     expect(t.starts()).toHaveLength(1);
   });
