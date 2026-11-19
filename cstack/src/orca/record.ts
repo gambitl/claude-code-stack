@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { callOrca } from "./call.js";
 import type { Runner } from "./run.js";
+import { parseVersion } from "./version.js";
 
 const ZERO_UUID = "00000000-0000-0000-0000-000000000000";
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
@@ -138,8 +139,8 @@ export async function recordOrca(input: RecordInput): Promise<string[]> {
   const version = await callOrca(input.run, input.env, ["--version"]);
   if (version.kind !== "ok") throw new Error("orca --version gave no answer");
   const versionText = version.stdout.trim();
-  const number = /(\d+\.\d+\.\d+\S*)/.exec(versionText)?.[1];
-  if (!number) throw new Error("orca --version gave no version number");
+  const number = parseVersion(versionText);
+  if (number === null) throw new Error("orca --version gave no version number");
   const dir = join(input.folder, number);
   mkdirSync(dir, { recursive: true });
   const written: string[] = [];
