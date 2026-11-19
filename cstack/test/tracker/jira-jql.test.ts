@@ -16,6 +16,13 @@ function list(keys: string[]): RunResult {
   return { kind: "ok", stdout: JSON.stringify(answer) };
 }
 
+// The answer of `jira issue <key>`, with the status of the done fixture.
+function issueAnswer(key: string, description: string): RunResult {
+  const answer = JSON.parse(readFileSync(join(dir, "jira-issue.done.json"), "utf8"));
+  Object.assign(answer.result, { key, description });
+  return { kind: "ok", stdout: JSON.stringify(answer) };
+}
+
 describe("jira group query", () => {
   it("builds the two queries", () => {
     expect(jiraGroupQuery({ milestone: "M3" })).toBe('fixVersion = "M3" ORDER BY key');
@@ -37,11 +44,24 @@ describe("jira group query", () => {
   it("runs the epic query as one argument", async () => {
     const { run, calls } = fakeOrcaRun({
       "jira search parent = EXA-9 ORDER BY key --limit 100 --json": fixture("jira-search.epic.json"),
-      "jira issue EXA-2 --json": fixture("jira-issue.done.json"),
+      "jira issue EXA-2 --json": issueAnswer("EXA-2", "Text of EXA-2."),
+      "jira issue EXA-3 --json": issueAnswer("EXA-3", "Text of EXA-3."),
     });
     const tickets = await jiraOrcaTracker(run, {}).listGroup({ epic: "EXA-9" });
     expect(calls[0]).toEqual(["jira", "search", "parent = EXA-9 ORDER BY key", "--limit", "100", "--json"]);
     expect(tickets.map((t) => t.key)).toEqual(["EXA-2", "EXA-3"]);
+  });
+
+  it("reads each hit again, because a search answer has an empty description", async () => {
+    const { run, calls } = fakeOrcaRun({
+      "jira search parent = EXA-9 ORDER BY key --limit 100 --json": fixture("jira-search.epic.json"),
+      "jira issue EXA-2 --json": issueAnswer("EXA-2", "x\n**Size: S** · Blocked by: EXA-3"),
+      "jira issue EXA-3 --json": issueAnswer("EXA-3", "No footer."),
+    });
+    const tickets = await jiraOrcaTracker(run, {}).listGroup({ epic: "EXA-9" });
+    expect(tickets[0].body).toContain("Blocked by: EXA-3");
+    expect(tickets[0].blockers).toEqual([{ key: "EXA-3", stateKind: tickets[1].stateKind }]);
+    expect(calls.filter((c) => c[1] === "issue").map((c) => c[2])).toEqual(["EXA-2", "EXA-3"]);
   });
 
   it("refuses an answer of 100 tickets", async () => {
@@ -64,10 +84,10 @@ describe("jira group query", () => {
 
   it("takes the state of a blocker from the same list and reads the others once", async () => {
     const answer = JSON.parse(readFileSync(join(dir, "jira-search.epic.json"), "utf8"));
-    answer.result[0].description = "x\n**Size: S** · Blocked by: EXA-3, EXA-7";
-    answer.result[1].description = "y\n**Size: S** · Blocked by: EXA-7";
     const { run, calls } = fakeOrcaRun({
       "jira search parent = EXA-9 ORDER BY key --limit 100 --json": { kind: "ok", stdout: JSON.stringify(answer) },
+      "jira issue EXA-2 --json": issueAnswer("EXA-2", "x\n**Size: S** · Blocked by: EXA-3, EXA-7"),
+      "jira issue EXA-3 --json": issueAnswer("EXA-3", "y\n**Size: S** · Blocked by: EXA-7"),
       "jira issue EXA-7 --json": fixture("jira-issue.done.json"),
     });
     const tickets = await jiraOrcaTracker(run, {}).listGroup({ epic: "EXA-9" });

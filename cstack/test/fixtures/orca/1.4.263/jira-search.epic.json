@@ -4,7 +4,7 @@
     {
       "key": "EXA-2",
       "title": "Example task",
-      "description": "Example description of EXA-2.",
+      "description": "",
       "url": "https://jira.example.com/browse/EXA-2",
       "status": {
         "id": "id-placeholder",
@@ -22,7 +22,7 @@
     {
       "key": "EXA-3",
       "title": "Example finished task",
-      "description": "Example description of EXA-3.",
+      "description": "",
       "url": "https://jira.example.com/browse/EXA-3",
       "status": {
         "id": "id-placeholder",

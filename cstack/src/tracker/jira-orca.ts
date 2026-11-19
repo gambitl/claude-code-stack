@@ -108,7 +108,8 @@ export function jiraOrcaTracker(run: Runner, env: Env): Tracker {
       }
       const states = new Map<string, StateKind>(issues.map((i) => [i.key, jiraStateKind(i.status.categoryKey)]));
       const tickets: Ticket[] = [];
-      for (const issue of issues) tickets.push(await toTicket(issue, states));
+      // Orca drops the description in a search answer, so each hit is read again like readTicket does.
+      for (const hit of issues) tickets.push(await toTicket(await readIssue(hit.key), states));
       return tickets;
     },
     async moveState(key: string, stateName: string): Promise<void> {
