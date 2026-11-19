@@ -175,13 +175,15 @@ export async function skills(
   // The settings file is checked before any skill moves, so a refusal changes nothing.
   const settings = await readSettings(home);
   const addPermission = values["add-permission"] === true;
+  // One time for the check and the copy, so the copy never lands on a name the check did not look at.
+  const settingsStamp = stamp(now());
   if (addPermission) {
     if (settings.kind === "invalid") {
       io.stderr(`Cannot use ${settings.path}: ${settings.reason}. Nothing was changed.\n`);
       return 3;
     }
-    if (await backupTaken(settings, stamp(now()))) {
-      io.stderr(`Backup target already exists: ${settings.path}.backup-${stamp(now())}\n`);
+    if (await backupTaken(settings, settingsStamp)) {
+      io.stderr(`Backup target already exists: ${settings.path}.backup-${settingsStamp}\n`);
       return 1;
     }
   }
@@ -258,7 +260,7 @@ export async function skills(
       io.stdout(`removed ${p.name}, backup in ${join(backupRoot, p.name)}\n`);
     }
     if (addPermission) {
-      const copy = await addRule(settings, stamp(now()));
+      const copy = await addRule(settings, settingsStamp);
       io.stdout(
         settings.kind === "ok" && settings.hasRule
           ? `permission ${PERMISSION_RULE} is already in ${settings.path}\n`

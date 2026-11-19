@@ -102,6 +102,16 @@ describe("cstack skills install and the permission rule", () => {
     expect(existsSync(join(home, ".claude", "skills"))).toBe(false);
   });
 
+  it("names the copy with the time of the check, even when the clock moves during the install", async () => {
+    writeFileSync(file, '{"model":"x"}');
+    let second = 0;
+    const ticking = () => new Date(2026, 10, 19, 10, 0, second++);
+    const { io } = collect();
+    const code = await skills(["install", "--add-permission"], io, { home, packageRoot: realRoot, now: ticking });
+    expect(code).toBe(0);
+    expect(backups()).toEqual(["settings.json.backup-2026-11-19-100000"]);
+  });
+
   it("keeps the copy private with mode 0600", async () => {
     writeFileSync(file, '{"model":"x"}', { mode: 0o600 });
     chmodSync(file, 0o600);
