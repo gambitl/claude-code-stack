@@ -232,7 +232,14 @@ Security reviewer: no finding. The subject goes through `git commit -F`, hashes 
 Conventions reviewer: no finding.
 Simplicity reviewer: two small cuts, not applied. The message is trimmed in two places, and the trim of earlier subjects may be redundant. Both are correct and cost two lines, so they stay.
 
-No fix commit was needed. Typecheck and the full test run pass.
+No fix commit was needed at this stage. Typecheck and the full test run pass.
+
+Independent review: it found one bug and fixed it in commit `0f0c0dc`. The refusal listed an empty extra subject, because the output of `git log --format=%s%x00` ends with a newline. The fix filters out empty items and has a test that failed first. The reviewer also showed that the trim of earlier subjects was not the cause of redundancy, so the simplicity cut stays unapplied. Typecheck and 1231 tests pass after the fix.
+
+Judgment calls for the pull request body:
+- The refusal says "with the subject" even when it quotes several subjects.
+- A second commit of a unit with a `Test` line reuses the passing run saved for the first commit, so tests added in the second commit never have to be seen failing first. This was true before the branch and is outside this ticket.
+- With the git setting `commit.cleanup=strip`, a subject that starts with `#` is dropped. This branch did not cause it.
 
 ## Briefing
 
