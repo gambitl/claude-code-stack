@@ -33,6 +33,6 @@ The settings file has a `version` key. A new key keeps version 1. A key that is 
 
 The settled decision at line 210 is amended, not removed. The header stays the default for every role, and for the review when the file is silent.
 
-Ticket #21 records this amendment next to the other settled decisions of the skill. Ticket #22 tells the executor how to apply it. The executor passes a model to the review only when the `review` value comes from the settings file.
+Ticket #21 records this amendment next to the other settled decisions of the skill. The amendment is written in `cstack/skills/resolve-issue/settled-decisions.md`. Ticket #22 tells the executor how to apply it. The executor passes a model to the review only when the `review` value comes from the settings file.
 
 A team can now change the review agent and its model with one small edit. A team cannot change any other role without a new decision. If a later need appears, a new record can take option 3 for that role.

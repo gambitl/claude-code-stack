@@ -42,9 +42,9 @@ describe("guide", () => {
     expect(out.stderr).toContain("hello");
   });
 
-  it("lists the skills that have guides when the default skill has none", async () => {
+  it("lists the skills that have guides when the skill has none", async () => {
     const { out, io } = collect();
-    const code = await guide(["hello"], io, { packageRoot });
+    const code = await guide(["hello", "--skill", "no-such-skill"], io, { packageRoot });
     expect(code).toBe(1);
     expect(out.stderr).toContain("cstack-example");
   });
