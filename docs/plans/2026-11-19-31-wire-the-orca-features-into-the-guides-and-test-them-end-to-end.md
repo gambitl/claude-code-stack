@@ -621,11 +621,15 @@ For the coordinator of the wave, from the question round, word for word:
 
 ## Executor notes
 
-<executor, before its report>
+- The installed cstack 0.2.0 refused `cstack tracker move '#31' --to "in progress"` ("is not built in this version yet", exit 1), so I added the label `in progress` with `gh issue edit`.
+- Unit 1 left `ticket.md` over the word limit of `cstack/test/skill-size.test.ts` (1460 words against 1451.8). I shortened two sentences in commit 2c1cd82, with the trailer of unit 1.
+- Unit 9 wrote its helper before the first red run, so the first run did not fail. The implementer redid it with a stub that returns an empty list.
+- The first implementer of unit 8 skipped the cases for a failing `git worktree list` and for output without paths. A second implementer added them in commit 0b99469.
+- Unit 12 saw one `skill-size.test.ts` failure in its full run, caused by unit 1 and other units editing guides in the same folder at the same time.
 
 ## Hand-off log
 
-<one entry per executor run>
+- 2026-11-19, build phase, first run. The ticket got the label `in progress` through `gh`, because the installed `cstack tracker move` is not built. The branch `gambitl/wire-orca-guides` already existed. All 12 units are committed. `npm run typecheck` and the full `npm test` pass (115 files, 1295 tests).
 
 ## History
 
