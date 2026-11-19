@@ -18,7 +18,6 @@ import { trackerComment } from "./commands/tracker-comment.js";
 import { trackerList } from "./commands/tracker-list.js";
 import { trackerMove } from "./commands/tracker-move.js";
 import { trackerRead } from "./commands/tracker-read.js";
-import { createRunner } from "./orca/run.js";
 import { unitCommit } from "./commands/unit-commit.js";
 import { unitGreen } from "./commands/unit-green.js";
 import { unitOrder } from "./commands/unit-order.js";
@@ -26,6 +25,7 @@ import { unitRed } from "./commands/unit-red.js";
 import { version } from "./commands/version.js";
 import { type Io, processIo } from "./io.js";
 import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
+import { createRunner } from "./orca/run.js";
 
 const BUILT = COMMANDS.filter((entry) => entry.built);
 
@@ -77,7 +77,12 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
     }),
   tracker: (args, io) => {
     const deps = { cwd: process.cwd(), run: createRunner(60000), env: process.env };
-    return dispatchSubcommand("tracker", args, io, { read: (a, i) => trackerRead(a, i, deps), list: (a, i) => trackerList(a, i, deps), move: (a, i) => trackerMove(a, i, deps), comment: (a, i) => trackerComment(a, i, deps) });
+    return dispatchSubcommand("tracker", args, io, {
+      read: (a, i) => trackerRead(a, i, deps),
+      list: (a, i) => trackerList(a, i, deps),
+      move: (a, i) => trackerMove(a, i, deps),
+      comment: (a, i) => trackerComment(a, i, deps),
+    });
   },
   unit: (args, io) =>
     dispatchSubcommand("unit", args, io, {
