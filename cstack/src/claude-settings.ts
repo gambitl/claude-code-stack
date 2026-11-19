@@ -1,5 +1,6 @@
 import { lstat, readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { locateJsonError } from "./json-position.js";
 
 // The rule that lets Claude Code run every cstack command without asking.
 export const PERMISSION_RULE = "Bash(cstack *)";
@@ -38,8 +39,10 @@ export async function readSettings(home: string): Promise<SettingsState> {
   let data: unknown;
   try {
     data = JSON.parse(text);
-  } catch (error) {
-    return { kind: "invalid", path, reason: `not valid JSON (${(error as Error).message})` };
+  } catch {
+    // The message of JSON.parse can quote the file, and the file can hold secrets, so it is never printed.
+    const where = locateJsonError(text);
+    return { kind: "invalid", path, reason: where ? `not valid JSON, at line ${where.line}, column ${where.column}` : "not valid JSON" };
   }
   if (!isObject(data)) {
     return { kind: "invalid", path, reason: "the top level is not an object" };
@@ -90,7 +93,7 @@ export async function addRule(
   }
   if (state.hasRule) return undefined;
   const copy = backupPath(state.path, stamp);
-  await writeFile(copy, state.text, { flag: "wx" });
+  await writeFile(copy, state.text, { flag: "wx", mode: 0o600 });
   const data = state.data;
   const permissions = (isObject(data.permissions) ? data.permissions : {}) as Record<string, unknown>;
   const allow = Array.isArray(permissions.allow) ? permissions.allow : [];

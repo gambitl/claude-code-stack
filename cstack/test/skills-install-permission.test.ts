@@ -1,4 +1,5 @@
 import {
+  chmodSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -6,6 +7,7 @@ import {
   readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   symlinkSync,
   writeFileSync,
 } from "node:fs";
@@ -98,6 +100,22 @@ describe("cstack skills install and the permission rule", () => {
     expect(readFileSync(file, "utf8")).toBe(text);
     expect(backups()).toEqual([]);
     expect(existsSync(join(home, ".claude", "skills"))).toBe(false);
+  });
+
+  it("keeps the copy private with mode 0600", async () => {
+    writeFileSync(file, '{"model":"x"}', { mode: 0o600 });
+    chmodSync(file, 0o600);
+    expect((await run(["--add-permission"])).code).toBe(0);
+    expect(statSync(join(home, ".claude", backups()[0]!)).mode & 0o777).toBe(0o600);
+  });
+
+  it("does not print the content of an invalid file", async () => {
+    writeFileSync(file, '{"token": "s3cret-value" nope}');
+    const { code, out } = await run(["--add-permission"]);
+    expect(code).toBe(3);
+    expect(out.stderr).toContain("not valid JSON");
+    expect(out.stderr).not.toContain("s3cret-value");
+    expect(out.stderr).not.toContain("token");
   });
 
   it("creates a missing file with only the rule and no copy", async () => {
