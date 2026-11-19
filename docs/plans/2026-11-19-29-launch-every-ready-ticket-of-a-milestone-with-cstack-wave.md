@@ -401,7 +401,17 @@ Four fresh reviewers read the branch diff. All fixes are in commit 8665e54.
 - Simplicity: removed the unused `detached` and `prunable` fields, merged the repeated option objects in `wave.ts`, and made the Orca command string one constant.
 - After the fixes: typecheck clean, 68 test files and 867 tests pass.
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+
+
+### Independent review (phase independent-review)
+
+The independent reviewer found no security problem and confirmed that every acceptance criterion has code and a test. It fixed two small things. Commit 2dc4f80 renames the third group heading to "Already started", as the ticket says. Commit 874d794 makes the Orca start test use the full hostile title. After that, typecheck is clean and 867 tests pass.
+
+Judgment calls for the pull request body:
+
+- After the yes, when the second read or the second worktree check throws for one ticket, the whole loop stops. It fails safe, but a user may expect cstack to skip that one ticket and go on.
+- The git way runs `git worktree add -b <short name> <folder> origin/<default branch>`, so the new branch tracks `origin/<default branch>`. A plain `git push` with `push.default=upstream` would then push to the default branch. `cstack publish` pushes with an explicit target and is not affected. Adding `--no-track` would remove the risk, but the plan fixes the exact command, so it is left for the user to decide.
+- The printed line starts with the key, as in `ABC-12  cd '...' && claude '...'`. The user copies only the part from `cd` on.
 
 ## Briefing
 
