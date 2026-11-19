@@ -29,7 +29,8 @@ export async function prepareGitStart(run: Runner, root: string) {
   return async function startInGit(key: string, short: string): Promise<StartOutcome> {
     const folder = join(parent, short);
     if (existsSync(folder)) return { kind: "skipped", reason: `the folder ${folder} already exists` };
-    const added = await run("git", ["worktree", "add", "-b", short, folder, ref], root);
+    // WHY: --no-track, because a branch that tracks the default branch lets a plain `git push` send the ticket's commits there.
+    const added = await run("git", ["worktree", "add", "--no-track", "-b", short, folder, ref], root);
     if (added.kind !== "ok") {
       const why = added.kind === "failed" ? `exit code ${added.exitCode}` : added.kind;
       return { kind: "failed", reason: `\`git worktree add\` failed (${why})` };

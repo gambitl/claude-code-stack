@@ -49,6 +49,8 @@ describe("cstack wave: start in git worktrees", () => {
     const dir = folder("abc-12");
     expect(existsSync(dir)).toBe(true);
     expect(git(clone.root, "-C", dir, "branch", "--show-current").trim()).toBe("abc-12");
+    // WHY: a branch that tracks origin/main would let a plain `git push` send the ticket's commits to main.
+    expect(git(clone.root, "config", "--list", "--local")).not.toContain("branch.abc-12.merge");
     expect(out.stdout).toContain(`cd '${realpathSync(dir)}' && claude '/resolve-issue ABC-12'`);
   });
 
