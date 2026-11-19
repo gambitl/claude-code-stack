@@ -93,6 +93,44 @@ describe("orchestration shapes", () => {
   });
 });
 
+describe("Jira shapes", () => {
+  it("accepts a Jira issue and names the status category when it is missing", () => {
+    const answer = load("jira-issue.in-progress.json") as any;
+    expect(() => checkShape("orca jira issue --json", answer, "1.4.263", "read")).not.toThrow();
+    delete answer.result.status.categoryKey;
+    expect(() => checkShape("orca jira issue --json", answer, "1.4.263", "read")).toThrow(
+      /result\.status\.categoryKey/,
+    );
+  });
+
+  it("refuses a search answer that has an element without a key", () => {
+    const answer = load("jira-search.epic.json") as any;
+    expect(() => checkShape("orca jira search --json", answer, "1.4.263", "read")).not.toThrow();
+    delete answer.result[1].key;
+    expect(() => checkShape("orca jira search --json", answer, "1.4.263", "read")).toThrow(/result\[\]\.key/);
+  });
+});
+
+describe("Linear shapes", () => {
+  it("accepts a Linear issue and names the identifier when it is missing", () => {
+    const answer = load("linear-issue.blocked.json") as any;
+    expect(() => checkShape("orca linear issue --relations --json", answer, "1.4.263", "read")).not.toThrow();
+    delete answer.result.issue.identifier;
+    expect(() => checkShape("orca linear issue --relations --json", answer, "1.4.263", "read")).toThrow(
+      /result\.issue\.identifier/,
+    );
+  });
+
+  it("refuses a list whose truncated flag is a string", () => {
+    const answer = load("linear-list-issues.epic.json") as any;
+    expect(() => checkShape("orca linear list-issues --json", answer, "1.4.263", "read")).not.toThrow();
+    answer.result.truncated = "false";
+    expect(() => checkShape("orca linear list-issues --json", answer, "1.4.263", "read")).toThrow(
+      /result\.truncated/,
+    );
+  });
+});
+
 describe("versions", () => {
   it("compares as numbers", () => {
     expect(compareVersions("1.4.1000", "1.4.263")).toBeGreaterThan(0);

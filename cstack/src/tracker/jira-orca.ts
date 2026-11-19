@@ -1,0 +1,138 @@
+// WHY: ADR-SIC-F. Orca 1.4.263 never returns Jira issue links, so the blockers come from the footer of the ticket.
+import type { Runner } from "../orca/run.js";
+import { footerBlockers, mergeBlockers } from "./blockers.js";
+import { isValidKey } from "./keys.js";
+import { checkCommentBody, orcaRead, orcaWrite } from "./orca-calls.js";
+import { checkStateName, jiraStateKind } from "./states.js";
+import { RefusedArgumentError } from "./errors.js";
+import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
+
+type Env = Record<string, string | undefined>;
+
+interface JiraIssue {
+  key: string;
+  title: string;
+  description: string;
+  url: string;
+  status: { name: string; categoryKey: string };
+}
+
+const SHAPE = "orca jira issue --json";
+const SEARCH_SHAPE = "orca jira search --json";
+
+// Orca writes plain text with backslash escapes such as `\*`. The footer is read without them.
+const unescape = (text: string): string => text.replace(/\\([\\`*_{}[\]()#+\-.!|~<>])/g, "$1");
+
+const LIMIT = 100;
+const COMMENT_CAP = 100000;
+
+interface Transition {
+  id: string;
+  name: string;
+  to: { name: string };
+}
+
+/** Builds the JQL of a group, or refuses a name that could change the query. */
+export function jiraGroupQuery(group: Group): string {
+  if ("epic" in group) {
+    if (!isValidKey("jira", group.epic)) throw new RefusedArgumentError(`"${group.epic}" is not a Jira key.`);
+    return `parent = ${group.epic} ORDER BY key`;
+  }
+  const name = group.milestone;
+  if (name === "") throw new RefusedArgumentError("The milestone name is empty.");
+  if (name.length > 100) throw new RefusedArgumentError("The milestone name is longer than 100 characters.");
+  if (/["\\\u0000-\u001f\u007f]/.test(name)) {
+    throw new RefusedArgumentError("The milestone name holds a double quote, a backslash or a control character.");
+  }
+  return `fixVersion = "${name}" ORDER BY key`;
+}
+
+export function jiraOrcaTracker(run: Runner, env: Env): Tracker {
+  const readIssue = async (key: string): Promise<JiraIssue> =>
+    ((await orcaRead(run, env, SHAPE, ["jira", "issue", key])) as { result: JiraIssue }).result;
+
+  // `states` maps a key to its state kind. It lives for one call, so a blocker is read once.
+  const toTicket = async (issue: JiraIssue, states: Map<string, StateKind>): Promise<Ticket> => {
+    const body = issue.description;
+    const merged = mergeBlockers(undefined, footerBlockers("jira", unescape(body)));
+    let blockers: TicketRef[] | "unknown" = merged;
+    if (merged !== "unknown") {
+      blockers = [];
+      for (const blocker of merged) {
+        let stateKind = states.get(blocker.key) ?? "unknown";
+        if (!states.has(blocker.key) && isValidKey("jira", blocker.key)) {
+          try {
+            stateKind = jiraStateKind((await readIssue(blocker.key)).status.categoryKey);
+          } catch {
+            // A blocker that cannot be read keeps the state kind unknown.
+          }
+          states.set(blocker.key, stateKind);
+        }
+        blockers.push({ key: blocker.key, stateKind });
+      }
+    }
+    return {
+      key: issue.key,
+      title: issue.title,
+      body,
+      url: issue.url,
+      stateName: issue.status.name,
+      stateKind: jiraStateKind(issue.status.categoryKey),
+      blockers,
+    };
+  };
+
+  return {
+    readTicket: async (key: string): Promise<Ticket> => toTicket(await readIssue(key), new Map()),
+    async listGroup(group: Group): Promise<Ticket[]> {
+      const query = jiraGroupQuery(group);
+      const issues = (
+        (await orcaRead(run, env, SEARCH_SHAPE, ["jira", "search", query, "--limit", String(LIMIT)])) as {
+          result: JiraIssue[];
+        }
+      ).result;
+      if (issues.length >= LIMIT) {
+        throw new RefusedArgumentError(
+          `The group has more tickets than cstack reads through Orca: the answer holds ${issues.length}, and Orca returns at most ${LIMIT}.`,
+        );
+      }
+      if ("epic" in group && issues.length === 0) {
+        throw new RefusedArgumentError(
+          `The epic ${group.epic} has no child through \`parent =\`. This happens on Jira Server and Data Center, where the children hang on the Epic Link field.`,
+        );
+      }
+      if ("milestone" in group && new Set(issues.map((i) => i.key.split("-")[0])).size > 1) {
+        throw new RefusedArgumentError(
+          `The milestone "${group.milestone}" returned tickets of more than one project. A Jira version belongs to one project, and the same name can exist in several.`,
+        );
+      }
+      const states = new Map<string, StateKind>(issues.map((i) => [i.key, jiraStateKind(i.status.categoryKey)]));
+      const tickets: Ticket[] = [];
+      // Orca drops the description in a search answer, so each hit is read again like readTicket does.
+      for (const hit of issues) tickets.push(await toTicket(await readIssue(hit.key), states));
+      return tickets;
+    },
+    async moveState(key: string, stateName: string): Promise<void> {
+      const transitions = (
+        (await orcaRead(run, env, "orca jira status list --json", ["jira", "status", "list", key])) as {
+          result: Transition[];
+        }
+      ).result;
+      const matches = transitions.filter((t) => t.name === stateName || t.to.name === stateName);
+      if (matches.length === 1 && /^\d+$/.test(matches[0].id)) {
+        await orcaWrite(run, env, "orca jira status set --json", ["jira", "status", "set", key, "--to-id", matches[0].id]);
+        return;
+      }
+      // A resumed run finds the ticket already in the asked state, so nothing is written.
+      if ((await readIssue(key)).status.name.toLowerCase() === stateName.toLowerCase()) return;
+      checkStateName("jira", stateName, transitions.flatMap((t) => [t.name, t.to.name]));
+      throw new RefusedArgumentError(
+        `"${stateName}" matches ${matches.length === 1 ? "a transition with an id that is not a number" : "several transitions"} of ${key}.`,
+      );
+    },
+    async addComment(key: string, bodyFile: string): Promise<void> {
+      checkCommentBody(bodyFile, COMMENT_CAP);
+      await orcaWrite(run, env, "orca jira comment add --json", ["jira", "comment", "add", key, "--body-file", bodyFile]);
+    },
+  };
+}

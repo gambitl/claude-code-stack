@@ -204,6 +204,14 @@ As a solution engineer, I want `cstack` to read and write the tracker through Or
 - AC3: When no client exists, Claude reads and writes the tracker with its own connection, as it does today.
 - AC4: One permission rule in Claude Code allows `cstack`, and it covers every tracker write that goes through `cstack`.
 
+What Orca 1.4.263 cannot do for Jira and Linear, and how `cstack` copes:
+
+- Orca never returns the links between Jira issues. `cstack` therefore reads the blockers of a Jira ticket from the footer line of its description, as ADR-SIC-F says. It then reads each blocker once, to learn its state.
+- Orca limits a Jira search to 100 tickets. `cstack` reads a Jira group up to 99 tickets. When the answer holds 100 tickets or more, `cstack` refuses the list and says that the group has more tickets than it reads through Orca.
+- Orca returns no description in a Jira search. `cstack` reads each ticket of a Jira list again, to get its footer.
+- Orca cannot filter Linear issues by project milestone. A Linear list by milestone exits with code 4, so Claude writes the file with its own connection. A Linear list by epic goes through Orca.
+- The answers of Orca that the tests use for Jira and Linear were written by hand from the code of Orca 1.4.263, and not recorded, because no Jira or Linear sandbox exists. The fixture README says so.
+
 ### Milestone 4: Comparison and decision
 
 #### US-17: Compare the two versions and decide

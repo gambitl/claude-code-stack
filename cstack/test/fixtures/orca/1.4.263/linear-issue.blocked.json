@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "result": {
+    "issue": {
+      "id": "id-placeholder",
+      "identifier": "EXA-1",
+      "title": "Example task",
+      "url": "https://linear.example.com/example/issue/EXA-1",
+      "description": "Example description of EXA-1.",
+      "state": {
+        "name": "In Progress",
+        "type": "started",
+        "color": "#f2c94c"
+      },
+      "team": {
+        "id": "id-placeholder",
+        "name": "Example Team",
+        "key": "EXA"
+      },
+      "project": null,
+      "labels": [],
+      "priority": 0,
+      "branchName": "example-person/exa-1",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "updatedAt": "2026-01-02T00:00:00.000Z"
+    },
+    "relations": [
+      {
+        "id": "id-placeholder",
+        "type": "blocks",
+        "direction": "incoming",
+        "relationship": "blockedBy",
+        "relatedIssue": {
+          "id": "id-placeholder",
+          "identifier": "EXA-2",
+          "title": "Example finished task",
+          "url": "https://linear.example.com/example/issue/EXA-2"
+        }
+      }
+    ],
+    "meta": {
+      "requested": [
+        "relations"
+      ],
+      "resolved": [
+        "relations"
+      ],
+      "partial": false,
+      "includeErrors": [],
+      "sections": {
+        "relations": {
+          "returned": 1,
+          "limit": 100,
+          "hasMore": false
+        }
+      }
+    }
+  }
+}

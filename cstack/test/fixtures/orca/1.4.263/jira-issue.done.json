@@ -1,0 +1,21 @@
+{
+  "ok": true,
+  "result": {
+    "key": "EXA-3",
+    "title": "Example finished task",
+    "description": "Example description of EXA-3.",
+    "url": "https://jira.example.com/browse/EXA-3",
+    "status": {
+      "id": "id-placeholder",
+      "name": "Done",
+      "categoryKey": "done",
+      "categoryName": "Done",
+      "colorName": "green"
+    },
+    "parent": {
+      "key": "EXA-1",
+      "title": "Example epic",
+      "issueTypeName": "Epic"
+    }
+  }
+}

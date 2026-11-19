@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "result": {
+    "comment": {
+      "id": "id-placeholder"
+    },
+    "issue": {
+      "identifier": "EXA-1"
+    },
+    "meta": {
+      "deduplicated": false
+    }
+  }
+}
