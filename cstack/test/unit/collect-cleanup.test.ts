@@ -124,4 +124,21 @@ describe("cstack unit collect, clean-up", () => {
     expect(git(dir, "rev-parse", "HEAD")).toBe(head);
     expect(fake.calls.map((c) => c.split(" ")[1])).toEqual(["rm"]);
   });
+
+  it("removes a child worktree whose copy of the plan file holds uncommitted changes, as after a second attempt", async () => {
+    const { dir, children, ids } = setup({ 1: "done" });
+    // The second attempt copies the current plan file into the child, so the child holds an uncommitted plan file.
+    writeFileSync(join(children[1]!, "docs/plan.md"), `${readFileSync(join(dir, "docs/plan.md"), "utf8")}\nA note.\n`);
+    // Like Orca without --force, the fake refuses to remove a worktree that is not clean.
+    const calls: string[] = [];
+    const run: Runner = async (_c, args) => {
+      calls.push(args.join(" "));
+      if (args[0] === "worktree" && git(children[1]!, "status", "--porcelain") !== "") return { kind: "failed", exitCode: 1 };
+      return { kind: "ok", stdout: '{"ok":true}' };
+    };
+    const result = await collectAll(dir, run, "1");
+    expect(result.code).toBe(0);
+    expect(calls.some((c) => c.startsWith("worktree rm"))).toBe(true);
+    expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
+  });
 });

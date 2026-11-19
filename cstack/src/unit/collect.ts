@@ -1,4 +1,6 @@
 import { spawnSync } from "node:child_process";
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import type { Io } from "../io.js";
 import { latestUnitRecord, unitRecords, updateRecord } from "../helper/record.js";
 import { callOrca } from "../orca/call.js";
@@ -171,6 +173,12 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
       dirtyFound = true;
       io.stderr(`Unit ${number}: the child worktree ${path} was kept, because it has uncommitted changes: ${dirty.join(", ")}.\n`);
       continue;
+    }
+    // A second attempt copies the plan file into the child. Orca refuses to remove a worktree that is not clean, so only that file is restored.
+    if (git(path, ["ls-files", "--error-unmatch", "--", located.relative]).ok) {
+      git(path, ["checkout", "--", located.relative]);
+    } else {
+      rmSync(join(path, located.relative), { force: true });
     }
     if (await orcaOk(orca.run, orca.env, ["worktree", "rm", "--worktree", `path:${path}`])) {
       updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
