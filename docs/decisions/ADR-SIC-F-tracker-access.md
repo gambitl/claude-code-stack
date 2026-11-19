@@ -35,4 +35,6 @@ The file from Claude carries a `group` key, which is either a milestone name or 
 
 The blockers of a ticket are the relations that the tracker reports, plus the keys written in the footer line of the ticket body. Some trackers give no relations. For those, the footer alone answers.
 
+A key that only the footer names has no state, so the merge marks it `unknown`. An adapter must look up the real state of each such blocker before it returns the ticket. Without that step, the ready rule cannot know whether the blocker is finished.
+
 Every call to a client goes through one runner that never starts a shell. Every key, state name and path is checked before any program runs. This keeps text from a ticket from turning into a command.

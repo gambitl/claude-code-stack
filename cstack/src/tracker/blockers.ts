@@ -20,7 +20,10 @@ export function footerBlockers(tracker: TrackerName, body: string): string[] | "
 
 /**
  * Merges the tracker relations with the footer keys. A footer key that the
- * relations do not carry has the state kind `unknown`.
+ * relations do not carry has the state kind `unknown`, because the footer holds
+ * a key and no state. An adapter must look up the real state of each footer-only
+ * blocker before it returns the ticket. Otherwise the ready rule cannot tell
+ * whether that blocker is finished.
  */
 export function mergeBlockers(relations: TicketRef[] | undefined, footer: string[] | "unknown"): TicketRef[] | "unknown" {
   if (relations === undefined) {
