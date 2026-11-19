@@ -52,7 +52,7 @@ export async function measure(args: string[], io: Io): Promise<number> {
   const models = [...names.filter((name) => name !== "other model").sort(), ...names.filter((name) => name === "other model")];
   for (const model of models) lines.push(...totalLines(` ${model}`, result.perModel.get(model) as Totals));
   const wait = moments.ready ? moments.ready.getTime() - moments.approval.getTime() : undefined;
-  if (wait !== undefined && wait >= 60000) {
+  if (wait !== undefined && (moments.source === "header" || wait >= 60000)) {
     lines.push(`minutes from approval to ready for review: ${Math.round(wait / 60000)}`);
   }
   lines.push(`skipped lines: ${result.skippedLines}`, `unreadable files: ${result.unreadableFiles}`);
@@ -61,7 +61,7 @@ export async function measure(args: string[], io: Io): Promise<number> {
   if (wait === undefined) {
     io.stderr("cstack measure: the plan file never reached ready for review, so the ready moment is missing.\n");
     code = 1;
-  } else if (wait < 60000) {
+  } else if (moments.source === "history" && wait < 60000) {
     io.stderr("cstack measure: the ready moment is less than a minute after the approval, so the history looks rewritten.\n");
     code = 1;
   }
