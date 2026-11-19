@@ -13,7 +13,7 @@ The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing
 - **git**: required. Run `xcode-select --install` to get it.
 - **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
 - **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
-- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
+- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. The minimum Orca version is `1.4.259`. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
 
 ## Install cstack
 

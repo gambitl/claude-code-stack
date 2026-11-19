@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { requirements } from "../src/doctor/requirements.js";
+import { MIN_ORCA_VERSION } from "../src/orca/version.js";
 
 // The bold names of the bullets under "## Requirements", in order.
 function readmeNames(text: string): string[] {
@@ -21,6 +22,11 @@ const readme = readFileSync(new URL("../../README.md", import.meta.url), "utf8")
 describe("README Requirements section", () => {
   it("lists the same items as cstack doctor, in the same order", () => {
     expect(readmeNames(readme)).toEqual(requirements.map((r) => r.name));
+  });
+
+  it("names the minimum Orca version of the code in the Orca bullet", () => {
+    const bullet = readme.split("\n").find((l) => l.startsWith("- **Orca**"));
+    expect(bullet).toContain(MIN_ORCA_VERSION);
   });
 
   it("fails when an item is in only one of the two lists", () => {
