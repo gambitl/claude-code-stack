@@ -383,7 +383,11 @@ Judgment calls for the pull request body:
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket 28: https://github.com/gambitl/claude-code-stack/issues/28#issuecomment-7015261373
+- Comment on ticket 31, which this ticket feeds: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7015261914
+- `WHY:` comment above the collect function in `cstack/src/unit/collect.ts` (choice of `git cherry-pick`).
+- `cstack/test/fixtures/orca/README.md` and `README.md` ("Commands" section) updated in units 4 and 10.
+- No decision record and no specification change, as the plan's duties say.
 
 ## Executor notes
 
