@@ -1,4 +1,4 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -29,7 +29,7 @@ describe("cstack tracker comment", () => {
     const s = setup("https://github.com/o/r.git");
     expect(await trackerComment(["#12", "--body-file", s.file], s.io, s.deps)).toBe(0);
     const post = s.calls.find((c) => c.command === "gh" && c.args[0] === "issue")!;
-    expect(post.args).toEqual(["issue", "comment", "12", "--repo", "github.com/o/r", "--body-file", s.file]);
+    expect(post.args).toEqual(["issue", "comment", "12", "--repo", "github.com/o/r", "--body-file", realpathSync(s.file)]);
     expect(s.calls.some((c) => ["sh", "bash", "zsh"].includes(c.command))).toBe(false);
     expect(JSON.stringify(s.calls)).not.toContain("rm -rf");
   });
