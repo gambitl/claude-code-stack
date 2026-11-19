@@ -19,7 +19,7 @@ This repository is public. Never write the name of an employer or a client in it
 
 You run these commands from the `cstack/` folder. `npm ci` installs the packages. A new worktree has no `node_modules`, so run `npm ci` there before the first type check or test run. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
 
-The full `npm test` takes about 90 seconds, so give it a shell timeout above two minutes. When the machine is busy, for example while several test runs go at once, `cstack/test/report.test.ts` can pass the five-second timeout of vitest. When only that file fails, run it alone before you look for a bug.
+The full `npm test` takes about 90 seconds, so give it a shell timeout above two minutes. `cstack/test/report.test.ts` prepares its git repositories once and copies them for each case, so its cases stay fast on a busy machine. Other test files still build a new git repository for each case. When the machine is busy, for example while several test runs go at once, one of their cases can pass the five-second timeout of vitest. When only one file fails, run it alone before you look for a bug.
 
 The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. Every command also has an entry in `cstack/src/manifest.ts`, which defines the common exit codes. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
 
