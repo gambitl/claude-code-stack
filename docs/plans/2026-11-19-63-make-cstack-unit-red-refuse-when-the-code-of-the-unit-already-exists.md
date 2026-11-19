@@ -271,12 +271,13 @@ Impact notes (executor, 2026-11-19): The new helpers `isTestFile`, `readUnitStat
 
 Review findings (2026-11-19): The correctness reviewer and the security reviewer found nothing at or above the confidence bar. The conventions reviewer and the simplicity reviewer found the points below.
 
-- Fixed: the refusal of `cstack unit green` for a changed test command told the implementer to discard code. It now only says to run `cstack unit red` again. The comment of `restartText` now says two refusals use it.
-- Fixed: `unit-green.ts` uses `Partial<FailingUnitRun>` instead of a second inline type.
-- Fixed: the implementer prompt has stop conditions for the new exit codes 1 and 5, and the build guide says what to do when a unit is stuck because another unit built its file.
+- Fixed: `unit-green.ts` uses `Partial<FailingUnitRun>` instead of a second inline type. The comment of `restartText` says two refusals use it.
+- Reverted by the independent review: my first fix gave the changed-test-command refusal its own short text, and I edited the implementer prompt and the build guide. The reviewer put back the shared restart text, because Question 1 says the refusals share it. The reviewer also restored both prose files, because the plan forbids changing guides and prompts in this branch (tickets #31 and #64 change them in the same wave). The stop conditions for exit codes 1 and 5 are therefore a follow-up.
 - Follow-up, not done: share the `git status` call between `checkUnit` and `readUnitStatus`, move the age check into `unit-files.ts` with a named constant, add a dated line to `settled-decisions.md`, and clean up the temporary repositories in `unit-files.test.ts`. They are cleanups, and the first one touches `unit-commit.ts`, which is outside the plan.
 - Known limit, documented in the code comment: the age check reads the modification time only, so a `chmod` or a plain `mv` is not caught or may be reported wrongly. It is a safety net.
 
+
+Independent review (2026-11-19): The reviewer checked all five acceptance criteria, each with a test, and found no security problem. It made two commits, described above. Judgment calls for the pull request: `manifest.ts` also changes the text of exit code 5, which adds a small merge risk with #64 or #31. A rename with `git mv` keeps the old modification time, so `cstack unit green` refuses an honest rename until the file is edited or touched. The restart text says "these changes" while the changed-command message names no files, so a later ticket could reword it. The test "ignores an old test file and an old fixture" sets the time of the test file only.
 
 ## Briefing
 
