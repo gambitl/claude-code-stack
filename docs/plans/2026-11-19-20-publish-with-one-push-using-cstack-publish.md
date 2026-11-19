@@ -430,9 +430,9 @@ Title: feat(cli): add cstack publish, which pushes once and waits for the checks
 
 `cstack publish` publishes the branch of a plan with one push, on GitHub and on GitLab. It makes the "push once at the end" rule of the skill something the tool enforces.
 
-The command checks the rules first and lists every broken one at once: no open blocking question, the plan is "ready for review", no uncommitted change to a tracked file, a pull request title and body, and the right branch checked out. If one is broken, it exits with 1 and pushes nothing.
+The command checks the rules first and lists every broken one at once: no open blocking question, the plan is "ready for review", no uncommitted change to a tracked file, a pull request title and body, the right branch checked out, and a branch that differs from the target branch. If one is broken, it exits with 1 and pushes nothing.
 
-Then it finds the forge from the raw URL of `origin` and a logged-in client, `gh` or `glab`. If the branch is not on the remote yet, it brings the branch up to date with the target branch (rebase or merge, as the `integration` setting says) and runs `testCommands.all`. It pushes once, opens the pull request or merge request only if none exists, and waits for the checks of the pushed commit. It never forces a push and never pushes a tag. Exit codes: 0 passed, 4 no logged-in client, 5 push or forge failure, 6 a check failed, 7 checks still running at the timeout, 8 conflict on update.
+Then it finds the forge from the raw URL of `origin` and a logged-in client, `gh` or `glab`. If the branch is not on the remote yet, it brings the branch up to date with the target branch (rebase or merge, as the `integration` setting says) and runs `testCommands.all`. It pushes once, opens the pull request or merge request only if none exists, and waits for the checks of the pushed commit. It never forces a push and never pushes a tag. It exits with 0 when the checks pass. It exits with 4 when no logged-in client serves the remote, and with 5 when a push or a forge call fails. It exits with 6 when a check failed, with 7 when checks still run at the timeout, and with 8 when the update conflicts.
 
 ## Key decisions
 
