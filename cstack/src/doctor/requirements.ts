@@ -1,5 +1,5 @@
 import { ORCA_HINT, checkOrca } from "./orca.js";
-import type { Runner } from "./runner.js";
+import type { Runner } from "../orca/run.js";
 
 // Everything doctor needs from the outside world. Tests pass their own.
 export type DoctorInput = {
@@ -35,6 +35,7 @@ function problem(
   if (result.kind === "missing") return `missing. ${install}`;
   if (result.kind === "timeout")
     return `did not answer within ${seconds(input)} seconds`;
+  if (result.kind === "too-large") return "gave more output than cstack reads";
   return `failed with exit code ${result.exitCode}`;
 }
 
