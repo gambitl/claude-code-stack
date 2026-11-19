@@ -42,3 +42,12 @@ Files written by hand:
 - `orchestration-worker-start.failed-stage.json` is a failed start whose `error` also holds `failedStage`, `effects` and `residualResources`.
 - `orchestration-send.sent.json` is the answer of a message that was sent, with a message `id`.
 - `orchestration-check.worker-done.json` is the answer of `check` with one `worker_done` message.
+
+## Jira answers written by hand
+
+These six files were not recorded. No Jira sandbox was available, so each answer was written by hand from the code of the installed Orca 1.4.263. They use only placeholder values.
+
+- `jira-issue.in-progress.json` and `jira-issue.done.json` follow the answer of `orca jira issue <key> --json`. It has `key`, `title`, `description`, `url` and `status` with `id`, `name`, `categoryKey`, `categoryName` and `colorName`. It also has a `parent`. It has no issue links, because Orca never reads the Jira `issuelinks` field.
+- `jira-search.epic.json` follows `orca jira search <jql> --json`. Its `result` is a list of issues with the same shape.
+- `jira-status-list.current.json` follows `orca jira status list <key> --json`. Each transition has `id`, `name` and `to`. A transition name, such as "Start progress", is not always the name of the status it leads to.
+- `jira-status-set.ok.json` and `jira-comment-add.ok.json` follow the success answers of `orca jira status set` and `orca jira comment add`. Each has `result.ok` set to true.

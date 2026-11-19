@@ -1,0 +1,25 @@
+{
+  "ok": true,
+  "result": [
+    {
+      "id": "11",
+      "name": "Start progress",
+      "to": {
+        "id": "id-placeholder",
+        "name": "In Progress",
+        "categoryKey": "indeterminate",
+        "categoryName": "In Progress"
+      }
+    },
+    {
+      "id": "31",
+      "name": "Finish",
+      "to": {
+        "id": "id-placeholder",
+        "name": "Done",
+        "categoryKey": "done",
+        "categoryName": "Done"
+      }
+    }
+  ]
+}
