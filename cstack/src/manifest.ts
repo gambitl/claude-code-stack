@@ -25,9 +25,11 @@ export interface CommandEntry {
   exitCodes: Record<number, string>;
   /** The file under `cstack/src/commands/` that implements the command. */
   file: string;
-  /** The ticket that builds the command. */
-  ticket: number;
+  /** The ticket, or the tickets, that build the command. */
+  ticket: number | number[];
   built: boolean;
+  /** Flags of a built command that are not built yet, with the ticket that builds each. */
+  notBuiltFlags?: Record<string, number | number[]>;
 }
 
 const OK = "The command did its job.";
@@ -75,7 +77,8 @@ export const COMMANDS: CommandEntry[] = [
   {
     usage: "cstack skills install [--adopt <name>]...",
     summary: "Install the skills that this version ships.",
-    flags: ["--adopt"],
+    flags: ["--adopt", "--add-permission"],
+    notBuiltFlags: { "--add-permission": 26 },
     exitCodes: { 0: "Every shipped skill is in place.", 1: "A skill was skipped or the user is root.", 2: USAGE },
     file: "skills.ts",
     ticket: 9,
@@ -198,13 +201,101 @@ export const COMMANDS: CommandEntry[] = [
     file: "publish.ts",
     ticket: 20,
   }),
+  {
+    usage: "cstack tracker read <key> [--tracker <name>] [--from-file <path>]",
+    summary: "Print one ticket as JSON.",
+    flags: ["--tracker", "--from-file"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
+    file: "tracker-read.ts",
+    ticket: [25, 26],
+    built: false,
+  },
+  {
+    usage: "cstack tracker list (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>]",
+    summary: "Print the tickets of a group with their states and blockers.",
+    flags: ["--milestone", "--epic", "--tracker", "--from-file"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
+    file: "tracker-list.ts",
+    ticket: [25, 26],
+    built: false,
+  },
+  {
+    usage: "cstack tracker move <key> --to <state name> [--tracker <name>]",
+    summary: "Move a ticket to a state.",
+    flags: ["--to", "--tracker"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
+    file: "tracker-move.ts",
+    ticket: [25, 26],
+    built: false,
+  },
+  {
+    usage: "cstack tracker comment <key> --body-file <path> [--tracker <name>]",
+    summary: "Add a comment to a ticket.",
+    flags: ["--body-file", "--tracker"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
+    file: "tracker-comment.ts",
+    ticket: [25, 26],
+    built: false,
+  },
+  {
+    usage: "cstack helper start <executor|implementer|implementer-escalation> --plan <file> [--unit <n>] [--child-worktree]",
+    summary: "Start a helper.",
+    flags: ["--plan", "--unit", "--child-worktree"],
+    exitCodes: {
+      0: OK,
+      1: REFUSED,
+      2: USAGE,
+      3: INVALID,
+      4: NO_TOOL,
+      5: TOOL_FAILED,
+      6: "Orca workers are not available, and Claude starts a sub-agent instead.",
+    },
+    notBuiltFlags: { "--child-worktree": 28 },
+    file: "helper-start.ts",
+    ticket: 27,
+    built: false,
+  },
+  {
+    usage: "cstack helper wait <helper id>",
+    summary: "Wait for the final report of a helper.",
+    flags: [],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED, 6: "The helper is still working." },
+    file: "helper-wait.ts",
+    ticket: 27,
+    built: false,
+  },
+  planCommand({
+    usage: "cstack helper done <kind> --helper <helper id>",
+    summary: "Read the report of a helper on standard input, check it, save it and end the helper.",
+    flags: ["--helper"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
+    file: "helper-done.ts",
+    ticket: 27,
+  }),
+  planCommand({
+    usage: "cstack unit collect <n>...",
+    summary: "Bring the commits of units from their child worktrees onto the ticket branch.",
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
+    file: "unit-collect.ts",
+    ticket: 28,
+  }),
+  {
+    usage: "cstack wave (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>] [--watch]",
+    summary: "List a wave and start its ready tickets.",
+    flags: ["--milestone", "--epic", "--tracker", "--from-file", "--watch"],
+    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
+    notBuiltFlags: { "--watch": 30 },
+    file: "wave.ts",
+    ticket: 29,
+    built: false,
+  },
 ];
 
-/** The command words of an entry: its usage words, without `cstack`, before the first `<` or `[`. */
+/** The command words of an entry: its usage words, without `cstack`, before the first `<`, `[` or `(`. */
 export function commandWords(entry: CommandEntry): string[] {
   const words: string[] = [];
   for (const token of entry.usage.split(/\s+/).slice(1)) {
-    if (token.startsWith("<") || token.startsWith("[")) break;
+    if (token.startsWith("<") || token.startsWith("[") || token.startsWith("(") || token.startsWith("-")) break;
     words.push(token);
   }
   return words;
@@ -242,4 +333,45 @@ export function matchMention(text: string, entries: CommandEntry[] = COMMANDS): 
     }
   }
   return { ok: true, entry: best };
+}
+
+/** The tickets as a phrase and the verb that agrees with them, for example `Tickets #25 and #26 build it.` */
+function builtBy(tickets: number[]): string {
+  const unique = [...new Set(tickets)].sort((a, b) => a - b).map((n) => `#${n}`);
+  if (unique.length === 1) return `Ticket ${unique[0]} builds it.`;
+  const last = unique[unique.length - 1];
+  return `Tickets ${unique.slice(0, -1).join(", ")} and ${last} build it.`;
+}
+
+/**
+ * The message that refuses a command or a flag that the list holds but that is not built.
+ * It names every ticket that builds it. It is undefined when the arguments are built.
+ */
+export function unbuiltRefusal(args: string[], entries: CommandEntry[] = COMMANDS): string | undefined {
+  const firstFlag = args.findIndex((t) => t.startsWith("-"));
+  const words = firstFlag === -1 ? args : args.slice(0, firstFlag);
+  let best: CommandEntry | undefined;
+  let bestLength = 0;
+  for (const entry of entries) {
+    const fixed = commandWords(entry);
+    if (fixed.length > words.length || fixed.length <= bestLength) continue;
+    if (fixed.every((w, i) => words[i] === w)) {
+      best = entry;
+      bestLength = fixed.length;
+    }
+  }
+  if (best === undefined) {
+    // No entry matches fully. When the first word belongs only to unbuilt entries, name all their tickets.
+    const group = words.length === 0 ? [] : entries.filter((e) => commandWords(e)[0] === words[0]);
+    if (group.length === 0 || group.some((e) => e.built)) return undefined;
+    const tickets = group.flatMap((e) => [e.ticket, ...Object.values(e.notBuiltFlags ?? {})].flat());
+    return `cstack ${words[0]} is not built in this version yet. ${builtBy(tickets)}`;
+  }
+  const name = `cstack ${commandWords(best).join(" ")}`;
+  if (!best.built) return `${name} is not built in this version yet. ${builtBy([best.ticket].flat())}`;
+  for (const arg of args.filter((t) => t.startsWith("-")).map((t) => t.split("=")[0])) {
+    const ticket = best.notBuiltFlags?.[arg];
+    if (ticket !== undefined) return `${arg} of ${name} is not built in this version yet. ${builtBy([ticket].flat())}`;
+  }
+  return undefined;
 }
