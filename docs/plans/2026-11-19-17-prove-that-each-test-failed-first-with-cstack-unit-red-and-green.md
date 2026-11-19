@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in `docs/projects/`), ADRs in `docs/decisions/`
 Branch: gambitl/unit-red-green
 Conversation language: French; the conversation uses it, and every record stays in English
-Status: in progress (branch gambitl/unit-red-green; ticket labelled "in progress" on 2026-11-19)
+Status: ready for review
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -399,6 +399,43 @@ Graphify is not installed, so text search was used. The changed existing symbols
 
 ## Briefing
 
+### What you should know about what was built
+
+`cstack unit red` and `cstack unit green` are built and do what the ticket asks, including the three criteria of US-8. Green refuses a unit with no saved failing run, and it refuses when the test command changed since that run. I ran the 57 new tests myself: they pass in about ten seconds. No question blocks the pull request.
+
+**What to watch.**
+
+- The shell tool of Claude Code accepts at most ten minutes, which is also cstack's default timeout. With a suite close to ten minutes, the tool cuts cstack first. If it kills cstack hard, the tests keep running in their own process group with no timeout left. I would add `--timeout 9` to the sentence in the implementer prompt. After such a cut, check `ps` for leftover test processes.
+- Two other pull requests of the wave touch the same spots. The one that adds `cstack next` (#46) changes the command counts in `manifest.test.ts` and the README. The one that runs the whole suite (#20) has its own temporary copy of `test-run.ts`. Whichever merges second must keep this copy, where `runTests` is asynchronous.
+
+**What changed since the plan.**
+
+- When green's test fails, times out or cannot start, green now deletes the earlier passing run. The plan said "save nothing". The review showed that `cstack unit commit` would otherwise accept code whose test fails now. As a side effect, a flaky test during the run after the refactor makes the commit refuse until green passes again.
+- A `Test` line that names a folder now exits with 1 and a clear message, instead of crashing.
+- `runTests` became asynchronous and catches Ctrl-C. So the trade-off I raised before the plan is gone: Ctrl-C on cstack stops the tests too.
+
+#### Details
+
+**What was built and how I checked it.** The branch adds five source files. `cstack/src/test-run.ts` is the shared runner, with the coordinator's interface plus `MAX_OUTPUT_BYTES`. `cstack/src/unit-test-runs.ts` writes the saved runs. `cstack/src/unit-test-command.ts` holds the checks both commands share. The two commands live in `cstack/src/commands/unit-red.ts` and `cstack/src/commands/unit-green.ts`. `cli.ts` and `manifest.ts` changed only in the `unit` handlers and the two entries. On 2026-11-19 I ran `npx vitest run test/test-run.test.ts test/unit-red-green.test.ts test/unit-test-runs.test.ts` from `cstack/`: 3 files, 57 tests, all passing in 9.8 seconds. The test names cover every case of the acceptance list: US-8 AC1 (`saves a failing run and prints the last lines and the verdict`), AC2 (`refuses a unit with no saved failing run and saves nothing`), AC3 (`refuses a unit with a No test line`), the hostile paths of `testScript`, the timeout of the process group, 127 and 126, and two units in two processes at the same time. Continuous integration runs on `macos-latest` with `lts/*`, the same platform the process-group tests were written on. `origin/main` is already merged into the branch, as of the fetch on 2026-11-19.
+
+**The shell timeout of the agent against cstack's own timeout.** The sentence added to step 4 of `cstack/skills/resolve-issue/agents/implementer.md` asks for a shell timeout of "at least ten minutes". The Claude Code shell tool accepts at most 600,000 ms, and `DEFAULT_TEST_TIMEOUT_MS` is also 600,000 ms. Since cstack spends some time on git and the settings before the test starts, a suite that runs close to ten minutes is cut by the tool, not by cstack. When the tool sends SIGTERM or SIGINT, the listeners of `runTests` kill the whole group and nothing is saved, which is acceptable. When it sends SIGKILL, no listener runs. The shell was started with `detached: true`, so it leads its own group and survives cstack, and the timer that would kill it died with cstack. A hanging test then runs forever. I could not check which signal the tool sends. The cheap fix is to change the sentence so that it asks for a ten-minute shell call and `--timeout 9`, or to run long suites with the shell tool's background mode. This is a new non-blocking question, given below. If nobody decides, the prompt stays as it is, and only suites longer than about nine minutes are exposed.
+
+**Merges with the rest of the wave.** Pull request #46, which adds `cstack next` for #15, is open and touches `manifest.ts`, `manifest.test.ts`, `cli.ts` and the README count. This branch says "twelve commands" and counts twelve built and three not built. Whichever pull request merges second has to update both counts and check that `cli.ts` holds one definition of each function, as the coordinator's rules say. Ticket #20 has no pull request yet. It keeps a temporary copy of `cstack/src/test-run.ts` with the same exports. This copy is the one to keep, and it differs from the first interface in two ways that #20 must follow: `runTests` returns a promise, and `output` holds at most the last megabyte. The comment on #20 that the documentation phase writes must say both.
+
+**Green deletes the earlier passing run when it does not pass.** The plan said that a green whose test still fails "saves nothing". The correctness reviewer found that this left an older `green.json`, and `cstack unit commit` (`unit-commit.ts`, lines 62 to 70) would then accept a unit whose test fails now. Commit 65da54e deletes `green.json` and `green.log` when the test fails, and commit c4123fc does the same at the timeout and when the command cannot start. The README says so. I agree with the change: it keeps the rule of the comment of #18, that the saved files always tell the true state. The cost is that the implementer runs green twice (after the code, then after the refactor), and a flaky second run removes the first passing run. `cstack unit commit` then refuses until green passes again, which is the right answer for a flaky test. A refused red still deletes nothing, as the plan says.
+
+**A `Test` path that is a folder.** The security reviewer found that `fileSha256` crashed with a stack trace on a folder. `prepareUnitTest` now checks `statSync(real).isFile()` after the real-path check and exits with 1. The manifest text of exit code 1 for red ("its test file cannot be used") covers it.
+
+**Signals.** The coordinator made `runTests` asynchronous (message `msg_5642a1c6daa3`). It catches SIGINT and SIGTERM, kills the whole group with SIGKILL, removes its own listeners and sends the same signal again to cstack. The tests `stops the sleep process and ends with SIGINT` and `... with SIGTERM` prove it in a child process, and `removes its signal listeners after a normal run` proves that no listener leaks. This settles the Ctrl-C trade-off of the block before the plan. No other file of `cstack/src/` listens for these signals, so the re-sent signal ends cstack with the default action.
+
+**Follow-ups left open by the review.** Four small points stay open and are listed in the review log: about 25 lines repeated between the two commands, the `beforeSettings` hook that only green uses, the temporary output folder left in the system temporary folder when cstack is stopped by a signal (and SIGHUP not caught), and a log of more than one megabyte with no line break at all, which is saved empty. None of them changes what a saved run proves. The SIGHUP point has the same effect as the SIGKILL case above: closing the terminal during a test run leaves the tests running.
+
+**Earlier questions and how they ended.** Question 1, the guard between red and green, is built as answered: green exits with 1 and runs nothing when the script or the test file path differs from `red.json`, and it warns without refusing when `testFileSha256` changed (tests `exits with 1 and runs nothing when the settings changed since the failing run` and `warns when the test file changed but the test passes`). A `red.json` without the fingerprint gives no warning. Question 2, a missing test file or a path outside the work tree, is built, and the folder case was added by the review. Question 3, the `--timeout` format, is built with a regular expression that accepts digits and one decimal part, above 0 and at most 1440. Question 4, the timeout, is built with the process group and a file instead of a pipe, and the coordinator's asynchronous change settled the Ctrl-C point. Question 5, the one-megabyte limit, is built and tested; the case with no line break is the open follow-up above. Questions 6 to 12 are built as recommended: where each line prints, the end time of the run, the worktree root, 128 plus the signal number, the order of the writes, exit 5 when `git rev-parse HEAD` fails, and no need for `cstack next`. The points of question 13 are built: the "whole suite ran" line when `testCommands.file` is missing, the sentence in the implementer prompt, the check on `timedOut` rather than on `exitCode`, and the cut output that starts at a line break. The reading of ADR-SIC-B, where an added optional field such as `testFileSha256` is not a format change, stands, and no reader of the saved runs broke.
+
+**New question after the build (non-blocking).** For the developer, in the conversation, in French: « La phrase ajoutée au prompt de l'implementer demande un délai d'au moins dix minutes pour l'appel shell, mais l'outil shell de Claude Code plafonne à dix minutes, comme le délai par défaut de cstack. Est-ce que je change la phrase pour demander un appel shell de dix minutes avec `cstack unit red <n> --timeout 9` (et pareil pour green) ? » In English: the sentence asks for at least ten minutes, but the tool caps at ten, the same as cstack's default; should the sentence ask for a ten-minute shell call with `--timeout 9`? It is non-blocking, because the ticket's criteria are met either way, and only suites longer than about nine minutes are affected.
+
+I checked authorization, data model lock-in, scale, failure and rollback, edge cases of the terminal messages, operations and cost, reversibility and hidden coupling, and found nothing beyond the points above in authorization, scale, operations and cost, and reversibility.
+
 ## Open questions after the build
 
 ### Blocking
@@ -407,15 +444,58 @@ none
 
 ### Non-blocking
 
-none
+The sentence added to the implementer prompt asks for a shell timeout of at least ten minutes, but the shell tool of Claude Code stops at ten minutes, the same as the default timeout of cstack. Should the sentence ask for a ten-minute shell call with `cstack unit red <n> --timeout 9` (and the same for green)? For: the maintainer. If nobody decides, the prompt stays as it is, and only suites longer than about nine minutes are exposed.
 
 ## Pull request
 
+Title: feat(cli): add cstack unit red and cstack unit green to prove that each test failed first
+
+Body:
+
+This adds two commands. `cstack unit red <n>` runs the test of unit `n` and saves the failing run. `cstack unit green <n>` runs it again once the code exists and saves the passing run, but only when a failing run is saved first. A unit marked "no test" is refused by red, with its reason.
+
+Key decisions and why:
+- The test file path reaches the shell only as the first argument (`"$1"`), never inside the script text, so a hostile path cannot run code.
+- The tests run in their own process group. The timeout and Ctrl-C then stop every process of the tests, not only the shell.
+- Green refuses, without running anything, when the test command changed since the failing run. It only warns when the test file content changed but the test passes.
+- When green fails, times out or cannot start, it deletes an older passing run. Otherwise `cstack unit commit` could accept code whose test no longer passes. The review found this, and it differs from the plan, which said "save nothing".
+- Every saved run keeps the exact script, the commit, the exit code, the time and a SHA-256 fingerprint of the test file.
+
+Files touched: the shared runner `cstack/src/test-run.ts`, the writer of saved runs `cstack/src/unit-test-runs.ts`, the shared checks `cstack/src/unit-test-command.ts`, the two commands in `cstack/src/commands/`, the registration in `cli.ts` and `manifest.ts`, their tests, the README and one sentence in the implementer prompt. The plan is `docs/plans/2026-11-19-17-prove-that-each-test-failed-first-with-cstack-unit-red-and-green.md`.
+
+Judgment calls from the independent review:
+- Green compares its command with the one of the failing run. A change to `.cstack/settings.json` made before the failing run goes unnoticed, so the warning of the maintainer is only partly covered.
+- A file system error, such as an unreadable test file, is not caught and ends with a stack trace. This matches the rest of `cstack`.
+- A refused red run keeps an older passing run, because a refused run says nothing about the current code.
+
+Follow-ups left open: about 25 lines are repeated between the two commands. The temporary output folder stays when cstack is stopped by a signal. A log of more than one megabyte with no line break is saved empty.
+
+Open questions, not needed for this pull request: this pull request can be merged without their answers. The sentence added to the implementer prompt asks for a shell timeout of at least ten minutes, but the shell tool of Claude Code stops at ten minutes, the same as the default timeout of cstack. Should the sentence ask for a ten-minute shell call with `--timeout 9`? This is for the maintainer.
+
+Another pull request of the wave may merge first. Then the counts of commands in `manifest.test.ts` and the README must follow the merged list, and the copy of `test-run.ts` of this branch is the one to keep.
+
+Fixes #17
+
 ## Documentation
+
+- Ticket #17 comment: https://github.com/gambitl/claude-code-stack/issues/17#issuecomment-7004459251
+- Ticket #23 comment (dependent): https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-7004459721
+- Ticket #20 comment (uses test-run.ts): https://github.com/gambitl/claude-code-stack/issues/20#issuecomment-7004460102
+- README "Commands" section and the implementer prompt: committed in unit 9 and the review fixes.
+- `WHY:` comments in `cstack/src/test-run.ts`: committed in units 2 and 3.
+- No ADR, as the plan says. The specification page does not change.
 
 ## Executor notes
 
+- The tests of unit 7 passed on their first run, so nobody saw them fail first. The unit was written after the stub of unit 5 returned exit 5 for everything.
+- The first full `npm test` of unit 5 hit a 5 second timeout in `report.test.ts` while other units ran tests at the same time. It passed on every later run.
+- The correctness reviewer found that green left an older passing run when the test failed. The independent reviewer found the same gap for the timeout and for exit 126 or 127. Both were fixed in new commits.
+- `graphify` is not installed, so the impact notes came from text search only.
+- `npm test` prints "Switched to a new branch 'feature'" twice. Nobody looked for the cause.
+
 ## Hand-off log
+
+2026-11-19: phases 6 to 10 done. Nine units built, two review rounds, nothing pushed. Ticket labelled "in progress". Comments written on #17, #20 and #23. One non-blocking question open (the `--timeout 9` sentence).
 
 ## History
 
