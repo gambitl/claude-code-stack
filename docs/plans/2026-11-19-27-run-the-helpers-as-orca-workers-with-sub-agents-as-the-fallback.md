@@ -461,7 +461,17 @@ Should cstack read an environment variable such as `CSTACK_ORCA_WORKERS=off`, wh
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+- `RunResult` (failed kind) gained an optional `stdout`. Other users of the runner are the doctor and the Orca features code. They read only `kind` and the message, so an extra optional field breaks nothing. The older run tests expect no `stdout` when the output is empty, and the code keeps that.
+- `checkReport` now refuses an implementer `done` without `green.json`. Its only callers are `report submit` (executor role, so unaffected) and the new `helper done`.
+- `saveReport` shares its hard-link save with the new unit report save. The report tests cover both.
+- `cli.ts`, `manifest.ts`, `manifest.test.ts`, `cli.test.ts` and `README.md` are shared files of the wave. The branch changed only the helper entries, the `helper` handler and the counts (17 built, 6 not built). The usual companions in the history are the same files, so nothing else was missed.
+- The decisions ADR-SIC-F (one runner, no shell), ADR-SIC-B (run folder) and ADR-SIC-H (print through `io`, no `process.exit`) apply. The first full suite run passed with 872 tests.
+
+### Reviewer findings
+
+<to be filled below>
 
 ## Briefing
 
