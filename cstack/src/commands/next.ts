@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
@@ -8,11 +8,11 @@ import { setHeaderValues } from "../plan/header-write.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan } from "../plan/read.js";
 import { clearCurrentRun, isDone, markDone, markStarted, missingToStart, nextPhase, phaseContext } from "../run-progress.js";
-import { createRun, readCurrentRun, readState, writeCurrentRun } from "../run-state.js";
+import { createRun, cstackVersion, readCurrentRun, readState, writeCurrentRun, writeFileAtomic } from "../run-state.js";
 import { failWith } from "./errors.js";
 import { readGuide } from "./guide.js";
 
-const USAGE = "Usage: cstack next [--done <phase> | --phase <phase> | --new] [--plan <file>]\n";
+const USAGE = "Usage: cstack next [--done <phase>] [--phase <phase>] [--plan <file>] [--new]\n";
 const SKILL = "resolve-issue";
 
 export interface NextOptions {
@@ -42,11 +42,6 @@ function printGuide(io: Io, packageRoot: string, file: string | undefined, name:
   io.stdout(runLine(file, name));
   io.stdout(guide.text);
   return 0;
-}
-
-function cstackVersion(): string {
-  const text = readFileSync(new URL("../../package.json", import.meta.url), "utf8");
-  return (JSON.parse(text) as { version: string }).version;
 }
 
 const placeOf = (name: PhaseName) => PHASES.find((p) => p.name === name)?.runsIn;
@@ -121,7 +116,8 @@ export function next(args: string[], io: Io, options: NextOptions): number {
     if (!wantsRun) return printGuide(io, options.packageRoot, undefined, "ticket");
 
     const located = locatePlan(options.cwd, values.plan);
-    const plan = readPlan(readFileSync(located.path, "utf8"));
+    const planText = readFileSync(located.path, "utf8");
+    const plan = readPlan(planText);
     let state = readState(located.root, located.relative);
     if (values.plan !== undefined) {
       state = createRun(located.root, located.relative, plan);
@@ -146,8 +142,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
         }
         // WHY: the header lines are written first and the phase is marked done second. A crash in between leaves the phase open, and the next --done writes the same lines again.
         if (phase?.writes?.length) {
-          const text = readFileSync(located.path, "utf8");
-          writeFileSync(located.path, setHeaderValues(text, headerValues(phase.writes, now())));
+          writeFileAtomic(located.path, setHeaderValues(planText, headerValues(phase.writes, now())));
         }
         markDone(located.root, located.relative, closed, now());
         state = readState(located.root, located.relative) ?? state;

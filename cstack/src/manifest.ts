@@ -82,7 +82,7 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   planCommand({
-    usage: "cstack next [--done <phase> | --phase <phase> | --new] [--plan <file>]",
+    usage: "cstack next [--done <phase>] [--phase <phase>] [--plan <file>] [--new]",
     summary: "Print the guide of the next phase and record that it started.",
     flags: ["--done", "--phase", "--new"],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID },

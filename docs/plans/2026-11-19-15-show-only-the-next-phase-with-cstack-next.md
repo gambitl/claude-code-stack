@@ -267,7 +267,7 @@ Units 1, 2, 3, 4 and 8 share no file and can run in parallel. Unit 5 needs units
 
 Security: there is no endpoint, no database and no secret. The external inputs are the `--plan` path, the plan file, `state.json` and `current-run`. The existing readers already check them (`locatePlan`, `readPlan`, `readState`, `readCurrentRun`). Units 5 and 6 test the two rules that matter here: a `--plan` path outside the repository exits with `2`, and cstack writes nowhere in the working tree except the header lines of the plan file.
 
-### Unit 1: Share the guide lookup of cstack guide — status: todo
+### Unit 1: Share the guide lookup of cstack guide — status: done
 - Files: `cstack/src/commands/guide.ts`, `cstack/test/guide.test.ts`
 - Failing test: in `cstack/test/guide.test.ts`, the exported `readGuide(packageRoot, skill, phase)` with a temporary `packageRoot` that holds `guides/resolve-issue/ticket.md` returns `{ ok: true, text }` with the exact bytes of the file. An unknown phase returns `{ ok: false }` with a message that lists the known phases, and an unknown skill returns a message that lists the skills with guides. The existing tests of `cstack guide` keep passing unchanged.
 - Minimum code: move the lookup out of `guide()` into the exported `readGuide`, and make `guide()` call it. The messages and exit codes of `cstack guide` stay the same.
@@ -275,7 +275,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `refactor(cli): share the guide lookup of cstack guide`
 - Depends on: none
 
-### Unit 2: Write a local time with its offset — status: todo
+### Unit 2: Write a local time with its offset — status: done
 - Files: `cstack/src/local-time.ts`, `cstack/test/local-time.test.ts`
 - Failing test: in `cstack/test/local-time.test.ts`, `localTime(new Date("2026-11-19T09:04:05.678Z"), 60)` returns `2026-11-19T10:04:05+01:00`. With the offset `-150` it returns `2026-11-19T06:34:05-02:30`, with `330` it returns `2026-11-19T14:34:05+05:30`, and with `0` it returns `2026-11-19T09:04:05+00:00`. A date near midnight moves to the right day. Without the offset argument, the offset comes from `getTimezoneOffset()` with the opposite sign. Every result matches the pattern that `readPlan` accepts for `Approved at`, and `Date.parse` of the result gives back the same second.
 - Minimum code: `localTime(date, offsetMinutes = -date.getTimezoneOffset())` in `cstack/src/local-time.ts`.
@@ -283,7 +283,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): write a local time with its offset`
 - Depends on: none
 
-### Unit 3: Change the value of plan header lines and keep every other byte — status: todo
+### Unit 3: Change the value of plan header lines and keep every other byte — status: done
 - Files: `cstack/src/plan/header-write.ts`, `cstack/test/plan/header-write.test.ts`
 - Failing test: in `cstack/test/plan/header-write.test.ts`, `setHeaderValues(text, { "Approved at": "2026-11-19T10:04:05+01:00", Status: "ready for review" })` on the text of `cstack/test/fixtures/plans/approved.md` changes those two lines and no other line. The same call on a copy with Windows line endings keeps `\r\n` on every line. A line that starts with `Status:` inside a multi-line HTML comment of the header stays as it is, and so does a line that starts with `Status:` in a section below the header. A key that is not in the header throws an error. The result still passes `readPlan`.
 - Minimum code: find the header lines before the first level-2 heading, skip HTML comment lines as `readPlan` does, and replace only the text after `Key: ` on the named lines.
@@ -291,7 +291,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): change the value of plan header lines and keep every other byte`
 - Depends on: none
 
-### Unit 4: Pick the next phase and mark phases started and done — status: todo
+### Unit 4: Pick the next phase and mark phases started and done — status: done
 - Files: `cstack/src/run-progress.ts`, `cstack/test/run-progress.test.ts`
 - Failing test: in `cstack/test/run-progress.test.ts`, write first the case of a state where `retro` was done before `ready`: `isDone(state, "retro")` is false and `nextPhase(state)` is `retro`. When `retro` was done after `ready`, `nextPhase` is `publish`. Before `ready` is done, a done `retro` counts as done. An empty state gives `ticket`, and a state where every phase is done gives `undefined`. `missingToStart("briefing", ...)` names `document` when `document` is not done. `missingToStart("publish", ...)` names the stale `retro` with the sentence of "Decisions". `missingToStart("plan", ...)` includes the open blocking question of a plan read from a fixture. In a temporary repository, `markStarted` and `markDone` write `toISOString()` times into `state.json` and keep the other phases. `clearCurrentRun` removes `current-run` and keeps the run folder. The context builder reads the unit commits and the last done report only when a check asks for them.
 - Minimum code: `isDone`, `nextPhase`, `missingToStart`, `phaseContext`, `markStarted`, `markDone` and `clearCurrentRun` in `cstack/src/run-progress.ts`, built on the exported functions of `cstack/src/run-state.ts`, `cstack/src/plan/commits.ts` and `cstack/src/report/reports.ts`. Add a `WHY:` comment on `isDone` that explains the rule for `retro`.
@@ -299,7 +299,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): pick the next phase and mark phases started and done`
 - Depends on: none
 
-### Unit 5: Print the guide of the next phase with cstack next — status: todo
+### Unit 5: Print the guide of the next phase with cstack next — status: done
 - Files: `cstack/src/commands/next.ts`, `cstack/test/next.test.ts`, and the fifteen fixture guides `cstack/test/fixtures/next/guides/resolve-issue/<phase>.md`
 - Failing test: in `cstack/test/next.test.ts`, write first the case of a run where `document` is not done, and call `cstack next --phase briefing`. It exits with `1`, and the message names `document`. Then: in a fresh repository, a plain `cstack next` prints `Run: none yet. Phase 1 of 15: ticket, in the main conversation.` and the fixture guide of `ticket`, with exactly one marker word in the output, and records nothing. `cstack next --plan` on a copy of `approved.md` prints the run line `Phase 6 of 15: build, in the executor.` and the `build` guide at once. `--phase deploy` exits with `2` and lists the fifteen names. A plan file with `Format: cstack-plan/2` exits with `3`, and the message names the cstack version that can read it. `--plan ../other/plan.md` and an absolute path outside the repository exit with `2`. `--new` deletes `current-run`, keeps the run folder and prints the `ticket` guide. A plain `cstack next` and `--phase` record `startedAt`. A plain `cstack next` refuses with `1` when the start condition of the next phase fails. `--done` with `--phase`, and `--new` with another flag, exit with `2`.
 - Minimum code: `next(args, io, { cwd, packageRoot, now })` in `cstack/src/commands/next.ts`, without `--done` yet. It parses the flags with `parseArgs` in strict mode, finds the run, prints the run line and the guide through `readGuide`, and maps errors with `failWith`.
@@ -307,7 +307,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): print the guide of the next phase with cstack next`
 - Depends on: 1, 2, 3, 4
 
-### Unit 6: Close a phase with cstack next --done — status: todo
+### Unit 6: Close a phase with cstack next --done — status: done
 - Files: `cstack/src/commands/next.ts`, `cstack/test/next.test.ts`
 - Failing test: in `cstack/test/next.test.ts`, write first `cstack next --done briefing` on a run where `document` is not done: it exits with `1` and names `document`. Then cover every acceptance line of the ticket for `--done`. `--done ticket --plan docs/plans/x.md` creates the run folder under the common git folder, writes `Written by: cstack <the version of cstack/package.json>`, and prints only the run line and the `dependencies` guide. `--done ticket` without `--plan` exits with `2`. `--done plan` exits with `1` and names the open question, and it also exits with `1` when the Status is not `approved`. Otherwise it writes `Approved at` with an offset and prints the line about the executor and no guide text. `--done ready` writes the Status and `Ready for review at`, keeps every other line byte for byte, and prints the line about the main conversation. A linked worktree joins the run with `--plan` and marks `build` done, and the main worktree then sees `build` as done. With ten `.md` files directly in `docs/retros/` and three in `docs/retros/reviewed/`, `--done retro` prints the "Digest due" notice, and with nine it prints none. Also test these rules of "Decisions": after `--done ready` on a run whose `retro` was done earlier, the line names `retro` in the main conversation. `--done retro` says that `publish` runs in the executor when `ready` is done, and that the run stopped otherwise. `--done publish` says that the run is finished. A second `--done plan` says "plan is already done." and leaves `Approved at` unchanged. `--done questions` with an open question prints "questions is done." and exits with `1` because `plan` cannot start. After the whole sequence, `git status --porcelain` lists only the plan file, and `git diff` changes only its header lines. Fix the clock with the `now` option.
 - Minimum code: the `--done` path of `cstack/src/commands/next.ts`, with the header writes through `setHeaderValues` and `localTime`, the write order of "Decisions", the one-line messages and the digest count. Add a `WHY:` comment on the write order.
@@ -315,7 +315,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): close a phase with cstack next --done`
 - Depends on: 5
 
-### Unit 7: Register cstack next in the command list and the command line — status: todo
+### Unit 7: Register cstack next in the command list and the command line — status: done
 - Files: `cstack/src/manifest.ts`, `cstack/src/cli.ts`, `cstack/test/cli.test.ts`, `cstack/test/manifest.test.ts`, `README.md`
 - Failing test: in `cstack/test/manifest.test.ts`, the count becomes eleven built commands and four that are not built. In `cstack/test/cli.test.ts`, the example of a command that is not built becomes the first entry of `COMMANDS` that is not built, skipped when there is none, and a new case checks that `run(["next", "--phase", "deploy"], io)` exits with `2` and lists the phase names.
 - Minimum code: set `built: true` on the entry of `cstack next` in `cstack/src/manifest.ts`. Add one import and one line to `HANDLERS` in `cstack/src/cli.ts`: `next: (args, io) => next(args, io, { cwd: process.cwd(), packageRoot })`. In `README.md`, change "ten commands" to "eleven commands" and add one bullet for `cstack next`, in plain sentences.
@@ -323,7 +323,7 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 - Commit message: `feat(cli): register cstack next`
 - Depends on: 6
 
-### Unit 8: Tell each side what to do when the run line names the other place — status: todo
+### Unit 8: Tell each side what to do when the run line names the other place — status: done
 - Files: `cstack/skills/resolve-issue/SKILL.md`, `cstack/skills/resolve-issue/agents/executor.md`, `cstack/test/prompts.test.ts`
 - Failing test: in `cstack/test/prompts.test.ts`, the executor prompt has a sentence that tells the executor not to follow a guide whose run line says "in the main conversation", and the short skill has a sentence that tells the main conversation not to follow a guide whose run line says "in the executor". `cstack/test/skill-size.test.ts` stays green.
 - Minimum code: add the two sentences written in "Decisions", one in each file, in plain words, near the existing lines about `cstack next` (`SKILL.md` around line 20, `executor.md` around line 26).
@@ -343,7 +343,25 @@ Security: there is no endpoint, no database and no secret. The external inputs a
 
 ## Review log
 
+### Impact notes (phase 7)
+
+Graphify is not installed and the wave forbids installing it, so the impact comes from `grep` and the git history. Changed symbols: `guide()` in `cstack/src/commands/guide.ts` (now calls the new `readGuide`), its tests in `cstack/test/guide.test.ts` (they pass unchanged), `HANDLERS` in `cstack/src/cli.ts` and the `next` entry in `cstack/src/manifest.ts` (tests: `cli.test.ts`, `manifest.test.ts`, which were updated). Usual companions of `cli.ts` and `manifest.ts` are `cli.test.ts`, `manifest.test.ts` and `README.md`: all three are in the diff. `docs/projects/skills-into-cli.md` needs no change. The two prose edits keep `prompts.test.ts` and `skill-size.test.ts` green. No `WHY:` or `DECISION:` comment in the changed files conflicts with the change. The full suite passes; one test of `report.test.ts` timed out once at 5 seconds under load and passed on a rerun with a longer timeout.
+
 <phase 7 findings and fixes; phase 8 independent review: fixes and judgment calls>
+
+### Review findings (phase 7)
+
+Four reviewers ran: correctness, security, conventions and simplicity. Security found nothing at 80 or above.
+
+- Fixed: the version reader was copied into `next.ts` (conventions and simplicity reviewers). `cstackVersion` is now exported from `run-state.ts`, and `next.ts` imports it. This is a one-word change in `run-state.ts`. The rule of the wave covers helpers that read or write run folder files, and a version reader is not one.
+- Fixed: the plan file was read three times in one `--done` call (simplicity). It is now read once.
+- Fixed: the header write used `writeFileSync`, which can leave a cut file after a crash (security, below the threshold). It now uses `writeFileAtomic`.
+- Fixed: an executor that resumes after `--done ready` and before its done report would see `retro` in the main conversation and submit a failed report (correctness). `executor.md` now says that when that phase is `retro` and the Status is `ready for review`, it commits the plan file and submits its done report. A code fix in `next.ts` was the other option. It was not taken because it adds a rule that the user did not decide. Follow-up: a plain `cstack next` could print the "runs in the main conversation" line in that case.
+- Not done: merging `markStarted` and `markDone` into one function, and sharing the phase lookup in `runLine`. Each saves about one line.
+
+### Independent review (phase 8)
+
+The independent reviewer found the plan met and changed one thing: the README bullet said that `cstack next` records the start of a phase in the plan, but it goes into `state.json`. It was fixed in commit `71f8b62`. It also noticed that the unit 7 commit had rewritten the usage line of `next` in the manifest, against the rule of the wave. I put the original line back, and `next.ts` prints the same line. Judgment calls for the pull request: `cstackVersion` is exported from `run-state.ts`; after `--done retro` the Digest due notice is not printed when the next phase cannot start or when every phase is done; two plan files with the same name in different folders share one run folder, which comes from #13.
 
 ## Briefing
 
