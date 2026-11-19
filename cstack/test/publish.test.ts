@@ -1,10 +1,12 @@
-import { writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { readPlan } from "../src/plan/read.js";
+import { runFolder } from "../src/run-state.js";
 import { detectForge } from "../src/publish/forge.js";
 import { publish } from "../src/commands/publish.js";
 import { PLAN_PATH, makePublishEnv, type PublishEnv } from "./helpers/publish-env.js";
-import { collect, commitPlan, git } from "./helpers/plan-repo.js";
+import { collect, commitFiles, commitPlan, git } from "./helpers/plan-repo.js";
 
 async function run(env: PublishEnv, args: string[] = []) {
   const { out, io } = collect();
@@ -166,5 +168,112 @@ describe("cstack publish finds the forge", () => {
     const env = makePublishEnv();
     expect(detectForge(env.repo, env.deps.env)).toEqual({ ok: true, kind: "github", host: "github.com", repoArg: "github.com/o/r" });
     expect(env.calls().map((c) => c.program)).toEqual(["gh"]);
+  });
+});
+
+describe("cstack publish pushes once and opens the pull request on GitHub", () => {
+  const LINK = "https://github.com/o/r/pull/7";
+  const branchRef = "refs/heads/gambitl/units";
+  const head = (env: PublishEnv) => git(env.repo, "rev-parse", "HEAD");
+  const record = (env: PublishEnv) =>
+    JSON.parse(readFileSync(join(runFolder(env.repo, PLAN_PATH), "publish.json"), "utf8"));
+  const creates = (env: PublishEnv) => env.calls().filter((c) => c.program === "gh" && c.args.slice(0, 2).join(" ") === "pr create");
+  const created = { "gh pr create": { stdout: `Creating pull request\n${LINK}\n` } };
+
+  it("makes one push, creates the pull request once and records both", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toEqual([`${branchRef} ${head(env)}`]);
+    const plan = readPlan(readFileSync(join(env.repo, PLAN_PATH), "utf8"));
+    expect(creates(env)).toHaveLength(1);
+    const args = creates(env)[0].args;
+    expect(args).toEqual(expect.arrayContaining(["--base", "main", "--head", "gambitl/units", `--title=${plan.pullRequest!.title}`]));
+    expect(env.bodies()).toEqual([plan.pullRequest!.body]);
+    for (const c of env.calls().filter((c) => c.program === "gh" && c.args[0] === "pr")) {
+      expect(c.args.join(" ")).toContain("--repo github.com/o/r");
+    }
+    expect(record(env)).toMatchObject({ pullRequest: LINK, pushes: [{ commit: head(env) }] });
+    expect(out.stdout).toContain(LINK);
+  });
+
+  it("opens no second pull request after a new commit, and pushes once more", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    await run(env, ["--grace", "0"]);
+    commitFiles(env.repo, ["a.txt"]);
+    env.scenario({ "gh pr list": { stdout: JSON.stringify([{ url: LINK, headRefOid: "x", isCrossRepository: false }]) } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(creates(env)).toHaveLength(1);
+    expect(env.pushes()).toHaveLength(2);
+    expect(record(env).pushes).toHaveLength(2);
+    expect(record(env).pullRequest).toBe(LINK);
+  });
+
+  it("makes no push when nothing is new", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    await run(env, ["--grace", "0"]);
+    env.scenario({ "gh pr list": { stdout: JSON.stringify([{ url: LINK, headRefOid: "x", isCrossRepository: false }]) } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+  });
+
+  it("never forces a push when the remote branch has a commit that the local branch lacks", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    git(env.repo, "checkout", "-q", "-b", "other", "main");
+    commitFiles(env.repo, ["other.txt"]);
+    git(env.repo, "push", "-q", "origin", `other:${branchRef}`);
+    git(env.repo, "checkout", "-q", "gambitl/units");
+    const before = env.pushes().length;
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("never forces a push");
+    expect(env.pushes()).toHaveLength(before);
+    expect(creates(env)).toHaveLength(0);
+  });
+
+  it("passes a hostile title and a body with backticks byte for byte, and runs no shell", async () => {
+    const env = makePublishEnv({
+      plan: (t) => t.replace("Title: feat(cli): read the plan file", "Title: x $(touch pwned) `id`").replace("It reads the plan.", "Body `touch pwned2` $(touch pwned3)"),
+    });
+    env.scenario(created);
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(creates(env)[0].args).toContain("--title=x $(touch pwned) `id`");
+    expect(env.bodies()[0]).toContain("Body `touch pwned2` $(touch pwned3)");
+    for (const f of ["pwned", "pwned2", "pwned3"]) expect(existsSync(join(env.repo, f))).toBe(false);
+  });
+
+  it("never pushes a tag, even with push.followTags", async () => {
+    const env = makePublishEnv();
+    env.scenario(created);
+    git(env.repo, "tag", "v9.9.9");
+    git(env.repo, "config", "push.followTags", "true");
+    await run(env, ["--grace", "0"]);
+    expect(env.pushes()).toEqual([`${branchRef} ${head(env)}`]);
+  });
+
+  it("ignores a pull request from another repository", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...created, "gh pr list": { stdout: JSON.stringify([{ url: "https://github.com/o/r/pull/1", headRefOid: "x", isCrossRepository: true }]) } });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(creates(env)).toHaveLength(1);
+    expect(out.stdout).toContain(LINK);
+  });
+
+  it("gives 5 when the pull request cannot be created, and keeps the push on record", async () => {
+    const env = makePublishEnv();
+    env.scenario({ "gh pr create": { code: 1, stderr: "boom https://user:tok@github.com/x\n" } });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(5);
+    expect(out.stderr).toContain("boom");
+    expect(out.stderr).not.toContain("tok@");
+    expect(record(env)).toMatchObject({ pullRequest: "", pushes: [{ commit: head(env) }] });
   });
 });

@@ -3,8 +3,11 @@ import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan, type PlanRead } from "../plan/read.js";
-import { detectForge } from "../publish/forge.js";
+import { pushBranch, PublishFailure } from "../publish/branch.js";
+import { createGithubPullRequest, detectForge, findGithubPullRequest } from "../publish/forge.js";
+import { readPublishRecord, writePublishRecord } from "../publish/record.js";
 import { runProgram } from "../publish/program.js";
+import { runFolder, type PublishRecord } from "../run-state.js";
 import { readSettings, SettingsError } from "../settings.js";
 import { failWith } from "./errors.js";
 
@@ -24,6 +27,9 @@ export const defaultPublishDeps = (): PublishDeps => ({
   sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   now: () => Date.now(),
 });
+
+const summary = (record: PublishRecord, madeNow: number) =>
+  `Pull request: ${record.pullRequest === "" ? "none yet" : record.pullRequest}\nPushes: ${record.pushes.length} in total, ${madeNow} by this run.\n`;
 
 const WHOLE = /^\d+$/;
 
@@ -116,9 +122,37 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
       io.stderr(`cstack publish: nothing was pushed.\n${forge.reasons.map((r) => `- ${r}\n`).join("")}`);
       return 4;
     }
-    // The next units add the update of the branch, the push and the wait for the checks here.
-    io.stderr("cstack publish: the rules pass, but the push is not built yet. Nothing was pushed.\n");
-    return 5;
+    if (forge.kind !== "github") {
+      io.stderr("cstack publish: the GitLab path is not built yet. Nothing was pushed.\n");
+      return 5;
+    }
+    const options = { cwd: located.root, env: deps.env };
+    const folder = runFolder(located.root, located.relative);
+    const record = readPublishRecord(folder) ?? { pullRequest: "", pushes: [] };
+    let madeNow = 0;
+    try {
+      const pushed = pushBranch(plan.header.Branch, options);
+      if (pushed !== undefined) {
+        record.pushes.push({ commit: pushed, time: new Date(deps.now()).toISOString() });
+        writePublishRecord(folder, record);
+        madeNow += 1;
+      }
+      const found = findGithubPullRequest(forge, plan.header.Branch, options);
+      record.pullRequest =
+        found ??
+        createGithubPullRequest(
+          forge,
+          { branch: plan.header.Branch, target: plan.header["Target branch"], title: plan.pullRequest!.title, body: plan.pullRequest!.body },
+          options,
+        );
+      writePublishRecord(folder, record);
+    } catch (error) {
+      if (!(error instanceof PublishFailure)) throw error;
+      io.stderr(`cstack publish: ${error.message}\n${summary(record, madeNow)}`);
+      return error.exitCode;
+    }
+    io.stdout(`${record.pullRequest}\n${summary(record, madeNow)}`);
+    return 0;
   } catch (error) {
     if (error instanceof SettingsError) {
       io.stderr(`cstack publish: ${error.message}\n`);
