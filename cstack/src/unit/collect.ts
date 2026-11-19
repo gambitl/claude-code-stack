@@ -2,7 +2,10 @@ import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { Io } from "../io.js";
-import { readRecord, type HelperRecord } from "../helper/record.js";
+import { readRecord, updateRecord, type HelperRecord } from "../helper/record.js";
+import { callOrca } from "../orca/call.js";
+import { parseAnswer } from "../orca/answer.js";
+import type { Runner } from "../orca/run.js";
 import { listUnitCommits, listCommitFiles } from "../plan/commits.js";
 import type { LocatedPlan } from "../plan/locate.js";
 import type { PlanRead, PlanUnit } from "../plan/read.js";
@@ -14,22 +17,30 @@ function git(cwd: string, args: string[]) {
   return { ok: r.status === 0, stdout: r.stdout ?? "", stderr: (r.stderr ?? "").trim() };
 }
 
+interface Touched {
+  number: number;
+  collected: boolean;
+}
+
 const nulList = (text: string) => text.split("\0").filter((s) => s !== "");
 
-/** The latest helper record of a unit, or nothing. It is the newest start, and the id breaks a tie. */
-function latestRecord(folder: string, unit: number): HelperRecord | undefined {
+function recordsOf(folder: string, unit: number): HelperRecord[] {
   let names: string[];
   try {
     names = readdirSync(join(folder, "helpers")).filter((name) => name.endsWith(".json"));
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined;
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
   }
   return names
     .map((name) => readRecord(folder, name.slice(0, -".json".length)))
     .filter((record) => record.unit === unit)
-    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt) || (a.id < b.id ? -1 : 1))
-    .at(-1);
+    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt) || (a.id < b.id ? -1 : 1));
+}
+
+/** The latest helper record of a unit, or nothing. It is the newest start, and the id breaks a tie. */
+function latestRecord(folder: string, unit: number): HelperRecord | undefined {
+  return recordsOf(folder, unit).at(-1);
 }
 
 /** The reason why a commit cannot be applied for a unit, or nothing when it can. */
@@ -59,7 +70,13 @@ function commitProblem(root: string, unit: PlanUnit, hash: string): string | und
 // because it would add one commit per unit that carries no change of its own.
 // All the commits of one unit go in one cherry-pick call, so that `git cherry-pick --abort`
 // puts the branch back to where it was before that unit.
-export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io): number {
+function applyUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io): { code: number; touched: Touched[] } {
+  const touched: Touched[] = [];
+  const code = applyInto(located, plan, numbers, io, touched);
+  return { code, touched };
+}
+
+function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, touched: Touched[]): number {
   const root = located.root;
   const branch = git(root, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim();
   if (branch !== plan.header["Branch"]) {
@@ -85,6 +102,7 @@ export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: numb
       continue;
     }
     if ((listUnitCommits(root, plan.header["Target branch"]).units[number] ?? []).length > 0) {
+      touched[touched.length] = { number, collected: true };
       skip(number, "the ticket branch already has a commit of this unit");
       continue;
     }
@@ -93,6 +111,7 @@ export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: numb
       skip(number, "its helper has not reported");
       continue;
     }
+    touched[touched.length] = { number, collected: false };
     if (report.kind === "stuck") {
       skip(number, "its helper reported stuck");
       continue;
@@ -124,7 +143,72 @@ export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: numb
       );
       return 1;
     }
+    touched[touched.length - 1]!.collected = true;
     io.stdout(`Unit ${number}: applied ${commits.length === 1 ? "1 commit" : `${commits.length} commits`}.\n`);
   }
   return 0;
+}
+
+/** Calls Orca and says whether it answered ok. */
+async function orcaOk(run: Runner, env: Record<string, string | undefined>, args: string[]): Promise<boolean> {
+  const result = await callOrca(run, env, args);
+  return result.kind === "ok" && parseAnswer(result)?.["ok"] !== false;
+}
+
+export interface CollectOrca {
+  run: Runner;
+  env: Record<string, string | undefined>;
+  now?: () => Date;
+}
+
+// WHY: the commits are on the ticket branch after the collect, so the workers are done and the clean child worktrees are no use.
+// The child branch always stays, and no force is used, so nothing that is not applied is lost.
+async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: CollectOrca): Promise<number> {
+  const folder = runFolder(located.root, located.relative);
+  let dirtyFound = false;
+  let orcaFailed = false;
+  for (const { number, collected } of touched) {
+    const latest = latestRecord(folder, number);
+    if (!latest?.worktree) continue;
+    for (const record of recordsOf(folder, number)) {
+      if (record.worktree?.path !== latest.worktree.path || record.released || !record.dispatchId) continue;
+      if (await orcaOk(orca.run, orca.env, ["orchestration", "worker-release", "--dispatch", record.dispatchId])) {
+        updateRecord(folder, record.id, { released: true });
+      } else {
+        orcaFailed = true;
+        io.stderr(`Unit ${number}: Orca could not release the worker ${record.dispatchId}.\n`);
+      }
+    }
+    if (!collected || latest.collectedAt) continue;
+    const path = latest.worktree.path;
+    const status = git(path, ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"]);
+    if (!status.ok) {
+      orcaFailed = true;
+      io.stderr(`Unit ${number}: git cannot read the child worktree ${path}: ${status.stderr}\n`);
+      continue;
+    }
+    const dirty = nulList(status.stdout).map((entry) => entry.slice(3)).filter((file) => file !== located.relative);
+    if (dirty.length > 0) {
+      dirtyFound = true;
+      io.stderr(`Unit ${number}: the child worktree ${path} was kept, because it has uncommitted changes: ${dirty.join(", ")}.\n`);
+      continue;
+    }
+    if (await orcaOk(orca.run, orca.env, ["worktree", "rm", "--worktree", `path:${path}`])) {
+      updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
+      io.stdout(`Unit ${number}: the child worktree ${path} was removed. Its branch stays.\n`);
+    } else {
+      orcaFailed = true;
+      io.stderr(`Unit ${number}: Orca could not remove the child worktree ${path}.\n`);
+    }
+  }
+  return dirtyFound ? 1 : orcaFailed ? 5 : 0;
+}
+
+/** Applies the commits, as before. With an Orca runner, it then releases the workers and removes the clean child worktrees. */
+export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io): number;
+export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, orca: CollectOrca): Promise<number>;
+export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, orca?: CollectOrca): number | Promise<number> {
+  const { code, touched } = applyUnits(located, plan, numbers, io);
+  if (!orca) return code;
+  return cleanUp(located, touched, io, orca).then((after) => (code !== 0 ? code : after));
 }

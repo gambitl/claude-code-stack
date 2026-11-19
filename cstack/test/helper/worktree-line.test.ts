@@ -1,10 +1,12 @@
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { unitCollect } from "../../src/commands/unit-collect.js";
+import { saveUnitReport } from "../../src/report/reports.js";
 import { helperStart } from "../../src/commands/helper-start.js";
 import type { Runner } from "../../src/orca/run.js";
 import { runFolder, readCurrentRun } from "../../src/run-state.js";
-import { collect, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
+import { collect, commitFiles, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
 
 const PKG = join(import.meta.dirname, "..", "..");
 const fixtures = join(PKG, "test", "fixtures", "orca", "1.4.263");
@@ -60,5 +62,20 @@ describe("the Worktree line of a child worktree", () => {
     expect(record.worktree).toEqual({ path: child, branch: `child/${name}` });
     expect(readCurrentRun(child)).toBe("full.md");
     expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
+  });
+
+  it("keeps the line in the plan after the collect and the removal of the child worktree", async () => {
+    const t = setup();
+    expect(await t.run(["implementer", "--unit", "2", "--plan", PLAN, "--child-worktree"])).toBe(0);
+    const args = t.starts()[0]!.args;
+    const child = realpathSync(`${t.dir}-child-${args[args.indexOf("--name") + 1]}`);
+    const id = t.out.stdout.split("\n")[0]!;
+    const file = /### Unit 2[\s\S]*?- Files: `([^`]+)`/.exec(full)![1]!;
+    commitFiles(child, [file], 2);
+    saveUnitReport({ root: t.dir, planFile: PLAN }, 2, { kind: "done", text: "ok", helper: id });
+    const { io } = collect();
+    const run: Runner = async () => ({ kind: "ok", stdout: '{"ok":true}' });
+    expect(await unitCollect(["2", "--plan", PLAN], io, { cwd: t.dir, orca: { run, env: {} } })).toBe(0);
+    expect(readFileSync(join(t.dir, PLAN), "utf8").split("### Unit 2")[1]).toContain(`- Worktree: ${child}`);
   });
 });
