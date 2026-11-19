@@ -395,11 +395,13 @@ The ticket turns a milestone into `--project <name>`, but `create-tickets` puts 
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The worktree had no `node_modules`, so `npm run typecheck` failed with "Cannot find type definition file for 'node'" in unit 3. I ran `npm ci` in `cstack/` and it passed.
+- Several implementers wrote the code before the red run, so they moved the source aside to get a real red run (units 4, 6, 8, 9).
+- The first full `npm test` run showed 1 failed test out of 873 while it ran next to other work. A second and a third run passed all 873. I did not find the cause.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-19, executor, phase build: added the label `in progress` to ticket 25 (GitHub has no state field), committed the plan file, and built units 1 to 9 in five batches. Typecheck and the whole suite pass (873 tests).
 
 ## History
 
