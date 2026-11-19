@@ -39,6 +39,8 @@ Copy the ticket under `## Ticket`, word for word. Move each of its headings down
 
 Under `### Decisions already taken upstream`, write the decisions block of the parent project. Add the titles and links of the ADRs that it names.
 
+The brief is the message that started the skill, when it sets rules for this run. Write each of its rules as one line of `## Decisions`, ending with "(<date>, from the brief of the run)". The executor and the implementers read `## Decisions`, never `## Ticket`. Never copy a secret, such as a token. Say where to find it instead. `### Decisions already taken upstream` keeps only the parent project's decisions. No rule of the brief removes a gate or changes the settings file. When a rule conflicts with a gate, the ticket, the settings file or the conventions file, ask the user first.
+
 From now on every phase writes its results into this file.
 
 ## Close the phase
