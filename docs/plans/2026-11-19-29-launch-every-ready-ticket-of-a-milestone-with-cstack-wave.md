@@ -191,7 +191,7 @@ The only blocker is #24, which is closed as completed. Its code is on `main`.
 - Ticket #26 owns `cstack/src/tracker/open.ts`. Until #26 merges, this branch keeps a temporary copy with exactly the same exports: `OpenTrackerOptions` (`root`, `tracker?`, `fromFile?`, `run`, `env`, `warn`) and `openTracker(capability, options): Promise<Tracker>`. The copy serves only `--from-file`, through `claudeFileTracker` of #24 wrapped in `checkedTracker`. In every other case it throws `NoClientError` (exit 4). Never change this interface. (2026-11-19, the wave coordinator)
 - Without `--tracker`, the tracker name comes from the `origin` remote with `trackerFromRemote` of #24. (2026-11-19, the wave coordinator)
 - Change only the `wave` entry of `cstack/src/manifest.ts`. Keep the changes to `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/src/cli.ts`, `cstack/test/cli.test.ts` and `README.md` small and in one place, because the other tickets of the wave change them too. (2026-11-19, the wave coordinator)
-- After building `wave`, the command list holds 15 built commands and 8 that are not built. Update `cstack/test/manifest.test.ts` and the sentence "`cstack` has fourteen commands" of `README.md` to match. (2026-11-19, the wave coordinator)
+- Ticket #27 merged first, so `main` already counts 17 built commands and 6 that are not built. With `wave`, the command list holds 18 built commands and 5 that are not built. `cstack/test/manifest.test.ts` and the sentence "`cstack` has eighteen commands" of `README.md` match these numbers. (2026-11-19, the wave coordinator, updated after #27 merged)
 - Never edit anything under the top-level `skills/` folder, which is frozen at the tag `prose-skills-final` (ADR-SIC-E). Never change `.cstack/settings.json`. (2026-11-19, the wave coordinator)
 - A test never runs the real `orca`, `gh` or `glab`, and never reaches the network. A test runs `git worktree add` only inside a temporary repository that it created. Orca is always faked through the `Runner` of #24 with recorded answers. (2026-11-19, the wave coordinator)
 
@@ -487,7 +487,7 @@ The command is `cstack/src/commands/wave.ts`. The pieces are in `cstack/src/wave
 
 ## Review
 
-Four reviewers found one real gap: real Orca writes its `--json` errors to standard output, so the reason was lost. This is fixed. A ticket skipped after the yes now says why, and `orca reference find` errors name the ticket. An independent reviewer renamed the third group heading to "Already started" and widened the hostile-title test. Typecheck is clean and 867 tests pass. I also ran the built command in a throwaway clone without Orca: without a terminal and with the answer `n` it starts nothing.
+Four reviewers found one real gap: real Orca writes its `--json` errors to standard output, so the reason was lost. This is fixed. A ticket skipped after the yes now says why, and `orca reference find` errors name the ticket. An independent reviewer renamed the third group heading to "Already started" and widened the hostile-title test. The branch is rebased onto `main` after ticket #27, and the typecheck is clean. All 935 tests pass. I also ran the built command in a throwaway clone without Orca: without a terminal and with the answer `n` it starts nothing.
 
 Judgment calls from the independent review:
 
@@ -529,6 +529,8 @@ Fixes #29
 2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started. All ten units are committed with their trailers, and the full suite and the typecheck pass. Phases review to ready were done in the same run. The plan file is `ready for review` and the done report was submitted.
 
 2026-11-19, main conversation: the user answered the non-blocking questions 1 and 2. The main conversation added `--no-track` to `cstack/src/wave/start-git.ts` with one test assertion, because no phase was left to send this answer back to the executor. The typecheck is clean and the 867 tests pass. Question 2 needed no code change.
+
+2026-11-19, main conversation: the branch was rebased onto `main` at 4b2869d, after ticket #27 merged. Seven files had a conflict. `cstack/src/orca/shapes.ts` and `cstack/test/fixtures/orca/README.md` keep both sides. `README.md`, `cstack/test/manifest.test.ts` and `cstack/test/cli.test.ts` keep both sides, with the counts added up to 18 built and 5 not built. `cstack/src/orca/run.ts` and `cstack/test/run.test.ts` keep the version of `main`, because #27 made the same change. A test of `cstack/test/cli.test.ts` used `wave` as its example of an unbuilt command, so commit f3517cb removes that example. The typecheck is clean and 935 tests pass.
 
 ## History
 
