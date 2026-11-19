@@ -38,3 +38,12 @@ export function readUnitStatus(root: string, files: string[]): { entries: UnitFi
     });
   return { entries };
 }
+
+/** The text that tells the implementer how to start unit <n> again. Three refusals use it. */
+export function restartText(n: number): string {
+  return (
+    `If you made these changes yourself in this unit, discard them. Use \`git restore -- <file>\` for a changed or deleted file, and delete a new file. ` +
+    `Then run \`cstack unit red ${n}\` again, and write the code only after it saved the failure. ` +
+    `If you did not make these changes, they may be the work of another unit, so do not discard them. Report the unit as stuck with this message.`
+  );
+}

@@ -2,6 +2,7 @@ import type { Io } from "../io.js";
 import { readSavedRun } from "../saved-runs.js";
 import { runTests, testScript } from "../test-run.js";
 import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { restartText } from "../unit-files.js";
 import { deletePassingRun, savePassingRun, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
@@ -27,7 +28,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const script = testScript(commands, testFile);
   if (!saved || saved.command !== script || saved.testFile !== testFile) {
     io.stderr(
-      `${prefix}The test command changed since the failing run of unit ${unit.number}. Set the code aside, run \`cstack unit red ${unit.number}\` again, then bring the code back.\n`,
+      `${prefix}The test command changed since the failing run of unit ${unit.number}. ${restartText(unit.number)}\n`,
     );
     return 1;
   }
