@@ -452,6 +452,11 @@ The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills insta
 
 ## Documentation
 
+- Comment on issue #26: https://github.com/gambitl/claude-code-stack/issues/26#issuecomment-7011551533
+- Comment on issue #31, which this ticket feeds: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7011552148
+- `README.md` (Unit 15), `cstack/test/fixtures/gh/2.101.0/README.md` (Unit 1) and `cstack/test/fixtures/glab/1.119.0/README.md` (Unit 2), on the branch.
+- No new decision record and no change to the specification page, as "Documentation duties" says. The `WHY: ADR-SIC-F` comments of the adapters already name the record.
+
 ## Executor notes
 
 - Unit 11 stopped stuck because `cstack/test/cli.test.ts` was not in its `Files` line. I added it to units 11, 12 and 13 and relaunched with the escalation agent, which finished it.
