@@ -69,13 +69,18 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
     }),
 };
 
-export async function run(args: string[], io: Io = processIo): Promise<number> {
+/** `commands` decides which commands are not built yet. Tests pass their own list. */
+export async function run(
+  args: string[],
+  io: Io = processIo,
+  commands: CommandEntry[] = COMMANDS,
+): Promise<number> {
   const first = args[0];
   if (first === undefined) {
     io.stderr(USAGE);
     return EXIT.usage;
   }
-  const refusal = unbuiltRefusal(args);
+  const refusal = unbuiltRefusal(args, commands);
   if (refusal !== undefined) {
     io.stderr(`cstack: ${refusal}\n`);
     return EXIT.refused;

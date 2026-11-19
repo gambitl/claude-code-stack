@@ -3,7 +3,7 @@ import { homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { HANDLERS, dispatchSubcommand, run } from "../src/cli.js";
-import { COMMANDS, commandWords } from "../src/manifest.js";
+import { COMMANDS, type CommandEntry, commandWords } from "../src/manifest.js";
 import type { Io } from "../src/io.js";
 
 function collect() {
@@ -101,11 +101,20 @@ describe("run", () => {
     }
   });
   it("answers that a command of the list is not built yet, with exit code 1", async () => {
-    const builtWords = new Set(COMMANDS.filter((e) => e.built).map((e) => commandWords(e)[0]));
-    const notBuilt = COMMANDS.find((e) => !e.built && !builtWords.has(commandWords(e)[0]));
-    if (notBuilt === undefined) return;
+    // Its own list, so the case keeps testing the message once every real command is built.
+    const commands: CommandEntry[] = [
+      {
+        usage: "cstack frobnicate",
+        summary: "A command that no ticket builds.",
+        flags: [],
+        exitCodes: { 0: "The command did its job." },
+        file: "frobnicate.ts",
+        ticket: 999,
+        built: false,
+      },
+    ];
     const { out, io } = collect();
-    const code = await run([commandWords(notBuilt)[0]], io);
+    const code = await run(["frobnicate"], io, commands);
     expect(out.stderr).toContain("not built in this version yet");
     expect(out.stdout).toBe("");
     expect(code).toBe(1);
