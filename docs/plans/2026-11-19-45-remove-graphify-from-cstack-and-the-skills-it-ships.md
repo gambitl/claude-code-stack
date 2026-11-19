@@ -332,6 +332,8 @@ Fixes #45
 
 ## Hand-off log
 
+2026-11-19, run of phases 6 to 10: done. All four units built and committed, both reviews done, the branch is up to date with origin/main (it had not moved), and the ticket and #23 are commented. GitHub issues here have no "in progress" state, so that tracker move was skipped. Nothing was pushed. One non-blocking question is open, written above.
+
 ## History
 
 <!-- How the decisions were reached. Helpers skip this part unless their prompt says otherwise. -->
