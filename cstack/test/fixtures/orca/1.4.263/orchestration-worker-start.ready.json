@@ -1,0 +1,10 @@
+{
+  "ok": true,
+  "result": {
+    "dispatchId": "ctx_000000000001",
+    "taskId": "task_000000000001",
+    "runId": "run_000000000001",
+    "state": "ready",
+    "stage": "input_accepted"
+  }
+}

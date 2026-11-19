@@ -75,6 +75,24 @@ describe("shape check", () => {
   });
 });
 
+describe("orchestration shapes", () => {
+  it("refuses a worker-start answer without a Dispatch id in write mode", () => {
+    const answer = load("orchestration-worker-start.ready.json") as any;
+    delete answer.result.dispatchId;
+    let error: unknown;
+    try {
+      checkShape("orca orchestration worker-start --json", answer, "1.4.263", "write");
+    } catch (e) {
+      error = e;
+    }
+    expect(error).toBeInstanceOf(ShapeError);
+    const message = (error as Error).message;
+    expect(message).toContain("orca orchestration worker-start --json");
+    expect(message).toContain("result.dispatchId");
+    expect(message).toContain("cannot tell whether the change happened");
+  });
+});
+
 describe("versions", () => {
   it("compares as numbers", () => {
     expect(compareVersions("1.4.1000", "1.4.263")).toBeGreaterThan(0);

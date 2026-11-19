@@ -23,6 +23,18 @@ const SHAPES: Record<string, Field[]> = {
     { path: "result.teams", type: "array" },
     { path: "result.meta.workspaceErrors", type: "array" },
   ],
+  "orca orchestration worker-start --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.dispatchId", type: "string" },
+  ],
+  "orca orchestration worker-show --full --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.dispatch.taskId", type: "string" },
+    { path: "result.dispatch.status", type: "string" },
+    { path: "result.observation", type: "object" },
+  ],
+  "orca orchestration send --json": [{ path: "ok", type: "boolean" }],
+  "orca orchestration check --json": [{ path: "ok", type: "boolean" }],
 };
 
 export class ShapeError extends Error {}
