@@ -4,12 +4,11 @@ In this phase you review the whole diff of the branch against its target. The se
 
 ## Impact notes
 
-1. Run `cstack graph ensure`. It brings the code graph up to date. When it exits with `4`, Graphify is missing. Keep its install message for your report, and continue with search and file reads.
-2. For every symbol the branch changed or deleted, run `graphify affected "<symbol>"`. What depends on it outside the diff breaks if the change is wrong. The tests in that list exercise the change. Without the graph, search the code for the callers.
-3. For every changed file, run `git log --full-diff --format= --name-only -n 30 -- <file> | sort | uniq -c | sort -rn`. It lists the files that usually change with it.
-4. Check each outside dependent and each usual companion that the branch left untouched. Fix it or explain why it is fine.
-5. Read the `WHY:` and `DECISION:` comments and the decision records named in the changed files. A conflict with a recorded decision is a finding.
-6. Write the impact notes into the plan file's "Review log".
+1. For every symbol the branch changed or deleted, search the whole repository for its name, including its callers, its tests, fixtures, and mentions inside strings and Markdown files. What depends on it outside the diff breaks if the change is wrong. The tests that you find exercise the change.
+2. For every changed file, run `git log --full-diff --format= --name-only -n 30 -- <file> | sort | uniq -c | sort -rn`. It lists the files that usually change with it.
+3. Check each outside dependent and each usual companion that the branch left untouched. Fix it or explain why it is fine.
+4. Read the `WHY:` and `DECISION:` comments and the decision records named in the changed files. A conflict with a recorded decision is a finding.
+5. Write the impact notes into the plan file's "Review log".
 
 ## Four reviewers
 
