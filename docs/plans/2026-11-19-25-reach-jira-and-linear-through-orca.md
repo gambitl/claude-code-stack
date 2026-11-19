@@ -343,6 +343,24 @@ More cases. `linear-list-issues.truncated.json` is refused. An answer with `meta
 
 More cases. `moveState("EXA-1", "In Review")` runs `linear status set EXA-1 --to In Review --json`, with "In Review" as one argument. The team comes from the answer even when the ticket key has another prefix. `addComment` runs `linear comment add EXA-1 --body-file <path> --json`. A body of 65,001 characters is refused with no call. In `cstack/test/tracker/orca-write-shape.test.ts`, an answer of `linear status set` with no `result.state` gives `WriteShapeError` with exit `5`, and a `comment add` that times out gives exit `5` with the message asking to check the ticket.
 
+### Unit 10: Read the internal id of a Linear epic before listing its children
+- Files: `cstack/src/tracker/linear-orca.ts`, `cstack/test/tracker/linear-orca.test.ts`, `cstack/test/fixtures/orca/1.4.263/linear-issue.epic.json`, `cstack/test/fixtures/orca/README.md`
+- Test: `cstack/test/tracker/linear-orca.test.ts`: `listGroup({epic: "EXA-9"})` first runs `linear issue EXA-9 --relations --json`, then `linear list-issues --parent-id 00000000-0000-0000-0000-000000000009 --json`, and an epic whose `issue.id` is not a UUID stops with exit `5` before the list call.
+- Minimum code: before the list, read the epic with the existing issue read, take `issue.id`, check it against `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$` without case, and pass it to `--parent-id`. An id that does not match throws `TrackerError` with `EXIT.toolFailed`. An answer with no issue throws `RefusedArgumentError` (exit `1`) saying the epic has no sub-issue. Add a hand-written fixture of the epic with a UUID-shaped placeholder id and list it in the README.
+- Refactor: none.
+- Commit message: feat(cli): read the internal id of a Linear epic before listing its children
+- Depends on: 9
+
+More cases: the existing list tests use the epic read. The recorded calls show the key `EXA-9` never reaches `--parent-id`.
+
+### Unit 11: Refuse Orca for Linear when several workspaces are saved
+- Files: `cstack/src/orca/features.ts`, `cstack/test/orca/features.test.ts`, `cstack/test/fixtures/orca/1.4.263/linear-team-list.two-workspaces.json`, `cstack/test/fixtures/orca/README.md`
+- Test: `cstack/test/orca/features.test.ts`: with a hand-written team list holding teams of two workspaces, `orcaFeatures(run, env).get("linear")` says Linear is not available and the reason says how many workspaces Orca has and that cstack cannot choose a workspace on its own.
+- Minimum code: in the `linear` detection, count the distinct workspaces: the `workspace` of each team in `result.teams` plus each `workspace` in `result.meta.workspaceErrors`, told apart by `id`, or by `name` when the `id` is missing. A team without a `workspace` counts as one legacy workspace. Refuse with the same wording as the Jira reason when the count is above one. Keep the existing messages for zero teams.
+- Refactor: none.
+- Commit message: feat(cli): refuse Orca for Linear when several workspaces are saved
+- Depends on: none
+
 ## Documentation duties
 
 - The fixture README `cstack/test/fixtures/orca/README.md`: applies, written in units 1 and 2. It says which answers were written by hand and from which Orca code.
