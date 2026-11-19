@@ -7,7 +7,8 @@ Documentation tool: docs/ folder (specification page `docs/projects/skills-into-
 Branch: gambitl/publish-one-push
 Target branch: main
 Conversation language: French
-Status: in progress
+Status: ready for review
+Ready for review at: 2026-11-19T10:23:55+01:00
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
@@ -366,6 +367,45 @@ Phase 9: `origin/main` had moved by 49 commits. It was merged in with a merge co
 
 ## Briefing
 
+### What you should know about what was built
+
+I built `cstack publish`. It refuses to publish while the plan is not ready or a blocking question is open. It brings the branch up to date and reruns the tests, pushes once, opens the pull request with `gh` or the merge request with `glab`, and waits for the checks of the pushed commit. Tests cover the four criteria of US-12, with a local bare remote and fake clients. The whole suite passes (691 tests) and typecheck is clean.
+
+**What you need to do**
+
+- **Merge this pull request with "Create a merge commit", not with "Squash and merge".** `cstack measure` reads the author date of each commit of the plan file, and a squash would collapse them into one commit. The repository also allows squash, so the default button may be the wrong one.
+- **Watch the merge order with the pull request that adds `cstack unit red` and `cstack unit green` (#48, ticket #17).** Both add `cstack/src/test-run.ts`. The branch that merges second keeps the copy of ticket #17, deletes the other one, and fixes the command counts in `README.md` and `cstack/test/manifest.test.ts`. I checked it: the 77 publish tests pass with the copy of ticket #17, and typecheck stays clean.
+
+**What to watch**
+
+- "no check ran" ends with exit code `0`. If GitHub takes more than two minutes to register its checks, cstack reports success while nothing was checked. On a repository with CI, read that message as a warning.
+- No call has reached a real forge yet. The first real run will be the end-to-end run (#23). That run will show whether the JSON fields of `glab` (`sha`, `status`, `jobs`, `source_project_id`) are the ones we assumed, because nobody could check them without a GitLab account.
+
+**What changed since the plan**
+
+- With GitLab "merged results pipelines", the code does not end with exit code `7`, as the question left for the maintainer said. It ends with `0` and "no check ran", which is a false success. I corrected the text of that question.
+- After the merge of `main`, the repository counts twelve built commands, not eleven as planned.
+
+#### Details
+
+The build matches the plan's scope items 1 to 10 and the recorded decisions. Phase 7 fixed six findings in commit `bbc6482`, and the independent review fixed one more in commit `40979ea`: a new push now drops the checks result of the previous push from `publish.json`. Phase 9 merged `origin/main` (49 commits) with a merge commit, and the suite passed with 691 tests. Acceptance criteria US-12 AC1 to AC4 each have a test in `cstack/test/publish.test.ts`, all against a bare repository and fake `gh`, `glab` and `ssh` programs.
+
+The merge button matters because `cstack/src/measure/moments.ts` (lines 53 and 62) runs `git log --format=%aI -- <plan file>` and `git log --reverse --format="%H %aI" -- <plan file>` to date the moments of a run. A squash replaces the plan file's commits on `main` with one commit, so `cstack measure` would lose every moment of this run. A rebase merge would flatten the merge of `origin/main` and rewrite committer data. Every earlier pull request of this epic was merged with a merge commit (for example #46 and #47), but `gh api repos/gambitl/claude-code-stack` shows that squash and rebase merges are allowed too. If nobody decides, GitHub offers whichever button was used last, which is usually right here but is not guaranteed.
+
+The merge order with #48 follows the wave instruction. Pull request #48 (`gambitl/unit-red-green`, ticket #17) is open and adds its own `cstack/src/test-run.ts`. Its exports are compatible with the copy of this branch: the same `DEFAULT_TEST_TIMEOUT_MS`, `testScript`, an asynchronous `runTests` with the same parameters, and `lastLines`, plus a `MAX_OUTPUT_BYTES` that this branch does not use. Its `TestRun` is a `type` instead of an `interface`, which changes nothing for callers. I checked compatibility in a throwaway worktree of this branch's `HEAD` with the file of `origin/gambitl/unit-red-green` in place: `vitest run` of `publish.test.ts`, `publish-record.test.ts` and `publish-remote.test.ts` gave 77 passed tests, and `tsc --noEmit` was clean. The worktree was then removed. Pull request #49 (removal of Graphify, ticket #45) also touches `README.md`, `cstack/src/manifest.ts` and `cstack/test/manifest.test.ts`, so its counts will conflict too. If this branch merges first, #48 has an add/add conflict on `cstack/src/test-run.ts` and resolves it by keeping its own copy. The phase 7 follow-up about the signal handlers in `test-run.ts` (ADR-SIC-H keeps them for `bin.ts`) then belongs to ticket #17.
+
+"no check ran" with exit code `0` is the one path where cstack can report success without any check. It is what the ticket asked (scope item 8) and what phase 4 confirmed, so I do not reopen it. In `cstack/src/publish/checks.ts`, the grace period starts when the pull request first shows the pushed commit on GitHub, and at the start of the wait on GitLab. When the forge has not registered any check within `--grace` seconds (120 by default), the outcome is `none`, and `cstack/src/commands/publish.ts` maps it to exit code `0`. Under load, GitHub Actions can take more than two minutes to create its check runs. On GitLab, a second publish reads the merge request's head pipeline, which keeps the old commit until the new pipeline exists. The executor's publish guide treats exit code `0` as done, so a slow forge turns into a false success with no human in the loop. I added a non-blocking question for the maintainer, word for word in "Open questions after the build": should cstack exit with `7`, or warn, when the repository holds a CI configuration file? Rejected for now: changing the behaviour in this ticket, because it would change a scope item that the user confirmed.
+
+No call of this branch has reached a real forge, by the wave rule that forbids running `cstack publish` on any real repository. The `gh` flags and JSON fields were checked against `gh --help` and real read-only calls in phase 4. The `glab` side rests on its help text and on strings read from the `glab` 1.119.0 binary. The fields `sha`, `status`, `web_url` and `jobs` of `glab ci get --output json`, and `source_project_id`, `target_project_id` and `web_url` of `glab mr list --output json`, come from the GitLab API objects and were never seen in real output. If one of them is named differently, `findGitlabMergeRequest` would find no merge request and create a second one, or `readGitlabChecks` would never match the pushed commit and end with "no check ran". The end-to-end run and release of the new skill (#23) is the first place where this can show. A GitLab run there is worth more than a second GitHub run.
+
+The GitLab merged results case ends differently from what the third phase 4 question said. `readGitlabChecks` in `cstack/src/publish/forge.ts` returns an empty list when the pipeline's `sha` differs from the pushed commit. The wait loop therefore sees no check, and after the grace period it returns `none`, so the command ends with exit code `0` and "no check ran". Phase 7 already added a sentence to that message saying that merged results pipelines are not recognised, which matches the code. I corrected the question in "Open questions after the build" so that the maintainer reads the real behaviour: a false success, not a timeout. It stays non-blocking, because merged results pipelines are a paid GitLab feature and the default setup works.
+
+The command count changed from the plan's eleven built and four not built to twelve built and twelve not built, because `origin/main` gained commands and a new command list while this branch was open. `README.md` and `cstack/test/manifest.test.ts` were updated in the merge commit `539229a`.
+
+The earlier questions stand as follows. The build resolves questions 1 to 7 and 10 to 12 of phase 4, each as it was answered. Without `testCommands`, cstack pushes and prints one line of warning. Failed tests after an update keep the update and write `publish-tests.json`. The open pull request is found with `gh pr list`, with the fork filter and `--repo`. The command refuses when both branch lines match. It waits for every check and applies the grace rule. It reads `gh pr checks` by its output, and it reads the "no pipeline" messages of `glab`. It reads the pipeline with `glab ci get --merge-request`. It removes credentials through `redact`, and it falls back on `ssh -G` for an SSH alias. Questions 8, 9 and 13 stay open and non-blocking, and question 13 now has the corrected text. One new non-blocking question was added, about "no check ran" on a repository with CI. No new blocking question appeared.
+
+I checked security, data model lock-in, scale and performance, operations and cost, and reversibility, and found nothing new. `publish.json` keeps its type. The polling makes at most about 240 client calls over 30 minutes, far below the GitHub rate limit. The body file sits in a private temporary folder, and nothing here is hard to undo.
+
 ## Open questions after the build
 
 ### Blocking
@@ -378,17 +418,76 @@ These three come from phase 4. The user saw them on 2026-11-19 and agreed that t
 
 - For the maintainer, later: when a branch was pushed by hand before `cstack publish` (for example the evidence push that a decision may ask for) and nothing new was committed since, `cstack publish` makes no push, so `publish.json` has no push and `cstack report submit published` refuses. Should `cstack publish` record the remote head as a push in that case? Today the retrospective commit always comes after such a push, so the case does not happen in a normal run.
 - For the maintainer, later: with `integration: rebase`, a branch that holds a merge of its target branch (as this wave asks each ticket to do) can hit the same conflicts again when `git rebase` flattens that merge, and `cstack publish` then exits with `8`. Should `cstack publish` use `git rebase --rebase-merges`, or refuse to rebase a branch that holds merge commits?
-- For the maintainer, later: with GitLab "merged results pipelines", the merge request pipeline runs on a temporary merge commit, so its `sha` is not the pushed commit and `cstack publish` would end with exit code `7`. Should a later ticket match the pipeline through the merge request instead? Nobody could check it without a GitLab account.
+- For the maintainer, later: with GitLab "merged results pipelines", the merge request pipeline runs on a temporary merge commit, so its `sha` is not the pushed commit. `cstack publish` then never sees a pipeline for the pushed commit, and after the grace period it ends with exit code `0` and "no check ran", while a real pipeline is running and may fail. Should a later ticket match the pipeline through the merge request instead? Nobody could check it without a GitLab account.
+- For the maintainer, later: `cstack publish` ends with exit code `0` and "no check ran" when no check shows up within the grace period (120 seconds by default). On a repository that has `.github/workflows/` or `.gitlab-ci.yml`, that result most likely means the checks were slow to register, not that none exist. Should `cstack publish` exit with `7` instead of `0` in that case, or at least print a warning?
 
 ## Pull request
 
+Title: feat(cli): add cstack publish, which pushes once and waits for the checks
+
+````markdown
+## What this adds
+
+`cstack publish` publishes the branch of a plan with one push, on GitHub and on GitLab. It makes the "push once at the end" rule of the skill something the tool enforces.
+
+The command checks the rules first and lists every broken one at once: no open blocking question, the plan is "ready for review", no uncommitted change to a tracked file, a pull request title and body, and the right branch checked out. If one is broken, it exits with 1 and pushes nothing.
+
+Then it finds the forge from the raw URL of `origin` and a logged-in client, `gh` or `glab`. If the branch is not on the remote yet, it brings the branch up to date with the target branch (rebase or merge, as the `integration` setting says) and runs `testCommands.all`. It pushes once, opens the pull request or merge request only if none exists, and waits for the checks of the pushed commit. It never forces a push and never pushes a tag. Exit codes: 0 passed, 4 no logged-in client, 5 push or forge failure, 6 a check failed, 7 checks still running at the timeout, 8 conflict on update.
+
+## Key decisions
+
+- When the tests fail after the update, the update stays on the branch, nothing is pushed, and a marker file `publish-tests.json` makes the next run test again.
+- The checks are read only after the pull request shows the pushed commit, so an old red check is never reported.
+- On GitHub the pull request is found with `gh pr list --head`. On GitLab the pipeline is read with `glab ci get --merge-request`.
+- Every call that touches the repository names it explicitly, and credentials in a remote URL are removed from anything printed.
+- `cstack/src/test-run.ts` is a temporary copy of the test runner that ticket #17 owns. The copy of #17 replaces it at merge.
+
+## Files
+
+New: `cstack/src/commands/publish.ts`, `cstack/src/publish/` (program, remote, record, forge, branch, checks), `cstack/src/test-run.ts`, and their tests and helper in `cstack/test/`. Small edits: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts` and `README.md`. After merging `main`, the command count is twelve built and twelve not built.
+
+## For the reviewer
+
+Please merge with a merge commit, not a squash, because `cstack measure` reads the author date of each commit. If #17 merges first, keep its `test-run.ts` and fix the command counts.
+
+Judgment calls from the independent review: the grace period of 120 seconds may be short for a slow GitLab runner. Exit 4 on `github.com` names only `gh`, because only `gh` is tried there. The code follows the recorded decisions (`gh pr list --head`, `glab ci get --merge-request`) and not the commands the ticket text names.
+
+Review findings left as follow-ups: `test-run.ts` installs signal handlers, which ADR-SIC-H keeps for `bin.ts`, and ticket #17 should decide on them. The three forge branches in `publish.ts` could become one forge interface. No test touches a real forge, so the GitLab JSON fields were assumed from the `glab` help.
+
+The plan file is `docs/plans/2026-11-19-20-publish-with-one-push-using-cstack-publish.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers. All are for the maintainer, later.
+
+- A branch pushed by hand before `cstack publish` leaves no push in `publish.json`, so `cstack report submit published` refuses. Should the command record the remote head as a push in that case?
+- With `integration: rebase`, a branch that holds a merge of its target can conflict again when git flattens the merge, and the command exits with 8. Should it use `git rebase --rebase-merges`, or refuse to rebase such a branch?
+- With GitLab merged results pipelines, the pipeline runs on a temporary merge commit, so cstack never sees it and ends with 0 and "no check ran" while a real pipeline may fail. Should a later ticket match the pipeline through the merge request?
+- "No check ran" ends with 0. On a repository that has `.github/workflows/` or `.gitlab-ci.yml`, should the command exit with 7 or print a warning instead?
+
+Fixes #20
+````
+
 ## Documentation
 
+- Ticket #20, closing comment: https://github.com/gambitl/claude-code-stack/issues/20#issuecomment-7005030012
+- Ticket #23, hand-down comment: https://github.com/gambitl/claude-code-stack/issues/23#issuecomment-7005030516
+- `README.md`: the command count and the `cstack publish` bullet, committed on the branch (unit 10).
+- No decision record: the plan says none applies, because how cstack reaches forges belongs to ADR-SIC-F, which ticket #24 writes. No page of the specification or the publish guide needed a change.
+
 ## Executor notes
+
+- The first `sed -i` on the plan file failed on macOS (BSD sed needs `-i ''`), and the chain stopped before the Python edit. I redid the edit with Python and amended the unpushed commit.
+- Unit 3 and unit 5 implementers could not show a red test, because the module under test did not exist yet. The unit text asked for a failing test, and a missing import is the only failure possible there.
+- Unit 8 set `testTimeout` to 30 seconds in `cstack/test/publish.test.ts`, because each fake program starts a node process and tests timed out at 5 seconds.
+- Phase 7 reviews found real bugs (rename name cut in the refusal message, lost https port, unredacted test output, dash host), so unit text and tests had missed these edge cases.
+- The merge of `origin/main` conflicted in `cstack/src/cli.ts` and `cstack/test/manifest.test.ts`, as the conventions of the wave predicted. The command counts had to be recomputed by hand (twelve and twelve).
+- The CTO advisor changed the wording of one non-blocking question after finding that the GitLab case ends in a false success, not in exit 7.
 
 ## Hand-off log
 
 - 2026-11-19: phase 6 started. Ticket #20 got the label `in progress` (GitHub has no states). The branch `gambitl/publish-one-push` already existed and is checked out.
+- 2026-11-19 10:24: done report. All ten units done, both reviews done, `main` merged in, ticket comments written on #20 and #23, pull request drafted, no blocking question. Status set to ready for review. Nothing pushed.
 
 ## History
 
