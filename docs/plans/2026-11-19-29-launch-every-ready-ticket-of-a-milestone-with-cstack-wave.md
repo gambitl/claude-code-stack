@@ -383,6 +383,14 @@ Orca 1.4.263 gives a taken branch name a numeric suffix without a word, so the b
 
 ## Review log
 
+### Impact notes (phase review)
+
+- Changed shared symbols: the `wave` entry of `cstack/src/manifest.ts`, the `HANDLERS` map of `cstack/src/cli.ts`, and `SHAPES` in `cstack/src/orca/shapes.ts`. Their tests (`manifest.test.ts`, `cli.test.ts`, `orca/shapes.test.ts`) changed in the same branch and pass. No other file in `cstack/src` names `wave`.
+- Usual companions of `manifest.ts` and `cli.ts` are their two tests and `README.md`. All three changed. `cstack/test/measure.test.ts` also changes with `cli.ts` in past commits. It was not touched, and the full suite passes, so it is fine.
+- `cstack/src/tracker/open.ts` is a temporary copy that ticket #26 owns. Its `WHY:` comment says who deletes it.
+- No decision record is named in the changed files except ADR-SIC-F and ADR-SIC-H, through `WHY:` comments of the tracker files. The command prints through `io` and never calls `process.exit()`.
+- Full suite after the build: 68 test files, 863 tests, and the typecheck is clean.
+
 <phase review findings and fixes; phase independent-review: fixes and judgment calls>
 
 ## Briefing
