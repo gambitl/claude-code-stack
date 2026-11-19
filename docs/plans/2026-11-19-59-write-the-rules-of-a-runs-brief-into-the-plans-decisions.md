@@ -216,7 +216,17 @@ Should the new paragraph forbid copying a secret of the brief into the plan file
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+**Impact notes.** Only `cstack/guides/resolve-issue/ticket.md` (one paragraph) and the new test `cstack/test/guides/brief-rules.test.ts` changed. No symbol changed. The usual companions of the guide are `questions.md` and `plan.md`. Both write into `## Decisions` and do not depend on the wording of the new paragraph. No `WHY:` or `DECISION:` comment is involved. Typecheck passes.
+
+**Correctness.** No finding. The full suite passed (1172 tests).
+
+**Security.** One finding, not fixed. The paragraph forbids copying a secret, but other private text of a brief, such as a client name, would also be pushed with the plan file. A fix needs about 15 more words and the size test leaves 2. The entry skill and the conventions file already carry the public text rule, and the plan records that choice in `## Decisions`. Follow-up: ticket #31 or a later digest can widen the sentence when it makes room.
+
+**Conventions.** No finding. One minor note: the test finds the first paragraph that contains "brief", so an earlier mention in the guide would break it with a misleading message.
+
+**Simplicity.** No finding.
+
+**Fixes.** None, so no fix commit.
 
 ## Briefing
 
