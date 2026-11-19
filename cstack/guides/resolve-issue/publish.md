@@ -12,7 +12,10 @@ Run `cstack publish --plan <plan file>`. It refuses before a push when something
 
 The checks are green.
 
-1. Move the ticket to the tracker's "in review" state, if the forge did not do it already.
+1. Move the ticket to "in review", if the forge did not do it already. Run `cstack tracker move '<key>' --to "in review" --tracker <name>`. Write the key in single quotes. Take `<name>` from the `Tracker:` line of the plan file, in lower case.
+   - If cstack refuses the state name, it prints the names that the tracker accepts. Run the command again with one of those names.
+   - If cstack exits with 1 because a label is missing, it prints the command that creates it. You never create a label. Say in your published report that the ticket could not be moved, and copy the printed command.
+   - If cstack exits with exit code `4`, no client can reach the tracker. Move the ticket with your own connection instead.
 2. Add the pull request link to every decision record written in the `document` and `briefing` phases that lives in a documentation tool. These are edits in that tool, not commits. A record that lives in the repository does not get the link, because that would need another push. The forge and the ticket carry the link for it.
 3. Run `cstack next --done publish --plan <plan file>`.
 4. Submit the report with `cstack helper done published --helper <helper id> --plan <plan file>`.
