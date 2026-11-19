@@ -20,6 +20,32 @@ function listDir(path: string): string[] | undefined {
   }
 }
 
+export type GuideResult = { ok: true; text: string } | { ok: false; message: string };
+
+export function readGuide(packageRoot: string, skill: string, phase: string): GuideResult {
+  const guides = join(packageRoot, "guides");
+  const phases = listDir(join(guides, skill));
+  if (phases === undefined) {
+    const skills = (listDir(guides) ?? []).sort().join(", ");
+    return {
+      ok: false,
+      message: `cstack: this version of cstack has no guides for the skill "${skill}".\nSkills with guides: ${skills}\n`,
+    };
+  }
+  if (!phases.includes(`${phase}.md`)) {
+    const known = phases
+      .filter((file) => file.endsWith(".md"))
+      .map((file) => file.slice(0, -3))
+      .sort()
+      .join(", ");
+    return {
+      ok: false,
+      message: `cstack: unknown phase "${phase}" for the skill "${skill}".\nKnown phases: ${known}\n`,
+    };
+  }
+  return { ok: true, text: readFileSync(join(guides, skill, `${phase}.md`), "utf8") };
+}
+
 export function guide(args: string[], io: Io, options: { packageRoot: string }): number {
   let parsed;
   try {
@@ -39,24 +65,11 @@ export function guide(args: string[], io: Io, options: { packageRoot: string }):
   if (!NAME.test(phase)) return usageError(io, `bad phase name "${phase}"`);
   if (!NAME.test(skill)) return usageError(io, `bad skill name "${skill}"`);
 
-  const guides = join(options.packageRoot, "guides");
-  const phases = listDir(join(guides, skill));
-  if (phases === undefined) {
-    const skills = (listDir(guides) ?? []).sort().join(", ");
-    io.stderr(
-      `cstack: this version of cstack has no guides for the skill "${skill}".\nSkills with guides: ${skills}\n`,
-    );
+  const result = readGuide(options.packageRoot, skill, phase);
+  if (!result.ok) {
+    io.stderr(result.message);
     return 1;
   }
-  if (!phases.includes(`${phase}.md`)) {
-    const known = phases
-      .filter((file) => file.endsWith(".md"))
-      .map((file) => file.slice(0, -3))
-      .sort()
-      .join(", ");
-    io.stderr(`cstack: unknown phase "${phase}" for the skill "${skill}".\nKnown phases: ${known}\n`);
-    return 1;
-  }
-  io.stdout(readFileSync(join(guides, skill, `${phase}.md`), "utf8"));
+  io.stdout(result.text);
   return 0;
 }

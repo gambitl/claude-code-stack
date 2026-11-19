@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { run } from "../src/cli.js";
-import { guide } from "../src/commands/guide.js";
+import { guide, readGuide } from "../src/commands/guide.js";
 import type { Io } from "../src/io.js";
 
 function collect() {
@@ -83,6 +83,49 @@ describe("guide", () => {
     for (const args of [[], ["hello", "extra"], ["hello", "--bogus"]]) {
       const { io } = collect();
       expect(await guide(args, io, { packageRoot })).toBe(2);
+    }
+  });
+});
+
+describe("readGuide", () => {
+  function fixtureRoot(): string {
+    const root = mkdtempSync(join(tmpdir(), "cstack-readguide-"));
+    mkdirSync(join(root, "guides", "resolve-issue"), { recursive: true });
+    writeFileSync(join(root, "guides", "resolve-issue", "ticket.md"), "# Ticket\r\nbytes é\n");
+    return root;
+  }
+
+  it("returns the exact bytes of the guide file", () => {
+    const root = fixtureRoot();
+    try {
+      expect(readGuide(root, "resolve-issue", "ticket")).toEqual({
+        ok: true,
+        text: "# Ticket\r\nbytes é\n",
+      });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lists the known phases for an unknown phase", () => {
+    const root = fixtureRoot();
+    try {
+      const result = readGuide(root, "resolve-issue", "nope");
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.message).toContain("Known phases: ticket");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("lists the skills with guides for an unknown skill", () => {
+    const root = fixtureRoot();
+    try {
+      const result = readGuide(root, "other", "ticket");
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.message).toContain("Skills with guides: resolve-issue");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });
