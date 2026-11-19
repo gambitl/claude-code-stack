@@ -140,15 +140,11 @@ describe("run", () => {
     for (const [args, text] of [
       [["tracker"], "Tickets #25 and #26 build it."],
       [["tracker", "nope"], "Tickets #25 and #26 build it."],
-      [["wave"], "#29"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io), args.join(" ")).toBe(1);
       expect(out.stderr, args.join(" ")).toContain(text);
     }
-    const { out, io } = collect();
-    await run(["wave", "--watch"], io);
-    expect(out.stderr).toContain("#29");
   });
 
   it("uses the singular and the plural correctly when it names tickets", async () => {
