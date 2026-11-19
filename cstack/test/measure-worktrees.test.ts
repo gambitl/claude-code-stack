@@ -98,4 +98,56 @@ describe("cstack measure with child worktrees", () => {
     expect(out.stdout).toContain("input tokens: 111\n");
     expect(code).toBe(0);
   });
+
+  it("adds nothing for a worktree nested inside the repository that the plan does not name", async () => {
+    const { repo, home, plan } = setup();
+    const nested = join(repo, "nested-worktree");
+    git(repo, ["worktree", "add", "-q", "-b", "nested", nested]);
+    const folder = join(home, ".claude/projects/-nested");
+    mkdirSync(folder, { recursive: true });
+    const line = (extra: object) => JSON.stringify({ cwd: nested, timestamp: "2026-03-01T10:30:00.000Z", ...extra });
+    writeFileSync(
+      join(folder, "nested.jsonl"),
+      [
+        line({ type: "user", message: { role: "user", content: "Synthetic question." } }),
+        line({
+          type: "assistant",
+          message: { id: "msg_nested", model: "claude-opus-5-5", usage: { input_tokens: 100000, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 1 }, content: [{ type: "text", text: "Synthetic answer." }] },
+        }),
+      ].join("\n") + "\n",
+    );
+    const { out, code } = await measure(plan, home);
+    expect(out.stdout).toContain("main sessions: 3\n");
+    expect(out.stdout).toContain("input tokens: 111\n");
+    expect(code).toBe(0);
+  });
+
+  it("prints no path, and counts the executor session once", async () => {
+    const { repo, home, plan, child } = setup();
+    const { out } = await measure(plan, home);
+    expect(out.stdout.match(/main sessions: \d+/g)).toHaveLength(1);
+    for (const path of [repo, home, child, tmpdir()]) {
+      expect(out.stdout).not.toContain(path);
+      expect(out.stderr).not.toContain(path);
+    }
+  });
+
+  it("exits with 1 and a fixed sentence without a path when git cannot list the worktrees", async () => {
+    const { repo, home, plan } = setup();
+    const bin = tmp("cstack-wt-bin-");
+    const real = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+    const stub = join(bin, "git");
+    writeFileSync(stub, `#!/bin/sh\nif [ "$1" = "worktree" ]; then echo "fatal: ${repo}" >&2; exit 128; fi\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    const saved = process.env.PATH;
+    process.env.PATH = `${bin}:${saved}`;
+    try {
+      const { out, code } = await measure(plan, home);
+      expect(code).toBe(1);
+      expect(out.stdout).toBe("");
+      expect(out.stderr).toBe("cstack measure: git cannot list the worktrees of the repository.\n");
+      for (const path of [repo, home, bin]) expect(out.stderr).not.toContain(path);
+    } finally {
+      process.env.PATH = saved;
+    }
+  });
 });
