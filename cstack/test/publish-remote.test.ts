@@ -14,12 +14,21 @@ describe("parseRemote", () => {
   it("reads the host and the path of an https URL", () => {
     expect(parseRemote("https://github.com/o/r.git")).toEqual({ host: "github.com", path: "o/r", ssh: false });
   });
-  it("drops the user information and the port", () => {
+  it("drops the user information and keeps the port of an https URL apart from the host", () => {
     expect(parseRemote("https://user:secret@example.org:8443/group/sub/r.git")).toEqual({
       host: "example.org",
+      port: "8443",
       path: "group/sub/r",
       ssh: false,
     });
+  });
+  it("gives no port for an SSH URL, because it is not the port of the web site", () => {
+    expect(parseRemote("ssh://git@example.org:2222/group/r.git")?.port).toBeUndefined();
+  });
+  it("refuses a host that starts with a dash", () => {
+    expect(parseRemote("https://-oProxyCommand/o/r.git")).toBeUndefined();
+    expect(parseRemote("ssh://git@-oProxy/o/r.git")).toBeUndefined();
+    expect(parseRemote("git@-oProxy:o/r.git")).toBeUndefined();
   });
   it("reads an ssh:// URL and flags it as SSH", () => {
     expect(parseRemote("ssh://git@example.org:2222/group/r.git")).toEqual({

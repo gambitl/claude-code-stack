@@ -9,6 +9,7 @@ import {
   createGithubPullRequest,
   createGitlabMergeRequest,
   detectForge,
+  type ForgeKind,
   findGithubPullRequest,
   findGitlabMergeRequest,
   gitlabIid,
@@ -18,6 +19,7 @@ import {
 } from "../publish/forge.js";
 import { readPublishRecord, readTestMarker, removeTestMarker, writePublishRecord, writeTestMarker } from "../publish/record.js";
 import { runProgram } from "../publish/program.js";
+import { redact } from "../publish/remote.js";
 import { runFolder, type PublishRecord } from "../run-state.js";
 import { readSettings, SettingsError } from "../settings.js";
 import { lastLines, runTests, testScript } from "../test-run.js";
@@ -40,8 +42,11 @@ export const defaultPublishDeps = (): PublishDeps => ({
   now: () => Date.now(),
 });
 
+const pushesLine = (record: PublishRecord, madeNow: number) =>
+  `Pushes: ${record.pushes.length} in total, ${madeNow} by this run.\n`;
+
 const summary = (record: PublishRecord, madeNow: number) =>
-  `Pull request: ${record.pullRequest === "" ? "none yet" : record.pullRequest}\nPushes: ${record.pushes.length} in total, ${madeNow} by this run.\n`;
+  `Pull request: ${record.pullRequest === "" ? "none yet" : record.pullRequest}\n${pushesLine(record, madeNow)}`;
 
 const WHOLE = /^\d+$/;
 
@@ -70,10 +75,14 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
     problems.push("`Ready for review at` does not hold a time.");
   }
 
-  const changed = git(["status", "--porcelain=v1", "-z", "--untracked-files=no"]).stdout
-    .split("\0")
-    .filter((e) => e !== "")
-    .map((e) => e.slice(3));
+  const entries = git(["status", "--porcelain=v1", "-z", "--untracked-files=no"]).stdout.split("\0").filter((e) => e !== "");
+  const changed: string[] = [];
+  for (let i = 0; i < entries.length; i++) {
+    const path = entries[i].slice(3);
+    // A rename or a copy is followed by one more entry, the original name, which has no status letters.
+    if (/[RC]/.test(entries[i].slice(0, 2)) && i + 1 < entries.length) changed.push(`${path} (from ${entries[++i]})`);
+    else changed.push(path);
+  }
   if (changed.length > 0) {
     problems.push(`These tracked files have uncommitted changes, and they would not leave with the push: ${changed.join(", ")}.`);
   }
@@ -98,27 +107,36 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
   return problems;
 }
 
-const listChecks = (list: { name: string; link: string }[]) => list.map((c) => `  - ${c.name} ${c.link}`.trimEnd()).join("\n");
+// A check name comes from a forge and may hold terminal escape codes. C0 and C1 control characters are removed.
+const plain = (text: string) => text.replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
+const names = (list: { name: string }[]) => list.map((c) => plain(c.name)).join(", ");
+const listChecks = (list: { name: string; link: string }[]) => list.map((c) => `  - ${plain(c.name)} ${plain(c.link)}`.trimEnd()).join("\n");
 
-function describeOutcome(outcome: ChecksOutcome, pushed: string): { exitCode: number; message: string; record: string } {
+function describeOutcome(outcome: ChecksOutcome, pushed: string, kind: ForgeKind): { exitCode: number; message: string; record: string } {
   switch (outcome.kind) {
     case "passed":
       return { exitCode: 0, message: "All checks passed.", record: "passed" };
     case "none":
-      return { exitCode: 0, message: "The checks are done: no check ran.", record: "no check ran" };
+      return {
+        exitCode: 0,
+        message:
+          "The checks are done: no check ran." +
+          (kind === "gitlab" ? " cstack does not recognise merged results pipelines, which run on a temporary merge commit." : ""),
+        record: "no check ran",
+      };
     case "failed": {
       const running = outcome.running.length > 0 ? `\nThese checks were still running at the timeout:\n${listChecks(outcome.running)}` : "";
       return {
         exitCode: 6,
         message: `These checks failed:\n${listChecks(outcome.failed)}${running}`,
-        record: `failed: ${outcome.failed.map((c) => c.name).join(", ")}`,
+        record: `failed: ${names(outcome.failed)}`,
       };
     }
     case "timeout":
       return {
         exitCode: 7,
         message: `The timeout came while these checks were still running:\n${listChecks(outcome.running)}`,
-        record: `timed out: ${outcome.running.map((c) => c.name).join(", ")}`,
+        record: `timed out: ${names(outcome.running)}`,
       };
     case "stale":
       return {
@@ -131,9 +149,9 @@ function describeOutcome(outcome: ChecksOutcome, pushed: string): { exitCode: nu
 
 export async function publish(args: string[], io: Io, deps: PublishDeps = defaultPublishDeps()): Promise<number> {
   let parsed;
-  let timeoutMinutes = 30;
-  let pollSeconds = 15;
-  let graceSeconds = 120;
+  let timeoutMinutes: number;
+  let pollSeconds: number;
+  let graceSeconds: number;
   try {
     parsed = parseArgs({
       args,
@@ -186,7 +204,7 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
             writeTestMarker(folder, { commit, time: new Date(deps.now()).toISOString() });
             const why = tests.timedOut ? "The tests timed out." : "The tests failed.";
             io.stderr(
-              `cstack publish: ${why} Nothing was pushed. The branch now holds the update, and the next run will test again.\n${lastLines(tests.output)}\n${summary(record, madeNow)}`,
+              `cstack publish: ${why} Nothing was pushed. The branch now holds the update, and the next run will test again.\n${redact(lastLines(tests.output))}\n${summary(record, madeNow)}`,
             );
             return 1;
           }
@@ -227,14 +245,14 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
         sleep: deps.sleep,
         now: deps.now,
       });
-      const verdict = describeOutcome(outcome, pushedCommit);
+      const verdict = describeOutcome(outcome, pushedCommit, forge.kind);
       record.checks = verdict.record;
       writePublishRecord(folder, record);
       if (verdict.exitCode !== 0) {
         io.stderr(`cstack publish: ${verdict.message}\n${summary(record, madeNow)}`);
         return verdict.exitCode;
       }
-      io.stdout(`${record.pullRequest}\n${verdict.message}\n${summary(record, madeNow).replace(/^Pull request:.*\n/, "")}`);
+      io.stdout(`${record.pullRequest}\n${verdict.message}\n${pushesLine(record, madeNow)}`);
       return 0;
     } catch (error) {
       if (!(error instanceof PublishFailure)) throw error;

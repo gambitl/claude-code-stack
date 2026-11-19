@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { PublishFailure } from "./branch.js";
-import { runProgram, type ProgramResult } from "./program.js";
+import { runProgram, type ProgramOptions, type ProgramResult } from "./program.js";
 import { parseRemote, redact } from "./remote.js";
 
 export type ForgeKind = "github" | "gitlab";
@@ -12,7 +12,7 @@ export type ForgeFound =
       ok: true;
       kind: ForgeKind;
       host: string;
-      /** The value for `--repo` of `gh` (`<host>/<path>`) or for `-R` of `glab` (`https://<host>/<path>`). */
+      /** The value for `--repo` of `gh` (`<host>/<path>`) or for `-R` of `glab` (`https://<host>[:<port>]/<path>`). */
       repoArg: string;
     }
   | { ok: false; reasons: string[] };
@@ -24,6 +24,31 @@ function loggedIn(client: Client, host: string, root: string, env?: NodeJS.Proce
   if (r.ok) return undefined;
   if (r.missing) return `${client} is not installed`;
   return `${client} is not logged in for ${host}`;
+}
+
+/** Parses JSON, and gives undefined when the text is not JSON. */
+function parseJson(text: string): unknown {
+  try {
+    return JSON.parse(text);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Runs a client that creates a request with a body file in a fresh temporary folder, and gives the last link it prints. */
+function createRequest(client: Client, what: string, args: (bodyFile: string) => string[], body: string, options: ProgramOptions): string {
+  const folder = mkdtempSync(join(tmpdir(), "cstack-request-"));
+  try {
+    const bodyFile = join(folder, "body.md");
+    writeFileSync(bodyFile, body);
+    const r = runProgram(client, args(bodyFile), options);
+    if (!r.ok) throw new PublishFailure(`${client} ${what} failed: ${redact(r.stderr.trim())}`, 5);
+    const link = r.stdout.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("http")).pop();
+    if (!link) throw new PublishFailure(`${client} ${what} gave no link.`, 5);
+    return link;
+  } finally {
+    rmSync(folder, { recursive: true, force: true });
+  }
 }
 
 /** Finds the forge of `origin` and a client that is logged in for its host. */
@@ -43,7 +68,7 @@ export function detectForge(root: string, env?: NodeJS.ProcessEnv): ForgeFound {
       ok: true,
       kind,
       host,
-      repoArg: kind === "github" ? `${host}/${remote.path}` : `https://${host}/${remote.path}`,
+      repoArg: kind === "github" ? `${host}/${remote.path}` : `https://${host}${remote.port ? `:${remote.port}` : ""}/${remote.path}`,
     });
     const gh = loggedIn("gh", host, root, env);
     if (gh === undefined) return found("github");
@@ -76,7 +101,7 @@ export function detectForge(root: string, env?: NodeJS.ProcessEnv): ForgeFound {
 export function findGithubPullRequest(
   forge: { repoArg: string },
   branch: string,
-  options: { cwd: string; env?: NodeJS.ProcessEnv },
+  options: ProgramOptions,
 ): string | undefined {
   const r = runProgram(
     "gh",
@@ -84,12 +109,8 @@ export function findGithubPullRequest(
     options,
   );
   if (!r.ok) throw new PublishFailure(`gh pr list failed: ${redact(r.stderr.trim())}`, 5);
-  let list: { url: string; isCrossRepository: boolean }[];
-  try {
-    list = JSON.parse(r.stdout);
-  } catch {
-    throw new PublishFailure("gh pr list did not give JSON.", 5);
-  }
+  const list = parseJson(r.stdout) as { url: string; isCrossRepository: boolean }[] | undefined;
+  if (list === undefined) throw new PublishFailure("gh pr list did not give JSON.", 5);
   return list.find((p) => p.isCrossRepository === false)?.url;
 }
 
@@ -97,24 +118,15 @@ export function findGithubPullRequest(
 export function createGithubPullRequest(
   forge: { repoArg: string },
   input: { branch: string; target: string; title: string; body: string },
-  options: { cwd: string; env?: NodeJS.ProcessEnv },
+  options: ProgramOptions,
 ): string {
-  const folder = mkdtempSync(join(tmpdir(), "cstack-pr-"));
-  try {
-    const bodyFile = join(folder, "body.md");
-    writeFileSync(bodyFile, input.body);
-    const r = runProgram(
-      "gh",
-      ["pr", "create", "--repo", forge.repoArg, "--base", input.target, "--head", input.branch, `--title=${input.title}`, "--body-file", bodyFile],
-      options,
-    );
-    if (!r.ok) throw new PublishFailure(`gh pr create failed: ${redact(r.stderr.trim())}`, 5);
-    const link = r.stdout.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("http")).pop();
-    if (!link) throw new PublishFailure("gh pr create gave no link.", 5);
-    return link;
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
-  }
+  return createRequest(
+    "gh",
+    "pr create",
+    (bodyFile) => ["pr", "create", "--repo", forge.repoArg, "--base", input.target, "--head", input.branch, `--title=${input.title}`, "--body-file", bodyFile],
+    input.body,
+    options,
+  );
 }
 
 export interface CheckState {
@@ -125,26 +137,22 @@ export interface CheckState {
 }
 
 /** The commit that the pull request shows as its head. */
-export function readGithubHead(forge: { repoArg: string }, url: string, options: { cwd: string; env?: NodeJS.ProcessEnv }): string {
+export function readGithubHead(forge: { repoArg: string }, url: string, options: ProgramOptions): string {
   const r = runProgram("gh", ["pr", "view", url, "--repo", forge.repoArg, "--json", "headRefOid"], options);
   if (!r.ok) throw new PublishFailure(`gh pr view failed: ${redact(r.stderr.trim())}`, 5);
-  try {
-    return String(JSON.parse(r.stdout).headRefOid);
-  } catch {
-    throw new PublishFailure("gh pr view did not give JSON.", 5);
-  }
+  const data = parseJson(r.stdout) as { headRefOid?: unknown } | undefined;
+  if (data === undefined) throw new PublishFailure("gh pr view did not give JSON.", 5);
+  return String(data.headRefOid);
 }
 
 /**
  * The checks of the pull request, judged by standard output and not by the exit code,
  * because `gh pr checks` exits with 8 while a check is pending. An empty list means no check yet.
  */
-export function readGithubChecks(forge: { repoArg: string }, url: string, options: { cwd: string; env?: NodeJS.ProcessEnv }): CheckState[] {
+export function readGithubChecks(forge: { repoArg: string }, url: string, options: ProgramOptions): CheckState[] {
   const r = runProgram("gh", ["pr", "checks", url, "--repo", forge.repoArg, "--json", "name,state,bucket,link"], options);
-  let list: unknown;
-  try {
-    list = JSON.parse(r.stdout);
-  } catch {
+  const list = parseJson(r.stdout);
+  if (list === undefined) {
     if (/no checks reported/i.test(r.stderr)) return [];
     throw new PublishFailure(`gh pr checks failed: ${redact(r.stderr.trim())}`, 5);
   }
@@ -152,18 +160,12 @@ export function readGithubChecks(forge: { repoArg: string }, url: string, option
   return list.map((c) => ({ name: String(c.name), link: String(c.link ?? ""), bucket: String(c.bucket) }));
 }
 
-type CallOptions = { cwd: string; env?: NodeJS.ProcessEnv };
-
 /** The open merge request of the branch in this project, never one from a fork. */
-export function findGitlabMergeRequest(forge: { repoArg: string }, branch: string, options: CallOptions): string | undefined {
+export function findGitlabMergeRequest(forge: { repoArg: string }, branch: string, options: ProgramOptions): string | undefined {
   const r = runProgram("glab", ["mr", "list", "-R", forge.repoArg, "--source-branch", branch, "--output", "json"], options);
   if (!r.ok) throw new PublishFailure(`glab mr list failed: ${redact(r.stderr.trim())}`, 5);
-  let list: { web_url: string; source_project_id: number; target_project_id: number }[];
-  try {
-    list = JSON.parse(r.stdout);
-  } catch {
-    throw new PublishFailure("glab mr list did not give JSON.", 5);
-  }
+  const list = parseJson(r.stdout) as { web_url: string; source_project_id: number; target_project_id: number }[] | undefined;
+  if (list === undefined) throw new PublishFailure("glab mr list did not give JSON.", 5);
   return list.find((m) => m.source_project_id === m.target_project_id)?.web_url;
 }
 
@@ -171,28 +173,19 @@ export function findGitlabMergeRequest(forge: { repoArg: string }, branch: strin
 export function createGitlabMergeRequest(
   forge: { repoArg: string },
   input: { branch: string; target: string; title: string; body: string },
-  options: CallOptions,
+  options: ProgramOptions,
 ): string {
-  const folder = mkdtempSync(join(tmpdir(), "cstack-mr-"));
-  try {
-    const bodyFile = join(folder, "body.md");
-    writeFileSync(bodyFile, input.body);
-    const r = runProgram(
-      "glab",
-      [
-        "mr", "create", "-R", forge.repoArg,
-        "--source-branch", input.branch, "--target-branch", input.target,
-        `--title=${input.title}`, "--description-file", bodyFile, "--yes",
-      ],
-      options,
-    );
-    if (!r.ok) throw new PublishFailure(`glab mr create failed: ${redact(r.stderr.trim())}`, 5);
-    const link = r.stdout.split("\n").map((l) => l.trim()).filter((l) => l.startsWith("http")).pop();
-    if (!link) throw new PublishFailure("glab mr create gave no link.", 5);
-    return link;
-  } finally {
-    rmSync(folder, { recursive: true, force: true });
-  }
+  return createRequest(
+    "glab",
+    "mr create",
+    (bodyFile) => [
+      "mr", "create", "-R", forge.repoArg,
+      "--source-branch", input.branch, "--target-branch", input.target,
+      `--title=${input.title}`, "--description-file", bodyFile, "--yes",
+    ],
+    input.body,
+    options,
+  );
 }
 
 /** The number of a merge request, read from its link. */
@@ -206,12 +199,12 @@ export function gitlabIid(link: string): string {
  * The pipeline of the merge request as a list of checks, using the buckets of GitHub.
  * A pipeline of another commit, or no pipeline, gives an empty list. A failed pipeline lists its failed jobs.
  */
-export function readGitlabChecks(forge: { repoArg: string }, iid: string, pushed: string, options: CallOptions): CheckState[] {
+export function readGitlabChecks(forge: { repoArg: string }, iid: string, pushed: string, options: ProgramOptions): CheckState[] {
   const r = runProgram("glab", ["ci", "get", "-R", forge.repoArg, "--merge-request", iid, "--output", "json"], options);
-  let data: { sha?: string; status?: string; web_url?: string; jobs?: { name: string; status: string }[] };
-  try {
-    data = JSON.parse(r.stdout);
-  } catch {
+  const data = parseJson(r.stdout) as
+    | { sha?: string; status?: string; web_url?: string; jobs?: { name: string; status: string }[] }
+    | undefined;
+  if (data === undefined) {
     if (/no pipeline/i.test(r.stderr)) return [];
     throw new PublishFailure(`glab ci get failed: ${redact(r.stderr.trim())}`, 5);
   }

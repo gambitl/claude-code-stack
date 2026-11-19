@@ -1,5 +1,7 @@
 export interface Remote {
   host: string;
+  /** The port of an https URL. An SSH port is never kept, because it is not the port of the web site. */
+  port?: string;
   path: string;
   ssh: boolean;
 }
@@ -16,11 +18,12 @@ export function parseRemote(url: string): Remote | undefined {
     } catch {
       return undefined;
     }
-    if (!u.hostname) return undefined;
-    return { host: u.hostname, path: stripGit(decodeURIComponent(u.pathname)), ssh: u.protocol === "ssh:" };
+    if (!u.hostname || u.hostname.startsWith("-")) return undefined;
+    const ssh = u.protocol === "ssh:";
+    return { host: u.hostname, port: ssh || !u.port ? undefined : u.port, path: stripGit(decodeURIComponent(u.pathname)), ssh };
   }
   const short = /^[^@/:\s]+@([^:/\s]+):(.+)$/.exec(text);
-  return short ? { host: short[1], path: stripGit(short[2]), ssh: true } : undefined;
+  return short && !short[1].startsWith("-") ? { host: short[1], path: stripGit(short[2]), ssh: true } : undefined;
 }
 
 /** Removes the user information, everything between `://` and `@`, from every URL in a text. */

@@ -1,4 +1,4 @@
-import { runProgram } from "./program.js";
+import { runProgram, type ProgramOptions as Options } from "./program.js";
 import { redact } from "./remote.js";
 
 export class PublishFailure extends Error {
@@ -9,8 +9,6 @@ export class PublishFailure extends Error {
     super(message);
   }
 }
-
-type Options = { cwd: string; env?: NodeJS.ProcessEnv };
 
 /** The commit of the branch on `origin`, or undefined when the branch is not there yet. */
 export function remoteBranchHead(branch: string, options: Options): string | undefined {

@@ -75,6 +75,17 @@ describe("cstack publish refusals before any push", () => {
     expect(out.stderr).toContain("detached");
   });
 
+  it("names both full file names of a staged rename", async () => {
+    const env = makePublishEnv();
+    commitFiles(env.repo, ["original-name.txt"]);
+    git(env.repo, "mv", "original-name.txt", "renamed-name.txt");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("renamed-name.txt");
+    expect(out.stderr).toContain("original-name.txt");
+    expect(env.pushes()).toEqual([]);
+  });
+
   it("does not touch a forge client before the rules pass", async () => {
     const env = makePublishEnv({ plan: (t) => t.replace("Status: ready for review", "Status: review") });
     await run(env);
@@ -165,6 +176,23 @@ describe("cstack publish finds the forge", () => {
       repoArg: "https://gitlab.example.org/group/r",
     });
     expect(env.calls().some((c) => c.program === "ssh" && c.args.join(" ") === "-G work-alias")).toBe(true);
+  });
+
+  it("keeps the port of an https remote for glab -R, but not for gh --repo, and not for auth status", () => {
+    const glab = makePublishEnv();
+    setRemote(glab, "https://gitlab.example.org:8443/group/r.git");
+    glab.scenario({ "gh auth status": { code: 1 }, "glab auth status": { code: 0 } });
+    expect(detectForge(glab.repo, glab.deps.env)).toEqual({
+      ok: true,
+      kind: "gitlab",
+      host: "gitlab.example.org",
+      repoArg: "https://gitlab.example.org:8443/group/r",
+    });
+    expect(glab.calls().every((c) => c.args.join(" ") === "auth status --hostname gitlab.example.org")).toBe(true);
+
+    const gh = makePublishEnv();
+    setRemote(gh, "https://ghe.example.org:8443/o/r.git");
+    expect(detectForge(gh.repo, gh.deps.env)).toEqual({ ok: true, kind: "github", host: "ghe.example.org", repoArg: "ghe.example.org/o/r" });
   });
 
   it("uses gh on github.com with the repository argument", () => {
@@ -364,6 +392,16 @@ describe("cstack publish brings the branch up to date and runs the tests", () =>
     expect(JSON.parse(readFileSync(marker(env), "utf8"))).toMatchObject({ commit: head(env) });
   });
 
+  it("hides the credentials of a URL in the printed test output", async () => {
+    const env = makePublishEnv();
+    env.scenario(scenario);
+    settings(env, { testCommands: { all: "echo https://user:tok-secret@example.org/x; exit 1" } });
+    moveMain(env);
+    const { out } = await run(env, ["--grace", "0"]);
+    expect(out.stderr).toContain("https://example.org/x");
+    expect(out.stderr).not.toContain("tok-secret");
+  });
+
   it("tests again on the next run, still pushes nothing, then pushes once after a fix", async () => {
     const env = makePublishEnv();
     env.scenario(scenario);
@@ -432,6 +470,15 @@ describe("cstack publish waits for the checks of the pushed commit on GitHub", (
     expect(record(env).checks).toMatch(/failed/);
   });
 
+  it("strips control characters from the names of the checks", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("bad\u001b[31mname\u009b", "fail")) });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(6);
+    expect(out.stderr).toContain("bad[31mname");
+    expect(out.stderr).not.toMatch(/[\u0000-\u0009\u000b-\u001f\u007f-\u009f]/);
+  });
+
   it("gives 6 for a cancelled check", async () => {
     const env = makePublishEnv();
     env.scenario({ ...base, "gh pr checks": checks(check("deploy", "cancel")) });
@@ -466,6 +513,7 @@ describe("cstack publish waits for the checks of the pushed commit on GitHub", (
     const { code, out } = await run(env, ["--grace", "30", "--poll", "10"]);
     expect(code).toBe(0);
     expect(out.stdout).toContain("no check ran");
+    expect(out.stdout).not.toContain("merged results");
     expect(env.clock.value - start).toBeGreaterThanOrEqual(30 * SECOND);
     expect(record(env).checks).toMatch(/no check ran/);
   });
@@ -658,6 +706,7 @@ describe("cstack publish on GitLab", () => {
     expect(code).toBe(0);
     expect(out.stdout).toContain("no check ran");
     expect(env.clock.value - start).toBeGreaterThanOrEqual(30 * SECOND);
+    expect(out.stdout).toMatch(/does not recognise merged results pipelines/);
   });
 
   it("gives 5 when glab ci get fails for another reason", async () => {
