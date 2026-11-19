@@ -471,7 +471,11 @@ I checked security, data model lock-in, scale, failure and rollback, user interf
 
 ### Blocking
 
+none
+
 ### Non-blocking
+
+none
 
 ## Pull request
 
@@ -493,11 +497,11 @@ This pull request wires the settings file and the version 1 plan format into the
 
 **Files touched.** `cstack/src/settings.ts`, `cstack/src/settings-block.ts`, `cstack/src/commands/next.ts`, `cstack/src/commands/errors.ts`, `cstack/src/commands/unit-commit.ts`, `cstack/src/commands/measure.ts`, `cstack/src/measure/moments.ts`, the matching tests, the new tests and fixtures under `cstack/test/`, `cstack/package.json`, `cstack/package-lock.json` and `README.md`. The plan is at `docs/plans/2026-11-19-23-run-the-new-resolve-issue-end-to-end-and-release-it.md`.
 
-**After the merge.** These steps of ticket #23 are done by hand:
-1. Push the tag `v0.2.0` on the merge commit.
-2. Install the release on the maintainer's machine with `cstack skills install --adopt resolve-issue`.
-3. Run the new skill with Claude on a private test repository.
-4. If that run finds a bug, fix it with a test and release again.
+**After the merge.** These steps of ticket #23 are done by hand, so the ticket stays open:
+1. Push the tag `v0.2.0` on the merge commit. The release workflow then attaches the package file to the GitHub release.
+2. On the maintainer's machine, install the release with `npm install -g` and the release link. Then run `cstack doctor` and `cstack skills install --adopt resolve-issue`, and check the backup folder and the `.cstack-managed` marker.
+3. Create a private test repository and run the new skill there with Claude. Add the outcome of the run as a comment on #23.
+4. If that run finds a bug, fix it with a test, release again, and run the skill on a new issue of the test repository.
 
 Part of #23
 
@@ -520,6 +524,7 @@ Part of #23
 ## Hand-off log
 
 - 2026-11-19: phase 6 started. Ticket stays open (GitHub has no in-progress state). Branch gambitl/end-to-end-release was already checked out.
+- 2026-11-19: phases 6 to 10 finished with a done report. Nine units were committed, the independent review fixed two points with tests, and no question stayed open. Nothing was pushed.
 
 ## History
 
