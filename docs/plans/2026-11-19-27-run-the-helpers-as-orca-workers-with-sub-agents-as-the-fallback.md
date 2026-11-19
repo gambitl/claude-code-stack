@@ -497,7 +497,13 @@ Follow-ups, not done: `helper wait` says "still working" for a worker that saved
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #27: https://github.com/gambitl/claude-code-stack/issues/27#issuecomment-7011695025
+- Comment on #28: https://github.com/gambitl/claude-code-stack/issues/28#issuecomment-7011695569
+- Comment on #31: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7011696096
+- ADR-SIC-A: `docs/decisions/ADR-SIC-A-helpers.md`, linked from `docs/projects/skills-into-cli.md`.
+- README: the "Commands" section of `README.md`.
+- Recorded Orca answers: `cstack/test/fixtures/orca/README.md`.
+- WHY comments that name ADR-SIC-A: `cstack/src/helper/start.ts` and `cstack/src/helper/wait.ts`.
 
 ## Executor notes
 
