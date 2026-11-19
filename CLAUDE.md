@@ -21,6 +21,8 @@ You run these commands from the `cstack/` folder. `npm ci` installs the packages
 
 The code lives in `cstack/src/`. Each command has its own file in `cstack/src/commands/`. Every command also has an entry in `cstack/src/manifest.ts`, which defines the common exit codes. The tests live in `cstack/test/`. The skills that `cstack` ships live in `cstack/skills/<skill name>/`. The phase guides live in `cstack/guides/<skill name>/<phase>.md`.
 
+Some tests check every command or every shipped skill, so a new one must pass them too. `cstack/test/cli.test.ts` and `cstack/test/manifest-implemented.test.ts` run each built command with an unknown flag. So a command checks its arguments before it reads git or starts another tool, and it prints its usage line exactly as `cstack/src/manifest.ts` writes it. `cstack/test/skills-install.test.ts` lists the shipped skills, so a new folder under `cstack/skills/` changes what it expects.
+
 The minimum Node version is written in one place only, which is `engines.node` in `cstack/package.json`. Do not copy that number into any other file.
 
 A command prints through the `io` argument of `run` and returns its exit code. No code calls `process.exit()`, because on macOS it can cut output that goes into a pipe. Set `process.exitCode` instead.
