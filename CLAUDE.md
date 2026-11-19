@@ -13,7 +13,7 @@ This file tells Claude and the skills how work is organised in this repository. 
 
 ## Public text rule
 
-This repository is public. Never write the name of an employer or a client in it or in its issues. Never quote a ticket key from work. Never give a count taken from work retrospectives. The token and time results of a comparison are the only figures from work that you may publish. Keep any copy of a work ticket in a private repository.
+This repository is public. Never write the name of an employer or a client in it or in its issues. Never quote a ticket key from work. Never give a count taken from work retrospectives. The token and time results of a comparison are the only figures from work that you may publish. Keep any copy of a work ticket in a private repository. Every commit carries the GitHub no-reply address, the one that ends in `@users.noreply.github.com`, as author and as committer. The shared `.git/config` of the maintainer's clone sets it, but a fresh clone falls back to the global address. So check `git log --format='%ae %ce'` before the first push.
 
 ## Commands
 
