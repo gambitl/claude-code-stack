@@ -9,7 +9,7 @@ import { TrackerError } from "../tracker/errors.js";
 import { failWith } from "./errors.js";
 
 export const HELPER_START_USAGE =
-  "Usage: cstack helper start <executor|implementer|implementer-escalation> [--unit <n>] [--plan <file>]";
+  "Usage: cstack helper start <executor|implementer|implementer-escalation> --plan <file> [--unit <n>] [--child-worktree]";
 
 const ROLES: readonly string[] = ["executor", "implementer", "implementer-escalation"];
 

@@ -248,7 +248,7 @@ export const COMMANDS: CommandEntry[] = [
     notBuiltFlags: { "--child-worktree": 28 },
     file: "helper-start.ts",
     ticket: 27,
-    built: false,
+    built: true,
   },
   {
     usage: "cstack helper wait <helper id>",
@@ -257,7 +257,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED, 6: "The helper is still working." },
     file: "helper-wait.ts",
     ticket: 27,
-    built: false,
+    built: true,
   },
   planCommand({
     usage: "cstack helper done <kind> --helper <helper id>",
@@ -266,6 +266,7 @@ export const COMMANDS: CommandEntry[] = [
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
     file: "helper-done.ts",
     ticket: 27,
+    built: true,
   }),
   planCommand({
     usage: "cstack unit collect <n>...",

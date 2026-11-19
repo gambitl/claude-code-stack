@@ -42,7 +42,7 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 
 ## Commands
 
-`cstack` has fourteen commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has seventeen commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
@@ -53,6 +53,10 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 - `cstack plan section <name>` prints one section of the plan file and nothing else.
 - `cstack report submit <kind>` reads the text of a helper's report on standard input. It saves the report only when the plan and git prove it.
 - `cstack report check` prints the oldest accepted report that nobody has read yet.
+- `cstack helper start <role>` starts a helper, which is a second Claude that does one job of your run. The role is `executor`, `implementer` or `implementer-escalation`. The two implementer roles also need `--unit <n>`. The command starts the helper as an Orca worker when Orca can run workers. Otherwise it prints the sub-agent that Claude needs to start itself, and it exits with 6.
+- `cstack helper wait <helper id>` waits for the report of a helper. It stops after nine minutes. If the helper is still working, it exits with 6, and you run it again.
+- `cstack helper done <kind> --helper <helper id>` is the command that a helper runs to end its work. It reads the report on standard input, checks it, saves it, and tells Orca that the helper is done.
+- `cstack` never needs Orca for the helpers. If you set `CSTACK_ORCA_WORKERS=off`, `cstack helper start` does not ask Orca, and it always uses a sub-agent.
 - `cstack unit order [--json]` reads the plan file and tells you which units can run at the same time. A batch is a group of units that share no file and whose dependencies are done. The units of one batch can run together, and the next batch starts after it. Units that already have a commit, and units that are blocked, are listed apart.
 - `cstack unit red <n>` runs the test command of unit `n` and saves the result, but only when the run fails. A failing run is a run where the test command exits with an error. It proves that the new test failed before the code existed. It does not prove that the test failed for the right reason, so you still need to read the saved output.
 - `cstack unit green <n>` runs the same test command and saves the result, but only when the run passes. A passing run is a run where the test command exits without an error. When the test does not pass, it deletes any passing run that an earlier call saved. This also happens when the test runs past the timeout or its command cannot start. This way, `cstack unit commit` cannot accept code whose test fails now. It refuses to run when unit `n` has no saved failing run. It also refuses when the test command or the test file path changed since the failing run, because a changed command could hide a test that never failed.
