@@ -246,7 +246,10 @@ Should the new paragraph forbid copying a secret of the brief into the plan file
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #59: https://github.com/gambitl/claude-code-stack/issues/59#issuecomment-7016393106
+- Comment on #31 with the 2 words left under `cstack/test/skill-size.test.ts`: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7016393574
+- Comment on epic #6, a paragraph added to the existing comment: https://github.com/gambitl/claude-code-stack/issues/6#issuecomment-7015808563
+- Architecture decision record, specification page and `README.md`: not written, as the plan says. The guide itself documents the new behaviour.
 
 ## Executor notes
 
