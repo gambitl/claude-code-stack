@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/tracker-jira-linear
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-19T14:25:34+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-19T16:17:42+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -480,7 +480,44 @@ I did not reopen three locked decisions. They are ADR-SIC-F, the coordinator's s
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): reach Jira and Linear through Orca
+
+````markdown
+## What this adds
+
+This pull request adds two adapters that let `cstack` read tickets, list a group, move a ticket and add a comment on Jira and Linear through the `orca` command. They implement the tracker interface from #24. The code is in `cstack/src/tracker/jira-orca.ts`, `cstack/src/tracker/linear-orca.ts` and a shared helper, `cstack/src/tracker/orca-calls.ts`. The helper turns every Orca failure into the right exit code.
+
+Nothing calls the adapters yet. The ticket that writes the `cstack tracker` commands (#26) owns `openTracker`, so whichever of #25 and #26 merges second does the wiring and adds the test that `cstack tracker read <key> --tracker jira` reaches the Jira adapter.
+
+## Decisions and why
+
+- No Jira or Linear sandbox was available, so the Orca answers in `cstack/test/fixtures/orca/1.4.263/` were written by hand from the code of the installed Orca 1.4.263. The fixture README says so. The first real run, in #31, is the first real contact.
+- Jira blockers come from the footer line of the ticket, as ADR-SIC-F says, and not from a fallback to the file. Orca never returns Jira issue links.
+- A Jira list passes `--limit 100`, because Orca caps the limit at 100. cstack refuses a list of 100 tickets or more. This replaces the ticket's 200.
+- A Jira search returns an empty description, so each hit is read again to find its footer.
+- A Linear list by milestone exits with code 4, so Claude lists it with its own connection. Orca cannot filter by project milestone.
+- A Linear list by epic first reads the epic to get its internal id, because Orca compares `--parent-id` with that id and not with the key. An empty list is refused with exit 1.
+- `cstack/src/orca/features.ts` now refuses Orca for Linear when more than one Linear workspace is saved, as it already does for two Jira sites. This touches a rule from #24.
+- Once Orca has run a write, every failure gives exit 5 and asks the user to check the ticket. Exit 4 is only for "Orca is not installed", so a comment is never posted twice.
+
+## Files touched
+
+New source: `jira-orca.ts`, `linear-orca.ts`, `orca-calls.ts`. Changed source: `cstack/src/orca/shapes.ts` (ten new shapes) and `cstack/src/orca/features.ts`. New tests and fixtures are under `cstack/test/tracker/`, `cstack/test/orca/` and `cstack/test/fixtures/orca/1.4.263/`. The specification page `docs/projects/skills-into-cli.md` says what Orca cannot do and how cstack copes. Plan file: `docs/plans/2026-11-19-25-reach-jira-and-linear-through-orca.md`.
+
+## Review
+
+The independent reviewer found no blocking bug. It made two small changes: a test of the fallback reason with two Jira sites, and a clearer exit 4 message for a write when Orca is missing. Judgment calls to look at: on Jira Cloud the footer is found only if Orca keeps the `**Size:` bold mark, which is unverified. A Jira list of 99 tickets costs about 100 Orca calls, one after the other. A Linear issue with no state type would give a TypeError instead of exit 5, though Orca seems to always send it. Follow-ups left undone: a shared helper for the blocker loop of both adapters, and detection of a short Jira search page.
+
+The test `names a unit without a commit` in `cstack/test/report.test.ts` sometimes times out in a full run. This branch does not touch it. Run the check again if it fails there.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the Orca maintainers: "Could `orca jira issue --json` include the issue links, `orca jira search` page past 100 results, and `orca linear list-issues` filter by project milestone?"
+
+Fixes #25
+````
 
 ## Documentation
 
@@ -502,6 +539,7 @@ I did not reopen three locked decisions. They are ADR-SIC-F, the coordinator's s
 - 2026-11-19, executor, phase build: added the label `in progress` to ticket 25 (GitHub has no state field), committed the plan file, and built units 1 to 9 in five batches. Typecheck and the whole suite pass (873 tests).
 
 - 2026-11-19, executor, phase after-build-questions: added units 10 and 11 for the answers to questions 5 and 6, built both, filled the non-blocking questions.
+- 2026-11-19, executor, phase ready: drafted the pull request.
 
 ## History
 
