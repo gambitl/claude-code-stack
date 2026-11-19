@@ -72,6 +72,8 @@ function written(args: string[]): string {
   }
   words = words.map((w) => (w === PLAN ? "<plan file>" : w));
   if (words[0] === "helper" && words[1] === "wait") words[2] = "<helper id>";
+  const helperAt = words.indexOf("--helper");
+  if (words[0] === "helper" && words[1] === "done" && helperAt >= 0) words[helperAt + 1] = "<helper id>";
   if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
   if (words[0] === "plan" && words[1] === "section") words[2] = "<name>";
   return `cstack ${words.join(" ")}`;
@@ -162,7 +164,8 @@ function implement(unit: number): void {
   }
   if (unit === 3) {
     // US-7: the done report is refused while unit 3 has no commit, and the message names it.
-    const early = follow(READY_GUIDE, ["report", "submit", "done", "--plan", PLAN], "A done report.\n");
+    startExecutor();
+    const early = follow(READY_GUIDE, ["helper", "done", "done", "--helper", helperId, "--plan", PLAN], "A done report.\n");
     expect(early.code).toBe(1);
     expect(early.stderr).toContain("Unit 3 has no commit");
   }
@@ -364,11 +367,9 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     git("add", PLAN);
     git("commit", "-m", "docs: mark the plan ready for review");
 
-    // The main conversation starts the executor. No Orca worker runs, so cstack names the sub-agent and prints the helper id last.
-    startExecutor();
-
+    // The executor was started at unit 3 of the build, so its helper id is still the one in use.
     // The guide that was printed last is the ready guide, and it names the report command.
-    const submitted = follow(guide, ["report", "submit", "done", "--plan", PLAN], "Two functions and a README section were added.\n");
+    const submitted = follow(guide, ["helper", "done", "done", "--helper", helperId, "--plan", PLAN], "Two functions and a README section were added.\n");
     expect(submitted.code, submitted.stderr).toBe(0);
     const wrong = run(["report", "submit", "complete", "--plan", PLAN], "Finished.\n");
     expect(wrong.code).toBe(1);
@@ -428,7 +429,7 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     const done = follow(lastGuide, ["next", "--done", "publish", "--plan", PLAN]);
     expect(done.code, done.stderr).toBe(0);
     expect(done.stdout).toContain("The run is finished");
-    const report = follow(lastGuide, ["report", "submit", "published", "--plan", PLAN], `Pull request: ${LINK}\n`);
+    const report = follow(lastGuide, ["helper", "done", "published", "--helper", helperId, "--plan", PLAN], `Pull request: ${LINK}\n`);
     expect(report.code, report.stderr).toBe(0);
     const waited = follow(PLAN_GUIDE, ["helper", "wait", helperId]);
     expect(waited.code, waited.stderr).toBe(0);

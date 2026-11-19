@@ -39,13 +39,20 @@ describe("the implementer prompt", () => {
 describe("the executor prompt", () => {
   const text = read("../skills/resolve-issue/agents/executor.md");
 
-  it("names cstack next and cstack report submit", () => {
+  it("names cstack next and cstack helper done, and no longer cstack report submit", () => {
     expect(text).toContain("cstack next");
-    expect(text).toContain("cstack report submit");
+    expect(text).toContain("cstack helper done");
+    expect(text).not.toContain("cstack report submit");
+  });
+
+  it("names the helper id among its inputs and says that cstack helper start gives it", () => {
+    const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## Vocabulary"));
+    expect(inputs).toContain("helper id");
+    expect(inputs).toContain("cstack helper start");
   });
 
   it("submits exactly the four kinds of report, and no other", () => {
-    const kinds = new Set([...text.matchAll(/cstack report submit (\S+)/g)].map((m) => m[1]));
+    const kinds = new Set([...text.matchAll(/cstack helper done (\S+) --helper <helper id> --plan <plan file>/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
   });
 

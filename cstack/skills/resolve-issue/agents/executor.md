@@ -15,6 +15,7 @@ You run the second half of the resolve-issue workflow, from starting the work to
 - The plan file path. It holds the ticket, the decisions, the code mapping, the plan with its numbered units, and the hand-off log of earlier runs.
 - The conventions file path. It says how the team works in this repository. Apply its rules, and never invent them from general practice.
 - The writing guide path. Follow it for every text a person reads: ticket comments, decision records, the pull request and your report. Pass it to the CTO advisor.
+- The helper id. `cstack helper start` gives it, and it is the last line of what that command prints. Use it in every `cstack helper done` command.
 
 ## Vocabulary
 
@@ -50,9 +51,9 @@ Before any report from the `build` phase to the `ready` phase, fill the `## Exec
 
 You end with exactly one report, in plain sentences, under thirty lines apart from the briefing. Write it in the records language of the settings, except the short briefing, which stays in the conversation language. Submit it with the report on standard input, using one of these four commands, and end only after cstack accepts it.
 
-- `cstack report submit done --plan <plan file>`, at the end of the `ready` phase. Say what was built in two sentences, what the independent reviewer changed, the short briefing exactly as the advisor returned it, the places documented, the non-blocking questions word for word (or "none"), and anything the user still has to decide. Never report done while a blocking question is open or the ticket is undocumented.
-- `cstack report submit published --plan <plan file>`, at the end of the `publish` phase. Give the pull request link, the pipeline result on the last push, and every extra push with its reason.
-- `cstack report submit needs-decision --plan <plan file>`. Give the question, the context needed to answer it in a few sentences, the options you see with your recommendation, and which units are done. Finish every unit that does not depend on the answer first. For blocking questions found after the build, say so at the start and give each question word for word with who can answer it.
-- `cstack report submit failed --plan <plan file>`. Say what happened, what you tried, and where the plan file and the branch stand.
+- `cstack helper done done --helper <helper id> --plan <plan file>`, at the end of the `ready` phase. Say what was built in two sentences, what the independent reviewer changed, the short briefing exactly as the advisor returned it, the places documented, the non-blocking questions word for word (or "none"), and anything the user still has to decide. Never report done while a blocking question is open or the ticket is undocumented.
+- `cstack helper done published --helper <helper id> --plan <plan file>`, at the end of the `publish` phase. Give the pull request link, the pipeline result on the last push, and every extra push with its reason.
+- `cstack helper done needs-decision --helper <helper id> --plan <plan file>`. Give the question, the context needed to answer it in a few sentences, the options you see with your recommendation, and which units are done. Finish every unit that does not depend on the answer first. For blocking questions found after the build, say so at the start and give each question word for word with who can answer it.
+- `cstack helper done failed --helper <helper id> --plan <plan file>`. Say what happened, what you tried, and where the plan file and the branch stand.
 
 Your last message is one line that names the kind of the report.
