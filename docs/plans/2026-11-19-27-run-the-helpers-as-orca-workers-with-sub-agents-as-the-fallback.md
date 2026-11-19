@@ -603,6 +603,18 @@ Round of 2026-11-19. The user answered yes to blocking questions 1 and 3, accept
 - `check --peek` returns unread messages without marking them read, and `--types` filters the rows of `--peek` and is the wake condition of `--wait`. So an old unread `worker_done` can wake a `--peek --wait` at once, every time. `check --all --json` answered `{"ok":true,"result":{"messages":[]}}`, so no real message was available to record.
 - Orca's own guide says that a worker that stops without `worker_done` raises an `escalation` with a stop reason, and that `exited` or `lost` means the worker is gone. It also says that silence, a timeout or an unverifiable liveness never proves that a worker stopped.
 
+### Independent review
+
+The independent reviewer found no bug and no security problem. It changed one test (commit 3e253ae): the deadline test of `helper wait` now checks that every `check` call holds `--peek` and none holds `--ack`. The whole suite passes after the change.
+
+Judgment calls for the pull request body:
+
+- `helper wait` treats only the statuses `completed` and `failed`, or a gone worker, as finished. If Orca reports another status for a stopped worker, the command says "still working" until its deadline. Only a real Orca can confirm which statuses exist.
+- Orca's help says that finished workers close on their own. If `worker-show` then answers "not found", `helper wait` exits with 5, even when the helper saved a report. It could print the saved report instead. Ticket #31 checks this against a real Orca.
+- The worst case of `helper wait` is close to the ten-minute limit of one shell command. It happens only when Orca hangs.
+- `helper wait` takes no `--plan`, so it needs a current run in the worktree. This follows the contract of #24.
+- Units 5 and 7 did not have a true failing test first, as the executor notes say.
+
 ### Architecture options
 
 <phase plan: the architecture blueprints, with the recommendation marked and the approach the user chose, or nothing when there was no real choice>
