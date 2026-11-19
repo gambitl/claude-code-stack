@@ -28,7 +28,7 @@ export interface PublishEnv {
   /** The bare repository that plays the remote. */
   bare: string;
   /** The answers the fake programs give. */
-  scenario(answers: Record<string, Answer>): void;
+  scenario(answers: Record<string, Answer | Answer[]>): void;
   /** Every ref that the bare repository received after `main` was put there, as `<ref> <commit>`. */
   pushes(): string[];
   /** Every call to a fake program, in order. */
@@ -61,6 +61,12 @@ try { scenario = JSON.parse(fs.readFileSync(path.join(dir, "scenario.json"), "ut
 const line = program + " " + args.join(" ");
 const key = Object.keys(scenario).filter((k) => line === k || line.startsWith(k + " ")).sort((a, b) => b.length - a.length)[0];
 let answer = key === undefined ? undefined : scenario[key];
+if (Array.isArray(answer)) {
+  // A list answers the first call with its first item, and so on. The last item repeats.
+  const same = fs.readFileSync(path.join(dir, "calls.log"), "utf8").split("\\n").filter(Boolean).map((l) => JSON.parse(l))
+    .filter((c) => { const t = c.program + " " + c.args.join(" "); return t === key || t.startsWith(key + " "); }).length;
+  answer = answer[Math.min(same, answer.length) - 1];
+}
 if (answer === undefined) {
   const sub = program + " " + args.slice(0, 2).join(" ");
   if (sub === "gh auth status") answer = { code: 0 };

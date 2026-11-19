@@ -4,7 +4,8 @@ import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan, type PlanRead } from "../plan/read.js";
 import { pushBranch, PublishFailure, remoteBranchHead, updateBranch } from "../publish/branch.js";
-import { createGithubPullRequest, detectForge, findGithubPullRequest } from "../publish/forge.js";
+import { waitForChecks, type ChecksOutcome } from "../publish/checks.js";
+import { createGithubPullRequest, detectForge, findGithubPullRequest, readGithubChecks, readGithubHead } from "../publish/forge.js";
 import { readPublishRecord, readTestMarker, removeTestMarker, writePublishRecord, writeTestMarker } from "../publish/record.js";
 import { runProgram } from "../publish/program.js";
 import { runFolder, type PublishRecord } from "../run-state.js";
@@ -87,8 +88,42 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
   return problems;
 }
 
+const listChecks = (list: { name: string; link: string }[]) => list.map((c) => `  - ${c.name} ${c.link}`.trimEnd()).join("\n");
+
+function describeOutcome(outcome: ChecksOutcome, pushed: string): { exitCode: number; message: string; record: string } {
+  switch (outcome.kind) {
+    case "passed":
+      return { exitCode: 0, message: "All checks passed.", record: "passed" };
+    case "none":
+      return { exitCode: 0, message: "The checks are done: no check ran.", record: "no check ran" };
+    case "failed": {
+      const running = outcome.running.length > 0 ? `\nThese checks were still running at the timeout:\n${listChecks(outcome.running)}` : "";
+      return {
+        exitCode: 6,
+        message: `These checks failed:\n${listChecks(outcome.failed)}${running}`,
+        record: `failed: ${outcome.failed.map((c) => c.name).join(", ")}`,
+      };
+    }
+    case "timeout":
+      return {
+        exitCode: 7,
+        message: `The timeout came while these checks were still running:\n${listChecks(outcome.running)}`,
+        record: `timed out: ${outcome.running.map((c) => c.name).join(", ")}`,
+      };
+    case "stale":
+      return {
+        exitCode: 7,
+        message: `The timeout came and the pull request never showed the pushed commit ${pushed.slice(0, 7)}.`,
+        record: "timed out: the pull request never showed the pushed commit",
+      };
+  }
+}
+
 export async function publish(args: string[], io: Io, deps: PublishDeps = defaultPublishDeps()): Promise<number> {
   let parsed;
+  let timeoutMinutes = 30;
+  let pollSeconds = 15;
+  let graceSeconds = 120;
   try {
     parsed = parseArgs({
       args,
@@ -101,9 +136,9 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
       strict: true,
       allowPositionals: false,
     });
-    readNumber(parsed.values.timeout, 30, 1, "--timeout");
-    readNumber(parsed.values.poll, 15, 1, "--poll");
-    readNumber(parsed.values.grace, 120, 0, "--grace");
+    timeoutMinutes = readNumber(parsed.values.timeout, 30, 1, "--timeout");
+    pollSeconds = readNumber(parsed.values.poll, 15, 1, "--poll");
+    graceSeconds = readNumber(parsed.values.grace, 120, 0, "--grace");
   } catch (error) {
     io.stderr(`cstack publish: ${error instanceof Error ? error.message : String(error)}\n${PUBLISH_USAGE}\n`);
     return 2;
@@ -167,13 +202,32 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
           options,
         );
       writePublishRecord(folder, record);
+
+      const pushedCommit = runProgram("git", ["rev-parse", "--verify", "HEAD"], options).stdout.trim();
+      const url = record.pullRequest;
+      const outcome = await waitForChecks({
+        read: () => ({ head: readGithubHead(forge, url, options), checks: () => readGithubChecks(forge, url, options) }),
+        pushed: pushedCommit,
+        timeoutMs: timeoutMinutes * 60_000,
+        pollMs: pollSeconds * 1000,
+        graceMs: graceSeconds * 1000,
+        sleep: deps.sleep,
+        now: deps.now,
+      });
+      const verdict = describeOutcome(outcome, pushedCommit);
+      record.checks = verdict.record;
+      writePublishRecord(folder, record);
+      if (verdict.exitCode !== 0) {
+        io.stderr(`cstack publish: ${verdict.message}\n${summary(record, madeNow)}`);
+        return verdict.exitCode;
+      }
+      io.stdout(`${record.pullRequest}\n${verdict.message}\n${summary(record, madeNow).replace(/^Pull request:.*\n/, "")}`);
+      return 0;
     } catch (error) {
       if (!(error instanceof PublishFailure)) throw error;
       io.stderr(`cstack publish: ${error.message}\n${summary(record, madeNow)}`);
       return error.exitCode;
     }
-    io.stdout(`${record.pullRequest}\n${summary(record, madeNow)}`);
-    return 0;
   } catch (error) {
     if (error instanceof SettingsError) {
       io.stderr(`cstack publish: ${error.message}\n`);

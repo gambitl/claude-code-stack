@@ -116,3 +116,38 @@ export function createGithubPullRequest(
     rmSync(folder, { recursive: true, force: true });
   }
 }
+
+export interface CheckState {
+  name: string;
+  link: string;
+  /** `pass`, `fail`, `pending` and so on, as `gh pr checks` gives it. */
+  bucket: string;
+}
+
+/** The commit that the pull request shows as its head. */
+export function readGithubHead(forge: { repoArg: string }, url: string, options: { cwd: string; env?: NodeJS.ProcessEnv }): string {
+  const r = runProgram("gh", ["pr", "view", url, "--repo", forge.repoArg, "--json", "headRefOid"], options);
+  if (!r.ok) throw new PublishFailure(`gh pr view failed: ${redact(r.stderr.trim())}`, 5);
+  try {
+    return String(JSON.parse(r.stdout).headRefOid);
+  } catch {
+    throw new PublishFailure("gh pr view did not give JSON.", 5);
+  }
+}
+
+/**
+ * The checks of the pull request, judged by standard output and not by the exit code,
+ * because `gh pr checks` exits with 8 while a check is pending. An empty list means no check yet.
+ */
+export function readGithubChecks(forge: { repoArg: string }, url: string, options: { cwd: string; env?: NodeJS.ProcessEnv }): CheckState[] {
+  const r = runProgram("gh", ["pr", "checks", url, "--repo", forge.repoArg, "--json", "name,state,bucket,link"], options);
+  let list: unknown;
+  try {
+    list = JSON.parse(r.stdout);
+  } catch {
+    if (/no checks reported/i.test(r.stderr)) return [];
+    throw new PublishFailure(`gh pr checks failed: ${redact(r.stderr.trim())}`, 5);
+  }
+  if (!Array.isArray(list)) throw new PublishFailure("gh pr checks did not give a list.", 5);
+  return list.map((c) => ({ name: String(c.name), link: String(c.link ?? ""), bucket: String(c.bucket) }));
+}

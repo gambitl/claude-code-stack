@@ -1,12 +1,15 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readPlan } from "../src/plan/read.js";
 import { runFolder } from "../src/run-state.js";
 import { detectForge } from "../src/publish/forge.js";
 import { publish } from "../src/commands/publish.js";
 import { PLAN_PATH, makePublishEnv, type PublishEnv } from "./helpers/publish-env.js";
 import { collect, commitFiles, commitPlan, git } from "./helpers/plan-repo.js";
+
+// Every fake gh, glab and git call starts a process, so a full run needs more than the default 5 seconds.
+vi.setConfig({ testTimeout: 30_000 });
 
 async function run(env: PublishEnv, args: string[] = []) {
   const { out, io } = collect();
@@ -387,5 +390,117 @@ describe("cstack publish brings the branch up to date and runs the tests", () =>
     expect(code).toBe(0);
     expect(out.stdout + out.stderr).toContain("tests did not run because .cstack/settings.json has no testCommands");
     expect(branchPushes(env)).toHaveLength(1);
+  });
+});
+
+describe("cstack publish waits for the checks of the pushed commit on GitHub", () => {
+  const LINK = "https://github.com/o/r/pull/7";
+  const head = (env: PublishEnv) => git(env.repo, "rev-parse", "HEAD");
+  const record = (env: PublishEnv) =>
+    JSON.parse(readFileSync(join(runFolder(env.repo, PLAN_PATH), "publish.json"), "utf8"));
+  const view = (oid: string) => ({ stdout: JSON.stringify({ headRefOid: oid }) });
+  const check = (name: string, bucket: string) => ({ name, state: bucket.toUpperCase(), bucket, link: `https://ci.example/${name}` });
+  const checks = (...list: ReturnType<typeof check>[]) => ({ stdout: JSON.stringify(list), code: list.some((c) => c.bucket === "pending") ? 8 : 0 });
+  const base = { "gh pr create": { stdout: `${LINK}\n` } };
+  const SECOND = 1000;
+
+  it("waits for the pushed commit, never reports the old failure, and exits with 0", async () => {
+    const env = makePublishEnv();
+    const first = (await import("node:child_process")).execFileSync("git", ["-C", env.repo, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    env.scenario({
+      ...base,
+      "gh pr view": [view("0".repeat(40)), view(first)],
+      "gh pr checks": checks(check("build", "pass")),
+    });
+    const { code, out } = await run(env, ["--grace", "0", "--poll", "20"]);
+    expect(code).toBe(0);
+    expect(out.stdout + out.stderr).not.toContain("old-failure");
+    expect(env.calls().filter((c) => c.args.slice(0, 2).join(" ") === "pr checks")).toHaveLength(1);
+    expect(record(env).checks).toMatch(/passed/);
+    for (const c of env.calls().filter((c) => c.args.slice(0, 2).join(" ") === "pr view")) {
+      expect(c.args).toEqual(expect.arrayContaining(["--repo", "github.com/o/r", "--json", "headRefOid"]));
+    }
+  });
+
+  it("gives 6 with the name and link of a failed check", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("lint", "fail"), check("build", "pass")) });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(6);
+    expect(out.stderr).toContain("lint");
+    expect(out.stderr).toContain("https://ci.example/lint");
+    expect(record(env).checks).toMatch(/failed/);
+  });
+
+  it("gives 6 for a cancelled check", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("deploy", "cancel")) });
+    const { code, out } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(6);
+    expect(out.stderr).toContain("deploy");
+  });
+
+  it("gives 7 and names the checks that are still pending at the timeout", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("slow", "pending"), check("build", "pass")) });
+    const { code, out } = await run(env, ["--grace", "0", "--timeout", "1", "--poll", "20"]);
+    expect(code).toBe(7);
+    expect(out.stderr).toContain("slow");
+    expect(out.stderr).not.toContain("build");
+    expect(record(env).checks).toMatch(/timed out/);
+  });
+
+  it("gives 6 and names both when one check failed and one is pending at the timeout", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("lint", "fail"), check("slow", "pending")) });
+    const { code, out } = await run(env, ["--grace", "0", "--timeout", "1", "--poll", "20"]);
+    expect(code).toBe(6);
+    expect(out.stderr).toContain("lint");
+    expect(out.stderr).toContain("slow");
+  });
+
+  it("says that no check ran, and exits with 0, when none appears within the grace period", async () => {
+    const env = makePublishEnv();
+    env.scenario(base);
+    const start = env.clock.value;
+    const { code, out } = await run(env, ["--grace", "30", "--poll", "10"]);
+    expect(code).toBe(0);
+    expect(out.stdout).toContain("no check ran");
+    expect(env.clock.value - start).toBeGreaterThanOrEqual(30 * SECOND);
+    expect(record(env).checks).toMatch(/no check ran/);
+  });
+
+  it("does not end before the grace period, even when every check already passed", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": checks(check("build", "pass")) });
+    const start = env.clock.value;
+    const { code } = await run(env, ["--grace", "60", "--poll", "20"]);
+    expect(code).toBe(0);
+    expect(env.clock.value - start).toBeGreaterThanOrEqual(60 * SECOND);
+  });
+
+  it("waits exactly --poll seconds between two reads", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": [checks(check("build", "pending")), checks(check("build", "pass"))] });
+    const start = env.clock.value;
+    const { code } = await run(env, ["--grace", "0", "--poll", "20"]);
+    expect(code).toBe(0);
+    expect(env.clock.value - start).toBe(20 * SECOND);
+  });
+
+  it("gives 7 when the pull request never shows the pushed commit", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr view": view("0".repeat(40)) });
+    const { code, out } = await run(env, ["--grace", "0", "--timeout", "1", "--poll", "20"]);
+    expect(code).toBe(7);
+    expect(out.stderr).toContain(head(env).slice(0, 7));
+    expect(env.calls().filter((c) => c.args.slice(0, 2).join(" ") === "pr checks")).toHaveLength(0);
+  });
+
+  it("gives 5 when gh pr checks fails without JSON and without the no checks message", async () => {
+    const env = makePublishEnv();
+    env.scenario({ ...base, "gh pr checks": { stderr: "boom\n", code: 1 } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(5);
   });
 });
