@@ -406,7 +406,9 @@ No new question came up after the build, so nothing new needs an answer before t
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+- Does Orca accept a commit hash as the value of `--base-branch` of `worker-start`? The help of Orca 1.4.263 says "Base branch/ref to create the worktree from", so a hash should work, but nobody started a real worker to check it. The first real run of ticket 31 will show it. If Orca refuses, cstack starts a sub-agent in the shared folder, which is the collision this ticket removes. For: the person who runs ticket 31 on a real machine.
+- Should a unit that reported done without a commit get its child worktree removed, or marked as collected, by `cstack unit collect`? Today its worker is released, but its folder stays and a new implementer start for that unit is refused until the escalation role runs. For: the owner of the cstack design, in ticket 31 or a follow-up.
+- Should the small simplifications of the review be done? They are: make the Orca runner of `unitCollect` required and drop the synchronous overload, merge `applyUnits` into `applyInto`, split the plan text once in `withoutWorktreeLines`, and reuse the unit order between `checkChildStart` and `firstBatchIsOneUnit`. For: the owner of the cstack design.
 
 ## Pull request
 
