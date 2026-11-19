@@ -24,8 +24,9 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
   const { root, run, warn } = options;
   const reads = capability === "read" || capability === "list";
   // The origin remote is read at most once.
-  const origin = originRepo(run, root);
-  const name = options.tracker ?? trackerFromRemote(`https://${(await origin).host}/`);
+  let origin: ReturnType<typeof originRepo> | undefined;
+  const readOrigin = () => (origin ??= originRepo(run, root));
+  const name = options.tracker ?? trackerFromRemote(`https://${(await readOrigin()).host}/`);
 
   if (options.fromFile && reads) {
     return checkedTracker(claudeFileTracker(options.fromFile, name, warn), name, warn);
@@ -34,7 +35,7 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
     throw new TrackerError(`cstack cannot reach ${name} yet. Ticket #25 builds it.`, EXIT.refused);
   }
 
-  const { host } = await origin;
+  const { host } = await readOrigin();
   const client = await createClientChooser({ tracker: name, orcaAvailable: false, runner: run, host })(capability);
   if (client === "gh") return checkedTracker(githubGhTracker(run, root, warn), name, warn);
   if (client === "glab") return checkedTracker(gitlabGlabTracker(run, root, warn), name, warn);

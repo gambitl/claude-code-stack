@@ -37,6 +37,12 @@ describe("openTracker", () => {
     expect(calls).toContain("gh auth status --hostname gitlab.com");
   });
 
+  it("reads a file with --tracker and no origin, and never reads origin", async () => {
+    const { calls, options } = setup(undefined);
+    await openTracker("read", { ...options, tracker: "linear", fromFile: "/x.json" });
+    expect(calls).toEqual([]);
+  });
+
   it("runs no client with --from-file for read and list", async () => {
     const { calls, options } = setup("https://github.com/o/r.git");
     await openTracker("read", { ...options, fromFile: "/x.json" });
