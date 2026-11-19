@@ -186,13 +186,22 @@ describe("run", () => {
   });
 
   it("names the ticket of the command for the flags of unbuilt commands", async () => {
-    for (const [args, ticket] of [
-      [["wave", "--watch"], "#30"],
-    ] as const) {
-      const { out, io } = collect();
-      expect(await run([...args], io)).toBe(1);
-      expect(out.stderr).toContain(ticket);
-    }
+    // Its own list, so the case does not depend on which real flags are still unbuilt.
+    const commands: CommandEntry[] = [
+      {
+        usage: "cstack frobnicate [--later]",
+        summary: "A command that no ticket builds.",
+        flags: ["--later"],
+        exitCodes: { 0: "The command did its job." },
+        file: "frobnicate.ts",
+        ticket: 998,
+        built: true,
+        notBuiltFlags: { "--later": 999 },
+      },
+    ];
+    const { out, io } = collect();
+    expect(await run(["frobnicate", "--later"], io, commands)).toBe(1);
+    expect(out.stderr).toContain("#999");
   });
 
   it("runs cstack next and lists the phase names for an unknown phase", async () => {

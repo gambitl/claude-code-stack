@@ -125,7 +125,21 @@ describe("matchMention", () => {
 describe("the flags that are not built yet", () => {
   it("names the ticket of the flag once the command is built", () => {
     const built = COMMANDS.map((e) => ({ ...e, built: true }));
-    expect(unbuiltRefusal(["wave", "--watch"], built)).toContain("Ticket #30 builds it.");
+    // Its own list, so the case does not depend on which real flags are still unbuilt.
+    const made: CommandEntry[] = [
+      {
+        usage: "cstack frobnicate [--later]",
+        summary: "A command that no ticket builds.",
+        flags: ["--later"],
+        exitCodes: { 0: "The command did its job." },
+        file: "frobnicate.ts",
+        ticket: 998,
+        built: true,
+        notBuiltFlags: { "--later": 999 },
+      },
+    ];
+    expect(unbuiltRefusal(["frobnicate", "--later"], made)).toContain("Ticket #999 builds it.");
+    expect(unbuiltRefusal(["wave", "--watch"], built)).toBeUndefined();
     expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
   });
 
@@ -133,7 +147,7 @@ describe("the flags that are not built yet", () => {
     expect(unbuiltRefusal(["unit", "collect"])).toBeUndefined();
     expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
     expect(unbuiltRefusal(["wave"])).toBeUndefined();
-    expect(unbuiltRefusal(["wave", "--watch"])).toContain("Ticket #30 builds it.");
+    expect(unbuiltRefusal(["wave", "--watch"])).toBeUndefined();
   });
 });
 

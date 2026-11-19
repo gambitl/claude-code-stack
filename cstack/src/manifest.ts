@@ -284,7 +284,6 @@ export const COMMANDS: CommandEntry[] = [
     summary: "List a wave and start its ready tickets.",
     flags: ["--milestone", "--epic", "--tracker", "--from-file", "--watch"],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
-    notBuiltFlags: { "--watch": 30 },
     file: "wave.ts",
     ticket: 29,
     built: true,
