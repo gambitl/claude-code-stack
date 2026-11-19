@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan, type PlanRead } from "../plan/read.js";
+import { detectForge } from "../publish/forge.js";
 import { runProgram } from "../publish/program.js";
 import { readSettings, SettingsError } from "../settings.js";
 import { failWith } from "./errors.js";
@@ -109,6 +110,11 @@ export async function publish(args: string[], io: Io, deps: PublishDeps = defaul
     if (problems.length > 0) {
       io.stderr(`cstack publish: nothing was pushed, because ${problems.length} rule(s) are broken.\n${problems.map((p) => `- ${p}\n`).join("")}`);
       return 1;
+    }
+    const forge = detectForge(located.root, deps.env);
+    if (!forge.ok) {
+      io.stderr(`cstack publish: nothing was pushed.\n${forge.reasons.map((r) => `- ${r}\n`).join("")}`);
+      return 4;
     }
     // The next units add the update of the branch, the push and the wait for the checks here.
     io.stderr("cstack publish: the rules pass, but the push is not built yet. Nothing was pushed.\n");

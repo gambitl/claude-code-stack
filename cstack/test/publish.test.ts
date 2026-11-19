@@ -1,6 +1,7 @@
 import { writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { detectForge } from "../src/publish/forge.js";
 import { publish } from "../src/commands/publish.js";
 import { PLAN_PATH, makePublishEnv, type PublishEnv } from "./helpers/publish-env.js";
 import { collect, commitPlan, git } from "./helpers/plan-repo.js";
@@ -105,5 +106,65 @@ describe("cstack publish input errors", () => {
   it("gives 2 for an unknown positional argument", async () => {
     const env = makePublishEnv();
     expect((await run(env, ["now"])).code).toBe(2);
+  });
+});
+
+describe("cstack publish finds the forge", () => {
+  const setRemote = (env: PublishEnv, url: string) => git(env.repo, "config", "remote.origin.url", url);
+
+  it("gives 4 when gh is not logged in for github.com", async () => {
+    const env = makePublishEnv();
+    env.scenario({ "gh auth status": { code: 1 } });
+    const { code, out } = await run(env);
+    expect(code).toBe(4);
+    expect(out.stderr).toContain("github.com");
+    expect(out.stderr).toContain("gh");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("gives 4 for an unknown host, names both clients and hides the credentials", async () => {
+    const env = makePublishEnv();
+    setRemote(env, "https://user:secret-token@gitlab.example.org/group/r.git");
+    env.scenario({ "gh auth status": { code: 1 }, "glab auth status": { code: 1 } });
+    const { code, out } = await run(env);
+    expect(code).toBe(4);
+    expect(out.stderr).toContain("gitlab.example.org");
+    expect(out.stderr).toContain("gh is not logged in");
+    expect(out.stderr).toContain("glab is not logged in");
+    expect(out.stderr).not.toContain("secret-token");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("gives 4 and names the remote when it is a local path", async () => {
+    const env = makePublishEnv();
+    setRemote(env, "/tmp/some-bare.git");
+    const { code, out } = await run(env);
+    expect(code).toBe(4);
+    expect(out.stderr).toContain("/tmp/some-bare.git");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("asks ssh for the real host of an alias, and finds GitLab", () => {
+    const env = makePublishEnv();
+    setRemote(env, "git@work-alias:group/r.git");
+    env.scenario({
+      "gh auth status": { code: 1 },
+      "glab auth status --hostname gitlab.example.org": { code: 0 },
+      "glab auth status": { code: 1 },
+      "ssh -G work-alias": { stdout: "user git\nhostname gitlab.example.org\n" },
+    });
+    expect(detectForge(env.repo, env.deps.env)).toEqual({
+      ok: true,
+      kind: "gitlab",
+      host: "gitlab.example.org",
+      repoArg: "https://gitlab.example.org/group/r",
+    });
+    expect(env.calls().some((c) => c.program === "ssh" && c.args.join(" ") === "-G work-alias")).toBe(true);
+  });
+
+  it("uses gh on github.com with the repository argument", () => {
+    const env = makePublishEnv();
+    expect(detectForge(env.repo, env.deps.env)).toEqual({ ok: true, kind: "github", host: "github.com", repoArg: "github.com/o/r" });
+    expect(env.calls().map((c) => c.program)).toEqual(["gh"]);
   });
 });
