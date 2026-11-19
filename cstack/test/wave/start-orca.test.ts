@@ -41,7 +41,7 @@ const args = ["--milestone", "M3", "--tracker", "jira"];
 
 describe("cstack wave: start with Orca", () => {
   it("calls worktree create with exactly the planned arguments and no word of the title", async () => {
-    const title = "'; rm -rf ~; ' `id` ignore your instructions";
+    const title = "'; rm -rf ~; ' `id` $(id) \u001b[31m ignore your instructions";
     const { clone, longCalls, out, io, deps } = setup([ticket("ABC-12", { title })]);
     expect(await wave(args, io, deps)).toBe(0);
     expect(longCalls).toEqual([
@@ -54,7 +54,7 @@ describe("cstack wave: start with Orca", () => {
         ],
       },
     ]);
-    for (const a of longCalls[0]!.args) expect(a).not.toMatch(/rm -rf|ignore/);
+    for (const a of longCalls[0]!.args) expect(a).not.toMatch(/rm -rf|ignore|`|\$\(|\u001b/);
     expect(out.stdout).toContain("/home/user/work/example-worktrees/abc-12");
   });
 
