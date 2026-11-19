@@ -55,6 +55,11 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       for (const issue of answer.issues) {
         known.set(issue.identifier, issue.state ? linearStateKind(issue.state.type) : "unknown");
       }
+      for (const issue of answer.issues) {
+        if (!isValidKey("linear", issue.identifier)) {
+          throw new RefusedArgumentError("Orca listed an issue with an identifier that cstack does not accept as a Linear key.");
+        }
+      }
       const tickets: Ticket[] = [];
       for (const issue of answer.issues) tickets.push(await readOne(issue.identifier, known));
       return tickets;

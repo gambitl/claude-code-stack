@@ -119,6 +119,16 @@ describe("linear through orca: list", () => {
     expect(tickets[0]!.blockers).toEqual([{ key: "EXA-2", stateKind: "todo" }]);
   });
 
+  it("refuses a listed identifier that is not a key, with no Orca call for it", async () => {
+    const { run, calls } = fakeOrcaRun({
+      [list]: answer("linear-list-issues.epic.json", (r) => {
+        r.issues[0].identifier = "--bad";
+      }),
+    });
+    await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 1 });
+    expect(calls.map((c) => c.join(" ")).filter((c) => c.startsWith("linear issue"))).toEqual([]);
+  });
+
   it("refuses a truncated list with exit 1", async () => {
     const { run } = fakeOrcaRun({ [list]: answer("linear-list-issues.truncated.json") });
     await expect(linearOrcaTracker(run, {}).listGroup({ epic: "EXA-9" })).rejects.toMatchObject({ exitCode: 1 });
