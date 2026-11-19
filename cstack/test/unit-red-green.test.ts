@@ -405,4 +405,20 @@ describe("cstack unit green, running the test", () => {
     expect(r.code).toBe(5);
     expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
   });
+
+  it.each([
+    ["reaches the timeout", "sleep 30\n"],
+    ["cannot start", "exit 127\n"],
+  ])("deletes the earlier passing run when the test %s", async (_case, body) => {
+    const dir = await redThenCode();
+    code(dir);
+    expect((await green(dir)).code).toBe(0);
+    writeFileSync(join(dir, "test/a.test.ts"), body);
+    const r = await green(dir, "1", "--plan", "plan.md", "--timeout", "0.01");
+    expect(r.code).toBe(5);
+    expect(r.stderr).toContain("earlier passing run is deleted");
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "red.json"))).toBe(true);
+  });
 });

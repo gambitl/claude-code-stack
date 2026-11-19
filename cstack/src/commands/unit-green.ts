@@ -42,21 +42,28 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const run = await runTests(root, script, testFile, timeoutMs);
   printTestOutput(io, run.output);
 
-  if (run.timedOut) {
-    io.stderr(`${prefix}The test did not end within ${timeoutMs / 60_000} minutes, so cstack stopped it. Nothing is saved.\n`);
-    return 5;
-  }
-  if (run.exitCode === 126 || run.exitCode === 127) {
-    io.stderr(`${prefix}The test command could not start (exit code ${run.exitCode}). Nothing is saved.\n`);
-    return 5;
-  }
   if (run.exitCode !== 0) {
-    // WHY: a passing run saved before this failure would let `cstack unit commit` accept code whose test fails now.
+    // WHY: a passing run saved before this run would let `cstack unit commit` accept code whose test does not pass now.
+    // A timeout and a command that cannot start do not pass either.
     try {
       deletePassingRun(runDir, unit.number);
     } catch (error) {
       return failWith(error, io, prefix);
     }
+  }
+  if (run.timedOut) {
+    io.stderr(
+      `${prefix}The test did not end within ${timeoutMs / 60_000} minutes, so cstack stopped it. Nothing is saved, and any earlier passing run is deleted.\n`,
+    );
+    return 5;
+  }
+  if (run.exitCode === 126 || run.exitCode === 127) {
+    io.stderr(
+      `${prefix}The test command could not start (exit code ${run.exitCode}). Nothing is saved, and any earlier passing run is deleted.\n`,
+    );
+    return 5;
+  }
+  if (run.exitCode !== 0) {
     io.stderr(
       `${prefix}The test of unit ${unit.number} still fails (exit code ${run.exitCode}). Nothing is saved, and any earlier passing run is deleted.\n`,
     );
