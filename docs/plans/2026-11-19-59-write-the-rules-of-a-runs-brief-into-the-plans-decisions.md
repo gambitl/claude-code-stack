@@ -232,11 +232,44 @@ Should the new paragraph forbid copying a secret of the brief into the plan file
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The ticket guide now has one paragraph about the brief of a run. It tells the skill to copy each rule of the brief into `## Decisions` with its source, never to copy a secret, and to ask you when a rule conflicts with a gate, the ticket, the settings file or the conventions file. It does what the ticket asked. The new test fails on `main` and passes on this branch, and I reran it together with the size test and the other guide tests: all pass.
+
+**What you need to do**
+
+Merge this pull request before the ticket that wires the Orca features into the guides (#31) starts. Both tickets change the same guide. The new paragraph also reaches real runs only with the release that #31 publishes.
+
+**What to watch**
+
+- Only 2 words are left under the size test of the skill. The ticket that wires the Orca features into the guides (#31) will have to shorten something before it adds its step. The comment I left on it says so.
+- The paragraph forbids copying a secret, but not other private text, such as a client name. In this public repository, such a name in a brief would still be pushed with the plan file. Here the conventions file covers it, so the sentence can be widened when #31 makes room.
+
+#### Details
+
+**What was built.** Commit `f966dd4` adds one paragraph of 105 words to `cstack/guides/resolve-issue/ticket.md` (line 42), between the sentence about `### Decisions already taken upstream` and "From now on every phase writes its results into this file." It also adds `cstack/test/guides/brief-rules.test.ts` with the two cases the plan describes. `origin/main` has no `brief` paragraph in the guide, so the first case fails there. On this branch, `npx vitest run` on `brief-rules.test.ts`, `skill-size.test.ts`, `guides/settings-applied.test.ts` and `prompts.test.ts` gives 15 passing tests (rerun on 2026-11-19). The review log records a full suite of 1,172 passing tests and a clean typecheck. `origin/main` had no new commit on top of the branch when I checked.
+
+**Merge order and release.** Both this ticket and #31 change `ticket.md`, and the ticket asks to merge this one first. ADR-SIC-C serves the guides at the installed version of `cstack`, so the paragraph acts only after the next release, which #31 publishes. If #31 starts before this merges, its branch meets this paragraph in the same file and loses the size budget it was told about. Only the user merges, as `## Decisions` says.
+
+**Size margin.** `wc -w` gives 836 words for `cstack/skills/resolve-issue/SKILL.md` and 613 for `ticket.md`, so 1,449 of the 1,451 allowed by `cstack/test/skill-size.test.ts`. The plan accepted this margin, and the comment on #31 (https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7016393574) gives the number and names the test. By default #31 fails the size test as soon as it adds its step, which is the intended signal.
+
+**Private text other than secrets.** The security review found that the paragraph forbids only secrets. A brief can also carry a client or employer name, and the plan file is committed and pushed. In this repository, the public text rule of `CLAUDE.md` and the entry skill cover it. In another team's repository without such a rule, the name would be copied. Widening the sentence needs about 15 words, and 2 are left. I accept the deferral. The question below is for whoever next frees room in the guide.
+
+**An imprecise reason in the paragraph.** The paragraph says that the executor and the implementers "never" read `## Ticket`. In fact `cstack/skills/resolve-issue/agents/implementer.md` (line 22) has implementers read `Where things are today`, `Scope` and `Acceptance`, which are subsections of `## Ticket`. What they never read is the upstream block, and `cstack/test/plan-section.test.ts` (line 23) checks that. The sentence only gives a reason and does not change what an agent does, so I left it out of the short version. "Never the whole `## Ticket`" would fix it for 2 words, which uses the whole margin. By default it stays as written.
+
+**Fragile spots of the test.** The first case takes the first paragraph of the guide that contains "brief". If #31 adds that word earlier in the guide, the test fails with a misleading message about missing key words. The conventions review noted it. The `<date>` placeholder in the paragraph is not in backticks, so GitHub may hide it when it renders the file. Agents read the raw text, so it does no harm to a run.
+
+**Earlier questions, resolved.** The question on secrets was answered yes by the user, and the paragraph carries the sentence. The room in the guide was kept as scoped, and the comment on #31 is posted. The paragraph copies "each" rule, as the ticket says. "The ticket" is in the list of things a brief rule cannot override without asking. The conflict question is not a stop, and the paragraph says "ask the user first" without naming a stop. The plan template and the entry skill are unchanged. The test checks key words inside the paragraph. The question about rules that reach a run after its first message is posted word for word in the comment on epic #6 (https://github.com/gambitl/claude-code-stack/issues/6#issuecomment-7015808563).
+
+**New question (non-blocking, for the maintainer of the repository, when #31 or a later digest of retrospectives frees room in the ticket guide).** "The ticket guide tells a run never to copy a secret of its brief into the plan file, which is committed and pushed. Should the same sentence also forbid other private text, such as the name of an employer or a client, for repositories that have no public text rule of their own? It needs about 15 words, and today the size test of the skill leaves 2."
+
+I cited ADR-SIC-B, ADR-SIC-C, ADR-SIC-E and scope item 4 of the ticket, and I did not reopen them. I checked data model lock-in, scale and performance, user interface edge cases, operations and cost, and reversibility, and found nothing. The change is one paragraph of prose and one test, and a revert undoes it until the release.
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+- For the maintainer of the repository: "The ticket guide tells a run never to copy a secret of its brief into the plan file, which is committed and pushed. Should the same sentence also forbid other private text, such as the name of an employer or a client, for repositories that have no public text rule of their own? It needs about 15 words, and today the size test of the skill leaves 2."
+- For whoever frees room in the ticket guide, such as the author of #31: "The new paragraph says that the executor and the implementers never read `## Ticket`. The implementers do read its subsections `Where things are today`, `Scope` and `Acceptance`. Should the sentence say 'never the whole `## Ticket`'? It costs 2 words, which is all the margin left."
+- For the maintainer of the repository: "Should the plan template list 'from the brief of the run' among the sources of a decision line, and should the plan guide say that `## Decisions` keeps the lines of the brief? Neither file lists it today, and this ticket leaves both unchanged on purpose."
 
 ## Pull request
 
