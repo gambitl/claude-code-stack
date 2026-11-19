@@ -371,6 +371,16 @@ The ticket turns a milestone into `--project <name>`, but `create-tickets` puts 
 - For: the user
 - Answer: Yes. A Linear list by milestone exits with code 4, and a list by epic uses `--parent-id`. (user's answer, 2026-11-19)
 
+### Question 5: A Linear list by epic probably needs the internal id of the epic
+Orca turns `--parent-id EXA-9` into a filter on the internal id of the parent issue, which is a UUID, and not on its key. A Linear list by epic then probably comes back empty or fails, and cstack accepts an empty Linear list without a word. Should `listGroup` first read the epic with `orca linear issue <key>` to get its internal id, pass that id to `--parent-id`, and refuse an empty list with exit `1`, as the Jira adapter does?
+- For: the user
+- Answer: open
+
+### Question 6: Several saved Linear workspaces are not guarded
+With two saved Jira sites, cstack refuses to go through Orca. With several saved Linear workspaces, it does not. Orca then uses the workspace selected in its window, so a comment could land on a ticket of another organization that has the same team key. Should `cstack/src/orca/features.ts` (rule of #24) refuse Orca for Linear when more than one workspace is saved, in this pull request?
+- For: the user
+- Answer: open
+
 ## Review log
 
 ### Impact notes
@@ -395,7 +405,48 @@ Judgment calls for the pull request body. An empty Linear epic is accepted, whil
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+Two new questions about Linear need your answer before the pull request opens. I found them by reading the code of Orca, and you will see them right after this message.
+
+The Jira and Linear adapters read, list, move and comment as the ticket asks, against the Orca answers written by hand. I ran the 133 tests of the tracker and of Orca again, and they pass. The whole suite of 873 tests passed at the end of the build. Nothing calls this code yet: the ticket that writes the `cstack tracker` commands (#26) has no pull request, so it will plug the adapters into `openTracker`.
+
+**What you need to do**
+
+- When the pull request of #26 opens, check that it plugs in both adapters and tests `cstack tracker read --tracker jira`. Without that, this code stays unused.
+
+**What to watch**
+
+- The Orca answers were written by hand, so the end-to-end test (#31) is the first real contact. Check two things there. On Jira Cloud, does the footer `**Size:` come back with its asterisks? And how long does a Jira list of 30 tickets take, now that each ticket is read one after the other?
+- The test `names a unit without a commit` sometimes times out in the whole suite, and this branch does not touch it. If the `cstack` check fails on it, run it again.
+
+**What changed since the plan**
+
+- An Orca search on Jira returns an empty description, so a Jira list reads each ticket again. That costs one more Orca call per ticket.
+- A Linear list that holds an identifier cstack does not accept now stops with exit 1, before any other call.
+- When Orca is not installed, a write now tells Claude that nothing ran and that it must make the change itself.
+
+### Details
+
+The opening sentence is there because two new questions are blocking and cannot be answered by a test on this machine, so the pull request waits for them. Both are written below, word for word, for the developer.
+
+The build does what the ticket asks. `cstack/src/tracker/jira-orca.ts` and `cstack/src/tracker/linear-orca.ts` implement the four methods of the `Tracker` interface, and `cstack/src/tracker/orca-calls.ts` maps every Orca failure to its exit code. I ran `npx vitest run test/tracker test/orca` in `cstack/` on the branch head `e6cfda1`: 15 files and 133 tests pass. The executor reports 873 passing tests and a clean typecheck for the whole suite. `origin/main` has not moved since the branch started, and `gh pr list` shows no pull request for #26, so the coordinator's rule applies: #26 merges second and does the wiring into `openTracker`, with the test that `cstack tracker read <key> --tracker jira` reaches the Jira adapter. Until then, `cstack tracker read --tracker jira` keeps the refusal that names #25.
+
+The action for the developer is to check the pull request of #26 for that wiring. The coordinator's brief already asks for it, so this is a check, not new work. If nobody checks, the risk is that #26 merges without it and both adapters stay unused until #31 notices.
+
+The first thing to watch is the hand-written answers. Every fixture in `cstack/test/fixtures/orca/1.4.263/` comes from my reading of the Orca code, so the tests prove the adapters follow that reading. Two points stay unverified. First, on Jira Cloud, Orca turns rich text into Markdown, and the footer is found only if the bold mark comes back as `**`. The earlier block checked the `strong` case of the converter, but no real ticket confirmed it. If the asterisks are lost, every Jira ticket gets the blockers `unknown`, so the ready rule keeps every ticket blocked. That is safe but makes Jira waves look stuck. Second, the Jira list now costs one search, one `orca jira issue` per hit, and one more per footer blocker outside the list, all in sequence (`listGroup` in `jira-orca.ts`, line 112). A wave of 99 tickets means about 100 Orca calls. The end-to-end test of #31 is the place to measure both.
+
+The second thing to watch is the test `names a unit without a commit` in `cstack/test/report.test.ts`. The executor saw one failure out of 873 in a full run, and the review saw this test time out only in a full run. This branch does not touch that file. The plan's decisions already say how to rerun a cancelled `cstack` check.
+
+Three things changed since the plan. The correctness review found that Orca 1.4.263 returns an empty description in a Jira search, so `listGroup` would lose every footer blocker. The fix reads each hit again with `orca jira issue` (commit `8f1046c`), and the search fixture and the README say the description is empty. The security review found that a key from a Linear list answer reached an Orca argument without `isValidKey`. Now a bad key stops the list with exit 1 before any read (commit `7e14066`). The independent review changed the exit 4 message of a write when Orca is not installed, so that it tells Claude nothing ran and Claude must make the change itself (commit `b18091f`). The review also left an empty Linear epic list accepted while an empty Jira epic list is refused. That point is part of the first new question below.
+
+The earlier questions are all resolved. The answers were written by hand from the Orca code, as the developer answered, and the fixture README says so. A Jira list passes `--limit 100` and refuses 100 tickets or more. Jira blockers come from the footer alone, with backslash escapes removed first. A Linear list by milestone throws `NoClientError` with exit 4. Every item of "I will do this unless you say no" was built as written: the Jira move by transition id with the already-there case, exit 5 for any failure after a write, the team key from `issue.team.key`, and the two Jira list guards. The question for the Orca maintainers stays open and goes into the pull request body.
+
+New question 1, blocking, cannot be answered by a test on this machine because no Linear workspace may be reached, for the developer: "The Linear list by epic passes the ticket key, such as `EXA-9`, to `orca linear list-issues --parent-id`. Orca 1.4.263 turns that value into the filter `parent: {id: {eq: "EXA-9"}}` (functions `Zzr` and `tBr` in its bundle). The `id` comparator of a Linear filter expects the internal id of the issue, which is a UUID, not its key. So a real list will very probably come back empty or fail. Today cstack accepts an empty Linear epic list without a word, so a wave could look empty. May I read the epic first with `orca linear issue <key> --relations`, check that its `issue.id` is a UUID, pass that id to `--parent-id`, and refuse an empty Linear epic list with exit 1, as the Jira side does? It costs one more Orca call per list." My recommendation is yes. The fix works whatever Linear does with a key, because the answer of `orca linear issue` carries the internal id (function `TE` maps `id` from the GraphQL node). A related fact for the record: `create-tickets` puts Linear tickets in a project and a project milestone, not under a parent issue (`skills/create-tickets/SKILL.md`, line 126). So on Linear, a list by epic through Orca only helps teams that use parent issues as epics. If nobody decides, the code ships as it is and the first real Linear epic list will very probably show an empty wave.
+
+New question 2, blocking, cannot be answered by a test on this machine because it needs two connected Linear workspaces, for the developer: "cstack refuses Jira through Orca when Orca has two saved Jira sites, but it accepts Linear through Orca with any number of connected Linear workspaces (`cstack/src/orca/features.ts`, lines 140 to 148). The adapters pass no `--workspace`, so Orca uses the workspace selected in its window. I read this for `list-issues` (functions `cBr`, `fE` and `hE` in its bundle). The same team key, such as `ENG`, can exist in two workspaces. A developer with a work Linear and a personal Linear could then get a comment or a state change on the wrong organisation's ticket. May I make the Linear check in `features.ts` refuse Linear through Orca when `orca linear team list --workspace all` returns teams of more than one workspace, as it already does for two Jira sites? The other choice is a follow-up ticket, done before the end-to-end test of #31." My recommendation is the check in `features.ts`, in this pull request. It is a few lines, the team list answer already names each team's workspace, and this ticket is the one that makes Linear writes possible. It changes a rule that #24 set, which is why I ask rather than assume. `features.ts` was last changed by the `cstack doctor` work, so a conflict with #26 is unlikely but possible. I did not check which workspace `orca linear issue`, `status set` and `comment add` pick, because they resolve the issue through other code paths. If nobody decides, a developer with two Linear workspaces can post a ticket comment into another organisation.
+
+I did not reopen three locked decisions. They are ADR-SIC-F, the coordinator's split between this ticket and #26, and the fixture folder `1.4.263/`. New question 2 touches the availability rule of #24, and I ask it instead of changing it. I checked data model lock-in, operations and cost beyond the call count, reversibility and UX edge cases, and found nothing more.
 
 ## Non-blocking questions
 
