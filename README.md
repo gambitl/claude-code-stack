@@ -46,7 +46,7 @@ The rule only covers `cstack` commands. If no client can reach your tracker, Cla
 
 ## Commands
 
-`cstack` has twenty-two commands. Run `cstack` with no argument to see how to call each one.
+`cstack` has twenty-three commands. Run `cstack` with no argument to see how to call each one.
 
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
