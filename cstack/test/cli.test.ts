@@ -101,8 +101,11 @@ describe("run", () => {
     }
   });
   it("answers that a command of the list is not built yet, with exit code 1", async () => {
+    const builtWords = new Set(COMMANDS.filter((e) => e.built).map((e) => commandWords(e)[0]));
+    const notBuilt = COMMANDS.find((e) => !e.built && !builtWords.has(commandWords(e)[0]));
+    if (notBuilt === undefined) return;
     const { out, io } = collect();
-    const code = await run(["next"], io);
+    const code = await run([commandWords(notBuilt)[0]], io);
     expect(out.stderr).toContain("not built in this version yet");
     expect(out.stdout).toBe("");
     expect(code).toBe(1);
@@ -141,9 +144,13 @@ describe("run", () => {
   });
 
   it("uses the singular and the plural correctly when it names tickets", async () => {
-    const one = collect();
-    await run(["next"], one.io);
-    expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
+    // The first unbuilt entry built by one ticket. `cstack next` was the example until #15 built it.
+    const single = COMMANDS.find((e) => !e.built && typeof e.ticket === "number");
+    if (single !== undefined) {
+      const one = collect();
+      await run(commandWords(single), one.io);
+      expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
+    }
     const two = collect();
     await run(["tracker", "read"], two.io);
     expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
@@ -158,6 +165,12 @@ describe("run", () => {
       expect(await run([...args], io)).toBe(1);
       expect(out.stderr).toContain(ticket);
     }
+  });
+
+  it("runs cstack next and lists the phase names for an unknown phase", async () => {
+    const { out, io } = collect();
+    expect(await run(["next", "--phase", "deploy"], io)).toBe(2);
+    expect(out.stderr).toContain("ticket, dependencies, code-map");
   });
 
   it("prints the usage line of every built entry and of no other entry", async () => {

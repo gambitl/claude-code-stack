@@ -58,7 +58,7 @@ export interface PublishRecord {
 
 const PLAN_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 
-function cstackVersion(): string {
+export function cstackVersion(): string {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as { version: string };
   return pkg.version;
 }
