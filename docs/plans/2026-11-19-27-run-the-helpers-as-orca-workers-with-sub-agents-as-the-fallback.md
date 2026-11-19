@@ -526,7 +526,49 @@ I checked security and authorization, data model lock-in, scale, failure modes a
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): run the helpers as Orca workers, with sub-agents as the fallback
+
+````markdown
+## What this does
+
+This pull request adds three commands: `cstack helper start`, `cstack helper wait` and `cstack helper done`. When Orca workers are available, they start the executor and the implementers as Orca workers. A worker ends with an explicit `worker_done` message, so the main conversation acts only when the work is really done. When Orca workers are not available, `helper start` prints which sub-agent Claude must start and exits with 6. In both ways, `helper done` runs the same report check as `cstack report submit`.
+
+## Key decisions
+
+- The choice is recorded in `docs/decisions/ADR-SIC-A-helpers.md`: Orca workers when available, sub-agents otherwise.
+- The report reaches Orca only as the path of a saved file. No ticket text, plan text or report text goes into the worker spec or into an `orca` argument, and no call goes through a shell.
+- `helper wait` asks `worker-show` on every turn, so a worker that stops without a message is still noticed.
+- `CSTACK_ORCA_WORKERS=off` forces sub-agents. The user asked for this switch.
+- When Orca clearly refuses a start for a reason other than the model, `helper start` falls back to a sub-agent. A refused model, a timeout or an unreadable answer stops with exit 5, because a worker may have started.
+- An implementer `done` now also needs a saved passing run. `checkReport` got this check.
+- The recorded and hand-written Orca answers are new fixtures in `cstack/test/fixtures/orca/1.4.263/`.
+
+## Files touched
+
+The logic is in `cstack/src/helper/`, with thin command files in `cstack/src/commands/`. The runner now keeps the output of a failed program (`cstack/src/orca/run.ts`). The shapes are in `cstack/src/orca/shapes.ts`, and the report functions in `cstack/src/report/reports.ts`. The command list, the handler in `cstack/src/cli.ts`, their tests and the README count 17 built commands and 6 not built. The plan file is `docs/plans/2026-11-19-27-run-the-helpers-as-orca-workers-with-sub-agents-as-the-fallback.md`.
+
+## Review
+
+Four reviewers and an independent reviewer read the branch. They found two security-related problems and some duplicated code, and all of that is fixed. The unquoted plan path in the worker's final command is now quoted. A retry of `helper done` now takes the kind from the saved report. The whole suite passes with 874 tests.
+
+Judgment calls from the independent review:
+
+- `helper wait` treats only the statuses `completed` and `failed`, or a gone worker, as finished. Only a real Orca can confirm which statuses a stopped worker gets.
+- If Orca already closed a finished worker, `worker-show` answers "not found" and `helper wait` exits with 5, even though the report is saved.
+- The worst case of `helper wait` is close to the ten-minute limit of one shell command. It happens only when Orca hangs.
+- `helper wait` takes no `--plan`, so it needs a current run in the worktree.
+- Two units did not start with a true failing test, because the code from an earlier unit already did the work.
+
+Follow-ups, not done: `helper wait` says "still working" for a worker that saved a report but could not send it. Exit code 6 stays out of `EXIT` in the manifest, as the plan decides. The check that Orca wakes the conversation is for #31, because it needs a real Orca.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- For the person who builds #31: When the executor runs as an Orca worker, and `cstack helper wait` exits with 6 because an implementer still works, should the guide make it run `cstack helper wait` again instead of ending its turn? Orca's guide says that a worker that stops without `worker_done` raises an escalation to the agent that started it. Ending the turn there may wake the main conversation while the implementers still run, which is the early report that ticket #27 fixes. I suggest that a helper that was started from an Orca spec never ends its turn on exit 6 and runs `cstack helper wait` again, and that only a conversation that no Orca worker-start started ends its turn. Please check this against a real Orca in #31.
+
+Fixes #27
+````
 
 ## Documentation
 
@@ -549,7 +591,7 @@ I checked security and authorization, data model lock-in, scale, failure modes a
 
 ## Hand-off log
 
-- 2026-11-19, executor run 1 started the build. GitHub has no "in progress" state, so it added the label `in progress` to ticket #27, as the plan says. Later in the same run it built all eleven units. Unit 10 was escalated once and then finished. The run then ended the build phase.
+- 2026-11-19, executor run 1 started the build. GitHub has no "in progress" state, so it added the label `in progress` to ticket #27, as the plan says. Later in the same run it built all eleven units, reviewed the branch, documented the ticket and drafted the pull request. Unit 10 was escalated once and then finished. The run ended with the done report, after the phase ready.
 
 ## History
 
