@@ -520,7 +520,7 @@ I checked security and authorization, data model lock-in, scale, failure modes a
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+1. For the person who builds #31: When the executor runs as an Orca worker, and `cstack helper wait` exits with 6 because an implementer still works, should the guide make it run `cstack helper wait` again instead of ending its turn? Orca's guide says that a worker that stops without `worker_done` raises an escalation to the agent that started it. Ending the turn there may wake the main conversation while the implementers still run, which is the early report that ticket #27 fixes. I suggest that a helper that was started from an Orca spec never ends its turn on exit 6 and runs `cstack helper wait` again, and that only a conversation that no Orca worker-start started ends its turn. Please check this against a real Orca in #31.
 
 ## Pull request
 
