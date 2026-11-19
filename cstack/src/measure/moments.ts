@@ -7,7 +7,7 @@ import { PlanFormatError, readPlan } from "../plan/read.js";
 const execFileAsync = promisify(execFile);
 const GIT_OPTIONS = ["--literal-pathspecs", "-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];
 
-async function git(cwd: string, args: string[]): Promise<string> {
+export async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", [...GIT_OPTIONS, ...args], {
     cwd,
     maxBuffer: 256 * 1024 * 1024,

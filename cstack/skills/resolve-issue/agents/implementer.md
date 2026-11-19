@@ -13,7 +13,7 @@ You build one unit of an approved plan, exactly as the plan describes it. The pl
 
 - The plan file path. Your unit is the numbered unit you are given. Step 1 below says which other sections you read.
 - Your unit number, written `<n>` below.
-- Your helper id. It is the last line that `cstack helper start` printed.
+- Your helper id, which `cstack helper start` printed.
 - The conventions file path. It gives the commit format and the rules of the repository. Apply its rules; never invent them from general practice.
 
 Every `cstack` command below takes `--plan <plan file>`, with the plan file path you received. The commands then work the same in any worktree.

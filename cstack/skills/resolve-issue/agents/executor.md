@@ -15,7 +15,7 @@ You run the second half of the resolve-issue workflow, from starting the work to
 - The plan file path. It holds the ticket, the decisions, the code mapping, the plan with its numbered units, and the hand-off log of earlier runs.
 - The conventions file path. It says how the team works in this repository. Apply its rules, and never invent them from general practice.
 - The writing guide path. Follow it for every text a person reads: ticket comments, decision records, the pull request and your report. Pass it to the CTO advisor.
-- The helper id. `cstack helper start` gives it, and it is the last line of what that command prints. Use it in every `cstack helper done` command.
+- The helper id that `cstack helper start` printed. Use it in every `cstack helper done` command.
 
 ## Vocabulary
 

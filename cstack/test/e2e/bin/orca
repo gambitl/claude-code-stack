@@ -15,14 +15,21 @@ const json = (name) => JSON.parse(fixture(name));
 const lines = (file) => (existsSync(join(dir, file)) ? readFileSync(join(dir, file), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
 const append = (file, value) => appendFileSync(join(dir, file), JSON.stringify(value) + "\n");
 const after = (flag) => args[args.indexOf(flag) + 1];
+// Stops the script with an exit code. The scripts end by setting process.exitCode, so the output is flushed.
+class Done extends Error {
+  constructor(code) {
+    super("done");
+    this.code = code;
+  }
+}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const say = (value) => {
   process.stdout.write(typeof value === "string" ? value : JSON.stringify(value));
-  process.exit(0);
+  throw new Done(0);
 };
 const fail = (message) => {
   process.stdout.write(JSON.stringify({ ok: false, error: { code: "invalid_argument", message } }));
-  process.exit(1);
+  throw new Done(1);
 };
 
 // The dispatches that were started, in order: { dispatchId, taskId, title }.
@@ -39,6 +46,7 @@ function status(dispatchId) {
   return implementers.every((s) => sent().includes(s.dispatchId)) ? "completed" : "dispatched";
 }
 
+try {
 if (args[0] === "--version") {
   append("calls.log", { program: "orca", args });
   // The mode "old" answers a version below the minimum that cstack supports.
@@ -99,7 +107,7 @@ switch (command) {
       process.stdout.write(fixture("orchestration-worker-show.not-found.json"));
       logged.status = "not-found";
       append("calls.log", logged);
-      process.exit(1);
+      throw new Done(1);
     }
     const state = status(dispatchId);
     answered = json(state === "completed" ? "orchestration-worker-show.completed.json" : "orchestration-worker-show.working.json");
@@ -129,3 +137,7 @@ switch (command) {
 }
 append("calls.log", logged);
 say(answered);
+} catch (error) {
+  if (!(error instanceof Done)) throw error;
+  process.exitCode = error.code;
+}

@@ -137,7 +137,7 @@ describe("cstack measure with child worktrees", () => {
     const bin = tmp("cstack-wt-bin-");
     const real = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
     const stub = join(bin, "git");
-    writeFileSync(stub, `#!/bin/sh\nif [ "$1" = "worktree" ]; then echo "fatal: ${repo}" >&2; exit 128; fi\nexec "${real}" "$@"\n`, { mode: 0o755 });
+    writeFileSync(stub, `#!/bin/sh\ncase " $* " in *" worktree list "*) echo "fatal: ${repo}" >&2; exit 128;; esac\nexec "${real}" "$@"\n`, { mode: 0o755 });
     const saved = process.env.PATH;
     process.env.PATH = `${bin}:${saved}`;
     try {

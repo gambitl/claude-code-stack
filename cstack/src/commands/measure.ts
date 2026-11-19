@@ -1,17 +1,9 @@
-import { execFile } from "node:child_process";
 import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
-import { MomentsError, readMoments } from "../measure/moments.js";
+import { git, MomentsError, readMoments } from "../measure/moments.js";
 import { measureSessions, type Totals } from "../measure/sessions.js";
-
-const listWorktrees = (root: string): Promise<string[]> =>
-  new Promise((resolve, reject) => {
-    execFile("git", ["worktree", "list", "--porcelain"], { cwd: root, maxBuffer: 16 * 1024 * 1024 }, (error, stdout) => {
-      if (error) return reject(error);
-      resolve(stdout.split("\n").filter((line) => line.startsWith("worktree ")).map((line) => line.slice("worktree ".length)));
-    });
-  });
+import { parseWorktreeList } from "../wave/worktrees.js";
 
 export const MEASURE_USAGE = "Usage: cstack measure <plan file> [--home <folder>]";
 
@@ -52,7 +44,7 @@ export async function measure(args: string[], io: Io): Promise<number> {
   }
   let listed: string[];
   try {
-    listed = await listWorktrees(moments.root);
+    listed = parseWorktreeList(await git(moments.root, ["worktree", "list", "--porcelain"])).map((entry) => entry.path);
   } catch {
     io.stderr("cstack measure: git cannot list the worktrees of the repository.\n");
     return 1;
