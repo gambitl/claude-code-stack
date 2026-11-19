@@ -112,6 +112,11 @@ describe("matchMention", () => {
     expect(commandWords(wave as CommandEntry)).toEqual(["wave"]);
   });
 
+  it("stops the command words at a flag", () => {
+    const entry = { ...COMMANDS[0], usage: "cstack demo --flag <x>" } as CommandEntry;
+    expect(commandWords(entry)).toEqual(["demo"]);
+  });
+
   it("refuses an unknown command", () => {
     expect(matchMention("frobnicate").ok).toBe(false);
   });

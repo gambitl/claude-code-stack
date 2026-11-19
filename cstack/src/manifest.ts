@@ -295,7 +295,7 @@ export const COMMANDS: CommandEntry[] = [
 export function commandWords(entry: CommandEntry): string[] {
   const words: string[] = [];
   for (const token of entry.usage.split(/\s+/).slice(1)) {
-    if (token.startsWith("<") || token.startsWith("[") || token.startsWith("(")) break;
+    if (token.startsWith("<") || token.startsWith("[") || token.startsWith("(") || token.startsWith("-")) break;
     words.push(token);
   }
   return words;
