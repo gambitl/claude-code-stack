@@ -123,6 +123,31 @@ describe("run", () => {
       }
   });
 
+  it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
+    for (const [args, text] of [
+      [["tracker"], "Tickets #25 and #26 build it."],
+      [["tracker", "nope"], "Tickets #25 and #26 build it."],
+      [["helper"], "#27"],
+      [["graph"], "Ticket #19 builds it."],
+    ] as const) {
+      const { out, io } = collect();
+      expect(await run([...args], io), args.join(" ")).toBe(1);
+      expect(out.stderr, args.join(" ")).toContain(text);
+    }
+    const { out, io } = collect();
+    await run(["helper"], io);
+    expect(out.stderr).toContain("#28");
+  });
+
+  it("uses the singular and the plural correctly when it names tickets", async () => {
+    const one = collect();
+    await run(["next"], one.io);
+    expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
+    const two = collect();
+    await run(["tracker", "read"], two.io);
+    expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
+  });
+
   it("prints the usage line of every built entry and of no other entry", async () => {
     const { out, io } = collect();
     await run([], io);

@@ -336,8 +336,13 @@ export function matchMention(text: string, entries: CommandEntry[] = COMMANDS): 
   return { ok: true, entry: best };
 }
 
-const ticketList = (ticket: number | number[]): string =>
-  [ticket].flat().map((n) => `#${n}`).join(" and ");
+/** The tickets as a phrase and the verb that agrees with them, for example `Tickets #25 and #26 build it.` */
+function builtBy(tickets: number[]): string {
+  const unique = [...new Set(tickets)].sort((a, b) => a - b).map((n) => `#${n}`);
+  if (unique.length === 1) return `Ticket ${unique[0]} builds it.`;
+  const last = unique[unique.length - 1];
+  return `Tickets ${unique.slice(0, -1).join(", ")} and ${last} build it.`;
+}
 
 /**
  * The message that refuses a command or a flag that the list holds but that is not built.
@@ -356,12 +361,18 @@ export function unbuiltRefusal(args: string[], entries: CommandEntry[] = COMMAND
       bestLength = fixed.length;
     }
   }
-  if (best === undefined) return undefined;
+  if (best === undefined) {
+    // No entry matches fully. When the first word belongs only to unbuilt entries, name all their tickets.
+    const group = words.length === 0 ? [] : entries.filter((e) => commandWords(e)[0] === words[0]);
+    if (group.length === 0 || group.some((e) => e.built)) return undefined;
+    const tickets = group.flatMap((e) => [e.ticket, ...Object.values(e.notBuiltFlags ?? {})].flat());
+    return `cstack ${words[0]} is not built in this version yet. ${builtBy(tickets)}`;
+  }
   const name = `cstack ${commandWords(best).join(" ")}`;
-  if (!best.built) return `${name} is not built in this version yet. Ticket ${ticketList(best.ticket)} builds it.`;
+  if (!best.built) return `${name} is not built in this version yet. ${builtBy([best.ticket].flat())}`;
   for (const arg of args.filter((t) => t.startsWith("-")).map((t) => t.split("=")[0])) {
     const ticket = best.notBuiltFlags?.[arg];
-    if (ticket !== undefined) return `${arg} of ${name} is not built in this version yet. Ticket ${ticketList(ticket)} builds it.`;
+    if (ticket !== undefined) return `${arg} of ${name} is not built in this version yet. ${builtBy([ticket].flat())}`;
   }
   return undefined;
 }
