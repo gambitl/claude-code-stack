@@ -463,7 +463,8 @@ Locked decisions I respected and did not reopen: the CTO review of the ticket, A
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+1. For the Orca maintainers: "When `orca worktree create` gets no `--base-branch`, does it fetch the remote first, and does it branch from the remote default branch or from the local one?" The watch is correct whatever the answer, because it fetches before each start.
+2. For the maintainer of this repository: a half-typed `y` without Enter stays in the terminal, and it answers the next question when you press Enter. Fixing it needs raw mode of the terminal, which the plan rejected on purpose. Should the README warn about it, or is it fine as it is? The watch stays complete and correct whatever the answer.
 
 ## Pull request
 
