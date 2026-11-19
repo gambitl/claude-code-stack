@@ -417,6 +417,14 @@ May I change `cstack/src/tracker/choose.ts`, which is outside the share the coor
 
 ## Review log
 
+### Impact notes
+
+- `cstack/src/tracker/choose.ts` gained an optional `host`. Its other callers pass none, and `choose.test.ts` checks that the call without a host is exactly `gh auth status`.
+- `cstack/src/manifest.ts` and `cstack/test/manifest.test.ts` change with every command. The counts are eighteen built and five not built in the test and in `README.md`. `cli.test.ts` builds its usage expectation from the manifest.
+- `cstack/src/commands/skills.ts` and `cstack/src/claude-settings.ts` read and write the Claude Code settings. The tests use temporary folders. The permission hint goes to standard error.
+- `cstack/src/cli.ts` holds the `tracker` dispatch. The usage line follows the order of its handler keys, which is read, list, move, comment, the order of the manifest.
+- `docs/projects/skills-into-cli.md` and the ADRs are not changed in code. They are part of the documentation duties of the next phases.
+
 ## Briefing
 
 ## Non-blocking questions
