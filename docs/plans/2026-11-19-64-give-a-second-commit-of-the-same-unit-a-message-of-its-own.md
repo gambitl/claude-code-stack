@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/unit-commit-message
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-19T20:48:00+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-19T21:05:31+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -285,7 +285,44 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): ask for a subject of its own on a second commit of the same unit
+
+````markdown
+## What this does
+
+When a unit already has a commit on the branch, `cstack unit commit` no longer writes a second commit with the same subject. It now asks for a new option, `--message <subject>`, and refuses without it. It also refuses a subject that the unit already used, ignoring case and spaces at both ends. The refusal quotes the earlier subjects and shows the command to copy, and it joins the other broken rules, so every problem still prints at once.
+
+`--message` replaces the plan's subject for that one commit. The `Cstack-Unit: <n>` trailer and the attribution lines stay as they were. The option also works on the first commit of a unit. An empty value, a value of spaces only, and a value with a line break are usage errors with exit code 2.
+
+## Key decisions
+
+You asked for the option with a refusal, so the automatic subject from item 5 of the scope is not built. The refusal keeps exit code 1, which the manifest already names as "refused". The manifest entry gets the new usage line and `flags: ["--message"]`, because the mention scan in `manifest.test.ts` checks the prompts against that list.
+
+## Files
+
+- `cstack/src/commands/unit-commit.ts`, `cstack/src/manifest.ts` and `cstack/test/unit-commit.test.ts` hold the code and its tests.
+- `cstack/skills/resolve-issue/agents/implementer.md` has two new sentences in step 7, and `README.md` has one new sentence in its bullet on `cstack unit commit`.
+
+## Review
+
+The independent review found one bug, which is fixed in its own commit. The refusal listed an extra empty subject. Typecheck and the full test run pass.
+
+Judgment calls that need no change here: the refusal says "with the subject" even when it quotes several subjects. A git setting `commit.cleanup=strip` would drop a subject that starts with `#`, and this branch did not cause that.
+
+If this pull request merges after #63, `README.md` will conflict in neighbouring bullets. Keep both sides.
+
+The plan file is `docs/plans/2026-11-19-64-give-a-second-commit-of-the-same-unit-a-message-of-its-own.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- When a unit already collected from a child worktree is relaunched in a new child worktree, should `cstack unit collect` bring its new commits back, instead of skipping the unit because the ticket branch already has a commit of it? For: the user.
+- A second commit of a unit that has a `Test` line reuses the passing test run saved for the first commit, so tests added in the second commit are never seen failing first. Should `cstack unit commit` or `cstack unit red` close that gap? For: the user.
+- If an end-to-end test of #31 commits the same unit twice, it now needs `--message`. Should the coordinator check that when #31 merges? For: the coordinator of the wave.
+
+Fixes #64
+````
 
 ## Documentation
 
@@ -299,7 +336,7 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 ## Hand-off log
 
-- 2026-11-19: Moved #64 to the `in progress` label, committed the plan, built units 1 and 2 with implementers, and ran the four reviewers with no fix needed. Updated nothing in the branch (the target did not move). Wrote the ticket comment with `gh`, because `cstack tracker comment` is not built yet.
+- 2026-11-19: Moved #64 to the `in progress` label, committed the plan, built units 1 and 2 with implementers, and ran the four reviewers with no fix needed. Updated nothing in the branch (the target did not move). Wrote the ticket comment with `gh`, because `cstack tracker comment` is not built yet. Drafted the pull request and returned a done report.
 
 ## History
 
