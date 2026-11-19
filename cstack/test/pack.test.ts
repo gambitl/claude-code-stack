@@ -33,6 +33,7 @@ test("npm pack lists the build, the skills and the guides", async () => {
     "skills/resolve-issue/agents/pr-reviewer.md",
     "skills/resolve-issue/.claude-plugin/plugin.json",
     "skills/resolve-issue/templates/retro.md",
+    "skills/resolve-issue/templates/tracker-file.json",
     "guides/resolve-issue/build.md",
     "guides/resolve-issue/review.md",
     "guides/resolve-issue/independent-review.md",

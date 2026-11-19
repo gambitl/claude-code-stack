@@ -1,0 +1,15 @@
+{
+  "format": "cstack-tracker/1",
+  "tracker": "github",
+  "tickets": [
+    {
+      "key": "#12",
+      "title": "Example ticket title",
+      "body": "The full body of the ticket, word for word.",
+      "url": "https://example.com/owner/repo/issues/12",
+      "stateName": "open",
+      "stateKind": "todo",
+      "blockers": [{ "key": "#7", "stateKind": "finished" }]
+    }
+  ]
+}
