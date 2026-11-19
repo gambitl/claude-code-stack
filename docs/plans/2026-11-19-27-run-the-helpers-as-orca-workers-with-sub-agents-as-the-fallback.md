@@ -407,11 +407,12 @@ Also cover in `done.test.ts`: a valid executor `done` is saved in `reports/` and
 Also cover: a finished worker without an accepted report exits with `1`; an `exited` worker prints its report or exits with `1`; at the deadline the command exits with `6`; `orchestration-worker-show.waiting.json` makes it say that a person must answer a question in Orca, with exit `6`; a `check` that answers at once makes the command sleep before the next turn; every `check` call holds `--peek` and `--wait`, and none holds `--ack`; an implementer helper prints the latest report of its own helper id. Add to `fallback.test.ts`: in sub-agent mode, `cstack helper wait` prints the accepted report at once, and the fake runner sees no call.
 
 ### Unit 10: Add the helper commands to the command list
-- Files: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts`, `README.md`
+- Files: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts`, `README.md`, `cstack/src/commands/helper-start.ts` (added: its usage line must match the manifest line; no unfinished unit lists this file)
 - Test: `cstack/test/manifest.test.ts`: the list holds seventeen built commands and six that are not built.
 - Minimum code: set `built: true` on the three helper entries, add the `helper` handler with `dispatchSubcommand` after `report` in `HANDLERS`, with the real runner, environment, package root, clock, `sleep` and standard input. Update the README as "Decisions" says.
 - Refactor: none.
 - Commit message: feat(cli): add cstack helper start, wait and done to the command list
+- Escalated: the first implementer stopped because the usage line of `helper start` differs from the manifest line. The escalation relaunch also fixes that usage line.
 - Depends on: 6, 7, 8, 9
 
 Also update the cases of `manifest.test.ts` and `cli.test.ts` that use `helper` as an unbuilt example, as "Decisions" says. `cstack/test/manifest-implemented.test.ts` must pass for the three entries without any change. Check that `cli.ts` holds each handler once.
