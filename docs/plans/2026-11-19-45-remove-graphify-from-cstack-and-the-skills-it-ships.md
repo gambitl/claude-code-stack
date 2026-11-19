@@ -181,6 +181,7 @@ How the build runs:
 - Before the push, run the two checks below and push only if both pass. First, `git log --format='%ae %ce' origin/main..HEAD` shows only the address that ends in `@users.noreply.github.com`. Second, write `git log -p origin/main..HEAD` and the drafted pull request title and body into a temporary file outside the repository, then run `python3 scripts/private_names.py check <that file>`, which must exit 0. Never print the private list. (2026-11-19, the coordinator brief)
 - The pull request description has one sentence that says it carries the retrospective of #19. It ends with `Fixes #45`. Never merge the pull request; the user merges it. (2026-11-19, the coordinator brief)
 - If the `cstack` check is cancelled with "The job was not acquired by Runner", it is not a code failure. Rerun it with `gh run rerun <run id>`, and say so in the report if it still did not run. (2026-11-19, the coordinator brief)
+- The case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message passes its own command list, with one fake unbuilt entry, to `run`. It always checks the message, the empty standard output and the exit code, and never returns early. (2026-11-19, the user's answer to the question found after the build)
 - GitHub issues in this repository have no "in progress" or "in review" state. Skip those tracker moves and say so in the Hand-off log. (2026-11-19, assumption not asked)
 
 ## Architecture
@@ -295,7 +296,7 @@ none
 
 ### Non-blocking
 
-For the maintainer. Once `cstack graph ensure` is gone (#45) and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message finds no unbuilt command and returns early without asserting anything. Should that case use its own command list with one fake unbuilt entry, so the message and the exit code stay tested? It can go on the pull request of `cstack next` (#46) or on the ticket of `cstack publish` (#20).
+For the maintainer. Once `cstack graph ensure` is gone (#45) and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message finds no unbuilt command and returns early without asserting anything. Should that case use its own command list with one fake unbuilt entry, so the message and the exit code stay tested? It can go on the pull request of `cstack next` (#46) or on the ticket of `cstack publish` (#20). Answered on 2026-11-19: yes, and this pull request makes the change (commit 8a3a1e8).
 
 ## Pull request
 
@@ -307,13 +308,11 @@ This pull request removes Graphify from everything that `cstack` builds and ship
 
 **What changed.** `cstack doctor` no longer checks for Graphify, and the README no longer lists it. The entry of `cstack graph ensure`, which was never built, left the command list. The guides `code-map.md` and `review.md` and five agent prompts now say to search the whole repository and read only the lines the search points to. The line in `settled-decisions.md` now records that no code graph tool is used. The reason is that nothing has shown that a code graph tool finds code better than an agent that searches and reads files on its own, or that it saves tokens. In the specification, US-11 is marked as dropped and Graphify is removed from the doctor criterion and the tool list.
 
-**Tests.** A new test, `cstack/test/no-graphify.test.ts`, fails if a guide or prompt names Graphify. Its only exception is the decision line. Two new cases cover the command list and `cstack doctor`. `npm test` and `npm run typecheck` pass. Nothing under `skills/` changed.
+**Tests.** A new test, `cstack/test/no-graphify.test.ts`, fails if a guide or prompt names Graphify. Its only exception is the decision line. Two new cases cover the command list and `cstack doctor`. The case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message now passes its own command list, with one fake unbuilt entry, to `run`. So it always checks the message and the exit code, even once every real command is built. `npm test` and `npm run typecheck` pass. Nothing under `skills/` changed.
 
 **Judgment calls.** The independent review found no problem. The `required` argument of `simple()` in `requirements.ts` stays although every caller now passes `true`, so the diff stays small in a file that #24 also changes. The sentence "No code graph tool is used." stays in `code-map.md`, because the plan asked for it. One test in `report.test.ts` timed out once under load and passed alone; this branch does not touch it, so rerun the check if it fails there.
 
 **Files.** Plan: `docs/plans/2026-11-19-45-remove-graphify-from-cstack-and-the-skills-it-ships.md`. This pull request also carries the retrospective of #19, `docs/retros/2026-11-19-19.md`. When you merge, use a merge commit and not a squash, because `cstack measure` reads the dates of the plan commits.
-
-**Open questions, not needed for this pull request.** You can merge this pull request without these answers. For the maintainer: once `cstack graph ensure` is gone and `next` and `publish` are built, the case of `cstack/test/cli.test.ts` that checks the "not built in this version yet" message finds no unbuilt command and returns early without asserting anything. Should it use its own command list with one fake unbuilt entry, so the message and exit code stay tested?
 
 Fixes #45
 
