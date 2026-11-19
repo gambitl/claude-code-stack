@@ -589,7 +589,24 @@ none
 
 ## Review log
 
-<phase review>
+Impact notes (executor, 2026-11-19).
+
+- `measureSessions` has two new required parameters, `listed` and `planned`. Its only caller is `cstack/src/commands/measure.ts`, and its tests are `cstack/test/measure.test.ts` and `cstack/test/measure-worktrees.test.ts`. All pass.
+- `readMoments` now returns `worktrees`. Its callers are `commands/measure.ts` and the measure tests. All pass.
+- `cstack report submit` and `cstack report check` are no longer named by any guide or prompt. They stay built, and `README.md` lines 58 and 59 still describe them, as the plan decided.
+- The pinned sentences changed together with their tests: `prompts.test.ts`, `e2e/resolve-issue.test.ts`, `skill-size.test.ts` and `brief-rules.test.ts` pass in the full run (115 files, 1295 tests).
+- Not checked by a test: `docs/decisions/ADR-SIC-A-helpers.md` still says the prompts and the report check stay the same. The plan assigns that update to the `document` phase.
+
+Reviewer findings follow below.
+
+Findings of the four reviewers (2026-11-19).
+
+- Correctness: no bug at 80 or above. Three lower findings. The first was the `exit 5` of `cstack helper done stuck` for a finished worker, and the guide now says that the report is saved and the escalation goes on. The second was the prompts saying "last line" for the helper id, fixed in commit 9dc0985. The third was a kept branch that differs from the `Branch` line, and the build guide now says to check and fix the line.
+- Security: nothing to fix. One finding at about 60 percent stays a follow-up. The `document` guide puts the key of a dependent ticket in single quotes in a shell command, so a key that holds a single quote could break out. The guide could say to use only keys that look like `#12` or `ABC-12`.
+- Conventions: the fake `orca` and `gh` called `process.exit()`, and `measure.ts` had its own parser of `git worktree list`. Both fixed in commit 9dc0985.
+- Simplicity: the same parser duplication, fixed in commit 9dc0985.
+
+After the fixes, `npm run typecheck` and the full `npm test` pass (115 files, 1295 tests).
 
 ## Briefing
 
