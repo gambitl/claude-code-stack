@@ -1,8 +1,8 @@
 import type { Io } from "../io.js";
 import { readSavedRun } from "../saved-runs.js";
-import { lastLines, runTests, testScript } from "../test-run.js";
-import { fileSha256, headCommit, prepareUnitTest } from "../unit-test-command.js";
-import { savePassingRun } from "../unit-test-runs.js";
+import { runTests, testScript } from "../test-run.js";
+import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { deletePassingRun, savePassingRun, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitGreen(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -17,7 +17,8 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   if (typeof context === "number") return context;
   const { root, runDir, unit, testFile, commands, timeoutMs } = context;
 
-  let saved;
+  // WHY: red.json is written by saveFailingRun, so it has the fields of a SavedUnitRun. An older file may lack the hash.
+  let saved: Partial<SavedUnitRun> | undefined;
   try {
     saved = readSavedRun(runDir, unit.number, "red");
   } catch (error) {
@@ -39,7 +40,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   }
   const testFileSha256 = fileSha256(root, testFile);
   const run = await runTests(root, script, testFile, timeoutMs);
-  io.stdout(lastLines(run.output));
+  printTestOutput(io, run.output);
 
   if (run.timedOut) {
     io.stderr(`${prefix}The test did not end within ${timeoutMs / 60_000} minutes, so cstack stopped it. Nothing is saved.\n`);
@@ -50,7 +51,15 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 5;
   }
   if (run.exitCode !== 0) {
-    io.stderr(`${prefix}The test of unit ${unit.number} still fails (exit code ${run.exitCode}). Nothing is saved.\n`);
+    // WHY: a passing run saved before this failure would let `cstack unit commit` accept code whose test fails now.
+    try {
+      deletePassingRun(runDir, unit.number);
+    } catch (error) {
+      return failWith(error, io, prefix);
+    }
+    io.stderr(
+      `${prefix}The test of unit ${unit.number} still fails (exit code ${run.exitCode}). Nothing is saved, and any earlier passing run is deleted.\n`,
+    );
     return 1;
   }
   try {
@@ -63,8 +72,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   } catch (error) {
     return failWith(error, io, prefix);
   }
-  const savedSha = (saved as { testFileSha256?: string }).testFileSha256;
-  if (savedSha !== undefined && savedSha !== testFileSha256) {
+  if (saved.testFileSha256 !== undefined && saved.testFileSha256 !== testFileSha256) {
     io.stderr(`${prefix}Warning: the test file ${testFile} changed since the failing run of unit ${unit.number}.\n`);
   }
   io.stdout(`${prefix}Unit ${unit.number} passes. The passing run is saved in ${runDir}/units/${unit.number}/green.json.\n`);

@@ -1,6 +1,6 @@
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { failWith } from "./commands/errors.js";
@@ -9,7 +9,7 @@ import { locatePlan } from "./plan/locate.js";
 import { readPlan, type PlanUnit } from "./plan/read.js";
 import { runFolder } from "./run-state.js";
 import { readSettings, SettingsError, type TestCommands } from "./settings.js";
-import { DEFAULT_TEST_TIMEOUT_MS } from "./test-run.js";
+import { DEFAULT_TEST_TIMEOUT_MS, lastLines } from "./test-run.js";
 
 /** What `cstack unit red` and `cstack unit green` know once the shared checks pass. */
 export interface UnitTestContext {
@@ -117,6 +117,9 @@ export function prepareUnitTest(
     if (rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
       return refuse(`The test file ${testFile} of unit ${n} leads outside the work tree.`, 1);
     }
+    if (!statSync(real).isFile()) {
+      return refuse(`The test path ${testFile} of unit ${n} is not a file. The \`Test\` line must name one test file.`, 1);
+    }
     return { ...base, testFile, commands, timeoutMs };
   } catch (error) {
     return failWith(error, io, prefix);
@@ -132,4 +135,10 @@ export function headCommit(root: string): string | undefined {
 /** Returns the hexadecimal SHA-256 of the content of a file of the work tree. */
 export function fileSha256(root: string, file: string): string {
   return createHash("sha256").update(readFileSync(join(root, file))).digest("hex");
+}
+
+/** Prints the last lines of a test output, and ends them with a line break so the verdict starts its own line. */
+export function printTestOutput(io: Io, output: string): void {
+  const tail = lastLines(output);
+  io.stdout(tail === "" || tail.endsWith("\n") ? tail : `${tail}\n`);
 }

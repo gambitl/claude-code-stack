@@ -1,6 +1,6 @@
 import type { Io } from "../io.js";
-import { lastLines, runTests, testScript } from "../test-run.js";
-import { fileSha256, headCommit, prepareUnitTest } from "../unit-test-command.js";
+import { runTests, testScript } from "../test-run.js";
+import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { saveFailingRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
@@ -18,7 +18,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
   }
   const testFileSha256 = fileSha256(root, testFile);
   const run = await runTests(root, testScript(commands, testFile), testFile, timeoutMs);
-  io.stdout(lastLines(run.output));
+  printTestOutput(io, run.output);
 
   if (run.timedOut) {
     io.stderr(`${prefix}The test did not end within ${timeoutMs / 60_000} minutes, so cstack stopped it. Nothing is saved.\n`);

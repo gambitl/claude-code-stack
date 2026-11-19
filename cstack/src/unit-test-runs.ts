@@ -15,11 +15,16 @@ const write = (runDir: string, unit: number, kind: "red" | "green", run: SavedUn
   writeFileAtomic(`${base}.json`, `${JSON.stringify(run, null, 2)}\n`);
 };
 
-/** Saves a failing run. It deletes the passing run first, and writes red.json last. */
-export function saveFailingRun(runDir: string, unit: number, run: SavedUnitRun, log: string): void {
+/** Deletes the saved passing run of a unit, if there is one. */
+export function deletePassingRun(runDir: string, unit: number): void {
   const folder = unitFolder(runDir, unit);
   rmSync(join(folder, "green.json"), { force: true });
   rmSync(join(folder, "green.log"), { force: true });
+}
+
+/** Saves a failing run. It deletes the passing run first, and writes red.json last. */
+export function saveFailingRun(runDir: string, unit: number, run: SavedUnitRun, log: string): void {
+  deletePassingRun(runDir, unit);
   write(runDir, unit, "red", run, log);
 }
 

@@ -241,6 +241,24 @@ describe("cstack unit red", () => {
     expect(readRed(dir).command).toBe("echo suite; exit 2");
   });
 
+  it("ends the test output with a line break before the verdict", async () => {
+    const dir = setup([TEST_LINE], '{"version":1,"testCommands":{"all":"printf fail; exit 1"}}');
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toMatch(/^fail\ncstack unit red: /);
+  });
+
+  it("exits with 1 when the Test path is a directory", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    rmSync(join(dir, "test/a.test.ts"));
+    mkdirSync(join(dir, "test/a.test.ts"));
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("test/a.test.ts");
+    expect(r.stderr).toContain("not a file");
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
   it("deletes a saved passing run after a new failing run, and keeps it after a refused run", async () => {
     const dir = setup([TEST_LINE], FILE_SETTINGS);
     mkdirSync(unitFiles(dir), { recursive: true });
@@ -329,6 +347,27 @@ describe("cstack unit green, running the test", () => {
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("still fails");
     expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+
+  it("deletes the earlier passing run when the test fails again", async () => {
+    const dir = await redThenCode();
+    code(dir);
+    expect((await green(dir)).code).toBe(0);
+    rmSync(join(dir, "src/feature.txt"));
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("earlier passing run is deleted");
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "red.json"))).toBe(true);
+  });
+
+  it("ends the test output with a line break before the verdict", async () => {
+    const dir = setup([TEST_LINE], '{"version":1,"testCommands":{"all":"printf fail; exit 1"}}');
+    expect((await red(dir)).code).toBe(0);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toBe("fail\n");
   });
 
   it("exits with 1 and runs nothing when the settings changed since the failing run", async () => {
