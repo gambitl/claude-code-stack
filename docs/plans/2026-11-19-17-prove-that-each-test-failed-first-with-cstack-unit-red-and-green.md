@@ -291,7 +291,7 @@ The test commands are `npm test` and `npm run typecheck`, run from `cstack/`. Th
 
 The tests of the commands build a temporary git repository, as `cstack/test/unit-commit.test.ts` does, with a plan file from `cstack/test/fixtures/plans/approved.md`, a `.cstack/settings.json` and small shell test files. A test file such as `test/one.sh` that runs `test -f src/feature.txt` fails before `src/feature.txt` exists and passes after, without any change to the test file.
 
-### Unit 1: Build the test script and cut the output to its last lines — status: todo
+### Unit 1: Build the test script and cut the output to its last lines — status: done
 - Files: `cstack/src/test-run.ts`, `cstack/test/test-run.test.ts`
 - Failing test: in `cstack/test/test-run.test.ts`, write first the case of `testScript({ all: "npm test", file: "npx vitest run {file}" }, "test/a.test.ts")`, which returns `npx vitest run "$1"`. Then: without `file` in the settings, or without a test file, it returns `testCommands.all`. For each path of a list that holds `a b;$x.ts`, `$(touch pwned).ts`, `it's.ts`, a path with backticks and `--help.ts`, the script equals the setting with `{file}` replaced by `"$1"`, and it never contains the path. `lastLines` of 50 lines returns the last 40. `lastLines(text, 3)` returns the last 3. A final line break does not count as a line. A text with fewer lines comes back whole.
 - Minimum code: `DEFAULT_TEST_TIMEOUT_MS`, `TestRun`, `testScript` and `lastLines`, with the doc comments of the coordinator's interface. `runTests` comes in unit 2.
@@ -299,7 +299,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): build the test script of a unit with the test file as its first argument`
 - Depends on: none
 
-### Unit 2: Run the tests in their own process group — status: todo
+### Unit 2: Run the tests in their own process group — status: done
 - Files: `cstack/src/test-run.ts`, `cstack/test/test-run.test.ts`
 - Failing test: in `cstack/test/test-run.test.ts`, write first the case of `runTests` in a temporary folder with the script `echo one; echo two >&2; echo three; printf '%s\n' "$1"` and the test file `a b;$x.ts`. The result has `exitCode` 0, `timedOut` false, the given `script`, and the output `one\ntwo\nthree\na b;$x.ts\n` in that order. Then: `pwd` prints the real path of the folder. `exit 3` gives 3. A command that does not exist gives 127. `cat` ends at once with 0, because standard input is closed. The script `sleep 30 & echo $! > pid; wait` with a timeout of 300 ms gives `timedOut` true and `exitCode` undefined within a few seconds, and soon after, the process whose id is in `pid` no longer runs (`process.kill(pid, 0)` throws `ESRCH`). `kill -TERM $$` gives 143 with `timedOut` false. An output of about three megabytes of short lines comes back with at most `MAX_OUTPUT_BYTES` bytes, ends with the last line, and starts at the beginning of a line.
 - Minimum code: `MAX_OUTPUT_BYTES` and the asynchronous `runTests`, as the decisions on the shared runner say, without the signal listeners. Add `WHY:` comments for the process group, for the file instead of a pipe, and for `"$1"`.
@@ -307,7 +307,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): run the tests of a unit in their own process group and stop them at the timeout`
 - Depends on: 1
 
-### Unit 3: Stop the tests when cstack is interrupted — status: todo
+### Unit 3: Stop the tests when cstack is interrupted — status: done
 - Files: `cstack/src/test-run.ts`, `cstack/test/test-run.test.ts`
 - Failing test: in `cstack/test/test-run.test.ts`, write first the case of a child Node process. Start it with `spawn(process.execPath, ["--input-type=module", "-e", <code>])`, where the code imports `test-run.ts` by its URL and calls `runTests` with the script `sleep 30 & echo $! > pid; wait`, as `cstack/test/commit-lock.test.ts` (lines 115 to 148) does. Wait until the `pid` file exists, then send SIGINT to the child. The child ends with the signal `SIGINT`, and soon after, the `sleep` process no longer runs. Then: the same with SIGTERM. In the test process itself, `process.listenerCount("SIGINT")` and `process.listenerCount("SIGTERM")` are the same before and after a `runTests` that ends normally.
 - Minimum code: the SIGINT and SIGTERM listeners of the decisions on the shared runner.
@@ -315,7 +315,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): stop the whole test run when cstack is interrupted`
 - Depends on: 2
 
-### Unit 4: Save the failing run and the passing run of a unit — status: todo
+### Unit 4: Save the failing run and the passing run of a unit — status: done
 - Files: `cstack/src/unit-test-runs.ts`, `cstack/test/unit-test-runs.test.ts`
 - Failing test: in `cstack/test/unit-test-runs.test.ts`, write first the case of a failing run saved into a temporary run folder that does not exist yet. `units/1/red.json` and `units/1/red.log` exist, the log holds the given output, and `readSavedRun(runDir, 1, "red")` returns all six fields. Then: saving a failing run when `green.json` and `green.log` exist deletes both. Saving a passing run keeps `red.json` and `red.log`. No `.tmp` file stays in the folder. Saving unit 2 does not touch the folder of unit 1.
 - Minimum code: the saved run type and one function that saves a failing or a passing run of one unit, as the decisions on saved runs say.
@@ -323,7 +323,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): save the failing run and the passing run of a unit in the run folder`
 - Depends on: none
 
-### Unit 5: Refuse cstack unit green without a saved failing run — status: todo
+### Unit 5: Refuse cstack unit green without a saved failing run — status: done
 - Files: `cstack/src/commands/unit-green.ts`, `cstack/src/unit-test-command.ts`, `cstack/test/unit-red-green.test.ts`
 - Failing test: in `cstack/test/unit-red-green.test.ts`, write first the case of `cstack unit green 1` on a unit with a `Test` line and no saved failing run, in a temporary repository with a settings file. It exits with 1, standard error says to run `cstack unit red 1` first, and the run folder holds no file for unit 1 (US-8 AC2). Then, for `cstack unit green`: a unit with `- No test: documentation only` exits with 1 and gives the reason. A plan whose unit has neither a `Test` line nor a `No test` line exits with 3 and names the unit, and so does a `No test` line with an empty reason. With a saved failing run, no settings file exits with 3 and names `testCommands.all`, and an invalid settings file exits with 3. Unit 9 of a plan without unit 9 exits with 2. `--timeout 0`, `--timeout abc` and `--timeout 1441` exit with 2. With a saved failing run, a missing test file exits with 1 and names it, and a test file that is a symbolic link to a file outside the repository exits with 1.
 - Minimum code: the shared checks in `unit-test-command.ts`, and `unitGreen` with the refusals above. Running the test comes in unit 7.
@@ -331,7 +331,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): refuse cstack unit green on a unit with no saved failing run`
 - Depends on: 1
 
-### Unit 6: Run cstack unit red and save the failing run — status: todo
+### Unit 6: Run cstack unit red and save the failing run — status: done
 - Files: `cstack/src/commands/unit-red.ts`, `cstack/src/unit-test-command.ts`, `cstack/test/unit-red-green.test.ts`
 - Failing test: in `cstack/test/unit-red-green.test.ts`, write first the case of `cstack unit red 1` on a test that fails, with `testCommands.file` set to `sh {file}`. It exits with 0. `red.json` holds the command `sh "$1"`, a non-zero exit code, the commit of `HEAD`, the test file, a time and the fingerprint. `red.log` holds the output of the test, and standard output holds its last lines and the line that says the run is saved (US-8 AC1). Then: a test that passes exits with 1, says that a passing test proves nothing yet, and saves nothing. A test command that does not exist exits with 5 and saves nothing. A test that runs past `--timeout 0.01` exits with 5 and saves nothing. A unit with `- No test: documentation only` exits with 1 and gives the reason (US-8 AC3). A unit with neither line exits with 3 and names the unit. Without `testCommands`, it exits with 3 and names `testCommands.all`. With `testCommands.file`, the test command receives the test file as `$1`. Without it, `testCommands.all` runs, and standard output says that the whole suite ran. A new failing run after a saved passing run deletes `green.json` and `green.log`. A refused red run keeps a saved passing run. Two units run `cstack unit red` at the same time, in two child processes, and both failing runs are saved.
 - Minimum code: `unitRed` as the decisions on the two commands say.
@@ -339,7 +339,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): add cstack unit red, which saves the failing run of a unit`
 - Depends on: 3, 4, 5
 
-### Unit 7: Run cstack unit green and save the passing run — status: todo
+### Unit 7: Run cstack unit green and save the passing run — status: done
 - Files: `cstack/src/commands/unit-green.ts`, `cstack/src/unit-test-command.ts`, `cstack/test/unit-red-green.test.ts`
 - Failing test: in `cstack/test/unit-red-green.test.ts`, write first the case of a unit whose failing run was saved by `cstack unit red 1`, then whose code was written (`src/feature.txt` created). `cstack unit green 1` exits with 0 and saves `green.json` with exit code 0 and a time later than the one in `red.json`. Then: while the test still fails, it exits with 1, prints the last lines, and saves nothing. When `testCommands.file` changed in the settings since the failing run, it exits with 1, runs nothing, saves nothing, and the message says to run `cstack unit red 1` again. When the test file content changed but the test passes, it exits with 0 and prints a warning on standard error. A test command that exits with 127 exits with 5, and so does a test that runs past `--timeout 0.01`.
 - Minimum code: the rest of `unitGreen`, as the decisions on the two commands say.
@@ -347,7 +347,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): add cstack unit green, which saves the passing run after a saved failing run`
 - Depends on: 6
 
-### Unit 8: Register cstack unit red and cstack unit green — status: todo
+### Unit 8: Register cstack unit red and cstack unit green — status: done
 - Files: `cstack/src/cli.ts`, `cstack/src/manifest.ts`, `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts`
 - Failing test: in `cstack/test/manifest.test.ts`, the count becomes twelve built commands and three not built. In `cstack/test/cli.test.ts`, `cstack unit` and `cstack unit frobnicate` exit with 2, and standard error lists `order`, `commit`, `red` and `green`. The existing test of line 124 then also checks that both new commands print their usage line on an unknown flag.
 - Minimum code: `built: true` and the two new texts of exit code 1 in `manifest.ts`, and the `red` and `green` handlers in `cli.ts`, as the decisions on shared files say.
@@ -355,7 +355,7 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 - Commit message: `feat(cli): register cstack unit red and cstack unit green`
 - Depends on: 7
 
-### Unit 9: Explain the two commands in the README and the implementer prompt — status: todo
+### Unit 9: Explain the two commands in the README and the implementer prompt — status: done
 - Files: `README.md`, `cstack/skills/resolve-issue/agents/implementer.md`
 - No test: documentation and prompt prose. `cstack/test/prompts.test.ts` and the mention scan of `cstack/test/manifest.test.ts` already check the prompt, and they must still pass.
 - Minimum code: in the "Commands" section of `README.md`, add one line for `cstack unit red <n>` and one for `cstack unit green <n>`, in the style of the existing lines, and change the count of commands from ten to twelve. Say in plain words what a failing run and a passing run are, that green needs a saved failing run, and that green refuses when the test command changed since the failing run. In step 4 of the implementer prompt, add the sentence of the decisions on the ten-minute shell timeout.
