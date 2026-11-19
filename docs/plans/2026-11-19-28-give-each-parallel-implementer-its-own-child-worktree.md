@@ -368,11 +368,14 @@ A worker that starts in a child worktree must work on the files of that worktree
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Unit 2 and unit 5 wrote their code before the failing run, so `cstack unit green` and `cstack unit commit` refused. They moved the source aside, ran red, and restored it.
+- Unit 3, unit 7 and unit 4 found `tsc` unable to run until `npm ci` was done in `cstack/`. Unit 7 ran it, and unit 4 also built `cstack/dist`.
+- Unit 9 made the Orca runner of `unitCollect` optional, so the real command skipped the cleanup until unit 10 wired it. Unit 10 had to be told in its prompt.
+- Unit 10 reports that `main` may now hold more built commands than the 21 and 2 in the unit text. The counts need a re-check after the rebase.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+2026-11-19: build phase. Moved ticket 28 to the label `in progress`, committed the plan file, and built units 1 to 10 in five batches. All units have a commit. No unit was escalated or blocked.
 
 ## History
 
