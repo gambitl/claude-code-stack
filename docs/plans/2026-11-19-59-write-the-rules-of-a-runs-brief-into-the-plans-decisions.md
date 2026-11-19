@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/brief-rules
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-19T18:04:45+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-19T18:15:14+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -273,9 +273,56 @@ I cited ADR-SIC-B, ADR-SIC-C, ADR-SIC-E and scope item 4 of the ticket, and I di
 
 ## Pull request
 
-<!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
+Title: feat(skill): write the rules of a run's brief into the plan's Decisions
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+````markdown
+## What this does
+
+The `ticket` guide of `resolve-issue` now says what to do with the rules of a run's brief. The brief is the message that starts the skill, when it carries rules for that run. The guide asks the skill to write each rule as one line of `## Decisions`, ending with "(<date>, from the brief of the run)".
+
+The reason is that the executor and the implementers read `## Decisions` and not the ticket text. Before this change, no guide said where such rules go, and they had to be copied by hand in earlier runs.
+
+## Key decisions
+
+- A rule of the brief never removes a gate of the skill and never changes the settings file. When a rule conflicts with a gate, the ticket, the settings file or the conventions file, the skill asks the user first.
+- The skill never copies a secret of the brief, such as a token, into the plan file, because the plan file is pushed. The user chose this.
+- The upstream block `### Decisions already taken upstream` keeps only the decisions of the parent project.
+- The paragraph has 105 words. The size test of the skill leaves 2 words of room, and the comment on #31 says so.
+
+## Files touched
+
+- `cstack/guides/resolve-issue/ticket.md`: one new paragraph.
+- `cstack/test/guides/brief-rules.test.ts`: a new test that looks for the key words inside the paragraph. It fails on `main` and passes here.
+- The plan file, `docs/plans/2026-11-19-59-write-the-rules-of-a-runs-brief-into-the-plans-decisions.md`.
+
+The full suite (1,172 tests) and the type check pass.
+
+## Review
+
+The four reviewers and the independent reviewer found no bug. Follow-ups and judgment calls:
+
+- The paragraph forbids copying a secret, but not other private text, such as a client name. This repository has a public text rule that covers it. There was no room to say more.
+- The paragraph says that the helpers "never" read `## Ticket`. Implementers do read its subsections Scope and Acceptance. Fixing the wording would use the last 2 words of room.
+- The plan guide and the plan template do not list rules of the brief among the sources of a decision line. This ticket leaves both unchanged on purpose.
+- The `<date>` placeholder is not in backticks, so GitHub may hide it when it renders the file. Agents read the raw text.
+- The test takes the first paragraph of the guide that contains "brief". A later earlier mention of the word would break it with a misleading message.
+
+## Merge order
+
+Please merge this pull request before ticket #31 starts. Both change `ticket.md`. The paragraph reaches real runs only with the next release of `cstack`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- For the maintainer of the repository: "The ticket guide tells a run never to copy a secret of its brief into the plan file, which is committed and pushed. Should the same sentence also forbid other private text, such as the name of an employer or a client, for repositories that have no public text rule of their own? It needs about 15 words, and today the size test of the skill leaves 2."
+- For whoever frees room in the ticket guide, such as the author of #31: "The new paragraph says that the executor and the implementers never read `## Ticket`. The implementers do read its subsections `Where things are today`, `Scope` and `Acceptance`. Should the sentence say 'never the whole `## Ticket`'? It costs 2 words, which is all the margin left."
+- For the maintainer of the repository: "Should the plan template list 'from the brief of the run' among the sources of a decision line, and should the plan guide say that `## Decisions` keeps the lines of the brief? Neither file lists it today, and this ticket leaves both unchanged on purpose."
+
+Plan file: `docs/plans/2026-11-19-59-write-the-rules-of-a-runs-brief-into-the-plans-decisions.md`
+
+Fixes #59
+````
 
 ## Documentation
 
@@ -286,11 +333,12 @@ I cited ADR-SIC-B, ADR-SIC-C, ADR-SIC-E and scope item 4 of the ticket, and I di
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The first `cstack plan status` call failed with exit code 3 because a quoted glob in the plan path was not expanded. I used the full path afterwards.
+- The security reviewer asked for a wider secret sentence that the size test leaves no room for. I kept it as a follow-up, as the plan's Decisions say.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+2026-11-19: Moved #59 to in progress with the label `in progress`. Ran `npm ci`, built unit 1 with one implementer, ran the four reviewers and the independent reviewer, wrote the documentation (comments on #59, #31 and #6), and got the briefing. Main had not moved, so the branch needed no update. Returned a done report.
 
 ## History
 
