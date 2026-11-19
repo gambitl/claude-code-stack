@@ -311,7 +311,7 @@ I checked security and authorization (git runs with `spawnSync`, no shell, paths
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+- For the user: After this wave, should a follow-up ticket finish the work around the red guard? It would add to the implementer prompt and to the escalation prompt what to do when `cstack unit red` or `cstack unit green` refuses because a code file of the unit changed, or exits with 5 because git cannot read the status. It would add a dated line to `cstack/skills/resolve-issue/settled-decisions.md` that says the two commands now enforce the test-first rule. It would make `cstack unit commit` use the `git status` reading of `cstack/src/unit-files.ts`, once the ticket that changes `unit-commit.ts` (#64) is merged. It would also reword the restart text of the changed-test-command refusal, which says 'these changes' but names no file.
 
 ## Pull request
 
