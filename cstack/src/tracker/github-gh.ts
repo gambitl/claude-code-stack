@@ -1,10 +1,11 @@
 import type { Runner } from "../orca/run.js";
 import { EXIT } from "../manifest.js";
-import { redact } from "../publish/remote.js";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { footerBlockers, mergeBlockers } from "./blockers.js";
 import { RefusedArgumentError, TrackerError } from "./errors.js";
 import { MAX_GROUP, forgeFailure, forgeStateName, originRepo, settleBlockers } from "./forge.js";
-import { forgeStateKind } from "./states.js";
+import { checkStateName, forgeStateKind } from "./states.js";
 import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
 
 const FIELDS = "number,title,body,url,state,stateReason,labels,blockedBy";
@@ -19,7 +20,7 @@ const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null 
 const labelNames = (issue: Json): string[] =>
   (Array.isArray(issue.labels) ? issue.labels : []).flatMap((l) => (isObject(l) && typeof l.name === "string" ? [l.name] : []));
 
-/** Reads tickets and groups of the `origin` repository on GitHub through `gh`. Moves and comments come in the next unit. */
+/** Reads tickets and groups of the `origin` repository on GitHub through `gh`. Moves a ticket with labels and adds comments. */
 export function githubGhTracker(run: Runner, root: string, warn: (message: string) => void = (m) => void process.stderr.write(`${m}\n`)): Tracker {
   let context: Promise<{ repo: string; path: string; urlPrefix: string }> | undefined;
   const where = () =>
@@ -148,12 +149,31 @@ export function githubGhTracker(run: Runner, root: string, warn: (message: strin
       return settle(tickets, repo);
     },
 
-    async moveState() {
-      throw new TrackerError(redact("cstack cannot move GitHub issues yet."), EXIT.refused);
+    async moveState(key, stateName) {
+      checkStateName("github", stateName);
+      const [add, remove] = stateName === "in progress" ? ["in progress", "in review"] : ["in review", "in progress"];
+      const { repo } = await where();
+      const result = await run("gh", ["issue", "edit", key.slice(1), "--repo", repo, "--add-label", add, "--remove-label", remove], root);
+      if (result.kind === "ok") return;
+      const missing = result.kind === "failed" && result.exitCode === 1 ? /'([^']+)' not found/.exec(result.stderr ?? "")?.[1] : undefined;
+      if (missing) {
+        throw new RefusedArgumentError(
+          `The label "${missing}" does not exist in ${repo}. cstack never creates a label. Run this command, then move the ticket again: gh label create "${missing}" --repo ${repo}`,
+        );
+      }
+      throw forgeFailure("gh", result, true);
     },
 
-    async addComment() {
-      throw new TrackerError("cstack cannot add GitHub comments yet.", EXIT.refused);
+    async addComment(key, bodyFile) {
+      const path = resolve(bodyFile);
+      try {
+        readFileSync(path);
+      } catch {
+        throw new RefusedArgumentError(`cstack cannot read the comment file ${path}.`);
+      }
+      const { repo } = await where();
+      const result = await run("gh", ["issue", "comment", key.slice(1), "--repo", repo, "--body-file", path], root);
+      if (result.kind !== "ok") throw forgeFailure("gh", result, true);
     },
   };
 }

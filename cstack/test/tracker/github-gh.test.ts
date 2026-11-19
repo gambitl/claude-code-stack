@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult, Runner } from "../../src/orca/run.js";
@@ -123,5 +124,65 @@ describe("githubGhTracker.listGroup with an epic", () => {
     expect(await tracker.listGroup({ epic: "#3" })).toEqual([]);
     expect(warnings.join("\n")).toContain("other-repo/issues/8");
     expect(calls).toHaveLength(1);
+  });
+});
+
+describe("githubGhTracker.moveState and addComment", () => {
+  const edit = (add: string, remove: string) => `issue edit 12 --repo ${REPO} --add-label ${add} --remove-label ${remove}`;
+  const done: RunResult = { kind: "ok", stdout: "" };
+
+  it("moves with two labels, in both directions", async () => {
+    const a = fake({ [edit("in progress", "in review")]: done });
+    await a.tracker.moveState("#12", "in progress");
+    expect(a.calls).toEqual([["issue", "edit", "12", "--repo", REPO, "--add-label", "in progress", "--remove-label", "in review"]]);
+    const b = fake({ [edit("in review", "in progress")]: done });
+    await b.tracker.moveState("#12", "in review");
+    expect(b.calls[0].slice(5)).toEqual(["--add-label", "in review", "--remove-label", "in progress"]);
+  });
+
+  it("refuses a missing label with exit 1 and the command that creates it", async () => {
+    const { tracker, calls } = fake({
+      [edit("in progress", "in review")]: { kind: "failed", exitCode: 1, stderr: fixture("issue-edit.missing-label.txt") },
+    });
+    await expect(tracker.moveState("#12", "in progress")).rejects.toMatchObject({
+      exitCode: 1,
+      message: expect.stringContaining(`gh label create "in review" --repo ${REPO}`),
+    });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("refuses another state name before any call", async () => {
+    const { tracker, calls } = fake({});
+    await expect(tracker.moveState("#12", "done")).rejects.toMatchObject({ exitCode: 1 });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("maps exit code 4 and a timeout on a move", async () => {
+    const key = edit("in progress", "in review");
+    await expect(fake({ [key]: { kind: "failed", exitCode: 4, stderr: "" } }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({ exitCode: 4 });
+    await expect(fake({ [key]: { kind: "timeout" } as RunResult }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({
+      name: "WriteShapeError",
+      exitCode: 5,
+    });
+  });
+
+  it("passes a comment file to gh only as its path", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "cstack-comment-"));
+    const file = join(dir, "c.md");
+    writeFileSync(file, "$(rm -rf ~) `id` \"q\" 'x'\n");
+    const { tracker, calls } = fake({ [`issue comment 12 --repo ${REPO} --body-file ${file}`]: done });
+    await tracker.addComment("#12", file);
+    expect(calls).toEqual([["issue", "comment", "12", "--repo", REPO, "--body-file", file]]);
+  });
+
+  it("refuses an unreadable comment file before any call, and maps a timeout", async () => {
+    const none = fake({});
+    await expect(none.tracker.addComment("#12", "/nonexistent/c.md")).rejects.toMatchObject({ exitCode: 1 });
+    expect(none.calls).toHaveLength(0);
+    const dir = mkdtempSync(join(tmpdir(), "cstack-comment-"));
+    const file = join(dir, "c.md");
+    writeFileSync(file, "hi");
+    const slow = fake({ [`issue comment 12 --repo ${REPO} --body-file ${file}`]: { kind: "timeout" } as RunResult });
+    await expect(slow.tracker.addComment("#12", file)).rejects.toMatchObject({ name: "WriteShapeError" });
   });
 });
