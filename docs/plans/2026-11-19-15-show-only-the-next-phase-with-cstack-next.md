@@ -426,7 +426,7 @@ Key decisions. A retrospective that was done before `ready` does not count as do
 
 Files. New: `cstack/src/commands/next.ts`, `cstack/src/run-progress.ts`, `cstack/src/plan/header-write.ts`, `cstack/src/local-time.ts`, the fixture guides in `cstack/test/fixtures/next/` and their tests. Changed: `guide.ts`, `cli.ts`, `manifest.ts`, `run-state.ts` (one word: `cstackVersion` is exported), `README.md`, and one sentence each in `SKILL.md` and `executor.md`.
 
-Judgment calls from the independent review. `run-state.ts` changed by one word, although the plan keeps run folder helpers out of it, because the version reader is not one. After `--done retro`, the Digest due notice is not printed when the next phase cannot start or when every phase is done. Two plan files with the same name in different folders share one run folder, which comes from #13. The tests rerun well with a longer timeout when the machine is under load, because one test in `report.test.ts` timed out once at five seconds.
+Judgment calls from the independent review. `run-state.ts` changed by one word, although the plan keeps run folder helpers out of it, because the version reader is not one. After `--done retro`, the Digest due notice is not printed when the next phase cannot start or when every phase is done. Two plan files with the same name in different folders share one run folder, which comes from #13. One test in `report.test.ts` timed out once at five seconds while the machine was under load. It passes with a longer timeout.
 
 Review findings left as follow-ups: none besides the question below.
 
@@ -458,7 +458,7 @@ Fixes #15
 
 ## Hand-off log
 
-<one entry per executor run>
+- 2026-11-19, run 1: the executor built units 1 to 8, ran the four reviews and the independent review, posted the comments on #15, #23 and #20, drafted the pull request, and returned a done report. The main conversation wrote this entry, because the placeholder was still here when the report came back.
 
 ## History
 
