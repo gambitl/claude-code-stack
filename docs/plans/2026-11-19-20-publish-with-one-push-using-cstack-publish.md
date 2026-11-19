@@ -358,6 +358,12 @@ Left as follow-ups (low confidence or a design question for the maintainer, no c
 - `ProgramResult.code` is not read by any code.
 - On GitLab, merged results pipelines are still not matched, as the third non-blocking question says. The command now says so in its message instead of staying silent.
 
+### Independent review and update (phases 8 and 9)
+
+The independent reviewer made one fix (commit `40979ea`): `publish.json` kept the checks result of the previous push when a new push was recorded and the run stopped early, so the old result now goes away at the moment the new push is recorded. It met every acceptance criterion. Judgment calls for the pull request body: the grace period of 120 seconds may be short for a slow GitLab runner, and a stale pipeline then reads as "no check ran"; exit code 4 on `github.com` names only `gh`, because only `gh` is tried there; the code uses `gh pr list --head` and `glab ci get --merge-request`, as the recorded decisions say, and not the commands the ticket text names.
+
+Phase 9: `origin/main` had moved by 49 commits. It was merged in with a merge commit. The conflicts were in `cstack/src/cli.ts` (both imports kept) and `cstack/test/manifest.test.ts` (counts now twelve built and twelve not built). `README.md` now says twelve commands. After the merge the whole suite passes (691 tests), typecheck and build are clean. `cstack/src/test-run.ts` is still not on `main`, so the temporary copy stays.
+
 ## Briefing
 
 ## Open questions after the build
