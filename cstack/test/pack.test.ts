@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 
 const run = promisify(execFile);
 
-test("npm pack lists the build, the example skill and the example guide", async () => {
+test("npm pack lists the build, the skills and the guides", async () => {
   const { version } = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
   const { stdout } = await run("npm", ["pack", "--dry-run", "--json"], {
     cwd: new URL("..", import.meta.url),
@@ -43,6 +43,14 @@ test("npm pack lists the build, the example skill and the example guide", async 
     "guides/resolve-issue/ready.md",
     "guides/resolve-issue/retro.md",
     "guides/resolve-issue/publish.md",
+    "skills/resolve-issue/SKILL.md",
+    "skills/resolve-issue/writing.md",
+    "skills/resolve-issue/settled-decisions.md",
+    "guides/resolve-issue/ticket.md",
+    "guides/resolve-issue/dependencies.md",
+    "guides/resolve-issue/code-map.md",
+    "guides/resolve-issue/questions.md",
+    "guides/resolve-issue/plan.md",
   ]) {
     expect(paths).toContain(p);
   }

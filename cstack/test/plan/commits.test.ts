@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PlanFormatError } from "../../src/plan/read.js";
-import { listUnitCommits } from "../../src/plan/commits.js";
+import { listCommitFiles, listUnitCommits } from "../../src/plan/commits.js";
 
 const git = (cwd: string, ...args: string[]) =>
   execFileSync(
@@ -100,5 +100,24 @@ describe("listUnitCommits", () => {
 
   it("refuses a target branch that does not exist with exit code 3", () => {
     expect(code(() => listUnitCommits(repo(), "nope"))).toBe(3);
+  });
+});
+
+describe("listCommitFiles", () => {
+  it("lists renamed and non-ASCII files, sorted and unquoted", () => {
+    const dir = repo();
+    writeFileSync(join(dir, "a.txt"), "same content\n");
+    git(dir, "add", "a.txt");
+    git(dir, "commit", "-m", "chore: add a");
+    git(dir, "mv", "a.txt", "b.txt");
+    writeFileSync(join(dir, "café.md"), "x");
+    git(dir, "add", "café.md");
+    git(dir, "commit", "-m", "feat: rename and add");
+    const hash = git(dir, "rev-parse", "HEAD");
+    expect(listCommitFiles(dir, [hash])).toEqual({ [hash]: ["a.txt", "b.txt", "café.md"] });
+  });
+
+  it("throws PlanFormatError when git fails", () => {
+    expect(code(() => listCommitFiles(repo(), ["0".repeat(40)]))).toBeDefined();
   });
 });

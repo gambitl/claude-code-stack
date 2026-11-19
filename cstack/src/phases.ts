@@ -52,12 +52,12 @@ const filled =
 
 // The Ticket section always holds the heading "Decisions already taken upstream",
 // so a heading alone must not count as a copied ticket.
-const ticketCopied: PhaseCheck = ({ plan }) =>
+export const ticketCopied: PhaseCheck = ({ plan }) =>
   (plan.sections.find((section) => section.name === "Ticket")?.bodyLines ?? 0) > 0
     ? []
     : ["Ticket is not filled."];
 
-const noOpenQuestion: PhaseCheck = ({ plan }) =>
+export const noOpenQuestion: PhaseCheck = ({ plan }) =>
   plan.blockingQuestions.filter((q) => q.open).map((q) => `Blocking question ${q.number} is still open.`);
 
 const planDone: PhaseCheck = (context) => {
@@ -68,7 +68,7 @@ const planDone: PhaseCheck = (context) => {
   return missing;
 };
 
-const buildDone: PhaseCheck = ({ plan, commits }) =>
+export const buildDone: PhaseCheck = ({ plan, commits }) =>
   plan.units
     .filter((unit) => unit.blocked === undefined && !commits.units[unit.number]?.length)
     .map((unit) => `Unit ${unit.number} has no commit with its trailer and no Blocked line.`);

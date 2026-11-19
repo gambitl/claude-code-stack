@@ -59,6 +59,13 @@ describe("guide", () => {
     }
   });
 
+  it("lists the skills that have guides when the skill has none", async () => {
+    const { out, io } = collect();
+    const code = await guide(["hello", "--skill", "no-such-skill"], io, { packageRoot });
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("cstack-example");
+  });
+
   it("refuses a path as phase or skill before reading any file", async () => {
     for (const args of [
       ["../../etc/passwd"],
