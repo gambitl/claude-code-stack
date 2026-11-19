@@ -159,6 +159,10 @@ function checkChildStart(plan: ReturnType<typeof readPlan>, unit: number, locate
       throw new HelperError(`Unit ${unit} shares ${shared.map((f) => `\`${f}\``).join(", ")} with unit ${other.number}, which still runs in a child worktree. Collect unit ${other.number} first.`, EXIT.refused);
     }
   }
+}
+
+/** The checks of the ticket worktree, only when cstack creates a new child worktree. They refuse with 1 and start nothing. */
+function checkTicketWorktree(plan: ReturnType<typeof readPlan>, located: { root: string; relative: string }): void {
   const branch = currentBranch(located.root);
   if (branch !== plan.header["Branch"]) {
     throw new HelperError(`The ticket worktree is on ${branch ?? "no branch"}, and the plan names another branch. Check out the branch of the plan first.`, EXIT.refused);
@@ -256,6 +260,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       child = false;
       note = `${childFeature.reason} The helper runs in the current worktree.`;
     } else {
+      checkTicketWorktree(plan, located);
       base = headHash(located.root);
       before = listWorktrees(located.root);
       inputs.childWorktree = true;

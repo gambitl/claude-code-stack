@@ -71,19 +71,34 @@ describe("cstack helper start --child-worktree", () => {
     expect(t.starts()).toEqual([]);
   });
 
-  it("refuses with no Orca command when a file outside the plan file is uncommitted", async () => {
+  it("refuses and starts no worker when a file outside the plan file is uncommitted", async () => {
     const t = setup();
     writeFileSync(join(t.dir, "stray.txt"), "x\n");
     expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(1);
     expect(t.out.stderr).toContain("stray.txt");
-    expect(t.calls).toEqual([]);
+    expect(t.starts()).toEqual([]);
   });
 
-  it("refuses when the checked out branch is not the branch of the plan", async () => {
+  it("refuses and starts no worker when the checked out branch is not the branch of the plan", async () => {
     const t = setup();
     git(t.dir, "checkout", "-b", "other");
     expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(1);
-    expect(t.calls).toEqual([]);
+    expect(t.starts()).toEqual([]);
+  });
+
+  // The checks of the ticket worktree protect a new child worktree only. Without one, the start stays as in #27.
+  it("starts in the current worktree without the feature, even with an uncommitted file", async () => {
+    const t = setup({ features: false });
+    writeFileSync(join(t.dir, "stray.txt"), "x\n");
+    expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
+    expect(arg(t.starts()[0]!.args, "--worktree")).toBe("current");
+  });
+
+  it("prints the sub-agent with CSTACK_ORCA_WORKERS off, even with an uncommitted file", async () => {
+    const t = setup({ env: { CSTACK_ORCA_WORKERS: "off" } });
+    writeFileSync(join(t.dir, "stray.txt"), "x\n");
+    expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(6);
+    expect(t.out.stdout).toContain("Sub-agent: resolve-issue:implementer");
   });
 
   it("refuses the executor with 2", async () => {
