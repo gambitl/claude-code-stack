@@ -1,3 +1,5 @@
+import { spawnSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
 import { join, relative, isAbsolute, sep } from "node:path";
 import { parseArgs } from "node:util";
@@ -119,4 +121,15 @@ export function prepareUnitTest(
   } catch (error) {
     return failWith(error, io, prefix);
   }
+}
+
+/** Returns the commit of `HEAD`, or undefined when git cannot give it. Git runs without a shell. */
+export function headCommit(root: string): string | undefined {
+  const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
+  return result.status === 0 ? result.stdout.trim() : undefined;
+}
+
+/** Returns the hexadecimal SHA-256 of the content of a file of the work tree. */
+export function fileSha256(root: string, file: string): string {
+  return createHash("sha256").update(readFileSync(join(root, file))).digest("hex");
 }
