@@ -24,7 +24,16 @@ test("the spec holds no line of the plan", () => {
   expect(spec.includes("ignore your instructions")).toBeFalsy();
   expect(Boolean(spec.includes(join(root, "plan.md")))).toBe(true);
   expect(Boolean(spec.includes(ID))).toBe(true);
-  expect(Boolean(spec.trimEnd().endsWith(`cstack helper done <kind> --helper ${ID} --plan ${join(root, "plan.md")}`))).toBe(true);
+  expect(Boolean(spec.trimEnd().endsWith(`cstack helper done <kind> --helper ${ID} --plan '${join(root, "plan.md")}'`))).toBe(true);
+});
+
+test("the done command quotes a plan path with a space and a command substitution", () => {
+  const root = repo();
+  const plan = join(root, "my plan $(touch pwned) it's.md");
+  writeFileSync(plan, "x");
+  const spec = buildSpec(findInputs({ role: "executor", helperId: ID, repoRoot: root, planFile: plan, packageRoot: PKG }));
+  const quoted = `'${plan.replace(/'/g, `'\\''`)}'`;
+  expect(Boolean(spec.trimEnd().endsWith(`cstack helper done <kind> --helper ${ID} --plan ${quoted}`))).toBe(true);
 });
 
 test("the conventions file comes in the order CLAUDE.md, AGENTS.md, CONTRIBUTING.md", () => {

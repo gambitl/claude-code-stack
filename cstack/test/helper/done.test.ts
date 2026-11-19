@@ -153,6 +153,19 @@ describe("cstack helper done", () => {
     expect(t.record().sent).toBe(true);
   });
 
+  it("on a retry sends the kind of the saved report, not the kind of the new command", async () => {
+    const t = setup({ role: "implementer", unit: 2 });
+    t.results.send = { kind: "timeout" };
+    expect(await t.run(["stuck", "--helper", t.id, "--plan", PLAN], "I am blocked.")).toBe(5);
+    t.results.send = { kind: "ok", stdout: fixture("orchestration-send.sent.json") };
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(0);
+    const sends = t.sends();
+    expect(sends).toHaveLength(2);
+    const outcome = (a: string[]) => a[a.indexOf("--outcome") + 1];
+    expect(outcome(sends[0]!)).toBe("failed");
+    expect(outcome(sends[1]!)).toBe("failed");
+  });
+
   it("refuses a call after the report was sent", async () => {
     const t = setup();
     expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(0);

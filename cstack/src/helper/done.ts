@@ -2,8 +2,9 @@
 import { readFileSync } from "node:fs";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
+import { parseAnswer } from "../orca/answer.js";
 import { callOrca } from "../orca/call.js";
-import type { Runner, RunResult } from "../orca/run.js";
+import type { Runner } from "../orca/run.js";
 import { checkShape, ShapeError } from "../orca/shapes.js";
 import { parseVersion } from "../orca/version.js";
 import { locatePlan } from "../plan/locate.js";
@@ -28,15 +29,15 @@ export interface DoneRequest {
 const CALL_TIMEOUT_MS = 30_000;
 const HANDLE = /^term_[A-Za-z0-9-]+$/;
 
-function answerOf(result: RunResult): { ok?: unknown; result?: unknown; error?: { message?: unknown } } | undefined {
-  const text = result.kind === "ok" || result.kind === "failed" ? result.stdout : undefined;
-  if (text === undefined) return undefined;
+function readSavedKind(file: string): string {
   try {
-    const value: unknown = JSON.parse(text);
-    return typeof value === "object" && value !== null && !Array.isArray(value) ? value : undefined;
+    const value: unknown = JSON.parse(readFileSync(file, "utf8"));
+    const kind = typeof value === "object" && value !== null ? (value as { kind?: unknown }).kind : undefined;
+    if (typeof kind === "string") return kind;
   } catch {
-    return undefined;
+    // Handled below.
   }
+  throw new HelperError(`The saved report ${file} cannot be read, so cstack cannot tell its kind.`, EXIT.refused);
 }
 
 /** Reads the task id of the Dispatch, then sends the `worker_done` message. Throws a HelperError with exit code 5 on any failure. */
@@ -54,7 +55,7 @@ async function sendReport(record: HelperRecord, kind: string, file: string, deps
 
   const showArgs = ["orchestration", "worker-show", "--dispatch", record.dispatchId ?? "", "--full"];
   const shown = await call(showArgs);
-  const shownAnswer = answerOf(shown);
+  const shownAnswer = parseAnswer<{ ok?: unknown; result?: unknown; error?: { message?: unknown } }>(shown);
   let taskId: string;
   try {
     if (shown.kind !== "ok" || shownAnswer === undefined) throw new Error("no answer");
@@ -76,7 +77,7 @@ async function sendReport(record: HelperRecord, kind: string, file: string, deps
     "--dispatch-id", record.dispatchId ?? "",
     ...(handle !== undefined && HANDLE.test(handle) ? ["--from", handle] : []),
   ]);
-  const sentAnswer = answerOf(sent);
+  const sentAnswer = parseAnswer<{ ok?: unknown; result?: unknown; error?: { message?: unknown } }>(sent);
   try {
     if (sent.kind !== "ok" || sentAnswer === undefined) throw new Error("no answer");
     checkShape("orca orchestration send --json", sentAnswer, "unknown", "write");
@@ -96,7 +97,9 @@ export async function doneHelper(request: DoneRequest, io: Io, deps: DoneDeps): 
     if (record.mode !== "orca-worker" || record.sent !== false) {
       throw new HelperError(`The helper ${record.id} already has an accepted report, saved in ${record.report}. One helper has only one report.`, EXIT.refused);
     }
-    await sendReport(record, request.kind, record.report, deps);
+    // The saved report decides the kind, so a stuck or failed report never goes out as succeeded.
+    const saved = readSavedKind(record.report);
+    await sendReport(record, saved, record.report, deps);
     updateRecord(runDir, record.id, { sent: true });
     io.stdout(`The report in ${record.report} was sent.\n`);
     return 0;

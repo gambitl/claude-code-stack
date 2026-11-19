@@ -82,6 +82,11 @@ export function findInputs(options: InputOptions): HelperInputs {
   return inputs;
 }
 
+/** Quotes a text for a shell with single quotes, so spaces and $(...) stay plain text. */
+function shellQuote(text: string): string {
+  return `'${text.replace(/'/g, `'\\''`)}'`;
+}
+
 const KINDS: Record<HelperRole, string> = {
   executor: "done, published, needs-decision or failed",
   implementer: "done or stuck",
@@ -90,7 +95,7 @@ const KINDS: Record<HelperRole, string> = {
 
 /** Turns the inputs into the spec text. Fixed text and paths only. */
 export function buildSpec(inputs: HelperInputs): string {
-  const done = `cstack helper done <kind> --helper ${inputs.helperId} --plan ${inputs.planFile}`;
+  const done = `cstack helper done <kind> --helper ${inputs.helperId} --plan ${shellQuote(inputs.planFile)}`;
   const list = [
     `- Helper id: ${inputs.helperId}`,
     `- Repository root: ${inputs.repoRoot}`,
