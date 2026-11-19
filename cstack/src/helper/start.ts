@@ -1,6 +1,6 @@
 // WHY: ADR-SIC-A and ADR-SIC-F. no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
 import { parseAnswer } from "../orca/answer.js";
@@ -14,7 +14,9 @@ import { locatePlan } from "../plan/locate.js";
 import { orderUnits } from "../plan/order.js";
 import { readPlan } from "../plan/read.js";
 import { latestStuckReportPath } from "../report/reports.js";
-import { runFolder } from "../run-state.js";
+import { setUnitWorktree } from "../plan/unit-line.js";
+import { gitFolders, runFolder, writeCurrentRun, writeFileAtomic } from "../run-state.js";
+import { withCommitLock } from "../commit-lock.js";
 import { WriteShapeError } from "../tracker/errors.js";
 import {
   createRecord,
@@ -24,7 +26,7 @@ import {
   makeHelperId,
   type HelperRole,
 } from "./record.js";
-import { childName, currentBranch, headHash, ticketWorktreeProblems } from "./child.js";
+import { childName, currentBranch, findChildWorktree, headHash, listWorktrees, ticketWorktreeProblems, type ListedWorktree } from "./child.js";
 import { buildSpec, findInputs, type HelperInputs } from "./spec.js";
 
 export interface StartDeps {
@@ -182,6 +184,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
 
   let note = "";
   let base = "";
+  let before: ListedWorktree[] = [];
   if (child) {
     const alone = firstBatchIsOneUnit(plan, located.root);
     const childFeature = await orcaFeatures(deps.createRunner(FEATURE_TIMEOUT_MS), deps.env).get("child-worktrees");
@@ -193,6 +196,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       note = `${childFeature.reason} The helper runs in the current worktree.`;
     } else {
       base = headHash(located.root);
+      before = listWorktrees(located.root);
       inputs.childWorktree = true;
     }
   }
@@ -200,6 +204,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
   const specFile = helperSpecPath(runDir, inputs.helperId);
   mkdirSync(dirname(specFile), { recursive: true });
   writeFileSync(specFile, buildSpec(inputs));
+  const name = child ? childName(currentBranch(located.root) as string, unit as number, inputs.helperId) : "";
   const title = unit === null ? role : `${role} unit ${unit}`;
   const result = await callOrca(deps.createRunner(START_TIMEOUT_MS), deps.env, [
     "orchestration", "worker-start",
@@ -208,7 +213,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     "--model", inputs.model,
     "--effort", inputs.effort,
     ...(child
-      ? ["--worktree", "new-child", "--base-branch", base, "--name", childName(currentBranch(located.root) as string, unit as number, inputs.helperId), "--setup", "skip"]
+      ? ["--worktree", "new-child", "--base-branch", base, "--name", name, "--setup", "skip"]
       : ["--worktree", "current"]),
     "--task-title", title,
   ]);
@@ -223,6 +228,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
   }
   const dispatchId = (answer?.result as { dispatchId?: unknown } | undefined)?.dispatchId;
   if (result.kind === "ok" && answer?.ok === true && typeof dispatchId === "string") {
+    const found = child ? findChildWorktree(located.root, before, (answer.result as { workspace?: unknown }).workspace, name) : undefined;
     createRecord(runDir, {
       format: "cstack-helper/1",
       id: inputs.helperId,
@@ -231,7 +237,19 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       startedAt: deps.now().toISOString(),
       mode: "orca-worker",
       dispatchId,
+      ...(found !== undefined ? { worktree: found } : {}),
     });
+    if (child && found === undefined) {
+      throw new HelperError(`The worker ${inputs.helperId} runs, but cstack found no child worktree for it, so none is on record. Check \`git worktree list\`.`, EXIT.toolFailed);
+    }
+    if (found !== undefined) {
+      writeCurrentRun(found.path, located.relative);
+      const lockPath = join(gitFolders(located.root).gitDir, "cstack", "plan-file.lock");
+      const locked = await withCommitLock(lockPath, unit as number, 60_000, () =>
+        writeFileAtomic(located.path, setUnitWorktree(readFileSync(located.path, "utf8"), unit as number, found.path)),
+      );
+      if (!locked.ok) throw new HelperError(`cstack could not write the Worktree line of unit ${unit} into the plan file: ${locked.message}.`, EXIT.toolFailed);
+    }
     io.stdout(`${inputs.helperId}\n${note === "" ? "" : `${note}\n`}Run \`cstack helper wait ${inputs.helperId}\` to wait for its report.\n`);
     return 0;
   }
