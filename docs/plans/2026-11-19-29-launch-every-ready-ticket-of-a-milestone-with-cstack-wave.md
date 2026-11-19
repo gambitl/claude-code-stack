@@ -391,6 +391,16 @@ Orca 1.4.263 gives a taken branch name a numeric suffix without a word, so the b
 - No decision record is named in the changed files except ADR-SIC-F and ADR-SIC-H, through `WHY:` comments of the tracker files. The command prints through `io` and never calls `process.exit()`.
 - Full suite after the build: 68 test files, 863 tests, and the typecheck is clean.
 
+### Reviewers (phase review)
+
+Four fresh reviewers read the branch diff. All fixes are in commit 8665e54.
+
+- Correctness: real Orca writes `--json` errors to standard output with exit code 1, and the runner dropped them, so the user never saw the reason. Fixed: the runner keeps stdout on a failed exit, and a new `cstack/src/wave/orca-error.ts` reads the error. A message about a retry or a launch becomes an unknown outcome. A ticket skipped after the yes now says why. Errors of `orca reference find` now name the ticket.
+- Security: no finding at confidence 80 or more. Cheap hardening done: a ticket whose fresh key differs from the listed key is skipped, and the git start line goes through `printableText`. Not done: the Arabic letter mark U+061C is not removed by `printableText`, because its effect is very small.
+- Conventions: `EXIT.toolFailed` replaces the literal 5 in `worktrees.ts`. The finding about `--watch` was not a bug, because the dispatcher already answers "Ticket #30 builds it" (checked by running the built command).
+- Simplicity: removed the unused `detached` and `prunable` fields, merged the repeated option objects in `wave.ts`, and made the Orca command string one constant.
+- After the fixes: typecheck clean, 68 test files and 867 tests pass.
+
 <phase review findings and fixes; phase independent-review: fixes and judgment calls>
 
 ## Briefing
