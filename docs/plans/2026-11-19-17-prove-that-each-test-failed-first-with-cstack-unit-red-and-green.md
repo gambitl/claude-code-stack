@@ -378,6 +378,25 @@ The tests of the commands build a temporary git repository, as `cstack/test/unit
 
 ## Review log
 
+### Impact notes (phase 7)
+
+Graphify is not installed, so text search was used. The changed existing symbols are the `unit` entry of `HANDLERS` in `cstack/src/cli.ts` and the two manifest entries. Their dependents outside the diff are `cstack/test/cli.test.ts`, `cstack/test/manifest.test.ts`, `cstack/test/prompts.test.ts` and the README command count, and all were checked. The readers of `red.json` and `green.json` (`unit-commit.ts`, `report/reports.ts`, `plan-status.ts`) are unaffected, because the only change to the format is the added field `testFileSha256`.
+
+### Findings of the four reviewers (phase 7)
+
+- Correctness, important: a failing `cstack unit green` left an older `green.json`, so `cstack unit commit` could accept code whose test now fails. Fixed in commit 65da54e: green deletes the passing run when it fails, with a test.
+- Correctness, minor: the verdict line could stick to test output with no final line break. Fixed with `printTestOutput`, with tests.
+- Security, minor: a `Test` path that is a directory crashed with a stack trace. Fixed: exit 1 with a message, with a test.
+- Simplicity: removed one cast and kept the other items as follow-ups below.
+- Conventions and the rest of security: no finding.
+
+### Follow-ups left open
+
+- `unit-red.ts` and `unit-green.ts` repeat the commit read, hash read, test run and timeout branches. A shared helper would remove about 25 lines.
+- The `beforeSettings` hook of `prepareUnitTest` exists only for green. Reading the saved run after the call would remove it, but it changes the order of the refusal messages that the plan fixed.
+- If cstack is stopped by a signal, the temporary output folder stays in the system temporary folder. Processes the shell leaves behind after a normal end are not killed, and SIGHUP is not caught.
+- A log of more than 1 MB with no line break at all is saved empty.
+
 ## Briefing
 
 ## Open questions after the build
