@@ -437,6 +437,23 @@ Security by design: this ticket has no endpoint, no database query and no creden
 
 Graphify is not installed, so these notes come from grep and git history. The old runner path `doctor/runner` has no reference left in `cstack/src`, `cstack/test` or the README. The only code that prints the "not built" refusal is `manifest.ts` (`unbuiltRefusal`) and its use in `cli.ts`. In the history of `cli.ts`, the usual companions are `cli.test.ts` and `manifest.test.ts`, and both changed on this branch. `manifest.ts` is also a companion of `cli.ts`, and it changed too. The full suite, typecheck and build pass; `test/report.test.ts` times out now and then under load, and passes on rerun (it is not part of this change).
 
+### Findings of the four reviewers (phase 7)
+
+Fixed in eight commits after the review:
+- Correctness: `cstack tracker`, `cstack helper` and `cstack graph` exited 2 with "unknown command", and now exit 1 with their tickets. `--child-worktree` and `--watch` were not declared as unbuilt flags, and now are. Doctor read `orca status` on its own without the shape check, and now uses the feature detection, so the Orca line and the feature lines agree.
+- Security: blocker keys were not checked against the key pattern, in the checked wrapper and in the file from Claude. Both now skip the ticket with a warning. A state name such as `constructor` gave a wrong state kind, and now gives `unknown`.
+- Conventions: a comment on `createRunner` said it was the only way to run a program, which is false. The refusal text had a grammar slip.
+- Simplicity: `record.ts` now reuses `parseVersion`, and `badField` lost two needless guards.
+
+Follow-ups, not fixed here:
+- A blocker that comes only from the ticket footer has the state kind `unknown`, so the ticket stays blocked until an adapter looks up the real state. This is written in the ADR and in the `mergeBlockers` comment, and goes into the comments for #25 and #26.
+- `ssh://` remotes give a usage error that asks for `--tracker`.
+- `claude-file.ts` has no size limit on the file it reads, and its JSON error quotes a piece of the file.
+- `failWith` in `commands/errors.ts` does not know the new tracker error classes. #25 and #26 handle that.
+- `choose.ts`: the lazy check cache could be simpler. Kept for its laziness.
+- `parseVersion` drops a suffix such as `-rc1`.
+- Doctor reads `ORCA_CLI_COMMAND` from `process.env`, so a doctor test fails when that variable is set on the machine.
+
 ## Briefing
 
 ## Open questions after the build
