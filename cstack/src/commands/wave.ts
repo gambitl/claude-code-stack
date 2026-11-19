@@ -3,12 +3,16 @@ import type { Io } from "../io.js";
 import { COMMANDS, commandWords, EXIT } from "../manifest.js";
 import { orcaFeatures } from "../orca/features.js";
 import type { Runner } from "../orca/run.js";
+import { readyState } from "../tracker/ready.js";
 import { trackerFromRemote } from "../tracker/choose.js";
 import { TrackerError } from "../tracker/errors.js";
 import type { openTracker as OpenTracker } from "../tracker/open.js";
 import type { Group, TrackerName } from "../tracker/types.js";
+import { isYes } from "../wave/confirm.js";
 import { WaveError } from "../wave/errors.js";
 import { formatGroups, groupTickets } from "../wave/groups.js";
+import { shortName } from "../wave/names.js";
+import { prepareGitStart } from "../wave/start-git.js";
 import { printableText } from "../wave/title.js";
 import { loadWorktreeCheck, parseWorktreeList } from "../wave/worktrees.js";
 
@@ -93,7 +97,50 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       io.stdout("\nStarting tickets needs a terminal, so cstack started nothing.\n");
       return EXIT.ok;
     }
-    return EXIT.ok;
+    const n = groups.ready.length;
+    io.stdout(`\nStart the ${n} ready ${n === 1 ? "ticket" : "tickets"}? [y/N] `);
+    if (!isYes(await deps.readAnswer())) {
+      io.stdout("\nStarted nothing.\n");
+      return EXIT.ok;
+    }
+    io.stdout("\n");
+    if (orca) return EXIT.ok;
+
+    const reader = await deps.openTracker("read", {
+      root,
+      tracker: name,
+      fromFile: values["from-file"],
+      run: deps.run,
+      env: deps.env,
+      warn: (message) => io.stderr(`${printableText(message)}\n`),
+    });
+    const fresh = await loadWorktreeCheck({ run: deps.run, env: deps.env, root, tracker: name!, orca });
+    const start = await prepareGitStart(deps.run, root);
+    let failures = 0;
+    for (const { ticket: listed } of groups.ready) {
+      const key = printableText(listed.key);
+      const ticket = await reader.readTicket(listed.key);
+      const found = ticket.stateKind === "todo" ? await fresh.check(ticket) : { found: false as const };
+      const state = readyState(ticket, found.found);
+      if (state.kind !== "ready") {
+        io.stdout(`${key}  skipped, it is no longer ready${found.found ? ` (${found.reason})` : ""}.\n`);
+        continue;
+      }
+      const short = shortName(name!, ticket.key);
+      const branch = await deps.run("git", ["show-ref", "--verify", "--quiet", `refs/heads/${short}`], root);
+      if (branch.kind === "ok") {
+        io.stdout(`${key}  skipped, the branch ${short} already exists.\n`);
+        continue;
+      }
+      const outcome = await start(ticket.key, short);
+      if (outcome.kind === "started") io.stdout(`${key}  ${outcome.line}\n`);
+      else if (outcome.kind === "skipped") io.stdout(`${key}  skipped, ${printableText(outcome.reason)}.\n`);
+      else {
+        failures++;
+        io.stdout(`${key}  failed, ${printableText(outcome.reason)}.\n`);
+      }
+    }
+    return failures > 0 ? EXIT.toolFailed : EXIT.ok;
   } catch (error) {
     if (error instanceof WaveError || error instanceof TrackerError) {
       io.stderr(`cstack: ${printableText(error.message)}\n`);
