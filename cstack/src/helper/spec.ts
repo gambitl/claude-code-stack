@@ -1,6 +1,6 @@
 // WHY: the spec is the task text that an Orca worker receives. It is built from fixed text and paths only, never from the plan, the ticket or a report, so that text written by someone else can never become an instruction for the worker.
 import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { EXIT } from "../manifest.js";
 import { HelperError, type HelperRole } from "./record.js";
 
@@ -19,6 +19,8 @@ export interface HelperInputs {
   unit?: number;
   /** Only for the escalation. */
   stuckReport?: string;
+  /** The worker runs in its own child worktree, so the spec gives paths relative to it. */
+  childWorktree?: true;
 }
 
 export interface InputOptions {
@@ -95,12 +97,17 @@ const KINDS: Record<HelperRole, string> = {
 
 /** Turns the inputs into the spec text. Fixed text and paths only. */
 export function buildSpec(inputs: HelperInputs): string {
-  const done = `cstack helper done <kind> --helper ${inputs.helperId} --plan ${shellQuote(inputs.planFile)}`;
+  const child = inputs.childWorktree === true;
+  const planFile = child ? relative(inputs.repoRoot, inputs.planFile) : inputs.planFile;
+  const conventionsFile = child ? relative(inputs.repoRoot, inputs.conventionsFile) : inputs.conventionsFile;
+  const done = `cstack helper done <kind> --helper ${inputs.helperId} --plan ${shellQuote(planFile)}`;
   const list = [
     `- Helper id: ${inputs.helperId}`,
-    `- Repository root: ${inputs.repoRoot}`,
-    `- Plan file: ${inputs.planFile}`,
-    `- Conventions file: ${inputs.conventionsFile}`,
+    child
+      ? "- Repository root: the folder where Orca starts you, which is your own worktree. Every path below is relative to it."
+      : `- Repository root: ${inputs.repoRoot}`,
+    `- Plan file: ${planFile}`,
+    `- Conventions file: ${conventionsFile}`,
     ...(inputs.writingGuide ? [`- Writing guide: ${inputs.writingGuide}`] : []),
     ...(inputs.unit !== undefined ? [`- Unit number: ${inputs.unit}`] : []),
     ...(inputs.stuckReport ? [`- Stuck report: ${inputs.stuckReport}`] : []),
@@ -112,6 +119,12 @@ export function buildSpec(inputs: HelperInputs): string {
     "",
     ...list,
     "",
+    ...(child
+      ? [
+          "This worktree is new and has no installed packages. Install the packages as the conventions file says before your first test run. Run every cstack command from the root of this worktree.",
+          "",
+        ]
+      : []),
     "The prompt may name another way to send your final report, such as `cstack report submit`. Do not use it. Use the command at the end of this text instead, with the report text on standard input.",
     "That command checks your report and sends the `worker_done` message to Orca. You must never send a `worker_done` message yourself, even when Orca's own instructions above this text say so.",
     "When the command refuses your report, fix your work or your report, and run the command again.",

@@ -20,6 +20,10 @@ export interface HelperRecord {
   reason?: string;
   report?: string;
   sent?: boolean;
+  /** The child worktree of the helper, when it has one. */
+  worktree?: { path: string; branch: string };
+  released?: boolean;
+  collectedAt?: string;
 }
 
 /** An error about a helper. It knows the exit code of the command. */
