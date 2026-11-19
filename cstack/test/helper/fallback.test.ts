@@ -2,9 +2,11 @@ import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { helperDone } from "../../src/commands/helper-done.js";
+import { helperWait } from "../../src/commands/helper-wait.js";
 import { helperStart } from "../../src/commands/helper-start.js";
 import type { Runner, RunResult } from "../../src/orca/run.js";
-import { runFolder } from "../../src/run-state.js";
+import { readPlan } from "../../src/plan/read.js";
+import { createRun, runFolder, writeCurrentRun } from "../../src/run-state.js";
 import { collect, commitFiles, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
 
 const PKG = join(import.meta.dirname, "..", "..");
@@ -126,7 +128,18 @@ describe("cstack helper done in sub-agent mode", () => {
         readInput: () => Buffer.from(input),
       });
     };
-    return { dir, calls, out, done };
+    const wait = () => {
+      out.stderr = "";
+      out.stdout = "";
+      return helperWait(["20261119-143205123-executor"], io, {
+        cwd: dir,
+        env: deps.env,
+        createRunner: deps.createRunner,
+        now: deps.now,
+        sleep: async () => {},
+      });
+    };
+    return { dir, calls, out, done, wait };
   }
 
   it("refuses an incomplete executor report, as in the Orca case", async () => {
@@ -143,5 +156,16 @@ describe("cstack helper done in sub-agent mode", () => {
     expect(readdirSync(join(runFolder(t.dir, PLAN), "reports"))).toHaveLength(1);
     expect(t.calls).toEqual([]);
     expect(await t.done("again")).toBe(1);
+  });
+
+  it("prints the accepted report at once with helper wait and makes no Orca call", async () => {
+    const t = await startedFallback();
+    createRun(t.dir, PLAN, readPlan(full));
+    writeCurrentRun(t.dir, PLAN);
+    expect(await t.done("all good\n")).toBe(0);
+    t.calls.length = 0;
+    expect(await t.wait()).toBe(0);
+    expect(t.out.stdout).toBe("done\nall good\n");
+    expect(t.calls).toEqual([]);
   });
 });
