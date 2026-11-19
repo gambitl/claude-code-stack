@@ -405,11 +405,15 @@ Orca 1.4.263 gives a taken branch name a numeric suffix without a word, so the b
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Units 2, 4 and 5 were written before the red run, so `cstack unit red` refused. The implementers moved the source file away to record a red run. The saved failure in those units only says the module is missing.
+- Unit 1: the test first put the 100 letters after the line break, so it could not pass. `cstack unit green` warned that the test changed after the red run.
+- Unit 4 reported `tsc` failing with "Cannot find type definition file for 'node'". The cause was a missing `npm ci` in this worktree. After `npm ci`, the typecheck passed.
+- Unit 5 passes the Orca version "unknown" to `checkShape`, because the check does not receive a version. This was kept in units 7 and 8.
+- Unit 10: the first full `npm test` ran past the 120 second shell limit because the publish tests are slow. A later run passed with 863 tests.
 
 ## Hand-off log
 
-2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started.
+2026-11-19, run 1: moved issue #29 to the state "in progress" by adding the label `in progress`. The branch `gambitl/cstack-wave` was already checked out. Build started. All ten units are committed with their trailers, and the full suite and the typecheck pass. The report to the main conversation moves on to the next phase.
 
 ## History
 
