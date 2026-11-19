@@ -34,7 +34,7 @@ Every `cstack` command below takes `--plan <plan file>`, with the plan file path
 
    Then do the refactor the unit names, if any, and run `cstack unit green <n> --plan <plan file>` again.
 6. Run `git status`. Check that you changed no file outside the `Files` line of your unit. If the unit needs such a file, stop and report stuck, and name the file.
-7. Run `cstack unit commit <n> --plan <plan file>`. It stages the files of the unit, commits them, and prints the commit hash. A unit with a `No test` line has no test to run, so for a No test unit you make the change and go straight to `cstack unit commit <n> --plan <plan file>`.
+7. Run `cstack unit commit <n> --plan <plan file>`. It stages the files of the unit, commits them, and prints the commit hash. A unit with a `No test` line has no test to run, so for a No test unit you make the change and go straight to `cstack unit commit <n> --plan <plan file>`. When the unit already has a commit, for example when you add tests that you skipped, add `--message "<subject>"` with a subject that says what this commit changes. When `cstack unit commit` refuses because the unit already has a commit, run it again with `--message`.
 
 Never run `git add`, `git commit` or `git stash` yourself, and never push. This includes `git commit --amend`: another unit may have committed on top of yours in the same folder. The stash is shared with every worktree of the repository, so another run could take your changes. The executor leaves the push to `cstack publish`.
 
