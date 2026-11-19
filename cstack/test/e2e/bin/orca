@@ -41,7 +41,8 @@ function status(dispatchId) {
 
 if (args[0] === "--version") {
   append("calls.log", { program: "orca", args });
-  say(fixture("version.current.txt"));
+  // The mode "old" answers a version below the minimum that cstack supports.
+  say(process.env.E2E_ORCA_MODE === "old" ? "1.4.258\n" : fixture("version.current.txt"));
 }
 
 const logged = { program: "orca", args, cwd: process.cwd() };
@@ -49,7 +50,8 @@ let answered;
 
 switch (command) {
   case "status --json":
-    answered = json("status.running.json");
+    // The mode "closed" answers that the Orca app is not running.
+    answered = json(process.env.E2E_ORCA_MODE === "closed" ? "status.closed.json" : "status.running.json");
     break;
   case "agent-context --json":
     answered = json("agent-context.current.json");

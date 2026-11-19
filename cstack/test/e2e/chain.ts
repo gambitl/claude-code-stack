@@ -92,7 +92,7 @@ function findOnPath(program: string): string {
   throw new Error(`${program} is not on the PATH of the test process.`);
 }
 
-export async function createChain(options: { orca: boolean }): Promise<Chain> {
+export async function createChain(options: { orca: boolean; orcaMode?: "old" | "closed"; gh?: boolean }): Promise<Chain> {
   // The real path, so that the paths that cstack resolves are the paths that the tests compare with.
   const temp = realpathSync(mkdtempSync(join(tmpdir(), "cstack-e2e-orca-")));
   // The real cstack/dist is never used. The compiler writes into the temporary folder, next to links to the shipped files.
@@ -109,7 +109,7 @@ export async function createChain(options: { orca: boolean }): Promise<Chain> {
   // WHY: the fakes are links, so that Node reads them as ES modules through the package.json of cstack, which says "type": "module".
   symlinkSync(process.execPath, join(binDir, "node"));
   symlinkSync(findOnPath("git"), join(binDir, "git"));
-  symlinkSync(join(FAKES, "gh"), join(binDir, "gh"));
+  if (options.gh !== false) symlinkSync(join(FAKES, "gh"), join(binDir, "gh"));
   if (options.orca) symlinkSync(join(FAKES, "orca"), join(binDir, "orca"));
 
   // The environment is built from scratch: nothing of the test process, and no ORCA_ variable, reaches a child.
@@ -122,6 +122,7 @@ export async function createChain(options: { orca: boolean }): Promise<Chain> {
     GIT_ALLOW_PROTOCOL: "file",
     TMPDIR: temp,
     E2E_FAKE_DIR: fakeDir,
+    ...(options.orcaMode !== undefined ? { E2E_ORCA_MODE: options.orcaMode } : {}),
   };
 
   const git = (...args: string[]) => execFileSync("git", args, { cwd: project, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: COMMAND_TIMEOUT_MS }).trim();
