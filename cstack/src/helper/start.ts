@@ -9,7 +9,9 @@ import { orcaFeatures } from "../orca/features.js";
 import type { Runner, RunResult } from "../orca/run.js";
 import { checkShape, ShapeError } from "../orca/shapes.js";
 import { parseVersion } from "../orca/version.js";
+import { listUnitCommits } from "../plan/commits.js";
 import { locatePlan } from "../plan/locate.js";
+import { orderUnits } from "../plan/order.js";
 import { readPlan } from "../plan/read.js";
 import { latestStuckReportPath } from "../report/reports.js";
 import { runFolder } from "../run-state.js";
@@ -22,6 +24,7 @@ import {
   makeHelperId,
   type HelperRole,
 } from "./record.js";
+import { childName, currentBranch, headHash, ticketWorktreeProblems } from "./child.js";
 import { buildSpec, findInputs, type HelperInputs } from "./spec.js";
 
 export interface StartDeps {
@@ -36,6 +39,7 @@ export interface StartRequest {
   role: HelperRole;
   unit: number | null;
   plan: string | undefined;
+  childWorktree?: boolean;
 }
 
 const START_COMMAND = "orca orchestration worker-start --json";
@@ -105,6 +109,38 @@ async function unknownOutcome(result: RunResult, answer: Answer | undefined, dep
   throw new HelperError(`${CHECK_WORKERS}${message}`, EXIT.toolFailed);
 }
 
+function orderOf(plan: ReturnType<typeof readPlan>, root: string) {
+  const commits = listUnitCommits(root, plan.header["Target branch"]);
+  return orderUnits(plan.units, new Set(Object.keys(commits.units).map(Number)));
+}
+
+/** True when the first batch of `cstack unit order` holds only one unit. */
+function firstBatchIsOneUnit(plan: ReturnType<typeof readPlan>, root: string): boolean {
+  const order = orderOf(plan, root);
+  return order.ok && order.order.batches[0]?.length === 1;
+}
+
+/** The checks before a new child worktree. They refuse with 1 and start nothing. */
+function checkChildStart(plan: ReturnType<typeof readPlan>, unit: number, located: { root: string; relative: string }): void {
+  const order = orderOf(plan, located.root);
+  if (!order.ok) throw new HelperError(`The Depends on lines form a cycle: units ${order.cycle.join(", ")}.`, EXIT.refused);
+  if (!order.order.batches[0]?.includes(unit)) {
+    const reason =
+      order.order.waits.find((w) => w.unit === unit)?.reason ??
+      order.order.setAside.find((s) => s.unit === unit)?.reason ??
+      (order.order.committed.includes(unit) ? "it already has a commit" : "it is not in a batch");
+    throw new HelperError(`Unit ${unit} is not in the first batch of \`cstack unit order\`: ${reason}. A parallel start needs a unit of the first batch.`, EXIT.refused);
+  }
+  const branch = currentBranch(located.root);
+  if (branch !== plan.header["Branch"]) {
+    throw new HelperError(`The ticket worktree is on ${branch ?? "no branch"}, and the plan names another branch. Check out the branch of the plan first.`, EXIT.refused);
+  }
+  const problems = ticketWorktreeProblems(located.root, located.relative);
+  if (problems.length > 0) {
+    throw new HelperError(`A child worktree starts from the last commit, so commit these first: ${problems.join(", ")}.`, EXIT.refused);
+  }
+}
+
 export async function startHelper(request: StartRequest, io: Io, deps: StartDeps): Promise<number> {
   const { role, unit } = request;
   const located = locatePlan(deps.cwd, request.plan);
@@ -126,6 +162,8 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     }
   }
   const runDir = runFolder(located.root, located.relative);
+  let child = request.childWorktree === true && role === "implementer" && unit !== null;
+  if (child) checkChildStart(plan, unit as number, located);
   const inputs = findInputs({
     role,
     helperId: makeHelperId(role, unit, deps.now()),
@@ -142,6 +180,23 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
   const feature = await orcaFeatures(deps.createRunner(FEATURE_TIMEOUT_MS), deps.env).get("workers");
   if (!feature.available) return fallback(role, inputs, feature.reason, runDir, deps, io);
 
+  let note = "";
+  let base = "";
+  if (child) {
+    const alone = firstBatchIsOneUnit(plan, located.root);
+    const childFeature = await orcaFeatures(deps.createRunner(FEATURE_TIMEOUT_MS), deps.env).get("child-worktrees");
+    if (alone) {
+      child = false;
+      note = "Unit " + unit + " is the only unit of the first batch, so it runs in the current worktree.";
+    } else if (!childFeature.available) {
+      child = false;
+      note = `${childFeature.reason} The helper runs in the current worktree.`;
+    } else {
+      base = headHash(located.root);
+      inputs.childWorktree = true;
+    }
+  }
+
   const specFile = helperSpecPath(runDir, inputs.helperId);
   mkdirSync(dirname(specFile), { recursive: true });
   writeFileSync(specFile, buildSpec(inputs));
@@ -152,7 +207,9 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     "--agent", "claude",
     "--model", inputs.model,
     "--effort", inputs.effort,
-    "--worktree", "current",
+    ...(child
+      ? ["--worktree", "new-child", "--base-branch", base, "--name", childName(currentBranch(located.root) as string, unit as number, inputs.helperId), "--setup", "skip"]
+      : ["--worktree", "current"]),
     "--task-title", title,
   ]);
   const answer = parseAnswer<Answer>(result);
@@ -175,7 +232,7 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       mode: "orca-worker",
       dispatchId,
     });
-    io.stdout(`${inputs.helperId}\nRun \`cstack helper wait ${inputs.helperId}\` to wait for its report.\n`);
+    io.stdout(`${inputs.helperId}\n${note === "" ? "" : `${note}\n`}Run \`cstack helper wait ${inputs.helperId}\` to wait for its report.\n`);
     return 0;
   }
   return unknownOutcome(result, answer, deps);

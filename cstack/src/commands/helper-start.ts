@@ -19,7 +19,7 @@ export async function helperStart(args: string[], io: Io, deps: Partial<StartDep
   const prefix = "cstack helper start: ";
   let parsed;
   try {
-    parsed = parseArgs({ args, options: { unit: { type: "string" }, plan: { type: "string" } }, strict: true, allowPositionals: true });
+    parsed = parseArgs({ args, options: { unit: { type: "string" }, plan: { type: "string" }, "child-worktree": { type: "boolean" } }, strict: true, allowPositionals: true });
   } catch (error) {
     io.stderr(`${prefix}${(error as Error).message}. ${HELPER_START_USAGE}\n`);
     return 2;
@@ -38,9 +38,13 @@ export async function helperStart(args: string[], io: Io, deps: Partial<StartDep
     io.stderr(`${prefix}${role === "executor" ? "The executor takes no --unit." : "This role needs --unit <n>."} ${HELPER_START_USAGE}\n`);
     return 2;
   }
+  if (parsed.values["child-worktree"] && role === "executor") {
+    io.stderr(`${prefix}--child-worktree is for the implementer roles, not for the executor. ${HELPER_START_USAGE}\n`);
+    return 2;
+  }
   try {
     return await startHelper(
-      { role: role as HelperRole, unit: rawUnit === undefined ? null : Number(rawUnit), plan: parsed.values.plan },
+      { role: role as HelperRole, unit: rawUnit === undefined ? null : Number(rawUnit), plan: parsed.values.plan, childWorktree: parsed.values["child-worktree"] === true },
       io,
       {
         cwd: process.cwd(),
