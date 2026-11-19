@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult, Runner } from "../../src/orca/run.js";
+import { trackerList } from "../../src/commands/tracker-list.js";
 import { githubGhTracker } from "../../src/tracker/github-gh.js";
 
 const FIXTURES = join(import.meta.dirname, "..", "fixtures", "gh", "2.101.0");
@@ -184,5 +185,25 @@ describe("githubGhTracker.moveState and addComment", () => {
     writeFileSync(file, "hi");
     const slow = fake({ [`issue comment 12 --repo ${REPO} --body-file ${file}`]: { kind: "timeout" } as RunResult });
     await expect(slow.tracker.addComment("#12", file)).rejects.toMatchObject({ name: "WriteShapeError" });
+  });
+});
+
+describe("cstack tracker list", () => {
+  it("runs gh issue list once and prints the blocked issue in the format of the file from Claude", async () => {
+    const calls: string[][] = [];
+    const run: Runner = async (command, args) => {
+      if (command === "git") return { kind: "ok", stdout: "https://github.com/example-owner/example-repo.git\n" };
+      if (args[0] === "auth") return { kind: "ok", stdout: "" };
+      calls.push(args);
+      return ok("issue-list.milestone.json");
+    };
+    let out = "";
+    const io = { stdout: (t: string) => void (out += t), stderr: (t: string) => void (out += t) };
+    const code = await trackerList(["--milestone", "cstack recording"], io, { cwd: "/repo", run, env: {} });
+    expect(code).toBe(0);
+    expect(calls.filter((a) => a[0] === "issue" && a[1] === "list")).toHaveLength(1);
+    const printed = JSON.parse(out);
+    expect(printed).toMatchObject({ format: "cstack-tracker/1", tracker: "github", group: { milestone: "cstack recording" } });
+    expect(printed.tickets.find((t: { key: string }) => t.key === "#5").blockers).toEqual([{ key: "#4", stateKind: "todo" }]);
   });
 });

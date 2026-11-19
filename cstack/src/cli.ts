@@ -14,6 +14,7 @@ import { planStatus } from "./commands/plan-status.js";
 import { reportCheck } from "./commands/report-check.js";
 import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
+import { trackerList } from "./commands/tracker-list.js";
 import { trackerRead } from "./commands/tracker-read.js";
 import { createRunner } from "./orca/run.js";
 import { unitCommit } from "./commands/unit-commit.js";
@@ -74,7 +75,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
     }),
   tracker: (args, io) => {
     const deps = { cwd: process.cwd(), run: createRunner(60000), env: process.env };
-    return dispatchSubcommand("tracker", args, io, { read: (a, i) => trackerRead(a, i, deps) });
+    return dispatchSubcommand("tracker", args, io, { read: (a, i) => trackerRead(a, i, deps), list: (a, i) => trackerList(a, i, deps) });
   },
   unit: (args, io) =>
     dispatchSubcommand("unit", args, io, {

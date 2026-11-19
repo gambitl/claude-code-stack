@@ -150,24 +150,33 @@ describe("run", () => {
   });
 
   it("sends cstack tracker and an unknown tracker word to the tracker usage, not to a refusal", async () => {
+    // The usage names the built tracker words of the manifest, so it follows each command that gets built.
+    const words = COMMANDS.filter((e) => e.built && commandWords(e)[0] === "tracker").map((e) => commandWords(e)[1]);
     for (const args of [["tracker"], ["tracker", "nope"]]) {
       const { out, io } = collect();
       expect(await run(args, io), args.join(" ")).toBe(2);
-      expect(out.stderr).toContain("usage: cstack tracker <read>");
+      expect(out.stderr).toContain(`usage: cstack tracker <${words.join("|")}>`);
     }
   });
 
   it("uses the singular and the plural correctly when it names tickets", async () => {
-    // The first unbuilt entry built by one ticket. `cstack next` was the example until #15 built it.
-    const single = COMMANDS.find((e) => !e.built && typeof e.ticket === "number");
-    if (single !== undefined) {
-      const one = collect();
-      await run(commandWords(single), one.io);
-      expect(one.out.stderr).toMatch(/Ticket #\d+ builds it\./);
-    }
+    // Its own list, so the case does not depend on which real commands are still unbuilt.
+    const entry = (word: string, ticket: number | number[]): CommandEntry => ({
+      usage: `cstack ${word}`,
+      summary: "A command that no ticket builds.",
+      flags: [],
+      exitCodes: { 0: "The command did its job." },
+      file: `${word}.ts`,
+      ticket,
+      built: false,
+    });
+    const commands = [entry("frobnicate", 998), entry("twiddle", [999, 998])];
+    const one = collect();
+    await run(["frobnicate"], one.io, commands);
+    expect(one.out.stderr).toContain("Ticket #998 builds it.");
     const two = collect();
-    await run(["tracker", "list"], two.io);
-    expect(two.out.stderr).toContain("Tickets #25 and #26 build it.");
+    await run(["twiddle"], two.io, commands);
+    expect(two.out.stderr).toContain("Tickets #998 and #999 build it.");
   });
 
   it("names the ticket of the command for the flags of unbuilt commands", async () => {
