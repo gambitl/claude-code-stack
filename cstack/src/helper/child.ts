@@ -1,9 +1,8 @@
 // WHY: a child worktree starts from the last commit of the ticket branch. These checks make sure that commit holds everything the worker needs, and that no plan text reaches the Orca command line: the branch and the hash come from git.
 import { spawnSync } from "node:child_process";
-import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { withoutWorktreeLines } from "../plan/unit-line.js";
-import type { HelperRecord } from "./record.js";
 
 function git(cwd: string, args: string[]) {
   return spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -94,20 +93,4 @@ export function findChildWorktree(root: string, before: ListedWorktree[], worksp
     // keep the listed path
   }
   return { path, branch: match.branch };
-}
-
-/** The record with the latest `startedAt` among the helpers of the unit, or nothing. */
-export function latestUnitRecord(runDir: string, unit: number): HelperRecord | undefined {
-  const folder = join(runDir, "helpers");
-  if (!existsSync(folder)) return undefined;
-  let latest: HelperRecord | undefined;
-  for (const name of readdirSync(folder).filter((n) => n.endsWith(".json"))) {
-    try {
-      const record = JSON.parse(readFileSync(join(folder, name), "utf8")) as HelperRecord;
-      if (record.unit === unit && (latest === undefined || record.startedAt > latest.startedAt)) latest = record;
-    } catch {
-      // a record that cannot be read is not the latest one
-    }
-  }
-  return latest;
 }

@@ -9,6 +9,7 @@ import {
   createRecord,
   helperRecordPath,
   helperSpecPath,
+  latestUnitRecord,
   makeHelperId,
   readRecord,
   updateRecord,
@@ -109,5 +110,34 @@ describe("records", () => {
 
   it("exports the exit code 6", () => {
     expect(HELPER_EXIT_PENDING).toBe(6);
+  });
+});
+
+describe("latestUnitRecord", () => {
+  const make = (id: string, startedAt: string, unit = 2) =>
+    createRecord(folder, { format: "cstack-helper/1", id, role: "implementer", unit, startedAt, mode: "sub-agent" });
+
+  it("compares the start times as dates, not as text", () => {
+    // 10:00 at +01:00 is 09:00 UTC, so it is earlier than 09:30 UTC, although its text is larger.
+    make("20261119-090000000-implementer-2", "2026-11-19T10:00:00+01:00");
+    make("20261119-093000000-implementer-2", "2026-11-19T09:30:00Z");
+    expect(latestUnitRecord(folder, 2)?.id).toBe("20261119-093000000-implementer-2");
+  });
+
+  it("breaks a tie with the id", () => {
+    make("20261119-100000001-implementer-2", "2026-11-19T10:00:00Z");
+    make("20261119-100000002-implementer-2", "2026-11-19T10:00:00Z");
+    expect(latestUnitRecord(folder, 2)?.id).toBe("20261119-100000002-implementer-2");
+  });
+
+  it("skips a record that cannot be read and the records of other units", () => {
+    make("20261119-100000001-implementer-2", "2026-11-19T10:00:00Z");
+    make("20261119-110000000-implementer-3", "2026-11-19T11:00:00Z", 3);
+    writeFileSync(join(folder, "helpers", "20261119-120000000-implementer-2.json"), "{not json");
+    expect(latestUnitRecord(folder, 2)?.id).toBe("20261119-100000001-implementer-2");
+  });
+
+  it("finds nothing when there is no helpers folder", () => {
+    expect(latestUnitRecord(folder, 2)).toBeUndefined();
   });
 });

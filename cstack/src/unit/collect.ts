@@ -1,8 +1,6 @@
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
-import { join } from "node:path";
 import type { Io } from "../io.js";
-import { readRecord, updateRecord, type HelperRecord } from "../helper/record.js";
+import { latestUnitRecord, unitRecords, updateRecord } from "../helper/record.js";
 import { callOrca } from "../orca/call.js";
 import { parseAnswer } from "../orca/answer.js";
 import type { Runner } from "../orca/run.js";
@@ -23,25 +21,6 @@ interface Touched {
 }
 
 const nulList = (text: string) => text.split("\0").filter((s) => s !== "");
-
-function recordsOf(folder: string, unit: number): HelperRecord[] {
-  let names: string[];
-  try {
-    names = readdirSync(join(folder, "helpers")).filter((name) => name.endsWith(".json"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-  return names
-    .map((name) => readRecord(folder, name.slice(0, -".json".length)))
-    .filter((record) => record.unit === unit)
-    .sort((a, b) => Date.parse(a.startedAt) - Date.parse(b.startedAt) || (a.id < b.id ? -1 : 1));
-}
-
-/** The latest helper record of a unit, or nothing. It is the newest start, and the id breaks a tie. */
-function latestRecord(folder: string, unit: number): HelperRecord | undefined {
-  return recordsOf(folder, unit).at(-1);
-}
 
 /** The reason why a commit cannot be applied for a unit, or nothing when it can. */
 function commitProblem(root: string, unit: PlanUnit, hash: string): string | undefined {
@@ -96,7 +75,7 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
 
   for (const number of [...new Set(numbers)].sort((a, b) => a - b)) {
     const unit = plan.units.find((u) => u.number === number) as PlanUnit;
-    const record = latestRecord(folder, number);
+    const record = latestUnitRecord(folder, number);
     if (!record?.worktree) {
       skip(number, "it has no child worktree on record, so its commits are already on the ticket branch");
       continue;
@@ -168,9 +147,9 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
   let dirtyFound = false;
   let orcaFailed = false;
   for (const { number, collected } of touched) {
-    const latest = latestRecord(folder, number);
+    const latest = latestUnitRecord(folder, number);
     if (!latest?.worktree) continue;
-    for (const record of recordsOf(folder, number)) {
+    for (const record of unitRecords(folder, number)) {
       if (record.worktree?.path !== latest.worktree.path || record.released || !record.dispatchId) continue;
       if (await orcaOk(orca.run, orca.env, ["orchestration", "worker-release", "--dispatch", record.dispatchId])) {
         updateRecord(folder, record.id, { released: true });

@@ -23,10 +23,11 @@ import {
   HELPER_EXIT_PENDING,
   HelperError,
   helperSpecPath,
+  latestUnitRecord,
   makeHelperId,
   type HelperRole,
 } from "./record.js";
-import { childName, currentBranch, findChildWorktree, headHash, latestUnitRecord, listWorktrees, ticketWorktreeProblems, type ListedWorktree } from "./child.js";
+import { childName, currentBranch, findChildWorktree, headHash, listWorktrees, ticketWorktreeProblems, type ListedWorktree } from "./child.js";
 import { buildSpec, findInputs, type HelperInputs } from "./spec.js";
 
 export interface StartDeps {
