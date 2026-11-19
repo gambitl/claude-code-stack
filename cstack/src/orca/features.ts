@@ -23,6 +23,7 @@ const WORKER_COMMANDS = [
   "orchestration send",
   "orchestration check",
 ];
+const CHILD_WORKTREE_COMMANDS = [...WORKER_COMMANDS, "orchestration worker-release", "worktree rm"];
 const TICKET_WORKTREE_COMMANDS = ["worktree create", "reference find"];
 const JIRA_COMMANDS = [
   "jira connection",
@@ -125,7 +126,7 @@ export function orcaFeatures(
 
   const detect: Record<OrcaFeatureName, () => Promise<void>> = {
     workers: () => commands(WORKER_COMMANDS),
-    "child-worktrees": () => commands(WORKER_COMMANDS),
+    "child-worktrees": () => commands(CHILD_WORKTREE_COMMANDS),
     "ticket-worktrees": () => commands(TICKET_WORKTREE_COMMANDS),
     jira: async () => {
       await commands(JIRA_COMMANDS);
