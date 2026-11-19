@@ -47,7 +47,7 @@ describe("the resolve-issue skill as installed", () => {
     return join(home, ".claude", "skills", "resolve-issue");
   }
 
-  it("installs the ten agent prompts, the templates and the plugin file", async () => {
+  it("installs the ten agent prompts, the templates, the plugin file, the writing guide and the settled decisions", async () => {
     const installed = await install();
     const expected = [
       ...PROMPTS.map((name) => `agents/${name}.md`),
@@ -55,6 +55,8 @@ describe("the resolve-issue skill as installed", () => {
       "templates/settings.json",
       "templates/retro.md",
       ".claude-plugin/plugin.json",
+      "writing.md",
+      "settled-decisions.md",
     ];
     for (const path of expected) {
       expect(existsSync(join(installed, path)), `${path} is missing`).toBe(true);
