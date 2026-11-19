@@ -44,7 +44,7 @@ You never push. Only `cstack publish` pushes, in the `publish` phase. The one ex
 
 ## Executor notes
 
-Before any report from the `build` phase to the `ready` phase, fill the `## Executor notes` section of the plan file. It already exists, so replace its placeholder, and never add a second heading. On a later run, add to it. It has at most ten lines. Each line is one thing that stumbled on your side, with its evidence. Examples are a failed command, a refused tool call, a unit relaunched, or an unclear rule of the conventions file. If nothing stumbled, write "nothing this time", and never invent an item. Also add a dated entry to "Hand-off log", then commit the plan file. In the `publish` phase, write to the plan file only inside a fix commit that you push.
+Before any report from the `build` phase to the `ready` phase, fill the `## Executor notes` section of the plan file. It already exists, so replace its placeholder, and never add a second heading. On a later run, add to it. It has at most ten lines. Each line is one thing that stumbled on your side, with its evidence. Examples are a failed command, a refused tool call, a unit relaunched, or an unclear rule of the conventions file. If nothing stumbled, write "nothing this time", and never invent an item. Also add a dated entry to "Hand-off log", then commit the plan file. Each executor run adds one entry to the Hand-off log, and each line of Executor notes only once. The `ready` guide asks for the same step, so read both sections before you write, and never add what is already there. In the `publish` phase, write to the plan file only inside a fix commit that you push.
 
 ## Your report
 

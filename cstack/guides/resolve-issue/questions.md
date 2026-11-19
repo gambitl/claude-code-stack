@@ -16,7 +16,7 @@ Filter hard. Drop a question when any of these answers it:
 - The decisions of the parent project, or a linked decision record.
 - A decision recorded in the code that the code mapping found.
 
-When a question has an obvious default, do not ask it. Write the default under `## Decisions` as an assumption not asked.
+When a question has an obvious default, do not ask it. Write the default under `## Decisions` as an assumption not asked. A default is never obvious when it decides what another tool does with a value that the plan passes, what another command does with a file that the change writes, or what happens when two processes run at once. Treat it as a blocking question, and answer it with a test or by reading the code that handles it.
 
 When the conventions file names no documentation tool, add the question of where decisions and documentation are written.
 
@@ -42,6 +42,8 @@ When the run has no blocking question, write the single word `none` under `## Bl
 Launch a fresh sub-agent, `resolve-issue:cto-review`, with the moment `before-plan`. Give it the plan file path, the conventions file path and the path of `writing.md`.
 
 The advisor merges your draft questions with the blind spots the user is not asking about. It writes the block "Questions you may not be asking" in the History part of the plan file. It returns a short version in the conversation language.
+
+When the advisor's block holds a point that needs an answer before the plan, and it is not under `## Blocking questions` yet, add it there yourself before you show the short version. Use the next free number, and remove the word `none` first if the section holds it.
 
 ## Ask once
 

@@ -11,7 +11,7 @@ In this phase you start the work and build every unit of the plan. The settings 
 ## Build the units
 
 1. Run `cstack unit order --plan <plan file>`. It prints the units in batches. A batch holds units that do not depend on each other.
-2. Launch one `resolve-issue:implementer` for each unit of the first batch. Give each one the plan file path, its unit number and the conventions file path.
+2. Launch one `resolve-issue:implementer` for each unit of the first batch. Give each one the plan file path, its unit number and the conventions file path. Never build a unit yourself, even one of a few lines, unless the harness cannot launch sub-agents. An implementer runs `cstack unit red` and `cstack unit green`, which prove that its test failed first.
 3. Run the units of a batch in parallel only when the settings give `testCommands.file`. Otherwise, launch one unit at a time. The units of a batch share one folder. A test run of the whole suite would see the test of another unit that is red on purpose.
 4. Wait for every report of the batch. Then run `cstack plan status --plan <plan file>`. It shows which units are done. Start the next batch.
 

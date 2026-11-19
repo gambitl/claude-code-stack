@@ -82,7 +82,7 @@ Write "- Answer: open" until someone answers. Number the questions from 1 with n
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+<phase plan: the non-blocking questions of the question round that stay open. Phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request. Each one word for word, with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
 
 ## Pull request
 
