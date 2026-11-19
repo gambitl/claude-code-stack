@@ -113,9 +113,9 @@ describe("matchMention", () => {
 });
 
 describe("the command list", () => {
-  it("holds ten built commands and five that are not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(10);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
+  it("holds twelve built commands and three that are not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(12);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(3);
   });
 
   it("names a file for every entry, and the file exists when the entry is built", () => {

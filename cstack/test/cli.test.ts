@@ -131,11 +131,13 @@ describe("run", () => {
   });
 
   it("routes the unit group and lists its words when the second word is missing or unknown", async () => {
-    for (const args of [["unit"], ["unit", "red", "1"]]) {
+    for (const args of [["unit"], ["unit", "frobnicate"]]) {
       const { out, io } = collect();
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("order");
       expect(out.stderr).toContain("commit");
+      expect(out.stderr).toContain("red");
+      expect(out.stderr).toContain("green");
     }
   });
 });
