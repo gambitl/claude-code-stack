@@ -77,7 +77,10 @@ function checkUnit(
 
   const earlier = unitCommits[n] ?? [];
   if (earlier.length > 0) {
-    const subjects = nulList(git(root, ["log", "--no-walk", "--format=%s%x00", "--end-of-options", ...earlier]).stdout).map((t) => t.trim());
+    // git log ends each entry with a newline after its NUL, so the last item is a lone newline that trims to "".
+    const subjects = nulList(git(root, ["log", "--no-walk", "--format=%s%x00", "--end-of-options", ...earlier]).stdout)
+      .map((t) => t.trim())
+      .filter((s) => s !== "");
     const quoted = subjects.map((s) => `"${s}"`).join(", ");
     const help = `Run cstack unit commit ${n} --message "<subject>" with a subject that says what this commit changes.`;
     if (message === undefined) {

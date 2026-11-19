@@ -402,6 +402,16 @@ describe("cstack unit commit", () => {
       }
     });
 
+    it("names each earlier subject of the unit once, with no empty subject", async () => {
+      const dir = setup(two);
+      expect((await second(dir, ["--message", "fix: two"])).code).toBe(0);
+      write(dir, "src/a.ts", "three");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain('with the subject "fix: two", "feat(cli): add 1". Give');
+      expect(r.stderr).not.toContain('""');
+    });
+
     it("lists the missing --message together with another broken rule", async () => {
       const dir = setup([{ files: ["src/a.ts"] }, { files: ["src/b.ts"] }]);
       write(dir, "src/a.ts", "one");
