@@ -446,6 +446,47 @@ The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills insta
 
 ## Briefing
 
+The pull request will not open until you answer one question: should `cstack tracker comment` limit which files it posts, now that the rule `Bash(cstack *)` lets Claude run it without asking? You will see it right after this message, with my recommendation.
+
+The ticket is built. cstack reads, lists, moves and comments on GitHub tickets through `gh` and on GitLab tickets through `glab`. It falls back to the file from Claude for reads, and `cstack skills install --add-permission` adds the rule `Bash(cstack *)`. I ran the 902 tests and the type check again on the branch, and both pass.
+
+**What you need to do**
+
+**Merge the pull request with "Create a merge commit".** That is how `main` merges every pull request. A squash would drop the 32 unit commits and their `Cstack-Unit` lines, and this repository allows squash too.
+
+**What to watch**
+
+- The GitLab path has never run against a real `glab`: every GitLab answer in the tests was written by hand. The first GitLab user is the real test, mostly for how cstack spots a missing label (the text `404`) and an expired token (`401`).
+- A remote that uses an SSH host alias, such as `git@github-work:o/r`, makes cstack check `gh auth status --hostname github-work`. cstack then says `gh` is not logged in and exits with 4, so Claude writes with its own connection. Nothing breaks, but the message misleads.
+- `test/report.test.ts` sometimes goes over its 5-second limit on this machine. If the check on the pull request fails there, run it again before you look for a bug.
+
+**What changed since the plan**
+
+- The hint about the permission rule goes to standard error, because 13 existing tests compare standard output exactly.
+- The GitLab link calls of a milestone list run five at a time, not all at once.
+
+### Details
+
+What was built, and whether it meets the ticket. The branch adds the GitHub adapter (`cstack/src/tracker/github-gh.ts`), the GitLab adapter (`cstack/src/tracker/gitlab-glab.ts`), their shared helpers (`cstack/src/tracker/forge.ts`), `cstack/src/tracker/open.ts` with the interface the coordinator fixed, the four commands `cstack tracker read`, `list`, `move` and `comment`, and the permission rule in `cstack/src/claude-settings.ts` called by `cstack skills install`. AC2 is carried by `cstack/test/tracker/github-gh.test.ts` and `gitlab-glab.test.ts`, AC3 by `claude-file-fallback.test.ts`, AC4 by `skills-install-permission.test.ts`, and the no-shell rule by `comment-no-shell.test.ts`. On 2026-11-19 I ran `npm run typecheck` (clean) and `npm test` (67 files, 902 tests, all passing) in `cstack/`. The acceptance criteria are met as written.
+
+New question about the comment file. Label: blocking, because the answer changes what `cstack/src/commands/tracker-comment.ts` builds, and the run cannot answer it with a test, because it is a choice for the user. The pull request should not open until it is answered. Word for word, for the user in the conversation: "With the rule `Bash(cstack *)`, Claude can run `cstack tracker comment '#12' --body-file <path>` without asking you, and today cstack posts any file it can read. A ticket whose text hides instructions could make Claude post a private file, such as `~/.ssh/id_rsa`, as a comment on a public issue. May I add one check to `cstack tracker comment`, before any call: the file must be inside the repository or a temporary folder, must not be empty, and must be at most 65,536 bytes, which is the size limit of a GitHub comment? A file that fails the check is refused with exit code 1 and nothing is posted." Evidence: `tracker-comment.ts` only checks that the path is a readable regular file (`readable()`), and the security reviewer left this open in the review log. The maintainer's `config/settings.json` has no rule for `gh`, so today a comment written with `gh` asks first, and the new rule removes that last prompt before an outbound write. The README (line 43) tells every user to add the rule. How to build it if the answer is yes: resolve the path with `realpathSync`, and compare it with the real paths of the repository root from `findRoot`, of `os.tmpdir()` and of `/tmp`. Both sides need the real path, because on macOS `/tmp` is `/private/tmp` and `os.tmpdir()` is under `/private/var/folders`, and because a symbolic link inside the repository could otherwise point to `~/.ssh`. Claude's scratchpad folders are under `/private/tmp`, so they pass. The size limit also keeps the GitLab text below the Linux limit of 128 KB for one argument. The empty-file refusal fixes the independent reviewer's point: `glab issue note` with an empty `--message` may wait for an editor until the 60-second time limit, and cstack then exits with 5, "cannot tell whether the change happened". The check does not stop a secret that lives inside the repository, such as an ignored `.env`. A `git check-ignore` refusal would close that too, at the cost of one more `git` call; I would not add it now. I rejected narrowing the rule itself, because AC4 asks for one rule that covers every tracker write. I also rejected only documenting the risk, because the fix is about twenty lines in one file. If the answer is yes, the comment already left on the guides ticket (#31) needs one more sentence: the guides must write comment files inside the repository or a temporary folder. If nobody answers, the pull request waits. A related fact for the same comment: GitLab runs quick actions such as `/close` found at the start of a line of a comment, which the README already warns about (line 64).
+
+The merge button. `main` merges pull requests with merge commits (for example `2a59c73` and `fede459`), and the repository allows squash, merge and rebase (`gh api repos/gambitl/claude-code-stack`). The branch holds 32 commits, and the unit commits carry a `Cstack-Unit` trailer that `cstack/src/plan/commits.ts` and `cstack/src/report/reports.ts` read. `cstack measure` takes its times from the plan file header first (`cstack/src/measure/moments.ts`), so a squash would not break the measure, but it would drop the per-unit history and break the habit of the repository. If nobody decides, GitHub shows the button used last, which may be squash.
+
+The GitLab path is untested against a real `glab`. All nine files in `cstack/test/fixtures/glab/1.119.0/` were written by hand, as the user chose, and their README says so. The adapter spots a missing label with `/\b404\b/` on the standard error of `glab api` (`gitlab-glab.ts`, line 139) and a lost login by the text `401`. If a real `glab` words these errors differently, a move on a project without the labels gives exit 5 instead of the `glab label create` hint. A `404` on a project that the user cannot see is also reported as a missing label, which misleads but writes nothing. The first real GitLab run should try `cstack tracker read`, then a `move` on a project that lacks the two labels.
+
+SSH host aliases. `parseRemote` keeps the alias of a remote such as `git@github-work:o/r`, and the chooser then runs `gh auth status --hostname github-work`. `gh` itself resolves SSH aliases when it reads a remote, but cstack names the host directly, so the check fails. The user gets exit 4 and Claude writes with its own connection. Before this ticket there was no `gh` path at all, so nothing regresses. A later fix could read the real host name with `ssh -G <alias>` through the runner. Label: non-blocking, and it needs no answer now.
+
+The slow test. `cstack/test/report.test.ts`, which this ticket does not touch, timed out at 5,000 ms on the case "names a unit without a commit" in two of three full runs during the build. It passed in my run. If the pull request check fails there, rerun it before looking for a bug.
+
+What changed since the plan. The permission hint goes to standard error, not standard output, because 13 existing tests compare standard output exactly (executor notes, unit 14). The GitLab link calls of a milestone list run at most five at a time (`LINK_CONCURRENCY` in `gitlab-glab.ts`), after the correctness review found that they all ran at once. The adapters take an optional `warn` argument after the two arguments the coordinator fixed. `open.ts` also exports `resolveTrackerName` and `refuseWithoutClient`, which the decision on extra exports allows. The GitLab adapter exits with 3 for an unreadable comment file and the GitHub adapter with 1, but the command checks the file first and always exits with 1, so users never see the difference. `cstack/test/cli.test.ts` builds its usage expectation from the manifest. None of these changes a decision of the plan.
+
+How the earlier questions were resolved. The `gh` answers were recorded on `gambitl/resolve-issue-e2e`, inside the milestone `cstack recording`. The hand-off log lists every change made there, and the four issues are closed. The GitLab answers were written by hand, and their README says so. On GitLab, a move first checks both labels, with one `glab api` call each. `choose.ts` gained the optional host for the login check. `choose.test.ts` checks that the call without a host is exactly `gh auth status`. The hints and the README quote keys, and a usage error for a missing key adds the sentence about quoting. Line 64 of the README still shows `cstack tracker read <key>` without quotes while the other three commands quote it, a small fix for the same pull request. Time limits: the tracker commands use 60 seconds, and a time-out on a write gives exit 5 with no retry. The GitHub epic list uses `subIssues`, then one `parent-issue:` search. `--add-permission` writes the file in place, and a test checks that a symbolic link stays a link. The README carries both sentences about what the rule covers and what it does not (lines 43 and 45).
+
+Smaller facts. On GitHub, `gh issue edit` fails when either label is missing, even the one it removes (`issue-edit.missing-label.txt` shows `'in review' not found`), and the hint names one label at a time. So on a repository with neither label, the first move needs two rounds of "create the label, try again". The read, check and write of `~/.claude/settings.json` leave a short gap in which a change by Claude Code would be lost; the backup copy covers it. A host whose name contains "gitlab" is treated as GitLab, so `glab` may send `GITLAB_TOKEN` to it; running `glab` by hand in that clone does the same, so I agree with the security reviewer that it is below the threshold. The ticket that adds Jira and Linear (#25) is still open, so it will merge second: it wires the Jira and Linear adapters, removes the refusal in `openTracker`, and updates the command counts. The "Executor notes" and "Hand-off log" of this plan file hold several entries twice, which is a defect of the tooling to note in the retrospective with the tag `[skill]`.
+
+I did not reopen the locked decisions: the `open.ts` interface and the file split from the coordinator's brief, the client order of ADR-SIC-F, the key format of #24, and the frozen prose skills of ADR-SIC-E. I checked data model lock-in, scale beyond the 500-ticket limit, operations and cost, and found nothing new in this ticket.
+
 ## Non-blocking questions
 
 ## Pull request
@@ -467,23 +508,16 @@ The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills insta
 - `test/report.test.ts` (a file this ticket did not touch) times out at 5000 ms on one case, "names a unit without a commit", because its git setup is slow on this machine. It failed in 2 of 3 full runs, and once alone. Everything else passes.
 - Unit 14 prints the permission hint to stderr, not stdout, because 13 existing tests check stdout exactly. The plan said only that cstack prints it.
 - Unit 6 and 8 chose `--repo github.com/<owner>/<repo>` (the forge style) and exit 3 for an unreadable comment file in the GitLab adapter. The command checks the file first and exits 1.
-
-- Unit 11 stopped stuck because `cstack/test/cli.test.ts` was not in its `Files` line. I added it to units 11, 12 and 13 and relaunched with the escalation agent, which finished it.
-- `cstack unit order` refused my first notes on the unit (a `- Escalated:` line and a long `Files` note) with "This line does not belong to the unit", so I wrote the note as an indented continuation line.
-- Several implementers wrote code before the test, so `cstack unit red` first saw a passing test (units 4, 7, 9, 10, 11, 12, 13). They moved the code aside to record the red run, and `cstack unit green` then warned about edits.
-- Unit 9 left a bug: `openTracker` created the `origin` promise even when it was not needed, which could reject unhandled with `--tracker` and no `origin`. I fixed it in a commit without a `Cstack-Unit` trailer and added a test.
-- Unit 1 edited the plan file's hand-off log without committing it. I committed it myself.
-- `test/report.test.ts` failed twice in one parallel run during unit 12 and passed when run alone.
-- Unit 14 prints the permission hint to stderr, not stdout, because 13 existing tests check stdout exactly. The plan said only that cstack prints it.
-- Units 6 and 8 chose `--repo github.com/<owner>/<repo>` (the forge style), and the GitLab adapter exits 3 for an unreadable comment file. The command checks the file first and exits 1.
+- The first notes I wrote were saved twice, because a command that I thought had failed had run. I removed the copy. Several hand-off entries were also saved twice.
 
 ## Hand-off log
+
+- 2026-11-19 (executor, briefing): the advisor raised one blocking question about the files that `cstack tracker comment` may post. The run stops with a needs-decision report. The pull request is not opened yet.
 
 - 2026-11-19 (executor, update-branch): `main` did not move since the branch started, so nothing was rebased. The author check shows only the noreply address, and the private-names check on the branch log exits 0 (the pull request text is checked again at publish).
 
 - 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
 
-- 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
 
 - 2026-11-19 (executor, build): unit 11 stopped because `cstack/test/cli.test.ts` had to change. No unfinished unit listed it, so it was added to the `Files` line of units 11, 12 and 13, and unit 11 was launched again. The same file already belonged to unit 10.
 
