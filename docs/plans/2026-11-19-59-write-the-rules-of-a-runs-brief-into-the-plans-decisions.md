@@ -228,6 +228,8 @@ Should the new paragraph forbid copying a secret of the brief into the plan file
 
 **Fixes.** None, so no fix commit.
 
+**Independent review.** The reviewer changed nothing and found no bug, security problem or broken convention. Full suite and typecheck pass. The new test fails on the guide of `main` and passes on the branch. Judgment calls for the pull request body: (1) the `plan` guide and the plan template do not list rules of the brief among the things `## Decisions` holds, so a later ticket could add them; (2) the `<date>` placeholder sits in plain quotes and GitHub may hide it as an HTML tag, while agents read the raw text; (3) only 2 words are left under the size test, so #31 must make room.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
