@@ -78,7 +78,7 @@ As a solution engineer, I want to install `cstack` and its skills with one comma
 
 As a solution engineer, I want one command that checks everything `cstack` needs, so that I know what to install before a run fails.
 
-- AC1: `cstack doctor` checks macOS, Node, git, Graphify, the forge client (`gh` or `glab`) and Claude Code. Graphify is the code graph tool that `resolve-issue` reads to map the code. For each requirement, `cstack doctor` prints whether it is present and its version. It also prints how to install it when it is missing.
+- AC1: `cstack doctor` checks macOS, Node, git, the forge client (`gh` or `glab`) and Claude Code. For each requirement, `cstack doctor` prints whether it is present and its version. It also prints how to install it when it is missing.
 - AC2: `cstack doctor` reports whether Orca is available and whether its version is supported. It also lists the trackers that Orca is connected to.
 - AC3: The README has a "Requirements" section with the same list. A CI test fails when the list in the README and the list in `cstack doctor` differ.
 
@@ -95,7 +95,7 @@ As the maintainer, I want to measure the tokens and the time of a `resolve-issue
 
 As the maintainer, I want two runs of today's `resolve-issue` on a copy of a real development ticket, so that the comparison has a reference.
 
-- AC1: The maintainer picks a ticket of medium size that already has the standard ticket shape. Its repository has a Graphify graph.
+- AC1: The maintainer picks a ticket of medium size that already has the standard ticket shape. Its repository has a Graphify graph. In fact, the baseline runs of #12 used no Graphify graph, because the original work on that ticket had none.
 - AC2: The ticket is copied into a private sandbox repository. The runs use a copy of the code repository whose conventions file sends every external write to that sandbox.
 - AC3: Each run stops before publication, so nothing is pushed to the real forge.
 - AC4: Both runs start from the same commit. `cstack measure` records the measures of each run.
@@ -146,7 +146,9 @@ As a solution engineer, I want one settings file per repository that states the 
 - AC3: The review agent is Claude when the settings file says nothing.
 - AC (negative): `cstack` refuses a settings file that has an unknown key, and it names that key.
 
-#### US-11: Keep the code graph fresh
+#### US-11: Keep the code graph fresh (dropped on 2026-11-19)
+
+This story was dropped on 2026-11-19, because nothing has shown that a code graph tool such as Graphify finds code better than an agent that searches and reads files on its own, or that it saves tokens.
 
 As a solution engineer, I want `cstack` to check that the Graphify graph matches the current commit, so that the code mapping and the reviews never use old data.
 
@@ -288,7 +290,6 @@ This repository is public. No text in it or in its issues names an employer or a
 
 **External tools.**
 
-- Graphify is a code graph tool written in Python and installed with `uv`. `resolve-issue` uses its commands `graphify update`, `graphify query`, `graphify explain` and `graphify affected`.
 - `gh` is the GitHub command-line client, and `glab` is the GitLab one.
 - Orca has a command-line tool named `orca`, at version 1.4 when this page was written. `orca status` says whether Orca runs. `orca worktree create` creates a worktree. Its `--reference` option links the worktree to a ticket. Its `--agent` option starts an agent in the worktree. `orca orchestration worker-start` starts a worker, which ends with a `worker_done` report. `orca reference find` finds the workspaces linked to a ticket. `orca jira` and `orca linear` read and write those two trackers. `orca jira` has no command to link two issues.
 - Orca ships its own skills with its command-line tool, through `orca skills install` and `orca skills get`. The installed skill is a short entry point, and the full guide comes from the tool at its own version. `cstack` follows the same pattern.

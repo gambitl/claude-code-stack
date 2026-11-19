@@ -13,7 +13,7 @@ Start from the existing patterns, conventions and similar features of this codeb
 For each piece of new code in your design, go down this ladder and stop at the first step that holds:
 
 1. Does it need to exist? Code for a need the ticket does not state, such as an option nobody sets or a layer "for later", is left out. Say in one sentence what you left out.
-2. Does the codebase already have it? Before you design a helper, a type or a pattern, look for it with `graphify query "<what it does>"`, and reuse what is there.
+2. Does the codebase already have it? Before you design a helper, a type or a pattern, look for it with a search of the code, and reuse what is there.
 3. Does the language's standard library do it?
 4. Does the platform do it natively? For example, a database constraint instead of application code, an HTML input type instead of a component library, or CSS instead of JavaScript.
 5. Does a dependency the project already installs do it? Never add a new dependency for what a few lines can do.

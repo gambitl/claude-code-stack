@@ -177,15 +177,6 @@ export const COMMANDS: CommandEntry[] = [
     }),
     built: true,
   },
-  {
-    usage: "cstack graph ensure",
-    summary: "Update the code graph when it differs from the current commit.",
-    flags: [],
-    exitCodes: { 0: OK, 2: USAGE, 4: "Graphify is missing.", 5: "The update failed." },
-    file: "graph-ensure.ts",
-    ticket: 19,
-    built: false,
-  },
   planCommand({
     usage: "cstack publish [--timeout <minutes>] [--poll <seconds>] [--grace <seconds>]",
     summary: "Push once, open the pull request and wait for its checks.",

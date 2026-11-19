@@ -22,14 +22,14 @@ This method is adapted from the `ponytail-review` prompt of Ponytail (github.com
 Look only at code the diff adds or changes, never at code that was already there. Give each finding one of these tags:
 
 - **delete**: code that nothing needs, such as dead code, an option nobody sets, or a feature the ticket did not ask for. Nothing replaces it.
-- **reuse**: the diff writes again something that already exists in the repository. Find it with `graphify query "<what it does>"`, and name its file and line.
+- **reuse**: the diff writes again something that already exists in the repository. Find it with a search of the code, and name its file and line.
 - **stdlib**: hand-written code that the language's standard library already provides. Name the function.
 - **native**: code, or a new dependency, doing what the platform already does, such as a database constraint, an HTML input type or a CSS rule. Name the feature.
 - **yagni** (short for "you aren't gonna need it"): an abstraction with a single implementation, a factory with a single product, a setting for a value that never changes, or a layer with a single caller.
 - **shrink**: the same logic in fewer lines. Show the shorter form.
 - **efficiency**: obvious waste that the diff adds, such as a database query inside a loop, or reading a whole file to use one line of it. Say what it costs and what replaces it.
 
-Check each finding before you report it. Before a delete or yagni finding, search the whole repository for the symbol, including tests, fixtures and references inside strings; `graphify affected "<symbol>"` lists what depends on it. Before a reuse finding, read the existing code and confirm that it really does the same thing.
+Check each finding before you report it. Before a delete or yagni finding, search the whole repository for the symbol, including tests, fixtures and references inside strings. Before a reuse finding, read the existing code and confirm that it really does the same thing.
 
 ## What you never flag
 

@@ -26,7 +26,6 @@ const others: Record<string, RunResult> = {
   "sw_vers -productVersion": tool("sw_vers"),
   "xcode-select -p": tool("xcode-select"),
   "git --version": tool("git"),
-  "graphify --version": tool("graphify"),
   "gh --version": tool("gh"),
   "glab --version": tool("glab"),
   "claude --version": tool("claude"),

@@ -11,7 +11,6 @@ The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing
 - **macOS**: required. `cstack` runs only on macOS.
 - **Node**: required. Install the current long-term support release from https://nodejs.org. The exact minimum is the `engines.node` field in `cstack/package.json`.
 - **git**: required. Run `xcode-select --install` to get it.
-- **Graphify**: optional. Install it with `uv tool install graphifyy`. This needs uv, which you can install with `brew install uv`. If the command is still not found, run `uv tool update-shell`.
 - **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
 - **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
 - **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
