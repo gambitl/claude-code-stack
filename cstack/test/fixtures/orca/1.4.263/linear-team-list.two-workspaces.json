@@ -1,0 +1,33 @@
+{
+  "id": "id-placeholder",
+  "ok": true,
+  "result": {
+    "teams": [
+      {
+        "key": "EXA",
+        "name": "Example Team",
+        "workspace": {
+          "id": "id-placeholder-1",
+          "name": "Example Workspace"
+        }
+      },
+      {
+        "key": "EXB",
+        "name": "Example Second Team",
+        "workspace": {
+          "id": "id-placeholder-2",
+          "name": "Example Second Workspace"
+        }
+      }
+    ],
+    "meta": {
+      "workspaceId": "all",
+      "returned": 2,
+      "partial": false,
+      "workspaceErrors": []
+    }
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-0000-0000-000000000000"
+  }
+}

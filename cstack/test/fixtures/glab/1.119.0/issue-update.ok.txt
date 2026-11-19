@@ -1,0 +1,3 @@
+- Updating issue #7
+✓ Updated issue #7
+https://gitlab.com/example-group/example-project/-/issues/7

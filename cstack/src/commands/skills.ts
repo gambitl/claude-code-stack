@@ -13,9 +13,15 @@ import {
 } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { parseArgs } from "node:util";
+import {
+  addRule,
+  backupTaken,
+  PERMISSION_RULE,
+  readSettings,
+} from "../claude-settings.js";
 import type { Io } from "../io.js";
 
-const USAGE = "Usage: cstack skills install [--adopt <name>]...\n";
+const USAGE = "Usage: cstack skills install [--adopt <name>]... [--add-permission]\n";
 const NAME = /^[a-z0-9][a-z0-9-]*$/;
 const MARKER = ".cstack-managed";
 
@@ -124,11 +130,14 @@ export async function skills(
         : `Unknown subcommand: ${subcommand}`,
     );
   }
-  let values: { adopt?: string[] };
+  let values: { adopt?: string[]; "add-permission"?: boolean };
   try {
     ({ values } = parseArgs({
       args: rest,
-      options: { adopt: { type: "string", multiple: true } },
+      options: {
+        adopt: { type: "string", multiple: true },
+        "add-permission": { type: "boolean" },
+      },
       allowPositionals: false,
       strict: true,
     }));
@@ -160,6 +169,22 @@ export async function skills(
   for (const name of adopt) {
     if (!shipped.includes(name)) {
       return usageError(`This version does not ship a skill named ${name}.`);
+    }
+  }
+
+  // The settings file is checked before any skill moves, so a refusal changes nothing.
+  const settings = await readSettings(home);
+  const addPermission = values["add-permission"] === true;
+  // One time for the check and the copy, so the copy never lands on a name the check did not look at.
+  const settingsStamp = stamp(now());
+  if (addPermission) {
+    if (settings.kind === "invalid") {
+      io.stderr(`Cannot use ${settings.path}: ${settings.reason}. Nothing was changed.\n`);
+      return 3;
+    }
+    if (await backupTaken(settings, settingsStamp)) {
+      io.stderr(`Backup target already exists: ${settings.path}.backup-${settingsStamp}\n`);
+      return 1;
     }
   }
 
@@ -233,6 +258,22 @@ export async function skills(
     }
     for (const p of plans.filter((x) => x.action === "removed")) {
       io.stdout(`removed ${p.name}, backup in ${join(backupRoot, p.name)}\n`);
+    }
+    if (addPermission) {
+      const copy = await addRule(settings, settingsStamp);
+      io.stdout(
+        settings.kind === "ok" && settings.hasRule
+          ? `permission ${PERMISSION_RULE} is already in ${settings.path}\n`
+          : `added permission ${PERMISSION_RULE} to ${settings.path}` +
+              (copy ? `, copy of the old file in ${copy}\n` : "\n"),
+      );
+    } else if (settings.kind === "invalid") {
+      io.stderr(`cstack cannot read ${settings.path}: ${settings.reason}.\n`);
+    } else if (settings.kind === "missing" || !settings.hasRule) {
+      io.stderr(
+        `The permission rule ${PERMISSION_RULE} is not in ${settings.path}. ` +
+          `Run "cstack skills install --add-permission" to add it.\n`,
+      );
     }
     return skipped > 0 ? 1 : 0;
   } finally {

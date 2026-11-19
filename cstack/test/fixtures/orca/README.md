@@ -49,3 +49,30 @@ Files written by hand:
 - `orchestration-worker-start.failed-stage.json` is a failed start whose `error` also holds `failedStage`, `effects` and `residualResources`.
 - `orchestration-send.sent.json` is the answer of a message that was sent, with a message `id`.
 - `orchestration-check.worker-done.json` is the answer of `check` with one `worker_done` message.
+
+## Jira answers written by hand
+
+These six files were not recorded. No Jira sandbox was available, so each answer was written by hand from the code of the installed Orca 1.4.263. They use only placeholder values.
+
+- `jira-issue.in-progress.json` and `jira-issue.done.json` follow the answer of `orca jira issue <key> --json`. It has `key`, `title`, `description`, `url` and `status` with `id`, `name`, `categoryKey`, `categoryName` and `colorName`. It also has a `parent`. It has no issue links, because Orca never reads the Jira `issuelinks` field.
+- `jira-search.epic.json` follows `orca jira search <jql> --json`. Its `result` is a list of issues. The description of each issue is an empty string, because a search answer from Orca has no description. To read a description, you need to read the issue itself.
+- `jira-status-list.current.json` follows `orca jira status list <key> --json`. Each transition has `id`, `name` and `to`. A transition name, such as "Start progress", is not always the name of the status it leads to.
+- `jira-status-set.ok.json` and `jira-comment-add.ok.json` follow the success answers of `orca jira status set` and `orca jira comment add`. Each has `result.ok` set to true.
+
+## Linear answers written by hand
+
+These seven files were not recorded. No Linear sandbox was available, so each answer was written by hand from the code of the installed Orca 1.4.263. They use only placeholder values.
+
+- `linear-issue.blocked.json` and `linear-issue.done.json` follow `orca linear issue <key> --relations --json`. The result is `{issue, relations, meta}`. The first issue, `EXA-1`, has one `blockedBy` relation to `EXA-2`. The second issue, `EXA-2`, is done and has no relation.
+- `linear-list-issues.epic.json` and `linear-list-issues.truncated.json` follow `orca linear list-issues --json`. Both hold `EXA-1` and `EXA-3`. The second one sets `truncated` to true.
+- `linear-team-states.current.json` follows `orca linear team states --team <key> --json`. It lists six states.
+- `linear-status-set.ok.json` follows `orca linear status set <key> --to <state> --json`.
+- `linear-comment-add.ok.json` follows `orca linear comment add <key> --body-file <path> --json`.
+
+## Linear team list with two workspaces
+
+`linear-team-list.two-workspaces.json` was written by hand from the code of the installed Orca 1.4.263, with placeholder values only. It follows `orca linear team list --workspace all --json`. It holds one team in each of two workspaces, and each workspace has an `id` and a `name`. The features test uses it to check that cstack refuses Orca for Linear when several workspaces are saved.
+
+## Linear epic
+
+`linear-issue.epic.json` was written by hand from the code of the installed Orca 1.4.263, with placeholder values only. It follows `orca linear issue <key> --relations --json` for the epic `EXA-9`. Its `issue.id` is the UUID-shaped placeholder `00000000-0000-0000-0000-000000000009`. The list test uses it to check that cstack passes this internal id, and not the key, to `--parent-id`.

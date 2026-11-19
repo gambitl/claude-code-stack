@@ -140,6 +140,17 @@ export function orcaFeatures(
     linear: async () => {
       await commands(LINEAR_COMMANDS);
       const body = await read(LINEAR, ["linear", "team", "list", "--workspace", "all"]);
+      // A workspace that answered with an error is still saved, so it counts.
+      // A team without a workspace is the single legacy connection.
+      const workspaces = new Set<string>();
+      const add = (w: { id?: unknown; name?: unknown } | undefined) =>
+        workspaces.add(String(w?.id ?? w?.name ?? "legacy"));
+      for (const t of body.result.teams) add(t.workspace);
+      for (const e of body.result.meta.workspaceErrors) add(e.workspace);
+      if (workspaces.size > 1)
+        throw new Unavailable(
+          `Orca has ${workspaces.size} saved Linear workspaces, and cstack cannot choose a workspace on its own.`,
+        );
       if (body.result.teams.length > 0) return;
       throw new Unavailable(
         body.result.meta.workspaceErrors.length > 0

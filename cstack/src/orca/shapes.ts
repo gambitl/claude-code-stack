@@ -18,6 +18,38 @@ const SHAPES: Record<string, Field[]> = {
     { path: "ok", type: "boolean" },
     { path: "result.sites", type: "array" },
   ],
+  "orca jira issue --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.key", type: "string" },
+    { path: "result.title", type: "string" },
+    { path: "result.description", type: "string" },
+    { path: "result.url", type: "string" },
+    { path: "result.status.name", type: "string" },
+    { path: "result.status.categoryKey", type: "string" },
+  ],
+  "orca jira search --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result[].key", type: "string" },
+    { path: "result[].title", type: "string" },
+    { path: "result[].description", type: "string" },
+    { path: "result[].url", type: "string" },
+    { path: "result[].status.name", type: "string" },
+    { path: "result[].status.categoryKey", type: "string" },
+  ],
+  "orca jira status list --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result[].id", type: "string" },
+    { path: "result[].name", type: "string" },
+    { path: "result[].to.name", type: "string" },
+  ],
+  "orca jira status set --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.ok", type: "boolean" },
+  ],
+  "orca jira comment add --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.ok", type: "boolean" },
+  ],
   "orca linear team list --workspace all --json": [
     { path: "ok", type: "boolean" },
     { path: "result.teams", type: "array" },
@@ -46,6 +78,35 @@ const SHAPES: Record<string, Field[]> = {
   "orca worktree create --json": [
     { path: "ok", type: "boolean" },
     { path: "result", type: "object" },
+  ],
+  "orca linear issue --relations --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.issue.identifier", type: "string" },
+    { path: "result.issue.title", type: "string" },
+    { path: "result.issue.url", type: "string" },
+    { path: "result.meta.includeErrors", type: "array" },
+  ],
+  "orca linear list-issues --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.issues[].identifier", type: "string" },
+    { path: "result.issues[].title", type: "string" },
+    { path: "result.issues[].url", type: "string" },
+    { path: "result.truncated", type: "boolean" },
+    { path: "result.meta.partial", type: "boolean" },
+  ],
+  "orca linear team states --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.states[].name", type: "string" },
+  ],
+  "orca linear status set --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.issue.identifier", type: "string" },
+    { path: "result.state.name", type: "string" },
+  ],
+  "orca linear comment add --json": [
+    { path: "ok", type: "boolean" },
+    { path: "result.comment.id", type: "string" },
+    { path: "result.issue.identifier", type: "string" },
   ],
 };
 
