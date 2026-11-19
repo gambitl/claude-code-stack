@@ -395,6 +395,7 @@ Judgment calls for the pull request body:
 ## Hand-off log
 
 2026-11-19: build phase. Moved ticket 28 to the label `in progress`, committed the plan file, and built units 1 to 10 in five batches. All units have a commit. No unit was escalated or blocked.
+2026-11-19: update-branch. Rebased onto main (9658d72). Conflicts in README.md, cli.test.ts and manifest.test.ts were resolved by keeping main's lines for tickets 29 and 30 and adding ours. The command count is now 23 built and 0 not built. Full suite passes, 96 files and 1170 tests.
 
 ## History
 
