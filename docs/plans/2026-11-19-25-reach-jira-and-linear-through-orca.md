@@ -409,7 +409,11 @@ Judgment calls for the pull request body. An empty Linear epic is accepted, whil
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket 25: https://github.com/gambitl/claude-code-stack/issues/25#issuecomment-7011350481
+- Comment on ticket 31, which this ticket feeds: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7011351020
+- Specification page `docs/projects/skills-into-cli.md`, under US-16: what Orca 1.4.263 cannot do and how cstack copes.
+- Fixture README `cstack/test/fixtures/orca/README.md`: the answers written by hand.
+- No ADR: ADR-SIC-F already decides this.
 
 ## Executor notes
 
