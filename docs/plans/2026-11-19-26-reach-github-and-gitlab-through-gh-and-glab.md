@@ -474,6 +474,8 @@ The independent reviewer fixed one bug in commit `e628ce6`: `cstack skills insta
 
 ## Hand-off log
 
+- 2026-11-19 (executor, update-branch): `main` did not move since the branch started, so nothing was rebased. The author check shows only the noreply address, and the private-names check on the branch log exits 0 (the pull request text is checked again at publish).
+
 - 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
 
 - 2026-11-19 (executor, build): all fifteen units are built and committed. Departures: `cstack/test/cli.test.ts` added to units 11 to 13; the adapters take an optional `warn`; the permission hint goes to stderr.
