@@ -111,6 +111,10 @@ describe("cstack helper wait", () => {
     expect(await t.run()).toBe(6);
     expect(t.out.stdout).toContain("still working");
     expect(t.checks()).toHaveLength(9);
+    for (const check of t.checks()) {
+      expect(check).toEqual(expect.arrayContaining(["--peek", "--wait"]));
+      expect(check).not.toContain("--ack");
+    }
   });
 
   it("says that a person must answer a question in Orca, with exit 6", async () => {
