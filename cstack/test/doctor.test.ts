@@ -5,7 +5,7 @@ import {
   nodeIsTooOld,
   type DoctorInput,
 } from "../src/doctor/requirements.js";
-import type { RunResult } from "../src/doctor/runner.js";
+import type { RunResult } from "../src/orca/run.js";
 import type { Io } from "../src/io.js";
 
 const fixture = (name: string) =>

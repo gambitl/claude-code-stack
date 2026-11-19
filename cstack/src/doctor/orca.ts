@@ -52,6 +52,8 @@ export async function checkOrca(
       ok: false,
       text: `did not answer within ${Math.round(input.timeoutMs / 1000)} seconds`,
     };
+  if (version.kind === "too-large")
+    return { ok: false, text: "gave more output than cstack reads" };
   if (version.kind === "failed")
     return { ok: false, text: `failed with exit code ${version.exitCode}` };
   const shown =
