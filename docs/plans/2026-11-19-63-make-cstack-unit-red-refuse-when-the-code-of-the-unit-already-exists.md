@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/red-guard
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-19T20:48:15+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-19T21:13:31+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -315,9 +315,42 @@ I checked security and authorization (git runs with `spawnSync`, no shell, paths
 
 ## Pull request
 
-<!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
+Title: feat: make cstack unit red refuse when the code of the unit already exists
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+````markdown
+## What this does
+
+The test-first rule no longer depends only on the implementer obeying it. Two commands now enforce it.
+
+`cstack unit red` refuses to run the test when a file of the unit that is not a test file already differs from `HEAD`. It counts a changed, a new and a deleted file. It saves nothing and exits with 1. If git cannot read the status, it exits with 5.
+
+`cstack unit green` refuses when a code file of the unit is more than two seconds older than the start of the latest failing run. It runs no test, deletes any earlier passing run and exits with 1.
+
+## Key decisions
+
+- A new field `startedAt` in `red.json` marks the start of a failing run. An older `red.json` without it falls back to `time`. The format version of the run state does not change.
+- The three refusals share one restart text, in `restartText()`. It tells the implementer to discard its own changes and start again, and to report stuck when the changes are not its own.
+- The git status reader lives in a new file, `cstack/src/unit-files.ts`, because ticket #64 changes `unit-commit.ts` in the same wave.
+- The time check is a safety net, not a proof. A file written back with a new time, for example by `git stash pop` or `cp`, still passes it.
+
+## Files
+
+New: `cstack/src/unit-files.ts` and its test. Changed: `unit-red.ts`, `unit-green.ts`, `unit-test-runs.ts`, `manifest.ts`, `README.md` and the tests of red and green. The plan file is `docs/plans/2026-11-19-63-make-cstack-unit-red-refuse-when-the-code-of-the-unit-already-exists.md`.
+
+## Judgment calls from the review
+
+- `manifest.ts` also changes the text of exit code 5, which adds a small merge risk with #64 and #31.
+- A rename with `git mv` keeps the old modification time, so `cstack unit green` refuses it until the file is edited or touched.
+- Left as follow-ups: stop conditions for the new exit codes in the implementer prompt, a dated line in `settled-decisions.md`, one shared `git status` call with `checkUnit`, and tidying the temporary repositories in `unit-files.test.ts`. Guides and prompts stay untouched here because tickets #31 and #64 change them.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the user: After this wave, should a follow-up ticket finish the work around the red guard? It would add to the implementer prompt and to the escalation prompt what to do when `cstack unit red` or `cstack unit green` refuses because a code file of the unit changed, or exits with 5 because git cannot read the status. It would add a dated line to `cstack/skills/resolve-issue/settled-decisions.md` that says the two commands now enforce the test-first rule. It would make `cstack unit commit` use the `git status` reading of `cstack/src/unit-files.ts`, once the ticket that changes `unit-commit.ts` (#64) is merged. It would also reword the restart text of the changed-test-command refusal, which says 'these changes' but names no file.
+
+Fixes #63
+````
 
 ## Documentation
 
