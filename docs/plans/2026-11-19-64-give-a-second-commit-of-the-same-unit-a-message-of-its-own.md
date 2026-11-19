@@ -257,7 +257,9 @@ Judgment calls for the pull request body:
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #64: https://github.com/gambitl/claude-code-stack/issues/64#issuecomment-7020709053
+- README bullet on `cstack unit commit` and step 7 of the implementer prompt: written by unit 2.
+- Dependent tickets, an ADR and the specification page: none apply, as the plan's "Documentation duties" says.
 
 ## Executor notes
 
@@ -265,7 +267,7 @@ Judgment calls for the pull request body:
 
 ## Hand-off log
 
-- 2026-11-19: Moved #64 to the `in progress` label, committed the plan, built units 1 and 2 with implementers, and ran the four reviewers with no fix needed. Continuing with the next phases.
+- 2026-11-19: Moved #64 to the `in progress` label, committed the plan, built units 1 and 2 with implementers, and ran the four reviewers with no fix needed. Updated nothing in the branch (the target did not move). Wrote the ticket comment with `gh`, because `cstack tracker comment` is not built yet.
 
 ## History
 
