@@ -51,6 +51,9 @@ describe("orca calls", () => {
     expect(r).toBeInstanceOf(NoClientError);
     expect(w).toBeInstanceOf(NoClientError);
     expect(r.exitCode).toBe(4);
+    expect(w.exitCode).toBe(4);
+    expect(w.message).not.toContain("can read");
+    expect(w.message).toContain("With your own connection");
   });
 
   it("treats timeout, text, ok false as exit 5", async () => {

@@ -31,6 +31,12 @@ async function call(
 
   const result = await callOrca(run, env, args);
   if (result.kind === "missing") {
+    // Nothing ran, so a write is safe for Claude to make itself.
+    if (mode === "write") {
+      throw new NoClientError(
+        `No client can run \`${name}\`, because Orca is not installed. With your own connection, make this change yourself.`,
+      );
+    }
     throw NoClientError.forRead(`${name}, because Orca is not installed`);
   }
   if (result.kind === "failed") throw fail(`\`${name}\` failed with exit code ${result.exitCode}.`);
