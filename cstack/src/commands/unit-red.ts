@@ -11,6 +11,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
   if (typeof context === "number") return context;
   const { root, runDir, unit, testFile, commands, timeoutMs } = context;
 
+  const startedAt = new Date().toISOString();
   const status = readUnitStatus(root, unit.files);
   if ("error" in status) {
     io.stderr(`${prefix}git could not give the status of the files of unit ${unit.number}: ${status.error}\n`);
@@ -54,7 +55,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     saveFailingRun(
       runDir,
       unit.number,
-      { time: new Date().toISOString(), command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256 },
+      { time: new Date().toISOString(), startedAt, command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256 },
       run.output,
     );
   } catch (error) {

@@ -1,8 +1,10 @@
+import { statSync } from "node:fs";
+import { join } from "node:path";
 import type { Io } from "../io.js";
 import { readSavedRun } from "../saved-runs.js";
 import { runTests, testScript } from "../test-run.js";
 import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
-import { restartText } from "../unit-files.js";
+import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
 import { deletePassingRun, savePassingRun, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
@@ -19,7 +21,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const { root, runDir, unit, testFile, commands, timeoutMs } = context;
 
   // WHY: red.json is written by saveFailingRun, so it has the fields of a SavedUnitRun. An older file may lack the hash.
-  let saved: Partial<SavedUnitRun> | undefined;
+  let saved: (Partial<SavedUnitRun> & { startedAt?: string }) | undefined;
   try {
     saved = readSavedRun(runDir, unit.number, "red");
   } catch (error) {
@@ -29,6 +31,38 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   if (!saved || saved.command !== script || saved.testFile !== testFile) {
     io.stderr(
       `${prefix}The test command changed since the failing run of unit ${unit.number}. ${restartText(unit.number)}\n`,
+    );
+    return 1;
+  }
+
+  // WHY: this check is a safety net, not a proof. A file written back with a new modification time, for example by
+  // `git stash pop`, `git checkout` or a plain `cp`, still passes it. Only `mv` and copies that keep the time are caught.
+  const status = readUnitStatus(root, unit.files);
+  if ("error" in status) {
+    io.stderr(`${prefix}git could not give the status of the files of unit ${unit.number}: ${status.error}\n`);
+    return 5;
+  }
+  const reference = Date.parse(saved.startedAt ?? saved.time ?? "");
+  const stale = Number.isNaN(reference)
+    ? []
+    : status.entries.filter((e) => {
+        if (e.state === "deleted" || isTestFile(e.path, testFile)) return false;
+        try {
+          return statSync(join(root, e.path)).mtimeMs < reference - 2_000;
+        } catch {
+          return false;
+        }
+      });
+  if (stale.length > 0) {
+    try {
+      deletePassingRun(runDir, unit.number);
+    } catch (error) {
+      return failWith(error, io, prefix);
+    }
+    io.stderr(
+      `${prefix}These files of unit ${unit.number} are not test files, and they are older than the latest failing run:\n` +
+        stale.map((e) => `  ${e.path}\n`).join("") +
+        `The code was written before the test failed. No test ran, nothing is saved, and any earlier passing run is deleted.\n${restartText(unit.number)}\n`,
     );
     return 1;
   }
@@ -81,7 +115,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return failWith(error, io, prefix);
   }
   if (saved.testFileSha256 !== undefined && saved.testFileSha256 !== testFileSha256) {
-    io.stderr(`${prefix}Warning: the test file ${testFile} changed since the failing run of unit ${unit.number}.\n`);
+    io.stderr(`${prefix}Warning: the test file ${testFile} changed since the failing run of unit ${unit.number}. Say in your report what changed in the test and why.\n`);
   }
   io.stdout(`${prefix}Unit ${unit.number} passes. The passing run is saved in ${runDir}/units/${unit.number}/green.json.\n`);
   return 0;

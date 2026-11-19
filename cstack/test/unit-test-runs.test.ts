@@ -3,10 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readSavedRun } from "../src/saved-runs.js";
-import { saveFailingRun, savePassingRun, type SavedUnitRun } from "../src/unit-test-runs.js";
+import { saveFailingRun, savePassingRun, type FailingUnitRun } from "../src/unit-test-runs.js";
 
-const run = (over: Partial<SavedUnitRun> = {}): SavedUnitRun => ({
+const run = (over: Partial<FailingUnitRun> = {}): FailingUnitRun => ({
   time: "2026-11-19T10:00:00.000Z",
+  startedAt: "2026-11-19T09:59:59.000Z",
   command: 'npx vitest run "$1"',
   exitCode: 1,
   commit: "abc123",
