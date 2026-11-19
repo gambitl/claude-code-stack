@@ -19,7 +19,7 @@ export type Runner = (
 // list alone is larger than that, so the limit is explicit.
 export const MAX_OUTPUT_BYTES = 16 * 1024 * 1024;
 
-// The only way cstack runs a program. It never uses a shell.
+// How the Orca and tracker code runs a program. It never uses a shell.
 export function createRunner(timeoutMs: number): Runner {
   return (command, args, cwd) =>
     new Promise((resolve) => {
