@@ -429,7 +429,10 @@ Judgment calls for the pull request body, none of them changed in code:
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #30, the outcome: https://github.com/gambitl/claude-code-stack/issues/30#issuecomment-7016641241
+- Comment on #31, the dependent ticket, with the interfaces, the ending rules, the fetch before each start, the lines typed outside a question, the Script Editor hint and the question for the Orca maintainers word for word: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7016641716
+- README: `README.md` has a few sentences about `--watch` after the bullet of `cstack wave`, written by unit 10.
+- Specification page, decision record, epic and conventions file: not changed, as the "Documentation duties" say.
 
 ## Executor notes
 
