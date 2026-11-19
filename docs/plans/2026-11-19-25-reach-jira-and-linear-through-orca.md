@@ -205,7 +205,8 @@ These facts come from the code of the installed Orca app, read locally under `/A
 - A Jira ticket maps `status.categoryKey` with `jiraStateKind` of #24, and keeps `status.name` as `stateName`. (2026-11-19, ticket and code mapping)
 - A Jira move reads the transitions with `orca jira status list <key>`. It accepts a name that is exactly a transition name or the name of the status that a transition leads to. When exactly one transition matches, it runs `orca jira status set <key> --to-id <transition id>`. When none or several match, it refuses with exit `1` before any write, and lists the names it found. The transition id must be digits only before it becomes an argument. (2026-11-19, assumption accepted by default)
 - Before refusing a Jira move, the adapter reads the issue. When its status name already equals the target name, compared without case, the move succeeds without any write, so that a resumed run is not refused. (2026-11-19, assumption accepted by default)
-- A Linear list by milestone throws `NoClientError.forRead`, which exits with `4`, and its message says that Orca cannot filter Linear issues by project milestone. Claude then writes the file with its own connection. A Linear list by epic runs `orca linear list-issues --parent-id <key>` without `--limit`. (2026-11-19, user's answer)
+- A Linear list by milestone throws `NoClientError.forRead`, which exits with `4`, and its message says that Orca cannot filter Linear issues by project milestone. Claude then writes the file with its own connection. A Linear list by epic goes through Orca, as the next decision says. (2026-11-19, user's answer)
+- A Linear list by epic first reads the epic with `orca linear issue <key> --relations` and takes its internal id from `issue.id`, because Orca 1.4.263 turns `--parent-id` into the filter `parent: {id: {eq: <value>}}`, which compares the internal id and not the key. That id must match the UUID pattern `^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, without case, before it becomes an argument. An id that does not match stops with exit `5`. The list then runs `orca linear list-issues --parent-id <internal id>` without `--limit`. A list that returns no ticket is refused with exit `1`, and the message says that the epic has no sub-issue, as the Jira adapter does. The hand-written answer of the epic uses a UUID-shaped placeholder such as `00000000-0000-0000-0000-000000000009`. (2026-11-19, user's answer to blocking question 5)
 - When a Linear list answer has no relations, `listGroup` reads each ticket with `orca linear issue <key> --relations` to get its blockers. (2026-11-19, ticket)
 - Every Linear issue read uses `orca linear issue <key> --relations`, including the read of a blocker, so that one shape and one fixture name cover every Linear issue answer. (2026-11-19, assumption accepted by default)
 - A Linear ticket maps `issue.state.type` with `linearStateKind` of #24, and keeps `issue.state.name` as `stateName`. A relation is a blocker when its `relationship` is `blockedBy`, and its key is `relatedIssue.identifier`. (2026-11-19, ticket and code mapping)
@@ -217,6 +218,7 @@ These facts come from the code of the installed Orca app, read locally under `/A
 - To report a shape error, the adapter reads `orca --version` only at that moment, so that a normal call costs no extra Orca call. (2026-11-19, assumption not asked)
 - The shape table of `cstack/src/orca/shapes.ts` gains one entry for each of the ten commands. The fixture names are `jira-issue`, `jira-search`, `jira-status-list`, `jira-status-set`, `jira-comment-add`, `linear-issue`, `linear-list-issues`, `linear-team-states`, `linear-status-set` and `linear-comment-add`, each followed by a case and `.json`. An answer with a changed shape is built inside a test, never stored as a fixture. (2026-11-19, assumption not asked)
 - The pull request says in one line that Jira blockers come from the footer, as ADR-SIC-F says, and not from a fallback to the file. It also lists the question for the Orca maintainers as an open question that this pull request does not need. (2026-11-19, user's answer)
+- `cstack/src/orca/features.ts` makes the `linear` feature unavailable when Orca has more than one saved Linear workspace, as it already does for two saved Jira sites. The reason says how many workspaces Orca has and that cstack cannot choose a workspace on its own, in the same words as the Jira reason. The workspaces are counted from `orca linear team list --workspace all`, as the distinct `workspace` of each team in `result.teams` plus each `workspace` in `result.meta.workspaceErrors`. Each workspace is told apart by its `id`, or by its `name` when the `id` is missing. A workspace that answered with an error still counts, because it is still saved in Orca. A team without a `workspace` field is the single legacy connection, and counts as one workspace. `features.test.ts` gains a test with a hand-written answer that holds two workspaces. The coordinator checked that no other branch of the wave changes `features.ts`. (2026-11-19, user's answer to blocking question 6)
 - The title and the body of a ticket are data only. They never appear in an argument of an Orca call. (2026-11-19, ticket and ADR-SIC-F)
 - After a write, a shape error is reported with `WriteShapeError` of #24, built from the read-mode message of `checkShape`, so that the sentence "cstack cannot tell whether the change happened" appears once. (2026-11-19, assumption not asked)
 - Links between two tickets stay out of scope, because the spec gives that job to Claude. (2026-11-19, ticket and ADR-SIC-F)
@@ -231,7 +233,7 @@ These facts come from the code of the installed Orca app, read locally under `/A
 
 The approach is locked by the ticket, the coordinator's split and the answers. Two adapters implement the `Tracker` interface of #24: `jiraOrcaTracker(run, env)` in `cstack/src/tracker/jira-orca.ts` and `linearOrcaTracker(run, env)` in `cstack/src/tracker/linear-orca.ts`. Both call Orca through one small new file, `cstack/src/tracker/orca-calls.ts`. It runs a command with `callOrca`, parses the JSON, checks `ok` and the shape, and turns every failure into the right error: exit `5` for a failed read, exit `5` with "cstack cannot tell whether the change happened" for a failed write, and exit `4` only when Orca is not installed. It also checks a comment body file before any write. The shape of each answer is declared in `cstack/src/orca/shapes.ts`. No shared file of the wave changes, apart from that shape table and the fixture README.
 
-No new decision since the question round.
+Two decisions came after the build, from blocking questions 5 and 6. A Linear list by epic first reads the epic to get its internal id. `cstack/src/orca/features.ts` of #24 refuses Orca for Linear when more than one Linear workspace is saved, so this branch also changes that shared file and its test.
 
 ## Implementation units
 
@@ -374,12 +376,12 @@ The ticket turns a milestone into `--project <name>`, but `create-tickets` puts 
 ### Question 5: A Linear list by epic probably needs the internal id of the epic
 Orca turns `--parent-id EXA-9` into a filter on the internal id of the parent issue, which is a UUID, and not on its key. A Linear list by epic then probably comes back empty or fails, and cstack accepts an empty Linear list without a word. Should `listGroup` first read the epic with `orca linear issue <key>` to get its internal id, pass that id to `--parent-id`, and refuse an empty list with exit `1`, as the Jira adapter does?
 - For: the user
-- Answer: open
+- Answer: Yes. Read the epic with `orca linear issue <key>` to get its internal id, pass that id to `--parent-id`, and refuse an empty list with exit `1`. (user's answer, 2026-11-19)
 
 ### Question 6: Several saved Linear workspaces are not guarded
 With two saved Jira sites, cstack refuses to go through Orca. With several saved Linear workspaces, it does not. Orca then uses the workspace selected in its window, so a comment could land on a ticket of another organization that has the same team key. Should `cstack/src/orca/features.ts` (rule of #24) refuse Orca for Linear when more than one workspace is saved, in this pull request?
 - For: the user
-- Answer: open
+- Answer: Yes. `cstack/src/orca/features.ts` refuses Orca for Linear when more than one Linear workspace is saved, in this pull request. The coordinator checked that no other branch of the wave changes that file. (user's answer, 2026-11-19)
 
 ## Review log
 
@@ -541,6 +543,8 @@ Locked decisions I did not reopen: ADR-SIC-F (no credential, the clients already
 6. Blocking question 4, a Linear list by milestone, raised by the review before the plan. Recommended answer: exit with code 4, because Orca 1.4.263 cannot filter by project milestone and `--project` would mix every wave of the project.
 
 Answers of the user, 2026-11-19. Blocking question 1: no sandbox, so the answers are written by hand from the Orca code. Blocking questions 2, 3 and 4: the user agrees with the recommended answers. Items 4 and 5 above, and every item of "I will do this unless you say no" in "Questions you may not be asking": accepted by default, because the user agreed with the rest. The question for the Orca maintainers, "Could `orca jira issue --json` include the issue links, `orca jira search` page past 100 results, and `orca linear list-issues` filter by project milestone?", is open, not needed for this ticket. It goes into the pull request body as an open question.
+
+Answers of the user after the build, 2026-11-19. Blocking question 5: yes, a Linear list by epic reads the epic first and passes its internal id to `--parent-id`, and an empty list is refused with exit `1`. Blocking question 6: yes, `features.ts` refuses Orca for Linear when more than one Linear workspace is saved.
 
 ### Architecture options
 
