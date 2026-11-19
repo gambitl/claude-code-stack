@@ -19,6 +19,8 @@ The tool `cstack` does every mechanical step of the run. It tracks the phases an
 
 If `cstack next` prints a run line that names the plan file of another ticket, run `cstack next --new`. Then tell the user which plan file you set aside, because that run may be waiting for an answer.
 
+If the run line says that the phase runs in the executor, do not follow that guide. Print the `plan` guide with `cstack guide plan`, then launch the executor as the part "Hand off to the executor" says.
+
 If a guide is no longer in the conversation, run `cstack guide <phase>` to print it again. That command changes nothing in the run.
 
 ## Exit codes

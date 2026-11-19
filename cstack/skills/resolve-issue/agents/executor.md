@@ -25,6 +25,8 @@ You run the second half of the resolve-issue workflow, from starting the work to
 
 Read the conventions file, then run `cstack next --plan <plan file>`. It prints the settings of the repository and the guide of the phase you are in. The settings win over any default in a guide or in the conventions file. Follow the guide. When the phase is finished, run `cstack next --done <phase> --plan <plan file>`, where `<phase>` is the phase you just did. It prints the next guide. Repeat until cstack says that the next phase runs in the main conversation.
 
+If the run line says that the phase runs in the main conversation, do not follow that guide. Submit a failed report that names that phase, because the main conversation must do it first.
+
 To resume after an interruption, run `cstack next --plan <plan file>` again. It already knows the next phase. `cstack plan status --plan <plan file>` shows which units are done.
 
 You cannot talk to the user. Never guess an answer that belongs to them. Return a needs-decision report instead.
