@@ -1,8 +1,9 @@
+import { readFileSync } from "node:fs";
 import type { Runner } from "../orca/run.js";
 import { redact, type Remote } from "../publish/remote.js";
 import { EXIT } from "../manifest.js";
 import { footerBlockers, mergeBlockers } from "./blockers.js";
-import { RefusedArgumentError, TrackerError } from "./errors.js";
+import { InvalidFileError, RefusedArgumentError, TrackerError } from "./errors.js";
 import { MAX_GROUP, forgeFailure, forgeStateName, originRepo, settleBlockers } from "./forge.js";
 import { forgeStateKind } from "./states.js";
 import type { Group, StateKind, Ticket, TicketRef, Tracker } from "./types.js";
@@ -118,12 +119,34 @@ export function gitlabGlabTracker(run: Runner, root: string, warn: (message: str
       return settle(t, tickets);
     },
 
-    async moveState() {
-      throw new TrackerError("cstack cannot move GitLab issues yet.", EXIT.refused);
+    async moveState(key, stateName) {
+      const t = await target();
+      const other = stateName === "in progress" ? "in review" : "in progress";
+      // GitLab creates a missing label silently when an update adds it, so cstack checks both labels first.
+      for (const name of [stateName, other]) {
+        const result = await run("glab", ["api", "--hostname", t.host, `${t.api}/labels/${encodeURIComponent(name)}`], root);
+        if (result.kind === "ok") continue;
+        if (result.kind === "failed" && /\b404\b/.test(result.stderr ?? "")) {
+          throw new RefusedArgumentError(
+            `The label "${name}" does not exist in this project, so cstack did not move the ticket. cstack never creates a label. To create it, run: glab label create --name "${name}" -R ${t.repo}`,
+          );
+        }
+        throw forgeFailure("glab", result, true);
+      }
+      const result = await run("glab", ["issue", "update", key.slice(1), "-R", t.repo, "--label", stateName, "--unlabel", other], root);
+      if (result.kind !== "ok") throw forgeFailure("glab", result, true);
     },
 
-    async addComment() {
-      throw new TrackerError("cstack cannot comment on GitLab issues yet.", EXIT.refused);
+    async addComment(key, bodyFile) {
+      let text: string;
+      try {
+        text = readFileSync(bodyFile, "utf8");
+      } catch {
+        throw new InvalidFileError(`cstack cannot read the comment file ${bodyFile}.`);
+      }
+      const t = await target();
+      const result = await run("glab", ["issue", "note", key.slice(1), "-R", t.repo, "--message", text], root);
+      if (result.kind !== "ok") throw forgeFailure("glab", result, true);
     },
   };
 }

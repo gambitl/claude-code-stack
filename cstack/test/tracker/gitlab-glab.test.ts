@@ -1,4 +1,6 @@
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { RunResult, Runner } from "../../src/orca/run.js";
 import { gitlabGlabTracker } from "../../src/tracker/gitlab-glab.js";
@@ -132,5 +134,72 @@ describe("gitlabGlabTracker listGroup", () => {
     const err = await gitlabGlabTracker(runner, "/root", () => {}).listGroup({ milestone: "cstack recording" }).catch((e) => e);
     expect(err.exitCode).toBe(1);
     expect(err.message).toContain("more tickets than cstack reads");
+  });
+});
+
+const label = (name: string) => `glab api --hostname gitlab.com ${API}/labels/${encodeURIComponent(name)}`;
+const update = (add: string, remove: string) => `glab issue update 7 -R ${R} --label ${add} --unlabel ${remove}`;
+const failed = (stderr: string): RunResult => ({ kind: "failed", exitCode: 1, stderr });
+
+describe("gitlabGlabTracker moveState", () => {
+  it("checks both labels, then updates the issue", async () => {
+    const { runner, glab } = fake({
+      [label("in progress")]: ok(fixture("api-label.found.json")),
+      [label("in review")]: ok(fixture("api-label.found.json")),
+      [update("in progress", "in review")]: ok(fixture("issue-update.ok.txt")),
+    });
+    await gitlabGlabTracker(runner, "/root").moveState("#7", "in progress");
+    expect(glab()).toEqual([label("in progress"), label("in review"), update("in progress", "in review")]);
+  });
+
+  it("refuses a missing label, prints the create command and runs no update", async () => {
+    const { runner, glab } = fake({
+      [label("in progress")]: ok(fixture("api-label.found.json")),
+      [label("in review")]: failed(fixture("api-label.not-found.txt")),
+    });
+    const err = await gitlabGlabTracker(runner, "/root").moveState("#7", "in progress").catch((e) => e);
+    expect(err.exitCode).toBe(1);
+    expect(err.message).toContain(`glab label create --name "in review" -R ${R}`);
+    expect(glab().some((c) => c.startsWith("glab issue update"))).toBe(false);
+  });
+
+  it("gives exit 4 for a 401 and exit 5 for a timeout", async () => {
+    const a = fake({ [label("in progress")]: failed("glab: 401 Unauthorized") });
+    expect((await gitlabGlabTracker(a.runner, "/root").moveState("#7", "in progress").catch((e) => e)).exitCode).toBe(4);
+    const b = fake({
+      [label("in progress")]: ok("{}"), [label("in review")]: ok("{}"), [update("in progress", "in review")]: { kind: "timeout" },
+    });
+    const err = await gitlabGlabTracker(b.runner, "/root").moveState("#7", "in progress").catch((e) => e);
+    expect(err.name).toBe("WriteShapeError");
+    expect(err.exitCode).toBe(5);
+  });
+});
+
+describe("gitlabGlabTracker addComment", () => {
+  const file = (text: string) => {
+    const path = join(mkdtempSync(join(tmpdir(), "glab-note-")), "body.md");
+    writeFileSync(path, text);
+    return path;
+  };
+
+  it("passes the whole text as one argument, unchanged", async () => {
+    const text = "run $(rm -rf ~) and `ls` with \"quotes\" and 'single'\nsecond line\n";
+    const seen: string[][] = [];
+    const runner: Runner = async (command, args) => {
+      if (command === "git") return ok("https://gitlab.com/example-group/example-project.git\n");
+      seen.push([command, ...args]);
+      return ok(fixture("issue-note.ok.txt"));
+    };
+    await gitlabGlabTracker(runner, "/root").addComment("#7", file(text));
+    expect(seen).toEqual([["glab", "issue", "note", "7", "-R", R, "--message", text]]);
+  });
+
+  it("gives exit 4 for a 401 and a write-shape error for a timeout", async () => {
+    const path = file("hello");
+    const call = `glab issue note 7 -R ${R} --message hello`;
+    const a = fake({ [call]: failed("401 Unauthorized") });
+    expect((await gitlabGlabTracker(a.runner, "/root").addComment("#7", path).catch((e) => e)).exitCode).toBe(4);
+    const b = fake({ [call]: { kind: "timeout" } });
+    expect((await gitlabGlabTracker(b.runner, "/root").addComment("#7", path).catch((e) => e)).name).toBe("WriteShapeError");
   });
 });
