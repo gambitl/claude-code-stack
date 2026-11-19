@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { COMMANDS, commandWords, EXIT, matchMention } from "../src/manifest.js";
+import { COMMANDS, type CommandEntry, commandWords, EXIT, matchMention } from "../src/manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, "..");
@@ -107,15 +107,20 @@ describe("matchMention", () => {
     expect(matchMention("guide hello --skill=cstack-example").ok).toBe(true);
   });
 
+  it("reads the command words of a usage line that has a group in parentheses", () => {
+    const wave = COMMANDS.find((c) => c.usage.startsWith("cstack wave"));
+    expect(commandWords(wave as CommandEntry)).toEqual(["wave"]);
+  });
+
   it("refuses an unknown command", () => {
     expect(matchMention("frobnicate").ok).toBe(false);
   });
 });
 
 describe("the command list", () => {
-  it("holds ten built commands and five that are not built", () => {
+  it("holds ten built commands and fourteen that are not built", () => {
     expect(COMMANDS.filter((c) => c.built)).toHaveLength(10);
-    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(14);
   });
 
   it("names a file for every entry, and the file exists when the entry is built", () => {

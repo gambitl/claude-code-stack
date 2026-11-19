@@ -100,12 +100,27 @@ describe("run", () => {
       expect(out.stderr).toContain("Usage: cstack skills install");
     }
   });
-  it("answers that a command of the list is not built yet, with exit code 2", async () => {
+  it("answers that a command of the list is not built yet, with exit code 1", async () => {
     const { out, io } = collect();
     const code = await run(["next"], io);
     expect(out.stderr).toContain("not built in this version yet");
     expect(out.stdout).toBe("");
-    expect(code).toBe(2);
+    expect(code).toBe(1);
+  });
+
+  it("refuses every unbuilt command and every unbuilt flag with exit code 1 and its tickets", async () => {
+    const tickets = (t: number | number[]) => [t].flat().map((n) => `#${n}`);
+    for (const entry of COMMANDS.filter((e) => !e.built)) {
+      const { out, io } = collect();
+      expect(await run(commandWords(entry), io), entry.usage).toBe(1);
+      for (const t of tickets(entry.ticket)) expect(out.stderr, entry.usage).toContain(t);
+    }
+    for (const entry of COMMANDS.filter((e) => e.notBuiltFlags !== undefined))
+      for (const [flag, ticket] of Object.entries(entry.notBuiltFlags ?? {})) {
+        const { out, io } = collect();
+        expect(await run([...commandWords(entry), flag], io), flag).toBe(1);
+        for (const t of tickets(ticket)) expect(out.stderr, flag).toContain(t);
+      }
   });
 
   it("prints the usage line of every built entry and of no other entry", async () => {
@@ -131,7 +146,7 @@ describe("run", () => {
   });
 
   it("routes the unit group and lists its words when the second word is missing or unknown", async () => {
-    for (const args of [["unit"], ["unit", "red", "1"]]) {
+    for (const args of [["unit"], ["unit", "nope", "1"]]) {
       const { out, io } = collect();
       expect(await run(args, io)).toBe(2);
       expect(out.stderr).toContain("order");
