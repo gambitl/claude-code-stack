@@ -307,112 +307,112 @@ No new decision since phase 4.
 
 ## Implementation units
 
-### Unit 1: One runner for every program — status: todo
+### Unit 1: One runner for every program — status: done
 - Failing test: `cstack/test/run.test.ts` passes the single argument `x; touch <temporary folder>/pwned` to the runner with `printf '%s'` as the program. The program must print the argument unchanged, and the file `pwned` must not exist. Write it first against `cstack/src/orca/run.ts` so it fails because the module does not exist. Then add the cases moved from `cstack/test/doctor-runner.test.ts`, a case for the working folder option, a case where the standard error comes back, a case where an answer over the output limit gives `too-large`, and the scan of `cstack/src/` for shell calls described in "Decisions", with `cstack/src/test-run.ts` allowed by name and the comment that says why.
 - Minimum code: move `createRunner` and `findOnPath` to `cstack/src/orca/run.ts`. Add the optional working folder, keep the standard error in `ok` and `failed`, set the 16 MiB limit and report `too-large`. Update the imports in `cstack/src/commands/doctor.ts`, `cstack/src/doctor/requirements.ts`, `cstack/src/doctor/orca.ts` and `cstack/test/doctor.test.ts`. Delete `cstack/src/doctor/runner.ts` and `cstack/test/doctor-runner.test.ts`.
 - Refactor: none.
 - Commit message: `refactor(cli): move the program runner into cstack/src/orca and refuse any shell`
 - Depends on: none
 
-### Unit 2: Ticket keys, errors and the checked tracker — status: todo
+### Unit 2: Ticket keys, errors and the checked tracker — status: done
 - Failing test: `cstack/test/tracker/keys.test.ts`. The first case wraps a spy adapter, whose methods call a fake runner, with the checked wrapper, and calls `readTicket("ABC-12; rm -rf ~")`. It must be refused with exit code `1` and the fake runner must never be called. Then valid Jira, Linear and GitHub keys pass. A key with a space, a newline, `$(`, a backtick, a leading dash or more than 32 characters is refused. A URL that is not `https`, or holds a space, a quote or a control character, is refused. A state name or a body file that is empty, starts with `-` or holds a control character is refused before the adapter is called, and a relative body file reaches the adapter as an absolute path. In a list, a returned ticket with a bad key or URL is skipped and the warning names it. Each error type of "Decisions" carries its exit code, and the unconfirmed-write message holds the retry id.
 - Minimum code: `cstack/src/tracker/types.ts` with the types of scope 7, `cstack/src/tracker/keys.ts`, `cstack/src/tracker/errors.ts` and `cstack/src/tracker/checked.ts`, as "Decisions" describes them.
 - Refactor: none.
 - Commit message: `feat(cli): check ticket keys, URLs and arguments before any tracker client runs`
 - Depends on: none
 
-### Unit 3: State kinds and state names — status: todo
+### Unit 3: State kinds and state names — status: done
 - Failing test: `cstack/test/tracker/states.test.ts`. First case: a GitHub issue that is open with the label `in review` is `in-progress`, not `finished`. Then the Jira, Linear and forge mappings of "Decisions", `unknown` for anything else, and the check of a state name: `in progress` and `in review` only on GitHub and GitLab, and an unknown name refused with the list of offered names.
 - Minimum code: `cstack/src/tracker/states.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): map the states of each tracker to four state kinds`
 - Depends on: 2
 
-### Unit 4: Blockers from the footer and the relations — status: todo
+### Unit 4: Blockers from the footer and the relations — status: done
 - Failing test: `cstack/test/tracker/blockers.test.ts`. First case: the body of ticket #24 itself, which quotes `Blocked by: …` in its scope before its footer `**Size: M** · Blocked by: #10, #13 · Feeds: #25, #26, #27, #29`, gives exactly `#10` and `#13` for GitHub. Then `none` gives an empty list, text without a valid key gives `"unknown"`, no footer gives `"unknown"`, the Feeds part is never read, and invalid tokens next to valid keys are ignored. For the merge: relations plus footer keys without duplicates, an empty relation list plus an unknown footer gives an empty list, and no relations plus an unknown footer gives `"unknown"`.
 - Minimum code: `cstack/src/tracker/blockers.ts` with the two functions of "Decisions".
 - Refactor: none.
 - Commit message: `feat(cli): read the blockers from the ticket footer and merge them with the tracker relations`
 - Depends on: 2
 
-### Unit 5: The ready rule — status: todo
+### Unit 5: The ready rule — status: done
 - Failing test: `cstack/test/tracker/ready.test.ts`. First case: a ticket whose only blocker is in review (`in-progress`) is blocked by that blocker. Then a ticket whose blockers are all `finished` is ready, a ticket in progress or with a worktree is already started, a ticket whose blockers are `"unknown"` or whose own state is `unknown` is blocked with its reason and never ready, and a `finished` ticket is left out.
 - Minimum code: `cstack/src/tracker/ready.ts`, one pure function in the order of "Decisions".
 - Refactor: none.
 - Commit message: `feat(cli): decide whether a ticket is ready, started or blocked in one function`
 - Depends on: 2
 
-### Unit 6: The fake tracker — status: todo
+### Unit 6: The fake tracker — status: done
 - Failing test: `cstack/test/tracker/fake-tracker.test.ts`. First case: a move made through the fake tracker can be read back with its key and state name. Then comments are read back, a group lists its tickets, and a capability switched off raises the "no client" error with exit code `4`.
 - Minimum code: `cstack/test/fakes/tracker.ts`.
 - Refactor: none.
 - Commit message: `test(tests): add a fake tracker that records moves and comments in memory`
 - Depends on: 2
 
-### Unit 7: The file that Claude writes — status: todo
+### Unit 7: The file that Claude writes — status: done
 - Failing test: `cstack/test/tracker/claude-file.test.ts`. First case: a file that holds an unknown key is refused, with exit code `3`, and the error names that key. Then an unknown format version is refused, a list refuses a file without a group or with another group, a ticket with a bad key is skipped with a warning, a move or a comment raises the "no client" error whose message tells Claude what to do, and a valid file gives the same tickets as the fake tracker filled with the same data.
 - Minimum code: `cstack/src/tracker/claude-file.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): read the tickets of a group from a file that Claude writes`
 - Depends on: 2, 6
 
-### Unit 8: The choice of tracker and client — status: todo
+### Unit 8: The choice of tracker and client — status: done
 - Failing test: `cstack/test/tracker/choose.test.ts`. First case: for a Jira move with the Jira feature of Orca not available, the answer is "no client". Then the order Orca, then `gh` or `glab`, then the file for reads; the tracker from an `https` and a `git@` remote of GitHub and GitLab; a usage error for any other host; and the forge clients checked with `gh auth status` or `glab auth status` through a fake runner, at most once.
 - Minimum code: `cstack/src/tracker/choose.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): choose the tracker and the client for each capability`
 - Depends on: 1, 2
 
-### Unit 9: Record the Orca answers — status: todo
+### Unit 9: Record the Orca answers — status: done
 - Failing test: `cstack/test/orca/record.test.ts`. First case: the placeholder pass turns a sample answer that holds a home folder path, the machine's host name, an email, a URL, a ticket key, a site, workspace and team name, and ids, into the placeholders of "Decisions", and none of the original values is left. Then the recorder, run with a fake runner, writes one file per command under `<folder>/<version>/` with the file names and the trimming of "Decisions", and uses `ORCA_CLI_COMMAND` when it is set.
 - Minimum code: `cstack/src/orca/call.ts` (program choice and `--json`), `cstack/src/orca/record.ts`, `cstack/scripts/record-orca.ts` (calls the recorder from `dist/`), and the script `"record:orca": "npm run build && node scripts/record-orca.ts"` in `cstack/package.json`. Then run `npm run record:orca` once on this machine, which runs only the five read-only Orca commands. Write the hand-made answers listed in "Decisions" and `cstack/test/fixtures/orca/README.md`. Run `python3 scripts/private_names.py check cstack/test/fixtures` from the repository root and commit only when it exits `0`.
 - Refactor: none.
 - Commit message: `test(tests): record the answers of the read-only Orca commands with placeholders`
 - Depends on: 1
 
-### Unit 10: The version constants and the shape check — status: todo
+### Unit 10: The version constants and the shape check — status: done
 - Failing test: `cstack/test/orca/shapes.test.ts`. First case: a copy of `status.running.json` with `reachable` renamed is checked, and the error names `orca status --json`, the field `result.runtime.reachable` and the version `1.4.263`. Then every file of `cstack/test/fixtures/orca/1.4.263/` passes, a file of an unknown command fails, a shape error in "write" mode says that cstack cannot tell whether the change happened, versions compare as numbers, and the newest tested constant equals the newest version folder.
 - Minimum code: `cstack/src/orca/version.ts` and `cstack/src/orca/shapes.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): check the shape of every Orca answer that cstack reads`
 - Depends on: 9
 
-### Unit 11: Detect the Orca features — status: todo
+### Unit 11: Detect the Orca features — status: done
 - Failing test: `cstack/test/orca/features.test.ts`. First case: with the recorded `orca --version` answer changed to `1.4.258`, every Orca feature is unavailable, with a reason that names the minimum `1.4.259`. Then, with the recorded answers of `1.4.263`, the hand-made one-site Jira answer and the connected Linear answer, every feature is available. With `status.closed.json`, every feature that needs a running Orca is unavailable. With a running Orca and no Jira site, only Jira through Orca is unavailable. Two Jira sites give the reason of "Decisions". A renamed field gives a reason that names it. Asking only for Jira never runs `linear team list`, and each command runs at most once.
 - Minimum code: `cstack/src/orca/features.ts`.
 - Refactor: none.
 - Commit message: `feat(cli): detect each Orca feature once per command, with a reason when it is missing`
 - Depends on: 1, 9, 10
 
-### Unit 12: Doctor reports the Orca features — status: todo
+### Unit 12: Doctor reports the Orca features — status: done
 - Failing test: `cstack/test/doctor-orca.test.ts`. First case: `cstack doctor` with the recorded answers of `1.4.263` prints the minimum `1.4.259`, "supported", and one line per feature. Then a recorded version newer than `1.4.263` also says that this version has not been tested, an older version says it is not supported, a closed Orca gives every feature as not available, a missing Orca prints only the Orca line, and doctor never runs `orca open`, `orca serve` or an install command.
 - Minimum code: rewrite `cstack/src/doctor/orca.ts` on the feature detection. Move the Orca cases of `cstack/test/doctor.test.ts` to the new test file, point the doctor tests at `cstack/test/fixtures/orca/1.4.263/`, delete `cstack/test/fixtures/doctor/orca-*.json` and `orca-version.txt`, and update the Orca line of the "Requirements" section of `README.md`.
 - Refactor: none.
 - Commit message: `feat(cli): show the minimum Orca version and each Orca feature in cstack doctor`
 - Depends on: 11
 
-### Unit 13: Keep the fixtures public — status: todo
+### Unit 13: Keep the fixtures public — status: done
 - Failing test: `cstack/test/fixtures-public.test.ts`. First case: the checker, given a sample answer that holds a path under `/Users/`, reports it. Then it reports an email outside the reserved example domains and a URL host that is neither a reserved example name nor `github.com` or `gitlab.com`. Hosts are found only in URLs and email addresses, never in version strings or file names. Last, every file under `cstack/test/fixtures/` passes.
 - Minimum code: the test file and its small checker.
 - Refactor: none.
 - Commit message: `test(tests): fail when a fixture holds a home path, an email or a private host name`
 - Depends on: 12
 
-### Unit 14: The new commands in the command list — status: todo
+### Unit 14: The new commands in the command list — status: done
 - Failing test: in `cstack/test/cli.test.ts`, a case that runs every unbuilt entry of `COMMANDS` with its command words, and every flag of `notBuiltFlags` on its command, and expects exit code `1` with every ticket number of the entry or the flag in the message. It fails first because `cstack unit collect` does not exist and because `cstack next` gives `2`. Then, in `cstack/test/manifest.test.ts`, the counts become ten built and fourteen unbuilt, `commandWords` of `cstack wave (--milestone <name> | --epic <key>) ...` is `["wave"]`, and the guides scan still passes.
 - Minimum code: the nine entries, the `--add-permission` flag of `skills install`, the field `notBuiltFlags` and the wider `ticket` field in `cstack/src/manifest.ts`, and the generic refusal in `run` of `cstack/src/cli.ts`. Change the two old tests of `cli.test.ts` that expect `2` for `cstack next` and `cstack unit red 1`. Keep the change of `cli.ts` in one place inside `run`.
 - Refactor: none.
 - Commit message: `feat(cli): list the tracker, helper, unit collect and wave commands, and refuse every unbuilt command with its ticket`
 - Depends on: none
 
-### Unit 15: The worktree line of a plan unit — status: todo
+### Unit 15: The worktree line of a plan unit — status: done
 - Failing test: `cstack/test/plan/worktree-line.test.ts`. First case: a plan file whose unit 2 holds `- Worktree: /tmp/repo-unit-2` gives that path for unit 2. Then a plan without the line still reads and its units have no worktree, a relative path or a control character is a plan problem, and the format version stays `cstack-plan/1`.
 - Minimum code: the `Worktree` field in `UNIT_FIELDS`, `FIELD_LINE` and `PlanUnit` of `cstack/src/plan/read.ts`, and one line in the unit-lines comment of `cstack/skills/resolve-issue/templates/plan.md`.
 - Refactor: none.
 - Commit message: `feat(cli): read the worktree line of a plan unit`
 - Depends on: none
 
-### Unit 16: Record ADR-SIC-F — status: todo
+### Unit 16: Record ADR-SIC-F — status: done
 - No test: it is a decision record and one line of the specification page.
 - Minimum code: write `docs/decisions/ADR-SIC-F-tracker-access.md` with the context, the three options of scope 18, the choice of the third option in the order of the tracker choice, and the consequences: cstack holds no credential, a write with no client goes back to Claude with exit code `4`, `orca jira` cannot link two tickets so Claude creates such links with its own connection, the file from Claude carries a `group` key, and the blockers are the tracker relations plus the footer keys. In section 9 of `docs/projects/skills-into-cli.md`, point the ADR-SIC-F line at the record.
 - Refactor: none.
