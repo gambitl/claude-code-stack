@@ -295,7 +295,10 @@ Independent review (2026-11-19): The reviewer checked all five acceptance criter
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #63: https://github.com/gambitl/claude-code-stack/issues/63#issuecomment-7020901015
+- Comment on #31: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7020901601
+- `README.md` and the exit codes in `cstack/src/manifest.ts`: updated by unit 4, in the branch.
+- No decision record, no specification page change, as "Documentation duties" says.
 
 ## Executor notes
 
