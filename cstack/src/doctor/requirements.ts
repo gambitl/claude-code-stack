@@ -21,8 +21,6 @@ export type Requirement = {
 
 const NODE_HINT =
   "Install the current long-term support release from https://nodejs.org.";
-const GRAPHIFY_HINT =
-  'Install it with "uv tool install graphifyy". This needs uv ("brew install uv"). If the command is still not found, run "uv tool update-shell".';
 const FORGE_HINT =
   'Install one with "brew install gh" for GitHub or "brew install glab" for GitLab.';
 
@@ -152,14 +150,6 @@ export const requirements: Requirement[] = [
   ),
   node,
   git,
-  simple(
-    "Graphify",
-    false,
-    "graphify",
-    ["--version"],
-    /^graphify (\S+)/m,
-    GRAPHIFY_HINT,
-  ),
   forge,
   simple(
     "Claude Code",

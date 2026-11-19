@@ -22,7 +22,6 @@ const answers: Record<string, RunResult> = {
   "sw_vers -productVersion": ok("sw_vers"),
   "xcode-select -p": ok("xcode-select"),
   "git --version": ok("git"),
-  "graphify --version": ok("graphify"),
   "gh --version": ok("gh"),
   "glab --version": ok("glab"),
   "claude --version": ok("claude"),
@@ -45,7 +44,6 @@ const ALLOWED = new Set([
   "sw_vers -productVersion",
   "xcode-select -p",
   "git --version",
-  "graphify --version",
   "gh --version",
   "glab --version",
   "claude --version",
@@ -97,7 +95,6 @@ describe("doctor", () => {
       "macOS: 27.0.1",
       "Node: 18.2.0",
       "git: 2.55.0",
-      "Graphify (optional): 0.9.112",
       "Forge client: gh 2.101.0, glab 1.119.0",
       "Claude Code: 2.1.327",
       "Orca (optional): 1.4.262, running. Trackers: Jira, Linear",
@@ -106,11 +103,12 @@ describe("doctor", () => {
     expect(code).toBe(0);
   });
 
-  it("prints how to install Graphify when it is missing and still returns 0", async () => {
-    const { out, io, full } = setup({ "graphify --version": { kind: "missing" } });
-    const code = await doctor(io, full);
-    expect(out.stdout).toContain("uv tool install graphifyy");
-    expect(code).toBe(0);
+  it("never runs graphify and never prints Graphify", async () => {
+    const { out, io, full, calls } = setup(orcaConnected);
+    await doctor(io, full);
+    expect(calls.some((c) => c.startsWith("graphify"))).toBe(false);
+    expect(out.stdout).not.toMatch(/graphify/i);
+    expect(out.stderr).not.toMatch(/graphify/i);
   });
 
   it("prints how to install git when it is missing and returns 1", async () => {
@@ -155,10 +153,10 @@ describe("doctor", () => {
 
   it("reports an answer without a version as present", async () => {
     const { out, io, full } = setup({
-      "graphify --version": { kind: "ok", stdout: "hello\n" },
+      "claude --version": { kind: "ok", stdout: "hello\n" },
     });
     await doctor(io, full);
-    expect(out.stdout).toContain("Graphify (optional): present, version unknown");
+    expect(out.stdout).toContain("Claude Code: present, version unknown");
   });
 
   it("never runs git when the developer tools are missing and git is /usr/bin/git", async () => {
