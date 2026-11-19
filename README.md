@@ -28,7 +28,13 @@ The first command installs the `cstack` command. The second command copies the s
 
 To update, run the same two commands with the link of the newer release. Do not use `npm update -g`. It cannot update `cstack`, and it stops with a 404 error.
 
-To go back, install the previous release the same way. Then run `cstack skills install` again.
+To go back to an older release, install it the same way. Then run `cstack skills install` again.
+
+Version `0.1.0` does not ship the `resolve-issue` skill. If you install it and run `cstack skills install`, `cstack` removes your `resolve-issue` skill. It saves the folder in `~/.claude/skill-backups/` first.
+
+To get the prose skill back, you have two ways. The first way is to run `./pull-skills.sh --apply` from this repository. It copies the frozen prose skill into `~/.claude/skills`. The second way is to move the saved prose folder back by hand.
+
+If you choose the second way, first move the current `~/.claude/skills/resolve-issue` folder away. The `mv` command puts the backup inside an existing folder instead of replacing it. After either way, `~/.claude/skills/resolve-issue` has no `.cstack-managed` file. So a later `cstack skills install` needs `--adopt resolve-issue` again.
 
 Each skill that `cstack` installs holds a file named `.cstack-managed`. This file tells `cstack` that it owns the folder. If a folder of the same name has no such file, `cstack` skips it and leaves it as it is. To let `cstack` take it over, run `cstack skills install --adopt <name>`.
 
@@ -41,7 +47,7 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 - `cstack doctor` checks that your Mac has everything `cstack` needs. The "Requirements" section above lists these items.
 - `cstack guide <phase>` prints the guide of one phase of a skill, at the version of `cstack` that you installed. The skill is `resolve-issue` unless you add `--skill <name>`.
 - `cstack measure <plan file>` prints how many tokens and how much time one run of `resolve-issue` used. The "Measure a run" section below explains it.
-- `cstack next` prints the guide of the next phase of your plan and records that this phase started. It keeps that record in the git folder of the repository, not in the plan file. Add `--done <phase>` to record that a phase is finished, or `--phase <phase>` to choose the phase yourself.
+- `cstack next` prints the guide of the next phase of your plan and records that this phase started. It keeps that record in the git folder of the repository, not in the plan file. Add `--done <phase>` to record that a phase is finished, or `--phase <phase>` to choose the phase yourself. Above each guide, it prints the settings of the repository from `.cstack/settings.json`. It marks each value that comes from the default. If that file is invalid, it prints the reason and exits with code 3. It prints no guide in that case.
 - `cstack skills install` copies the skills that this version of `cstack` ships into `~/.claude/skills`. The "Install cstack" section above explains what it does with a folder that it did not write.
 - `cstack plan status` prints, for each unit of the plan, whether git has a commit for it. It exits with 1 when git and the plan disagree.
 - `cstack plan section <name>` prints one section of the plan file and nothing else.
@@ -50,7 +56,7 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 - `cstack unit order [--json]` reads the plan file and tells you which units can run at the same time. A batch is a group of units that share no file and whose dependencies are done. The units of one batch can run together, and the next batch starts after it. Units that already have a commit, and units that are blocked, are listed apart.
 - `cstack unit red <n>` runs the test command of unit `n` and saves the result, but only when the run fails. A failing run is a run where the test command exits with an error. It proves that the new test failed before the code existed. It does not prove that the test failed for the right reason, so you still need to read the saved output.
 - `cstack unit green <n>` runs the same test command and saves the result, but only when the run passes. A passing run is a run where the test command exits without an error. When the test does not pass, it deletes any passing run that an earlier call saved. This also happens when the test runs past the timeout or its command cannot start. This way, `cstack unit commit` cannot accept code whose test fails now. It refuses to run when unit `n` has no saved failing run. It also refuses when the test command or the test file path changed since the failing run, because a changed command could hide a test that never failed.
-- `cstack unit commit <n>` commits only the files that unit `n` lists in the plan, and it adds a `Cstack-Unit: <n>` line to the commit message. It never commits a file of another unit. It refuses to commit when a rule of the plan or the test runs says no, and it lists every refusal at once. Two unit commits in one worktree wait for each other, so they never mix their files.
+- `cstack unit commit <n>` commits only the files that unit `n` lists in the plan, and it adds a `Cstack-Unit: <n>` line to the commit message. Right after that line, it adds each `commitAttribution` line of your settings, so that git reads them all as trailers. If your settings file is invalid, it exits with code 3 and stages nothing. It never commits a file of another unit. It refuses to commit when a rule of the plan or the test runs says no, and it lists every refusal at once. Two unit commits in one worktree wait for each other, so they never mix their files.
 - `cstack publish` publishes the branch of the plan with one push. It refuses to publish while the plan is not ready or a blocking question is open. It brings the branch up to date with its target branch and runs the tests. It pushes once. It opens the pull request or merge request with `gh` or `glab`. It then waits for the checks of the pushed commit.
 
 ## Measure a run
@@ -65,7 +71,13 @@ The command finds the sessions in two steps. It takes the commit dates of the pl
 
 Run the command before you remove the folder of the run, and before a squash merge, because both erase what the command reads. Run it after the session has ended, because anything said later in a session that counts adds to the totals.
 
-Exit code 0 means every number is complete. Exit code 1 means the plan file could not be used, or the numbers may be incomplete. The reason is printed on standard error. Exit code 2 means the command line is wrong. A plan file made with the newer `Format:` line is refused, because this version reads only plan files made before `cstack`.
+Exit code 0 means every number is complete. Exit code 1 means the plan file could not be used, or the numbers may be incomplete. The reason is printed on standard error. Exit code 2 means the command line is wrong.
+
+The command measures a plan file in one of two ways. A plan file with a `Format:` line comes from the newer skill. For that file, the command reads the approval time from the `Approved at` line and the ready time from the `Ready for review at` line. It does not read the git history. The command refuses the file when it cannot read it, when `Approved at` says `not yet`, or when the ready time is before the approval time.
+
+A plan file without a `Format:` line keeps the method that the paragraphs above describe.
+
+The two ways do not start at the same moment. The newer skill writes the approval time before the executor starts. The older method takes the first commit of the plan, which comes after the executor started. So a run of the newer skill is measured over a slightly longer window. Keep this in mind when you compare the two.
 
 ## How to update the copy of my configuration
 

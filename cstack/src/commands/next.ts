@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
@@ -8,7 +9,9 @@ import { setHeaderValues } from "../plan/header-write.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan } from "../plan/read.js";
 import { clearCurrentRun, isDone, markDone, markStarted, missingToStart, nextPhase, phaseContext } from "../run-progress.js";
-import { createRun, cstackVersion, readCurrentRun, readState, writeCurrentRun, writeFileAtomic } from "../run-state.js";
+import { createRun, cstackVersion, readCurrentRun, readState, RunStateError, writeCurrentRun, writeFileAtomic } from "../run-state.js";
+import { readSettings } from "../settings.js";
+import { settingsBlock } from "../settings-block.js";
 import { failWith } from "./errors.js";
 import { readGuide } from "./guide.js";
 
@@ -32,14 +35,15 @@ function runLine(file: string | undefined, name: PhaseName): string {
   return `Run: ${file ?? "none yet"}. Phase ${index + 1} of ${PHASES.length}: ${name}, in the ${place}.\n`;
 }
 
-/** Prints the run line and then the guide, as two writes, so that a later ticket can print between them. */
-function printGuide(io: Io, packageRoot: string, file: string | undefined, name: PhaseName): number {
+/** Prints the run line, the settings block and the guide, as three writes. */
+function printGuide(io: Io, packageRoot: string, file: string | undefined, name: PhaseName, block: string): number {
   const guide = readGuide(packageRoot, SKILL, name);
   if (!guide.ok) {
     io.stderr(guide.message);
     return 1;
   }
   io.stdout(runLine(file, name));
+  io.stdout(block);
   io.stdout(guide.text);
   return 0;
 }
@@ -70,6 +74,13 @@ function digestNotice(root: string): string {
   }
   if (count < 10) return "";
   return `\n## Digest due\n\n${count} retrospectives are waiting in docs/retros/. Run the digest-retros skill in a fresh session.\n`;
+}
+
+function repositoryRoot(cwd: string): string {
+  const result = spawnSync("git", ["rev-parse", "--show-toplevel"], { cwd, encoding: "utf8" });
+  const root = result.stdout?.trim();
+  if (result.status !== 0 || !root) throw new RunStateError(`"${cwd}" is not inside a git repository.`);
+  return root;
 }
 
 export function next(args: string[], io: Io, options: NextOptions): number {
@@ -104,16 +115,18 @@ export function next(args: string[], io: Io, options: NextOptions): number {
 
   const now = options.now ?? (() => new Date());
   try {
+    // WHY: the settings are read before any state is written, so an invalid file stops every call at once (plan of ticket #23).
+    const block = settingsBlock(readSettings(repositoryRoot(options.cwd)));
     if (values.new) {
       clearCurrentRun(options.cwd);
-      return printGuide(io, options.packageRoot, undefined, "ticket");
+      return printGuide(io, options.packageRoot, undefined, "ticket", block);
     }
     const wantsRun =
       values.plan !== undefined ||
       values.phase !== undefined ||
       values.done !== undefined ||
       readCurrentRun(options.cwd) !== undefined;
-    if (!wantsRun) return printGuide(io, options.packageRoot, undefined, "ticket");
+    if (!wantsRun) return printGuide(io, options.packageRoot, undefined, "ticket", block);
 
     const located = locatePlan(options.cwd, values.plan);
     const planText = readFileSync(located.path, "utf8");
@@ -178,7 +191,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
       io.stdout(notice);
       return 0;
     }
-    const code = printGuide(io, options.packageRoot, located.relative, name);
+    const code = printGuide(io, options.packageRoot, located.relative, name, block);
     if (code === 0) markStarted(located.root, located.relative, name, now());
     io.stdout(notice);
     return code;

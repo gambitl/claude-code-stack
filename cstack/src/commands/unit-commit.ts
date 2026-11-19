@@ -10,6 +10,7 @@ import { listUnitCommits } from "../plan/commits.js";
 import { PlanFormatError, readPlan, type PlanRead, type PlanUnit } from "../plan/read.js";
 import { gitFolders, runFolder, RunStateError } from "../run-state.js";
 import { readSavedRun } from "../saved-runs.js";
+import { readSettings, SettingsError } from "../settings.js";
 
 export const UNIT_COMMIT_USAGE = "Usage: cstack unit commit <n> [--plan <file>]";
 
@@ -112,7 +113,7 @@ function checkUnit(
   return { problems, entries, own };
 }
 
-function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string): Outcome {
+function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string, attribution: string[]): Outcome {
   const { problems, entries, own } = checkUnit(root, plan, unit, runDir);
 
   if (problems.length > 0) return { code: 1, stderr: `${problems.join("\n")}\n` };
@@ -144,7 +145,8 @@ function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string
   try {
     const file = join(folder, "message.txt");
     // The trailer must be the last paragraph, because git reads trailers only there.
-    writeFileSync(file, `${unit.commitMessage}\n\nCstack-Unit: ${unit.number}\n`);
+    // The attribution lines follow it with no blank line, so git reads them as trailers too.
+    writeFileSync(file, `${unit.commitMessage}\n\nCstack-Unit: ${unit.number}\n${attribution.map((l) => `${l}\n`).join("")}`);
     // WHY: --only commits exactly these paths. Without it, git would also commit any
     // other file that is staged in this worktree, which may be the work of another unit.
     const commit = git(root, ["commit", "-F", file, "--only", "--", ...paths]);
@@ -183,8 +185,9 @@ export async function unitCommit(
       );
       return 2;
     }
+    const attribution = readSettings(located.root).values.commitAttribution;
     const lockPath = join(gitFolders(located.root).gitDir, "cstack", LOCK_FILE);
-    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, plan, unit, runFolder(located.root, located.relative)));
+    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, plan, unit, runFolder(located.root, located.relative), attribution));
     if (!result.ok) {
       io.stderr(`cstack unit commit: ${result.message}\n`);
       return 1;
@@ -194,6 +197,10 @@ export async function unitCommit(
     if (stderr) io.stderr(code === 0 ? stderr : `cstack unit commit: ${stderr}`);
     return code;
   } catch (error) {
+    if (error instanceof SettingsError) {
+      io.stderr(`cstack unit commit: ${error.message}\n`);
+      return 3;
+    }
     if (error instanceof PlanFormatError || error instanceof RunStateError || error instanceof PlanLocationError) {
       io.stderr(`cstack unit commit: ${error.message}\n`);
       return error.exitCode;

@@ -82,6 +82,14 @@ process.stderr.write(answer.stderr || "");
 process.exit(answer.code || 0);
 `;
 
+/** Writes the fake `gh`, `glab` and `ssh` into a folder. They log their calls and answer from `scenario.json`. */
+export function writeFakePrograms(folder: string): void {
+  for (const name of ["gh", "glab", "ssh"]) {
+    writeFileSync(join(folder, name), FAKE);
+    chmodSync(join(folder, name), 0o755);
+  }
+}
+
 /** Options: `plan` replaces the text of the committed plan. */
 export function makePublishEnv(options: { plan?: (text: string) => string } = {}): PublishEnv {
   const base = mkdtempSync(join(tmpdir(), "cstack-publish-"));
@@ -107,10 +115,7 @@ export function makePublishEnv(options: { plan?: (text: string) => string } = {}
   git(repo, "checkout", "-b", BRANCH);
   commitPlan(repo, options.plan ? options.plan(readFileSync(FIXTURE, "utf8")) : readFileSync(FIXTURE, "utf8"), PLAN_PATH);
 
-  for (const name of ["gh", "glab", "ssh"]) {
-    writeFileSync(join(fakes, name), FAKE);
-    chmodSync(join(fakes, name), 0o755);
-  }
+  writeFakePrograms(fakes);
   const clock = { value: Date.parse("2026-11-19T12:00:00Z") };
   const env: NodeJS.ProcessEnv = {
     ...process.env,

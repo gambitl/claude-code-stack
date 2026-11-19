@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "testCommands": { "all": "node --test", "file": "node --test {file}" },
+  "commitAttribution": ["Assisted-by: cstack end-to-end test"]
+}

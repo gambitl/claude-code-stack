@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { closeSync, constants, fstatSync, openSync, readFileSync } from "node:fs";
 import { locateJsonError } from "./json-position.js";
 import { join } from "node:path";
 
@@ -166,13 +166,23 @@ function checkObjectKeys(
 export function readSettings(root: string): Settings {
   const file = join(root, ".cstack", "settings.json");
   let text: string;
+  let fd: number | undefined;
   try {
-    text = readFileSync(file, "utf8");
+    // WHY: a link to a pipe or a device would block a plain read for ever.
+    // O_NONBLOCK makes the open return at once, then the type is checked.
+    fd = openSync(file, constants.O_RDONLY | constants.O_NONBLOCK);
+    if (!fstatSync(fd).isFile()) {
+      throw new SettingsError([{ path: ".cstack/settings.json", text: "is not a regular file" }]);
+    }
+    text = readFileSync(fd, "utf8");
   } catch (err) {
+    if (err instanceof SettingsError) throw err;
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return allDefaults(false);
     throw new SettingsError([
       { path: ".cstack/settings.json", text: `cannot be read (${(err as NodeJS.ErrnoException).code ?? "error"})` },
     ]);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
   }
   if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
 
@@ -238,6 +248,10 @@ export function readSettings(root: string): Settings {
     const list = checkStringList(data.commitAttribution, "commitAttribution", problems, (item, path) => {
       if (!/^[A-Za-z0-9][A-Za-z0-9-]*: [^ \p{Cc}][^\p{Cc}]*$/u.test(item)) {
         problems.push({ path, text: `must be one git trailer line of the form "Key: value", with no control character or line break, not ${quote(item)}` });
+        return false;
+      }
+      if (item.slice(0, item.indexOf(":")).toLowerCase() === "cstack-unit") {
+        problems.push({ path, text: `must not use the key Cstack-Unit, because that key belongs to cstack, not ${quote(item)}` });
         return false;
       }
       return true;
