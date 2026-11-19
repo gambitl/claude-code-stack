@@ -57,3 +57,10 @@ export function watchSetup(options: WatchSetupOptions = {}) {
   };
   return { clone, recorded, out, io, fake, input, watch, deps, sleeps, interrupts, interrupt: () => [...interrupts].forEach((l) => l()) };
 }
+
+/** Types `answer` once the watch has printed `question` for the `count`th time. Stops waiting after two seconds. */
+export async function answerQuestion(s: ReturnType<typeof watchSetup>, question: string, answer: string, count = 1): Promise<void> {
+  const until = Date.now() + 2000;
+  while (s.out.stdout.split(question).length - 1 < count && Date.now() < until) await new Promise((r) => setTimeout(r, 2));
+  s.input.write(`${answer}\n`);
+}

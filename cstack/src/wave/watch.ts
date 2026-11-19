@@ -8,6 +8,8 @@ import type { OpenTrackerOptions } from "../tracker/open.js";
 import type { Group } from "../tracker/types.js";
 import type { WaveDeps } from "../commands/wave.js";
 import { openAnswers } from "./answers.js";
+import { isYes, startAllQuestion } from "./confirm.js";
+import { notifyReady } from "./notify.js";
 import { WaveError } from "./errors.js";
 import { formatGroups, groupTickets } from "./groups.js";
 import { printableText } from "./title.js";
@@ -83,6 +85,11 @@ export async function watchWave(
   try {
     const label = "milestone" in group ? group.milestone : group.epic;
     io.stdout(`Watching ${printableText(label)} every ${interval} minutes. Press Control-C to stop.\n`);
+    io.stdout("macOS shows the notifications of the watch only if it allows notifications for Script Editor.\n");
+    const lastReady = new Set<string>();
+    const declined = new Set<string>();
+    const offered = new Set<string>();
+    let notifyWarned = false;
     let first = true;
     let failedInARow = 0;
     while (!stop.aborted) {
@@ -107,13 +114,48 @@ export async function watchWave(
       failedInARow = 0;
       if (stop.aborted) break;
       if (first) io.stdout(formatGroups(groups));
-      first = false;
       const time = watch.now();
       const hhmm = `${String(time.getHours()).padStart(2, "0")}:${String(time.getMinutes()).padStart(2, "0")}`;
       io.stdout(
         `${hhmm}  ${groups.ready.length} ready, ${groups.blocked.length} blocked, ${groups.started.length} already started, ${groups.finished} finished.\n`,
       );
-      if (groups.ready.length === 0 && groups.blocked.length === 0) {
+      const readyKeys = groups.ready.map((t) => t.ticket.key);
+      let toOffer: string[];
+      if (first) {
+        toOffer = [];
+        if (readyKeys.length > 0) {
+          const line = answers.next(stop);
+          io.stdout(`\n\u0007${startAllQuestion(readyKeys.length)}`);
+          const answer = await line;
+          if (answer === undefined) break;
+          for (const key of readyKeys) {
+            offered.add(key);
+            if (!isYes(answer)) declined.add(key);
+          }
+        }
+      } else {
+        toOffer = readyKeys.filter((key) => !lastReady.has(key) && !declined.has(key));
+      }
+      first = false;
+      for (const key of toOffer) {
+        if (!(await notifyReady(deps.run, key)) && !notifyWarned) {
+          notifyWarned = true;
+          io.stderr("cstack: the macOS notification failed, so the watch asks in this terminal only.\n");
+        }
+        const line = answers.next(stop);
+        io.stdout(`\n\u0007Start ${printableText(key)} now? [y/N] `);
+        const answer = await line;
+        if (answer === undefined) break;
+        offered.add(key);
+        if (!isYes(answer)) {
+          declined.add(key);
+          io.stdout(`\nNot started. The watch will not ask about ${printableText(key)} again.\n`);
+        }
+      }
+      lastReady.clear();
+      for (const key of readyKeys) lastReady.add(key);
+      if (stop.aborted) break;
+      if (groups.blocked.length === 0 && readyKeys.every((key) => offered.has(key))) {
         io.stdout("No ticket is blocked anymore and every ready ticket was offered, so the watch ended.\n");
         return EXIT.ok;
       }
