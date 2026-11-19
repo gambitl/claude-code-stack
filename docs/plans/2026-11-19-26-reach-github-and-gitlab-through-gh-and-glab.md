@@ -429,6 +429,7 @@ May I change `cstack/src/tracker/choose.ts`, which is outside the share the coor
 ## Hand-off log
 
 - 2026-11-19 (executor, build): added the label `in progress` to issue #26, because GitHub has no such state. The branch `gambitl/tracker-gh-glab` was already checked out.
+- 2026-11-19 (implementer, unit 1): on the private sandbox `gambitl/resolve-issue-e2e`, created the milestone `cstack recording` and four issues in it (#3 epic, #4 blocker, #5 blocked by #4, #6 with its blocker in the footer). Made #4 and #5 sub-issues of #3, and made #5 blocked by #4. Created the labels `in progress` and `in review`. Added the label `in progress` to #5, and one comment on #5. Closed #3, #4, #5 and #6, and the milestone. Nothing was deleted. The labels stay.
 
 ## History
 
