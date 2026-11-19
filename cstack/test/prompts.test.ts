@@ -17,6 +17,8 @@ export function implementerProblems(text: string): string[] {
   if (green >= 0 && commit >= 0 && commit < green) {
     problems.push("cstack unit commit comes before the first cstack unit green");
   }
+  const done = text.indexOf("cstack helper done", commit);
+  if (commit >= 0 && done < 0) problems.push("it never names cstack helper done after cstack unit commit");
   const sentences = text.split(/(?<=[.!?])\s+/);
   if (!sentences.some((s) => s.includes("No test") && s.includes("cstack unit commit"))) {
     problems.push("no sentence says that a No test unit goes straight to cstack unit commit");

@@ -27,6 +27,7 @@ const EXECUTOR = read(CSTACK, "skills", "resolve-issue", "agents", "executor.md"
 const READY_GUIDE = read(GUIDES, "ready.md");
 const RETRO_GUIDE = read(GUIDES, "retro.md");
 const PLAN_GUIDE = read(GUIDES, "plan.md");
+const BUILD_GUIDE = read(GUIDES, "build.md");
 
 interface Result {
   code: number;
@@ -75,6 +76,9 @@ function written(args: string[]): string {
   const helperAt = words.indexOf("--helper");
   if (words[0] === "helper" && words[1] === "done" && helperAt >= 0) words[helperAt + 1] = "<helper id>";
   if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
+  if (words[0] === "unit" && words[1] === "collect") words.splice(2, words.indexOf("--plan") - 2, "<n>...");
+  const unitAt = words.indexOf("--unit");
+  if (words[0] === "helper" && words[1] === "start" && unitAt >= 0) words[unitAt + 1] = "<n>";
   if (words[0] === "plan" && words[1] === "section") words[2] = "<name>";
   return `cstack ${words.join(" ")}`;
 }
@@ -146,6 +150,11 @@ const ATTRIBUTION = "Assisted-by: cstack end-to-end test";
 
 /** What an implementer does for one unit, with the commands of its prompt. */
 function implement(unit: number): void {
+  // The build guide starts each implementer. No batch holds two units, so no --child-worktree is given.
+  const started = follow(BUILD_GUIDE, ["helper", "start", "implementer", "--plan", PLAN, "--unit", String(unit)]);
+  expect(started.code, started.stderr).toBe(6);
+  expect(started.stdout).toContain("Sub-agent: resolve-issue:implementer");
+  const implementerId = started.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
   if (unit === 3) {
     copyFromUnit(3, "README.md");
   } else {
@@ -177,6 +186,14 @@ function implement(unit: number): void {
   const message = git("log", "-1", "--format=%B").split("\n");
   expect(message.slice(-2)).toEqual([`${TRAILER}${unit}`, ATTRIBUTION]);
   expect(message.filter((l) => l.startsWith(TRAILER))).toHaveLength(1);
+
+  // The implementer prompt ends the report with cstack helper done, and the build guide waits for it.
+  expect(IMPLEMENTER).toContain("cstack helper done <kind> --helper <helper id> --plan <plan file>");
+  const done = run(["helper", "done", "done", "--helper", implementerId, "--plan", PLAN], `Unit ${unit} is committed.\n`);
+  expect(done.code, done.stderr).toBe(0);
+  const waited = follow(BUILD_GUIDE, ["helper", "wait", implementerId]);
+  expect(waited.code, waited.stderr).toBe(0);
+  expect(waited.stdout).toBe(`done\nUnit ${unit} is committed.\n`);
 }
 
 beforeAll(() => {
@@ -321,15 +338,19 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
         implement(unit);
         committed.push(unit);
       }
+      // No unit ran in a child worktree, so the collect skips every unit.
+      const collected = follow(BUILD_GUIDE, ["unit", "collect", ...batch.map(String), "--plan", PLAN]);
+      expect(collected.code, collected.stderr).toBe(0);
       const status = follow(lastGuide, ["plan", "status", "--plan", PLAN]);
       expect(status.code, status.stderr).toBe(0);
       for (const n of [1, 2, 3]) {
         expect(status.stdout).toMatch(new RegExp(`^Unit ${n}: .*: ${committed.includes(n) ? "done \\(" : "not done"}`, "m"));
       }
     }
-    // Unit 3 has no test, so it left no saved run.
+    // Unit 3 has no test, so it left no saved run. Its folder holds only the report of its helper.
     const runs = join(git("rev-parse", "--path-format=absolute", "--git-common-dir"), "cstack", "runs", "e2e-math", "units");
-    expect(existsSync(join(runs, "3"))).toBe(false);
+    expect(existsSync(join(runs, "3", "red.json"))).toBe(false);
+    expect(existsSync(join(runs, "3", "green.json"))).toBe(false);
     expect(existsSync(join(runs, "1", "red.json"))).toBe(true);
     expect(existsSync(join(runs, "2", "red.json"))).toBe(true);
     expect(git("status", "--porcelain", "--untracked-files=no", "--", "src", "test", "README.md")).toBe("");
