@@ -207,7 +207,7 @@ describe("cstack unit commit", () => {
 
   it("adds the attribution lines right after the trailer, and git still reads them as trailers", async () => {
     const dir = setup(two);
-    saveSettings(dir, JSON.stringify({ commitAttribution: ["Assisted-by: test agent <agent@example.com>"] }));
+    saveSettings(dir, JSON.stringify({ version: 1, commitAttribution: ["Assisted-by: test agent <agent@example.com>"] }));
     write(dir, "src/a.ts");
     const r = await commit(dir);
     expect(r.code).toBe(0);
@@ -221,7 +221,7 @@ describe("cstack unit commit", () => {
     write(dir, "src/a.ts");
     expect((await commit(dir)).code).toBe(0);
     expect(body(dir).at(-1)).toBe("Cstack-Unit: 1");
-    saveSettings(dir, JSON.stringify({ commitAttribution: [] }));
+    saveSettings(dir, JSON.stringify({ version: 1, commitAttribution: [] }));
     write(dir, "src/b.ts");
     expect((await commit(dir, "2")).code).toBe(0);
     expect(body(dir).at(-1)).toBe("Cstack-Unit: 2");
