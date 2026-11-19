@@ -1,0 +1,23 @@
+{
+  "id": "id-placeholder",
+  "ok": true,
+  "result": {
+    "teams": [],
+    "meta": {
+      "workspaceId": "all",
+      "returned": 0,
+      "partial": true,
+      "workspaceErrors": [
+        {
+          "workspace": {
+            "name": "Example Workspace"
+          },
+          "message": "Could not reach this workspace."
+        }
+      ]
+    }
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-0000-0000-000000000000"
+  }
+}

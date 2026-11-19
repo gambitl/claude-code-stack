@@ -18,6 +18,7 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
+    "record:orca": "npm run build && node scripts/record-orca.ts",
     "prepack": "npm run build"
   },
   "devDependencies": {

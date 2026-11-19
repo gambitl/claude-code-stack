@@ -1,0 +1,16 @@
+{
+  "id": "id-placeholder",
+  "ok": true,
+  "result": {
+    "connected": false,
+    "viewer": null,
+    "sites": [],
+    "activeSiteId": null,
+    "selectedSiteId": null,
+    "credentialProtection": null,
+    "supportsScopedTokens": true
+  },
+  "_meta": {
+    "runtimeId": "00000000-0000-0000-0000-000000000000"
+  }
+}
