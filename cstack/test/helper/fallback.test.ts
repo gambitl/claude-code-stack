@@ -1,10 +1,11 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { helperDone } from "../../src/commands/helper-done.js";
 import { helperStart } from "../../src/commands/helper-start.js";
 import type { Runner, RunResult } from "../../src/orca/run.js";
 import { runFolder } from "../../src/run-state.js";
-import { collect, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
+import { collect, commitFiles, commitPlan, git, makeRepo } from "../helpers/plan-repo.js";
 
 const PKG = join(import.meta.dirname, "..", "..");
 const fixtures = join(PKG, "test", "fixtures", "orca", "1.4.263");
@@ -94,5 +95,51 @@ describe("cstack helper start fallback to a sub-agent", () => {
     expect(t.out.stdout).toContain("Sub-agent: resolve-issue:implementer");
     expect(t.out.stdout).toContain("- Unit number: 2");
     expect(t.record()).toMatchObject({ mode: "sub-agent", unit: 2 });
+  });
+});
+
+describe("cstack helper done in sub-agent mode", () => {
+  async function startedFallback(text = full) {
+    const dir = makeRepo();
+    commitPlan(dir, text);
+    writeFileSync(join(dir, "CLAUDE.md"), "rules\n");
+    git(dir, "checkout", "-b", "feature");
+    for (let unit = 1; unit <= 10; unit++) commitFiles(dir, [`src/u${unit}.ts`], unit);
+    const calls: string[][] = [];
+    const runner: Runner = async (_command, args) => {
+      calls.push(args);
+      return { kind: "missing" };
+    };
+    const { out, io } = collect();
+    const deps = { cwd: dir, env: { CSTACK_ORCA_WORKERS: "off" }, packageRoot: PKG, createRunner: () => runner, now: () => new Date("2026-11-19T14:32:05.123Z") };
+    expect(await helperStart(["executor", "--plan", PLAN], io, deps)).toBe(6);
+    const done = (input: string) => {
+      out.stderr = "";
+      out.stdout = "";
+      return helperDone(["done", "--helper", "20261119-143205123-executor", "--plan", PLAN], io, {
+        cwd: dir,
+        env: deps.env,
+        createRunner: deps.createRunner,
+        now: deps.now,
+        readInput: () => Buffer.from(input),
+      });
+    };
+    return { dir, calls, out, done };
+  }
+
+  it("refuses an incomplete executor report, as in the Orca case", async () => {
+    const t = await startedFallback(full.replace("The build is done. Every unit has its commit.", "<what was built>"));
+    expect(await t.done("")).toBe(1);
+    expect(t.out.stderr).toContain("Briefing");
+    expect(t.calls).toEqual([]);
+  });
+
+  it("accepts a valid executor report and makes no Orca call", async () => {
+    const t = await startedFallback();
+    expect(await t.done("all good\n")).toBe(0);
+    expect(t.out.stdout).toContain("accepted and saved");
+    expect(readdirSync(join(runFolder(t.dir, PLAN), "reports"))).toHaveLength(1);
+    expect(t.calls).toEqual([]);
+    expect(await t.done("again")).toBe(1);
   });
 });
