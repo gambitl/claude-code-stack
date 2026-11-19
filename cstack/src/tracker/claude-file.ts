@@ -77,7 +77,11 @@ async function read(path: string, name: TrackerName, warn: (message: string) => 
     const ticket = parseTicket(item, path);
     if (!isValidKey(name, ticket.key)) warn(`Skipped a ticket with a bad key in ${path}.`);
     else if (!isValidUrl(ticket.url)) warn(`Skipped ticket ${ticket.key} with a bad URL in ${path}.`);
-    else tickets.push(ticket);
+    else {
+      const badBlocker = Array.isArray(ticket.blockers) ? ticket.blockers.find((b) => !isValidKey(name, b.key)) : undefined;
+      if (badBlocker) warn(`Skipped ticket ${ticket.key} with a bad blocker key in ${path}.`);
+      else tickets.push(ticket);
+    }
   }
   return { group, tickets };
 }

@@ -76,6 +76,16 @@ describe("file that Claude writes", () => {
     expect(warnings).toHaveLength(1);
   });
 
+  it("skips a ticket with a bad blocker key and warns", async () => {
+    const warnings: string[] = [];
+    const hostile = ticket("ABC-3", { blockers: [{ key: "ABC-1 $(x)", stateKind: "todo" }] });
+    const tracker = claudeFileTracker(write(file({ tickets: [ticket("ABC-2"), hostile] })), "jira", (m) => warnings.push(m));
+    expect((await tracker.listGroup({ milestone: "M3" })).map((t) => t.key)).toEqual(["ABC-2"]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("blocker");
+    await expect(tracker.readTicket("ABC-3")).rejects.toBeInstanceOf(InvalidFileError);
+  });
+
   it("raises the no-client error for a move and a comment", async () => {
     const tracker = claudeFileTracker(write(file()), "jira");
     await expect(tracker.moveState("ABC-2", "Done")).rejects.toThrow(NoClientError);

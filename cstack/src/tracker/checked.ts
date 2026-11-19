@@ -23,6 +23,11 @@ export function checkedTracker(adapter: Tracker, name: TrackerName, warn: (messa
   const badField = (ticket: Ticket): string | undefined => {
     if (!isValidKey(name, ticket?.key)) return `key "${printable(String(ticket?.key))}"`;
     if (!isValidUrl(ticket.url)) return `URL "${printable(String(ticket.url))}"`;
+    if (Array.isArray(ticket.blockers)) {
+      for (const blocker of ticket.blockers) {
+        if (!isValidKey(name, blocker?.key)) return `blocker key "${printable(String(blocker?.key))}"`;
+      }
+    }
     return undefined;
   };
 

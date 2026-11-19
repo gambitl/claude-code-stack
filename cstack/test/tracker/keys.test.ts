@@ -74,6 +74,24 @@ describe("checked tracker", () => {
     expect(warnings[1]).toContain("http://x.com");
   });
 
+  it("skips a ticket in a list when one of its blocker keys is bad, and warns", async () => {
+    const hostile = { ...ticket("ABC-3"), blockers: [{ key: "ABC-1; rm -rf ~", stateKind: "todo" as const }] };
+    const fine = { ...ticket("ABC-4"), blockers: [{ key: "ABC-1", stateKind: "finished" as const }] };
+    const { adapter } = spy([ticket("ABC-1"), hostile, fine]);
+    const warnings: string[] = [];
+    const list = await checkedTracker(adapter, "jira", (m) => warnings.push(m)).listGroup({ epic: "ABC-9" });
+    expect(list.map((x) => x.key)).toEqual(["ABC-1", "ABC-4"]);
+    expect(warnings).toHaveLength(1);
+    expect(warnings[0]).toContain("blocker");
+    expect(warnings[0]).toContain("ABC-1; rm -rf ~");
+  });
+
+  it("refuses a single read when one of the blocker keys is bad", async () => {
+    const hostile = { ...ticket("ABC-3"), blockers: [{ key: "bad key", stateKind: "todo" as const }] };
+    const { adapter } = spy([hostile]);
+    await expect(checkedTracker(adapter, "jira").readTicket("ABC-3")).rejects.toBeInstanceOf(RefusedArgumentError);
+  });
+
   it("refuses a single read with a bad key", async () => {
     const { adapter } = spy([ticket("nope")]);
     await expect(checkedTracker(adapter, "jira").readTicket("ABC-1")).rejects.toBeInstanceOf(RefusedArgumentError);
