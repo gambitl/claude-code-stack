@@ -26,10 +26,53 @@ interface LinearAnswer {
 }
 
 const SHAPE = "orca linear issue --relations --json";
+const COMMENT_CAP = 65000;
 
 export function linearOrcaTracker(run: Runner, env: Env): Tracker {
   const readIssue = async (key: string): Promise<LinearAnswer> =>
     ((await orcaRead(run, env, SHAPE, ["linear", "issue", key, "--relations"])) as { result: LinearAnswer }).result;
+
+  async function readOne(key: string, known: Map<string, StateKind>): Promise<Ticket> {
+    const result = await readIssue(key);
+    const { issue, meta } = result;
+    const body = issue.description ?? "";
+    const countable =
+      Array.isArray(result.relations) &&
+      !(meta?.includeErrors ?? []).some((e) => e?.include === "relations") &&
+      meta?.sections?.relations?.hasMore !== true;
+    const relations = countable
+      ? (result.relations as { relationship?: string; relatedIssue?: { identifier?: string } }[])
+          .filter((r) => r.relationship === "blockedBy" && typeof r.relatedIssue?.identifier === "string")
+          .map((r): TicketRef => ({ key: r.relatedIssue!.identifier!, stateKind: "unknown" }))
+      : undefined;
+    const merged = mergeBlockers(relations, footerBlockers("linear", body));
+    let blockers: TicketRef[] | "unknown" = merged;
+    if (merged !== "unknown") {
+      blockers = [];
+      for (const blocker of merged) {
+        let stateKind: StateKind = known.get(blocker.key) ?? blocker.stateKind;
+        if (stateKind === "unknown" && !known.has(blocker.key) && isValidKey("linear", blocker.key)) {
+          try {
+            const state = (await readIssue(blocker.key)).issue.state;
+            stateKind = state ? linearStateKind(state.type) : "unknown";
+          } catch {
+            // A blocker that cannot be read keeps the state kind unknown.
+          }
+          known.set(blocker.key, stateKind);
+        }
+        blockers.push({ key: blocker.key, stateKind });
+      }
+    }
+    return {
+      key: issue.identifier,
+      title: issue.title,
+      body,
+      url: issue.url,
+      stateName: issue.state?.name ?? "",
+      stateKind: issue.state ? linearStateKind(issue.state.type) : "unknown",
+      blockers,
+    };
+  }
 
   return {
     readTicket: (key: string) => readOne(key, new Map()),
@@ -78,52 +121,8 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
       await orcaWrite(run, env, "orca linear status set --json", ["linear", "status", "set", key, "--to", stateName]);
     },
     async addComment(key: string, bodyFile: string): Promise<void> {
-      checkCommentBody(bodyFile, 65000);
+      checkCommentBody(bodyFile, COMMENT_CAP);
       await orcaWrite(run, env, "orca linear comment add --json", ["linear", "comment", "add", key, "--body-file", bodyFile]);
     },
   };
-
-  async function readOne(key: string, known: Map<string, StateKind>): Promise<Ticket> {
-    {
-      const result = await readIssue(key);
-      const { issue, meta } = result;
-      const body = issue.description ?? "";
-      const countable =
-        Array.isArray(result.relations) &&
-        !(meta?.includeErrors ?? []).some((e) => e?.include === "relations") &&
-        meta?.sections?.relations?.hasMore !== true;
-      const relations = countable
-        ? (result.relations as { relationship?: string; relatedIssue?: { identifier?: string } }[])
-            .filter((r) => r.relationship === "blockedBy" && typeof r.relatedIssue?.identifier === "string")
-            .map((r): TicketRef => ({ key: r.relatedIssue!.identifier!, stateKind: "unknown" }))
-        : undefined;
-      const merged = mergeBlockers(relations, footerBlockers("linear", body));
-      let blockers: TicketRef[] | "unknown" = merged;
-      if (merged !== "unknown") {
-        blockers = [];
-        for (const blocker of merged) {
-          let stateKind: StateKind = known.get(blocker.key) ?? blocker.stateKind;
-          if (stateKind === "unknown" && !known.has(blocker.key) && isValidKey("linear", blocker.key)) {
-            try {
-              const state = (await readIssue(blocker.key)).issue.state;
-              stateKind = state ? linearStateKind(state.type) : "unknown";
-            } catch {
-              // A blocker that cannot be read keeps the state kind unknown.
-            }
-            known.set(blocker.key, stateKind);
-          }
-          blockers.push({ key: blocker.key, stateKind });
-        }
-      }
-      return {
-        key: issue.identifier,
-        title: issue.title,
-        body,
-        url: issue.url,
-        stateName: issue.state?.name ?? "",
-        stateKind: issue.state ? linearStateKind(issue.state.type) : "unknown",
-        blockers,
-      };
-    }
-  }
 }
