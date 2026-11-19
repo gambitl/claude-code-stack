@@ -387,6 +387,12 @@ Conventions and simplicity. The bare block in `readOne` was flattened and `COMME
 
 Follow-ups, not done. The blocker loop is nearly the same in both adapters, and a shared helper could remove it. A Linear epic list that returns nothing is not refused, and Orca may need the internal id for `--parent-id`, which nobody could check without a Linear workspace. A Jira search that returns a short page is not detected.
 
+### Independent review
+
+The reviewer found no blocking bug and made two commits. The first test now checks the reason text of the fallback with two saved Jira sites. The second fix changes the exit 4 message of a write when Orca is not installed, so that it says nothing ran and Claude should make the change itself, instead of talking about a read.
+
+Judgment calls for the pull request body. An empty Linear epic is accepted, while an empty Jira epic is refused, and nobody has checked whether `--parent-id` accepts a key. On Jira Cloud, the footer is found only if Orca keeps the bold `**Size:` marker when it turns the description into text, which is unverified without a sandbox. A Linear issue with no state `type` would give a TypeError instead of exit 5, but Orca seems to always send it. The test `names a unit without a commit` in `test/report.test.ts` times out only in a full run, and passes alone.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
