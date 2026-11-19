@@ -71,7 +71,7 @@ function section(title: string, items: Listed[]): string {
 }
 
 export function formatGroups(groups: Groups): string {
-  const parts = [section("Ready", groups.ready), section("Blocked", groups.blocked), section("Started", groups.started)];
+  const parts = [section("Ready", groups.ready), section("Blocked", groups.blocked), section("Already started", groups.started)];
   let text = `${parts.join("\n\n")}\n`;
   if (groups.finished > 0) {
     const n = groups.finished;

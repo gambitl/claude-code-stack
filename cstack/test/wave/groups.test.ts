@@ -43,7 +43,7 @@ describe("cstack wave: the three groups", () => {
     expect(code).toBe(0);
     expect(out.stdout).toContain("Ready (1):\n  #1  Title of #1");
     expect(out.stdout).toContain("Blocked (1):\n  #2  Title of #2  blocked by #6 (to do)");
-    expect(out.stdout).toContain("Started (2):");
+    expect(out.stdout).toContain("Already started (2):");
     expect(out.stdout).toContain("  #3  Title of #3  in progress");
     expect(out.stdout).toMatch(/  #4  Title of #4  .*wt-4/);
     expect(out.stdout).toContain("1 finished ticket is not listed.");
