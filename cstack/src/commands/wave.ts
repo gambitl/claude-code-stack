@@ -14,6 +14,7 @@ import { prepareGitStart } from "../wave/start-git.js";
 import { startTicket, type Starter } from "../wave/start.js";
 import { startInOrca } from "../wave/start-orca.js";
 import { printableText } from "../wave/title.js";
+import { defaultWatchDeps, watchWave, type WatchDeps } from "../wave/watch.js";
 import { loadWorktreeCheck, parseWorktreeList } from "../wave/worktrees.js";
 
 /** What `wave` needs from the outside. Tests give a fake tracker, a fake Orca and a scripted answer. */
@@ -46,8 +47,8 @@ export function defaultWaveDeps(): WaveDeps {
 const TRACKERS: TrackerName[] = ["jira", "linear", "github", "gitlab"];
 const usage = () => COMMANDS.find((e) => commandWords(e)[0] === "wave")!.usage;
 
-export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<number> {
-  let values: { milestone?: string; epic?: string; tracker?: string; "from-file"?: string };
+export async function wave(args: string[], io: Io, deps: WaveDeps, watch: WatchDeps = defaultWatchDeps()): Promise<number> {
+  let values: { milestone?: string; epic?: string; tracker?: string; "from-file"?: string; watch?: boolean };
   try {
     ({ values } = parseArgs({
       args,
@@ -56,6 +57,7 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
         epic: { type: "string" },
         tracker: { type: "string" },
         "from-file": { type: "string" },
+        watch: { type: "boolean" },
       },
       strict: true,
       allowPositionals: false,
@@ -70,6 +72,10 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
   }
   if (values.tracker !== undefined && !TRACKERS.includes(values.tracker as TrackerName)) {
     io.stderr(`cstack: --tracker takes ${TRACKERS.join(", ")}, not "${printableText(values.tracker)}".\nUsage: ${usage()}\n`);
+    return EXIT.usage;
+  }
+  if (values.watch && values["from-file"] !== undefined) {
+    io.stderr(`cstack: --watch cannot use --from-file, because a file never changes.\nUsage: ${usage()}\n`);
     return EXIT.usage;
   }
   const group: Group = values.milestone !== undefined ? { milestone: values.milestone } : { epic: values.epic! };
@@ -99,6 +105,7 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       env: deps.env,
       warn: (message: string) => io.stderr(`${printableText(message)}\n`),
     };
+    if (values.watch) return await watchWave(group, root, trackerOptions, deps, watch, io);
     const tracker = await deps.openTracker("list", trackerOptions);
     const tickets = await tracker.listGroup(group);
     const orca = (await orcaFeatures(deps.run, deps.env).get("ticket-worktrees")).available;
