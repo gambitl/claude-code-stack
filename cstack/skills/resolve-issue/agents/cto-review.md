@@ -40,7 +40,7 @@ Sort every point by what the developer has to do with it, in these groups and in
 4. **Questions for other people that can wait.** These are questions for someone outside the conversation whose answer does not change the work. Give each one word for word, with who it is for.
 5. **Good to know.** These are at most three facts worth keeping in mind, one sentence each.
 
-Some items always go in the first group and never lower: anything that cannot be undone (deleting data, a destructive migration, a public interface), a change to the ticket's acceptance criteria, a new recurring cost, and any question that changes the work and that only someone outside the conversation can answer.
+Some items always go in the first group and never lower: anything that cannot be undone (deleting data, a destructive migration, a public interface), a change to the ticket's acceptance criteria, a new recurring cost, and any question that changes the work and that only someone outside the conversation can answer. A point that you label blocking in the detailed version, and that no test has answered, also goes in the first group.
 
 Usually the first group holds zero to three items. If it holds more than five, say in your first sentence that the ticket may not be ready to plan, and keep all of them.
 

@@ -44,4 +44,17 @@ The choices below were settled by the user on purpose. The `digest-retros` skill
 
 One line per change applied by `digest-retros`, dated, newest last. The text before and after each change lives in the digest file that applied it, under `docs/retros/reviewed/` in the repository where it ran; that file is the undo.
 
-- None yet.
+- 2026-11-19: the `plan` guide and the plan template copy each open non-blocking question of the question round under `## Non-blocking questions`. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `questions` guide and the advisor's prompt put each blocking point of the advisor under `## Blocking questions`. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `questions` guide says that a default about another tool, another command or two processes at once is never obvious. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `plan` guide gives each behaviour and its test to the same unit. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `plan` guide puts on the `Files` line the files that the tests of every command or every skill will change. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `plan` guide writes the coordinator's messages into `## Decisions` before the approval gate. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `build` guide says that the executor never builds a unit itself. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `after-build-questions` guide says what to do when the run comes back with answers. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the executor's prompt writes each Hand-off log entry and each executor note only once. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the implementer's prompt forbids source code before `cstack unit red` and forbids moving code aside to get a failure. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the implementer's prompt accepts a missing new module as the expected first failure. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the implementer's prompt asks for a test case for each behaviour, exit code and message. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the implementer's prompt forbids `git stash` and `git commit --amend`. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
+- 2026-11-19: the `ticket` guide loses three sentences that other parts already say, which frees room for ticket #31. It comes from `docs/retros/reviewed/2026-11-19-digest.md`.
