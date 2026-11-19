@@ -25,8 +25,6 @@ When the second attempt is stuck for any other reason, or the unit is blocked, a
 
 A unit can stop because `cstack unit red` or `cstack unit green` exited with `3`, since the settings have no test command. Do not escalate it. Return a needs-decision report that quotes the message.
 
-When an implementer reports stuck because `cstack unit red` refused a changed code file, check whether another unit built that file. If so, the plan has a wrong dependency, so return a needs-decision report that names both units.
-
 ## User interface
 
 When a unit changed a user interface, open or refresh the page with the browser tools of the harness. Walk the affected flow. Check it against the acceptance criteria and the approved design. Read the console. Repeat until it is right.

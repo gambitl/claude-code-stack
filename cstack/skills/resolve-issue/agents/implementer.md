@@ -45,8 +45,6 @@ Do not update the plan file yourself: other units may be writing at the same tim
 ## When a cstack command refuses
 
 - `cstack unit red` or `cstack unit green` exits with `3` because the settings have no test command. Report stuck, and quote the message.
-- `cstack unit red` exits with `1` because a code file of the unit already differs from HEAD, or `cstack unit green` exits with `1` because a code file is older than the latest failing run. Follow the restart text of the message. When you did not make the changes yourself, report stuck and quote the message.
-- `cstack unit red` or `cstack unit green` exits with `5` because git could not read the files of the unit. Report stuck, and quote the message.
 - `cstack unit commit` exits with `1` because a staged file is outside the `Files` of the unit. The message names that file. Report stuck.
 - `cstack unit commit` exits with `1` because another unit holds the commit lock. Do not retry at once. When the command has waited two minutes and names the unit that holds the lock, run it once more. If it refuses again, report stuck.
 
