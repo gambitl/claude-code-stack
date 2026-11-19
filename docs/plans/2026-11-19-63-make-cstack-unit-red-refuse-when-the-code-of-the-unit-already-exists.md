@@ -267,7 +267,16 @@ The ticket says that `cstack unit green` refuses a changed file that is older th
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes (executor, 2026-11-19): The new helpers `isTestFile`, `readUnitStatus` and `restartText` and the new type `FailingUnitRun` are used only by `unit-red.ts`, `unit-green.ts` and their tests. `saveFailingRun` has one caller, `unit-red.ts`. Older `red.json` files have no `startedAt`, and `unit-green.ts` falls back to `time`. The text "Set the code aside" no longer appears in the source, and a test checks that. The usual companions of `unit-red.ts` and `unit-green.ts` are `unit-test-runs.ts`, `unit-test-command.ts`, `manifest.ts`, `README.md` and `unit-red-green.test.ts`. All of them are in the branch except `unit-test-command.ts`, which needs no change. The prose in `cstack/guides/resolve-issue/build.md`, `cstack/skills/resolve-issue/settled-decisions.md` and `cstack/skills/resolve-issue/agents/implementer.md` mentions `unit red` and is not in the diff, so the reviewers check whether it still tells the truth.
+
+Review findings (2026-11-19): The correctness reviewer and the security reviewer found nothing at or above the confidence bar. The conventions reviewer and the simplicity reviewer found the points below.
+
+- Fixed: the refusal of `cstack unit green` for a changed test command told the implementer to discard code. It now only says to run `cstack unit red` again. The comment of `restartText` now says two refusals use it.
+- Fixed: `unit-green.ts` uses `Partial<FailingUnitRun>` instead of a second inline type.
+- Fixed: the implementer prompt has stop conditions for the new exit codes 1 and 5, and the build guide says what to do when a unit is stuck because another unit built its file.
+- Follow-up, not done: share the `git status` call between `checkUnit` and `readUnitStatus`, move the age check into `unit-files.ts` with a named constant, add a dated line to `settled-decisions.md`, and clean up the temporary repositories in `unit-files.test.ts`. They are cleanups, and the first one touches `unit-commit.ts`, which is outside the plan.
+- Known limit, documented in the code comment: the age check reads the modification time only, so a `chmod` or a plain `mv` is not caught or may be reported wrongly. It is a safety net.
+
 
 ## Briefing
 

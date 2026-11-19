@@ -5,7 +5,7 @@ import { readSavedRun } from "../saved-runs.js";
 import { runTests, testScript } from "../test-run.js";
 import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { deletePassingRun, savePassingRun, type SavedUnitRun } from "../unit-test-runs.js";
+import { deletePassingRun, savePassingRun, type FailingUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitGreen(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -21,7 +21,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const { root, runDir, unit, testFile, commands, timeoutMs } = context;
 
   // WHY: red.json is written by saveFailingRun, so it has the fields of a SavedUnitRun. An older file may lack the hash.
-  let saved: (Partial<SavedUnitRun> & { startedAt?: string }) | undefined;
+  let saved: (Partial<FailingUnitRun>) | undefined;
   try {
     saved = readSavedRun(runDir, unit.number, "red");
   } catch (error) {
@@ -30,7 +30,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   const script = testScript(commands, testFile);
   if (!saved || saved.command !== script || saved.testFile !== testFile) {
     io.stderr(
-      `${prefix}The test command changed since the failing run of unit ${unit.number}. ${restartText(unit.number)}\n`,
+      `${prefix}The test command changed since the failing run of unit ${unit.number}. Run \`cstack unit red ${unit.number}\` again before you run \`cstack unit green\`.\n`,
     );
     return 1;
   }
