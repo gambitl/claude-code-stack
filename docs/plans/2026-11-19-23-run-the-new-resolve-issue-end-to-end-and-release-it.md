@@ -315,7 +315,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 
 ## Implementation units
 
-### Unit 1: Refuse a settings file that is not a regular file, and an attribution line with the Cstack-Unit key — status: todo
+### Unit 1: Refuse a settings file that is not a regular file, and an attribution line with the Cstack-Unit key — status: done
 - Files: `cstack/src/settings.ts`, `cstack/test/settings.test.ts`
 - Failing test: in `cstack/test/settings.test.ts`, write first the case of a `.cstack/settings.json` that is a symbolic link to a folder. `readSettings` must throw a `SettingsError` that says `.cstack/settings.json` is not a regular file. Today it says "cannot be read (EISDIR)", so the case fails. Then the case of `commitAttribution: ["cstack-unit: 2"]`, and the same with `CSTACK-UNIT: 2`: a `SettingsError` that names `commitAttribution[0]` and says that the key `Cstack-Unit` belongs to cstack. Do not write a case with a named pipe or `/dev/zero` before the fix. A synchronous read of either blocks the test worker for ever, and no test timeout can stop it.
 - Minimum code: in `readSettings`, open the file with `O_RDONLY | O_NONBLOCK`, check the opened file with `fstatSync`, and refuse it when it is not a regular file. Then read from that file descriptor and close it in a `finally` block. `ENOENT` at the open still returns every default with `found: false`. In the check of each `commitAttribution` line, refuse a key equal to `Cstack-Unit` in any case.
@@ -323,7 +323,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `fix(cli): refuse a settings file that is not a regular file and an attribution line with the Cstack-Unit key`
 - Depends on: none
 
-### Unit 2: Print the settings above each guide of cstack next, and stop on an invalid settings file — status: todo
+### Unit 2: Print the settings above each guide of cstack next, and stop on an invalid settings file — status: done
 - Files: `cstack/src/settings-block.ts`, `cstack/src/commands/next.ts`, `cstack/src/commands/errors.ts`, `cstack/test/next-settings.test.ts`
 - Failing test: `cstack/test/next-settings.test.ts`, written first with the case of a `.cstack/settings.json` that holds the unknown key `reviewer`. `cstack next` must exit with `3`, name `reviewer` on standard error, print nothing on standard output, and write no current run. Use a temporary package root with the fixture guides of `cstack/test/fixtures/next/guides`, as `cstack/test/next.test.ts` does. Then: a valid file with `testCommands` and one `commitAttribution` line prints the run line, then the settings block, then the guide. The block holds every key of `DEFAULTS` in order, the values from the file without a mark, and the other values with ` (default)`. A file without `testCommands` prints `- testCommands: not set (default)`. A missing file prints the block whose first line says there is no `.cstack/settings.json`. `--done <phase>` with an invalid file exits with `3`, does not mark the phase done, and writes no header line. `--new` with an invalid file exits with `3` and does not clear the current run. A one-line answer, such as the hand-off to the executor, has no block.
 - Minimum code: `cstack/src/settings-block.ts` exports `settingsBlock(settings: Settings): string`, written as "Decisions" says. In `next`, at the start of the `try` block and before any other step, find the root with `git rev-parse --show-toplevel` from `options.cwd`, run without a shell, and call `readSettings(root)`. A failure of `git rev-parse` throws the same `RunStateError` message as `gitFolders` in `cstack/src/run-state.ts`. `printGuide` takes the block and writes it between the run line and the guide, as a write of its own. `failWith` in `cstack/src/commands/errors.ts` turns a `SettingsError` into exit code `3` with its message.
@@ -331,7 +331,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `feat(cli): print the settings of the repository above each guide of cstack next`
 - Depends on: none
 
-### Unit 3: Add the commit attribution lines in cstack unit commit — status: todo
+### Unit 3: Add the commit attribution lines in cstack unit commit — status: done
 - Files: `cstack/src/commands/unit-commit.ts`, `cstack/test/unit-commit.test.ts`
 - Failing test: in `cstack/test/unit-commit.test.ts`, write first the case of a `.cstack/settings.json` whose `commitAttribution` holds one line, such as `Assisted-by: test agent <agent@example.com>`. The commit that `cstack unit commit` makes ends with `Cstack-Unit: <n>` followed directly by that line. `git log -1 --format=%(trailers:key=Cstack-Unit,valueonly)` still gives the unit number, and `listUnitCommits` of `cstack/src/plan/commits.ts` still finds the unit. Then: with no settings file, and with `commitAttribution: []`, `Cstack-Unit: <n>` is the last line. An invalid settings file exits with `3` and stages nothing. The existing case with `$(touch pwned)` keeps passing.
 - Minimum code: in `unitCommit`, after the plan is read and before the lock, call `readSettings(located.root)`. Turn a `SettingsError` into `cstack unit commit: <message>` and exit code `3`. Pass the attribution lines to `commitUnit`, which writes them right after the `Cstack-Unit` line, each followed by a line break.
@@ -339,7 +339,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `feat(cli): add the commit attribution lines of the settings after the unit trailer`
 - Depends on: none
 
-### Unit 4: Read the two moments of a version 1 plan file in cstack measure — status: todo
+### Unit 4: Read the two moments of a version 1 plan file in cstack measure — status: done
 - Files: `cstack/src/measure/moments.ts`, `cstack/src/commands/measure.ts`, `cstack/test/measure.test.ts`
 - Failing test: in `cstack/test/measure.test.ts`, write first the case of a version 1 plan file whose header holds `Approved at: 2026-03-01T10:00:00+01:00` and `Ready for review at: 2026-03-01T12:30:00+01:00`. The file sits inside a git repository but is never committed, which proves that no git history is read. Give it one main session inside that window, as the other cases do. `cstack measure` must stop refusing it, print `minutes from approval to ready for review: 150`, and exit with `0`. This replaces the case "refuses a plan with a Format line in its header, but not one after a heading" (line 351), and keeps its second half: a `Format:` line after the first heading does not count. Then: a plan file without a `Format:` line still gives its moments from the git history, so the existing cases stay. A version 1 plan file whose `Ready for review at` says `not yet` prints the token lines, says that the ready moment is missing, and exits with `1`. A version 1 plan file whose `Approved at` says `not yet`, one that the plan reader refuses, and one whose ready moment comes before its approval moment each exit with `1` and print a fixed sentence that holds no text of the plan file.
 - Minimum code: in `readMoments`, when the header has a `Format:` line, read the file with `readPlan`. Turn a `PlanFormatError` into a `MomentsError` with a fixed sentence. Take both moments from the header, with `not yet` as a missing moment. Find the root with `git rev-parse --show-toplevel`. Add a field to `Moments` that says where the moments came from, the header or the history. In `measure`, apply the "less than a minute" check only to moments from the history. For moments from the header, refuse a ready moment earlier than the approval moment, and print the minutes line otherwise. Add a `WHY:` comment that names ADR-SIC-B on the header branch.
@@ -347,7 +347,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `feat(cli): read the approval and ready moments from the header of a version 1 plan in cstack measure`
 - Depends on: none
 
-### Unit 5: Check that every built command is implemented and every other one names its ticket — status: todo
+### Unit 5: Check that every built command is implemented and every other one names its ticket — status: done
 - Files: `cstack/test/manifest-implemented.test.ts`
 - Failing test: write first a function in the test file, for example `implementationProblems(entries)`, and the case that runs it on a fixture list written in the test. The list holds a built entry `cstack frobnicate` whose file `frobnicate.ts` does not exist. The result must name `cstack frobnicate` and its missing file. Then the case on the real `COMMANDS`, which must give no problem. The checks are the ones "Decisions" gives for built entries and for entries that are not built. The routing check calls `run` of `cstack/src/cli.ts` with the fixture list as its third argument where it matters.
 - Minimum code: none in `cstack/src/`. The function lives in the test file.
@@ -355,7 +355,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `test(tests): check that every built command is implemented and every other one names its ticket`
 - Depends on: none
 
-### Unit 6: Check that every phase has a guide and every guide has a phase — status: todo
+### Unit 6: Check that every phase has a guide and every guide has a phase — status: done
 - Files: `cstack/test/guides/phases-have-guides.test.ts`, `cstack/test/fixtures/guides/extra-guide/ticket.md`, `cstack/test/fixtures/guides/extra-guide/deploy.md`
 - Failing test: write first a function in the test file, for example `guideProblems(phaseNames, folder)`, and the case that runs it on the fixture folder with the phase list `["ticket"]`. The folder holds `ticket.md` and an extra `deploy.md` that belongs to no phase. The result must name `deploy.md`. A phase without a guide is reported too. Then the case on the real `PHASES` and `cstack/guides/resolve-issue/`, which must give no problem.
 - Minimum code: none in `cstack/src/`. The function lives in the test file.
@@ -363,7 +363,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `test(tests): check that every guide of resolve-issue belongs to a phase`
 - Depends on: none
 
-### Unit 7: Raise the version of cstack to 0.2.0 — status: todo
+### Unit 7: Raise the version of cstack to 0.2.0 — status: done
 - Files: `cstack/package.json`, `cstack/package-lock.json`, `cstack/test/next.test.ts`
 - No test: the unit changes the version number only. The change to `cstack/test/next.test.ts` makes line 160 read the expected version from `cstack/package.json`, so that this release and the next ones do not break it.
 - Minimum code: set the version to `0.2.0` in `cstack/package.json` and in both version fields of `cstack/package-lock.json` (the top level and the `""` package), with no tag and no commit made by npm. Run `npm test` and `npm run typecheck` in `cstack/` before the commit.
@@ -371,7 +371,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `chore(cli): raise the version of cstack to 0.2.0`
 - Depends on: none
 
-### Unit 8: Run the whole resolve-issue skill end to end in a scripted test — status: todo
+### Unit 8: Run the whole resolve-issue skill end to end in a scripted test — status: done
 - Files: `cstack/test/e2e/resolve-issue.test.ts`, `cstack/test/helpers/publish-env.ts`, `cstack/test/fixtures/e2e/` (the small project, the code of each unit, the plan file and the texts that the test writes into the plan)
 - Failing test: this unit tests code that units 1 to 4 and the earlier tickets built, so most steps may pass at the first run. Write the whole scenario first and run it. Record in the unit's notes which steps failed at the first run and why. A step that fails because a guide or a prompt and a command do not fit is handled as "Decisions" says.
 - Minimum code, the setup: the build into a temporary folder, the environment from scratch and the fake `gh`, as "Decisions" says. Export from `cstack/test/helpers/publish-env.ts` the function that writes the fake programs, and use it. The fake `gh` answers `gh pr create` with a pull request link on `github.com`, and `gh pr checks` with one passing check. Its `gh pr view` keeps giving the head of the branch in the bare repository. The small project is a git repository with a `main` branch, a `package.json`, a file `src/math.js` with two functions, and one test file per function, run with `node --test`. `main` also holds `.cstack/settings.json` with `testCommands` (`all`: `node --test`, `file`: `node --test {file}`), one `commitAttribution` line, and no `review` key. The plan file is a fixture of format `cstack-plan/1` with three units: units 1 and 2 each add a function to `src/math.js`, each with its own new test file, and unit 3 changes `README.md` and has a `No test` line. It has one blocking question with its answer. Its Status is `draft`, and the test sets it to `approved` just before `cstack next --done plan`, as the plan guide does after the user's approval.
@@ -388,7 +388,7 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - Commit message: `test(tests): run the whole resolve-issue skill end to end with the built cstack, a bare remote and a fake gh`
 - Depends on: 1, 2, 3
 
-### Unit 9: Explain the new behaviour and the way back in the README — status: todo
+### Unit 9: Explain the new behaviour and the way back in the README — status: done
 - Files: `README.md`
 - No test: the unit changes documentation only.
 - Minimum code: in "Install cstack", add the full way back to the prose skill, as "Decisions" says. In "Commands", say that `cstack next` prints the settings of the repository above each guide and stops with exit code `3` on an invalid settings file, and that `cstack unit commit` adds the `commitAttribution` lines after its `Cstack-Unit` line. In "Measure a run", replace the sentence that says a plan file with a `Format:` line is refused. Say how such a plan file is measured, and that its window is slightly longer than with the old method, as "Decisions" says. The command count stays fourteen.
@@ -407,6 +407,12 @@ The approach is locked by the ticket and the answers of phase 4, so no blueprint
 - The guides and prompts under `cstack/`: apply only if the end-to-end test shows a mismatch, written by unit 8 in a commit of its own.
 
 ## Review log
+
+Impact notes (phase 7, from `git grep`, because Graphify is not used):
+- `readSettings` is called by `next.ts`, `unit-commit.ts`, `publish.ts` and `unit-test-command.ts`. Only `publish.ts` and `unit-test-command.ts` were untouched; both already turn `SettingsError` into exit 3, and the new refusals use the same error type. Their tests ran green in the full suite.
+- `readMoments` is called only by `measure.ts`. `Moments` gained a source field; no other reader.
+- `writeFakePrograms` is used by `publish-env.ts` and the end-to-end test. `publish.test.ts` is unchanged and passes.
+- Unit 3 history note: commit `8ac337b` holds two failing tests whose fix landed in `6135f79` (unit 2's commit), because of a concurrent amend. The final tree is correct.
 
 ## Briefing
 
