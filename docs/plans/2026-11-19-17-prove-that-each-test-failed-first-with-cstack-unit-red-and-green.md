@@ -6,7 +6,7 @@ Tracker: GitHub
 Documentation tool: docs/ folder (specification pages in `docs/projects/`), ADRs in `docs/decisions/`
 Branch: gambitl/unit-red-green
 Conversation language: French; the conversation uses it, and every record stays in English
-Status: approved
+Status: in progress (branch gambitl/unit-red-green; ticket labelled "in progress" on 2026-11-19)
 
 <!-- This file has two parts. The sections before "History" are the working part: they say what to build and what was decided, and each helper reads only the sections its prompt names. "History" keeps how the decisions were reached. Helpers skip it unless their prompt says otherwise. -->
 
