@@ -3,17 +3,16 @@ import type { Io } from "../io.js";
 import { COMMANDS, commandWords, EXIT } from "../manifest.js";
 import { orcaFeatures } from "../orca/features.js";
 import { createRunner, type Runner } from "../orca/run.js";
-import { readyState } from "../tracker/ready.js";
 import { trackerFromRemote } from "../tracker/choose.js";
 import { TrackerError } from "../tracker/errors.js";
 import { openTracker, type openTracker as OpenTracker } from "../tracker/open.js";
 import type { Group, TrackerName } from "../tracker/types.js";
-import { isYes, readAnswer } from "../wave/confirm.js";
+import { isYes, readAnswer, startAllQuestion } from "../wave/confirm.js";
 import { WaveError } from "../wave/errors.js";
-import { blockedReason, formatGroups, groupTickets } from "../wave/groups.js";
-import { shortName } from "../wave/names.js";
+import { formatGroups, groupTickets } from "../wave/groups.js";
 import { prepareGitStart } from "../wave/start-git.js";
-import { startInOrca, type OrcaOutcome } from "../wave/start-orca.js";
+import { startTicket, type Starter } from "../wave/start.js";
+import { startInOrca } from "../wave/start-orca.js";
 import { printableText } from "../wave/title.js";
 import { loadWorktreeCheck, parseWorktreeList } from "../wave/worktrees.js";
 
@@ -113,8 +112,7 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
       io.stdout("\nStarting tickets needs a terminal, so cstack started nothing.\n");
       return EXIT.ok;
     }
-    const n = groups.ready.length;
-    io.stdout(`\nStart the ${n} ready ${n === 1 ? "ticket" : "tickets"}? [y/N] `);
+    io.stdout(`\n${startAllQuestion(groups.ready.length)}`);
     if (!isYes(await deps.readAnswer())) {
       io.stdout("\nStarted nothing.\n");
       return EXIT.ok;
@@ -123,43 +121,15 @@ export async function wave(args: string[], io: Io, deps: WaveDeps): Promise<numb
 
     const reader = await deps.openTracker("read", trackerOptions);
     const fresh = await loadWorktreeCheck(checkArgs);
-    const start: (key: string, short: string, url: string) => Promise<OrcaOutcome> = orca
+    const start: Starter = orca
       ? startInOrca(deps.runLong, deps.env, root)
       : await prepareGitStart(deps.run, root);
     let failures = 0;
+    const context = { reader, check: fresh, start, run: deps.run, root, tracker: name! };
     for (const { ticket: listed } of groups.ready) {
-      const key = printableText(listed.key);
-      const ticket = await reader.readTicket(listed.key);
-      if (ticket.key !== listed.key) {
-        io.stdout(`${key}  skipped, the tracker answered with the ticket ${printableText(ticket.key)} instead.\n`);
-        continue;
-      }
-      const found = ticket.stateKind === "todo" ? await fresh.check(ticket) : { found: false as const };
-      const state = readyState(ticket, found.found);
-      if (state.kind !== "ready") {
-        let why: string;
-        if (state.kind === "blocked") why = blockedReason(ticket, state);
-        else if (state.kind === "started") why = found.found ? found.reason : "in progress";
-        else why = "done";
-        io.stdout(`${key}  skipped, it is no longer ready (${why}).\n`);
-        continue;
-      }
-      const short = shortName(name!, ticket.key);
-      const branch = await deps.run("git", ["show-ref", "--verify", "--quiet", `refs/heads/${short}`], root);
-      if (branch.kind === "ok") {
-        io.stdout(`${key}  skipped, the branch ${short} already exists.\n`);
-        continue;
-      }
-      const outcome = await start(ticket.key, short, ticket.url);
-      if (outcome.kind === "started") io.stdout(`${key}  ${printableText(outcome.line)}\n`);
-      else if (outcome.kind === "skipped") io.stdout(`${key}  skipped, ${printableText(outcome.reason)}.\n`);
-      else if (outcome.kind === "unknown") {
-        failures++;
-        io.stdout(`${key}  ${printableText(outcome.reason)}\n`);
-      } else {
-        failures++;
-        io.stdout(`${key}  failed, ${printableText(outcome.reason)}.\n`);
-      }
+      const report = await startTicket(listed.key, context);
+      io.stdout(report.line);
+      if (report.kind === "failed" || report.kind === "unknown") failures++;
     }
     return failures > 0 ? EXIT.toolFailed : EXIT.ok;
   } catch (error) {
