@@ -107,10 +107,10 @@ export function linearOrcaTracker(run: Runner, env: Env): Tracker {
             try {
               const state = (await readIssue(blocker.key)).issue.state;
               stateKind = state ? linearStateKind(state.type) : "unknown";
-              known.set(blocker.key, stateKind);
             } catch {
               // A blocker that cannot be read keeps the state kind unknown.
             }
+            known.set(blocker.key, stateKind);
           }
           blockers.push({ key: blocker.key, stateKind });
         }
