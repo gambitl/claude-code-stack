@@ -137,9 +137,15 @@ describe("the flags that are not built yet", () => {
 });
 
 describe("the command list", () => {
+<<<<<<< HEAD
   it("holds twenty built commands and three that are not built", () => {
     expect(COMMANDS.filter((c) => c.built)).toHaveLength(20);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(3);
+=======
+  it("holds eighteen built commands and five that are not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(18);
+    expect(COMMANDS.filter((c) => !c.built)).toHaveLength(5);
+>>>>>>> abbddc0 (feat(cli): add cstack tracker comment, which never passes the text through a shell)
   });
 
   it("has no entry with the command words graph ensure", () => {
