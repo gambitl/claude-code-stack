@@ -290,7 +290,47 @@ Independent reviewer. It changed nothing and found no bug, no security problem, 
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The branch does what the ticket asks. An implementer in a child worktree now gets the `setupCommand` of the settings as an input. When the key is missing, it installs with a command that does not change the lock file. `cstack helper done` refuses a finished report while the child worktree holds any uncommitted file other than the plan file, and its message gives the exact command that fixes each file. Typecheck and the full test suite pass.
+
+**What you need to do**
+
+**Add `setupCommand` to this repository's settings only once every machine that runs cstack here has 0.3.1.** cstack 0.3.0 refuses an unknown key. So if the key arrives too early, every cstack command exits with 3 on a machine that has not updated. Once 0.3.1 is installed, commit `"setupCommand": "cd cstack && npm ci"` to `.cstack/settings.json` on `main`. The settings of the comparison sandbox (#32) need the same key. Until then, implementers install as the conventions file says, and that works.
+
+Once this pull request and the one that fixes the collect (#74) are both merged, the README line of `cstack helper done` needs one sentence about the new refusal. I left it out on purpose, because #74 edits that area.
+
+**What to watch**
+
+On the first run with parallel units after the merge, check that each implementer ran `npm ci` and not `npm install`, and that `cstack unit collect` removed the child worktrees. Every child now holds a full `node_modules`. I checked that `git worktree remove`, which Orca runs without `--force`, removes a worktree whose only extra files are ignored ones.
+
+A file outside the unit that someone staged with `git add` gets a `git restore` hint that does nothing, so the implementer could loop on it. Implementers never run `git add`, so fix it only if you see it happen.
+
+**What changed since the plan**
+
+The correctness review found that `git status` stopped at Node's one-megabyte output limit. A child with thousands of untracked files then exited with 5 instead of listing them. That is fixed, with a test of 9000 file names.
+
+#### Details
+
+What was built matches the ticket and the answers of the question round. Unit 1 adds the optional key `setupCommand` to `cstack/src/settings.ts`, checked with the rules of a test command minus the `{file}` rules, and `cstack/src/settings-block.ts` now prints "not set" for any missing value. Unit 2 reads the key in `startHelper` (`cstack/src/helper/start.ts`) only for a reused child worktree and for a new child start that passed its checks, and writes `- Setup command: <command>` into the spec or the printed sub-agent inputs. Unit 3 adds `checkChildWorktree` to `cstack/src/helper/done.ts`, with the same `git status` flags as `cstack unit collect` and the same exception for the plan file. Unit 4 adds the install and clean-up rules to `cstack/skills/resolve-issue/agents/implementer.md`. Unit 5 adds the README sentences. Every acceptance item is met: the settings cases, the refused `package-lock.json` with its name in the message, the accepted ignored file, the accepted stuck report, fake programs only, and a green `npm test` and `npm run typecheck`. Item 3 of the scope was changed on purpose by the answer to Question 2, so a repository without the key still installs as its conventions file says.
+
+The settings key must wait for 0.3.1 on every machine. ADR-SIC-D says a reader refuses an unknown key, and that decision is locked. A machine still on 0.3.0 that reads a settings file with `setupCommand` makes every command that reads the settings exit with 3. The coordinator pushes the tag `v0.3.1` once this branch and #74 are merged, as `## Decisions` says. After that, the follow-up commit adds `"setupCommand": "cd cstack && npm ci"` to `.cstack/settings.json` on `main`, and the comment on #32 asks for the same key in the sandbox settings. If nobody adds the key, nothing breaks in this repository, because its conventions file says to run `npm ci` in `cstack/`. A repository whose conventions file says nothing about installing would leave the implementer of a child with no packages, and it would report stuck when its first test cannot run. The command runs from the worktree root, as `testCommands` do, which is why it needs `cd cstack`.
+
+The README line of `cstack helper done` does not mention the new refusal. The independent review accepted this, because #74 changes the neighbouring README lines and a conflict there is not worth it. It is a one-sentence follow-up after both merges. If nobody writes it, the prompt of the implementer and the refusal message still say what to do, so only a human reader of the README misses it.
+
+Every child worktree now holds a full `node_modules` until `cstack unit collect` removes it. I checked that this does not block the removal. Orca's main process (read in `app.asar` of the installed app, never run) removes a worktree with `git worktree remove`, and adds `--force` only when asked. Git checks that a worktree is clean with a status that leaves ignored files out. I confirmed it in a scratch repository: a child that held only an ignored `node_modules/` was removed with exit code 0. In this repository, `.gitignore` covers `cstack/node_modules/` and `cstack/dist/`. A child that the collect keeps, for example after a stuck unit, keeps its `node_modules` and its disk space until someone removes it. A second attempt in a reused child gets the setup command again, and `npm ci` deletes and reinstalls `node_modules`. That is slower but correct. The first parallel run after the merge is the real test, because no test runs the real `npm` or `orca`.
+
+The hint for a staged file is wrong in one rare case. The check reads the two status letters and gives `git restore -- <file>` for any tracked or staged entry outside the unit. For a file that was staged with `git add`, `git restore` restores the working copy from the index and changes nothing, so the refusal repeats. The prompt forbids `git add`, and `cstack unit commit` stages only the files of the unit, so this happens only if an agent breaks that rule. The fix would be a `git restore --staged --worktree -- <file>` hint for an entry whose first letter is not a space. The correctness and independent reviewers both recorded it as a follow-up.
+
+The settings are read after two read-only Orca feature checks, not before any Orca call as line 154 of `## Decisions` says. They are still read before `worker-start` and before the plan file is copied into a reused child, so an invalid `setupCommand` still starts nothing and changes nothing. The reviewers judged this harmless, and so do I.
+
+The correctness review found one real bug after the build. `spawnSync` keeps at most one megabyte of output by default, so a child with thousands of untracked files made `git status` fail and `cstack helper done` exit with 5. The fix raises `maxBuffer` to 256 megabytes, and a test with 9000 long file names fails without it. `cstack unit collect` reads the same status with the default limit (`git` in `cstack/src/unit/collect.ts`, line 16). There, the limit can only matter for a child that ended with a stuck report, because `cstack helper done` now refuses a finished report from such a child. The collect then keeps the child with a confusing "git cannot read" message, and loses nothing. That file belongs to #74, so this branch does not touch it, and it is a small follow-up.
+
+The first word of `setupCommand` is checked against `forbiddenTools`, as for the test commands. A value such as `cd cstack && <tool>` passes that check whatever the tool is. This is not a security boundary, because the team commits the settings file itself, and the `WHY:` comment of `cstack/src/helper/spec.ts` says so. Nobody needs to act on it.
+
+The earlier questions are all resolved. Question 1 was answered "the implementer runs it", and the build gives the command as an input line and passes `--setup skip` as before. Question 2 was answered "install as the conventions file says, with a command that does not change the lock file", and the spec sentence and the prompt say exactly that. Question 3 was answered "the rule of `cstack unit collect`", and the check uses the same status flags and the same plan file exception. The shared `childWorktree` flag that I raised before the plan is handled. A refused new child start now gets a copy of the inputs taken before the setup command is set, and `cstack/test/helper/child-worktree.test.ts` checks that its printed inputs hold no setup line. The refusal gives `rm --`, `git restore --` or the `cstack unit commit` hint per file, the prompt forbids `git clean` and `git restore .`, an unreadable child exits with 5, the list stops at twenty with a count, and control characters are escaped.
+
+I found no new question, blocking or not. I cite these locked decisions and do not reopen them: ADR-SIC-D for the settings key, ticket #28 for `--setup skip`, and ADR-SIC-A for the fallback to sub-agents. I checked security, data model lock-in, scale, failure modes, user-facing edge cases, operations and cost, reversibility and hidden coupling, and found nothing beyond the points above in data model lock-in, scale, and operations and cost.
 
 ## Non-blocking questions
 
