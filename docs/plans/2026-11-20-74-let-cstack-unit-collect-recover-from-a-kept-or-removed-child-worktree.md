@@ -190,6 +190,7 @@ Each unit commit carries the trailer "Cstack-Unit: <n>" in the final paragraph o
 - Refactor: none.
 - Commit message: `fix(cli): let cstack unit collect finish when a child worktree folder is gone`
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/collect-recover-unit-1-110151
 
 Write three cases. In each one, first run the collect with a fake Orca whose `worktree rm` fails, so that the commits reach the ticket branch and the worktree stays. Then change the folder, and run the collect again with the recording fake. The first case deletes the folder with `rmSync`, so git still lists it, and checks that `git worktree list` no longer names it afterwards. The second case removes the worktree with `git worktree remove --force`. The third case removes the worktree with `git worktree remove --force`, then creates the folder again with a file in it, and expects exit code `1` and the folder kept. Each case also checks that the worker was released.
 
@@ -243,6 +244,7 @@ Write five cases. The first one is the removal above, with the branch deleted af
 - Refactor: none.
 - Commit message: `chore(cli): raise the version of cstack to 0.3.1`
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/collect-recover-unit-6-110157
 
 ## Documentation duties
 
@@ -309,11 +311,11 @@ When the child branch of a unit no longer exists, what proves that the ticket br
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+nothing this time
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-20, build phase: I moved the ticket to "in progress" with `cstack tracker move`. I built units 1 and 6 in child worktrees and collected them with exit code 0. I then built units 2, 3, 4 and 5 one after the other in the main worktree, because they depend on each other. All six units have a commit.
 
 ## History
 
