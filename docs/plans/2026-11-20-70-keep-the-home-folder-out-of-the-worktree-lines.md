@@ -317,7 +317,43 @@ No new question came up after the build. I checked authorization, data model loc
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): keep the home folder out of the Worktree lines of plan files
+
+````markdown
+## What this does
+
+When `cstack helper start` makes a child worktree inside the home folder, it now writes the `- Worktree:` line of the plan file as `~/` followed by the rest of the path. Before, it wrote the full path, so a run in this public repository would publish the maintainer's home folder.
+
+The plan reader accepts a value that starts with `/` or `~/`. It still refuses a relative path, `~` alone, `~name/...` and control characters. `cstack measure` expands a leading `~/` with the home folder of the account that runs it, never with `--home`. The README says so in one sentence. The helper record under `.git` keeps the absolute path, because `cstack unit collect` needs it.
+
+A new scan in `cstack/test/fixtures-public.test.ts` reads every file of `docs/plans/` and `docs/retros/`. It reports `/Users/` or `/home/` followed by a name. The names `user`, `someone` and `runner` pass, because they are samples or the public home folder of GitHub's macOS machines. A sentence that only names `/Users/` passes too.
+
+## Decisions worth a look
+
+- The plan format stays `cstack-plan/1`. An older `cstack` refuses a plan with a `~/` line with a clear message, so it never misreads it. Do not mix versions in one wave.
+- If `cstack helper start` still writes a path that begins with `/Users/` or `/home/`, it prints one warning on standard error. It never prints the path, and the exit code stays the same. This happens when `HOME` is not the folder that holds the worktree.
+- The acceptance sample uses the name `jane` instead of `someone`, because `someone` is now a reserved sample name.
+- A new function, `worktreeValue()`, builds the `~/` value. `setUnitWorktree()` keeps its signature.
+
+## Judgment calls from the independent review
+
+The review found no bug. It raised three points. The home folder comes from `os.homedir()`, so a test fakes it with `HOME` for the process. The README needed one sentence, which is now added. The template comment in this ticket's plan file still shows an absolute path, which is harmless.
+
+`cstack measure` now depends on `HOME`. If you run it under another account, the sessions of child worktrees drop out without a message. Run it under the account that ran the ticket.
+
+## Files
+
+The main changes are in `cstack/src/plan/unit-line.ts`, `cstack/src/plan/read.ts`, `cstack/src/helper/start.ts`, `cstack/src/commands/measure.ts`, `cstack/test/helpers/fixtures-public.ts` and `cstack/skills/resolve-issue/templates/plan.md`. The plan file is `docs/plans/2026-11-20-70-keep-the-home-folder-out-of-the-worktree-lines.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- Should `cstack publish` refuse a home folder path in the diff, the plan file or the pull request text before the push? The new test runs only in the continuous integration, after the branch is public. For: the coordinator of the wave, who creates that ticket after the tag `v0.3.0`.
+- Should the public scan also read the other folders of `docs/` and the README? Only plan files and retrospectives are written by runs. For: the maintainer.
+
+Fixes #70
+````
 
 ## Documentation
 
@@ -330,12 +366,14 @@ No new question came up after the build. I checked authorization, data model loc
 - The implementer of unit 4 had its first `cstack unit commit` refused because it passed a relative plan path from the wrong folder. It reran the command with the absolute path.
 - In the full `npm test`, 18 tests in 8 files timed out at five seconds under load. The same folders passed alone (571 of 571).
 - The full `npm test` took more than 180 seconds in the foreground, so the shell moved it to the background.
+- The rebase onto the moved `main` had no conflict, and the full tests passed again (1421 of 1421).
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
 - 2026-11-20: moved ticket 70 to the `in progress` label on GitHub and started the build phase on the existing branch. Built units 1 to 5 with implementers, no escalation, no returned report yet.
+- 2026-11-20: ran the independent review, rebased onto `main`, documented the ticket, got the briefing, added a README sentence, drafted the pull request and closed the build with a done report.
 
 ## History
 
