@@ -251,6 +251,10 @@ After the speed-up, should the 5-second timeout of the cases stay as it is, whil
 - Simplicity: two optional ideas, about four lines in total (a plain object instead of a map, and dropping the guard). I kept the code, because the guard gives a clear error message.
 - One reviewer noted that "Other test files" in `CLAUDE.md` is broader than "files that use git". The plan fixed that wording with the user, so I left it.
 
+### Independent review
+
+The independent reviewer found nothing to fix and made no commit. Judgment calls for the pull request body: `setup()` throws a clear error when a case asks for a unit list that is not prepared, so a new case with a new list must also add it to `PREPARED_UNITS`. The prepared repositories and their copies stay in the temporary folder after the run, as before. The other slow test files are left for a separate ticket, as the plan decided.
+
 ### Tests after the fixes
 
 `npm run typecheck` and `npm test` pass: 106 files, 1222 tests. `report.test.ts` alone passes in about 6 seconds.
