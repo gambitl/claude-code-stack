@@ -286,6 +286,8 @@ Simplicity reviewer. It suggested sharing `shellQuote` and the git status parsin
 
 Tests. After the fix, `npm run typecheck` and the whole `npm test` pass (116 files, 1456 tests). One earlier run had two timeouts while other test runs went on at the same time, and the next runs were clean.
 
+Independent reviewer. It changed nothing and found no bug, no security problem, no broken convention and no missing acceptance criterion. Typecheck and the full test suite pass. Judgment calls for the pull request body: a staged file outside the unit gets a restore hint that does nothing, but agents never run `git add`. The README line of `cstack helper done` does not mention the new refusal, on purpose, because ticket #74 edits that area, so a short follow-up fits after both merge. The settings are read after two read-only Orca checks, which changes nothing. `shellQuote` has three copies and the git status parsing repeats `cstack unit collect`, both recorded as follow-ups.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
