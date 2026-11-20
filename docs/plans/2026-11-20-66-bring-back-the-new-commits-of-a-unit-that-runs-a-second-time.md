@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/collect-second-attempt
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-20T09:11:16+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-20T09:37:39+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -300,7 +300,50 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: fix(cli): bring back the new commits of a unit that runs a second time
+
+````markdown
+## What this changes
+
+When a unit runs a second time, `cstack unit collect` now brings its new commits onto the ticket branch. Before, it skipped any unit that already had a commit there, said so in one line, and removed the clean child worktree. The new commits were lost without a clear sign.
+
+The collect now finds the commits to apply by comparing changes and not hashes. It uses `git rev-list --reverse --right-only --cherry-pick HEAD...refs/heads/<child>`. This works for a reused child worktree and for a new one that starts from the ticket branch. A second collect with nothing new applies nothing.
+
+## Key decisions
+
+- The old skip is gone. The check of the helper's report now comes first, so a second attempt that has not reported yet is skipped, and its worker and worktree are left alone. Before, it could be released and removed early.
+- A unit whose branch has nothing new counts as collected only when the ticket branch already has a commit of it. So the clean-up of a second run works as before.
+- The command does not use `--no-merges`. A merge commit on a child branch then still fails loudly, as it does today.
+- A guard refuses one case where the comparison would lose a change without a word. A second attempt removes a line, then puts it back exactly as before. Git treats that second commit as already applied. The collect now exits with 1, applies nothing, and names the commit. The user chose this in the question round.
+- The reason for the design is in the `WHY:` comment above `applyUnits()`.
+
+## Files touched
+
+`cstack/src/unit/collect.ts`, `cstack/test/unit/collect.test.ts` and `cstack/test/unit/collect-cleanup.test.ts`. The usage line, the exit codes, the README and the guides do not change.
+
+## Tests
+
+The new cases cover a second commit on the same child branch, a new child worktree, a second collect with nothing new, the guard, and a second attempt that has not reported. Each case where a commit is copied checks that the copy has a different hash from the original. The full `npm test` and `npm run typecheck` pass.
+
+## Judgment calls and known limits
+
+- Units 1 and 2 of the plan share one commit with two `Cstack-Unit` trailers, because the guard was built together with unit 1.
+- The guard runs after the per-commit checks and not before. The exit code and the result are the same. Only the first message differs when a commit has both problems.
+- If the copy of a commit got another patch id, for example after a conflict in a rebase, a later collect stops with exit 1 instead of skipping. Nothing is lost.
+- A second collect of a unit whose child branch was deleted by hand now exits with 1 instead of skipping.
+- The independent review added one test: a child worktree whose new commit was refused is never removed.
+
+The plan file is `docs/plans/2026-11-20-66-bring-back-the-new-commits-of-a-unit-that-runs-a-second-time.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- Should a later ticket let `cstack helper start` start a second attempt of a collected unit in a new child worktree? Today it refuses, because a unit with a commit on the ticket branch is not in the first batch of `cstack unit order` (`cstack/src/helper/start.ts`, line 152). For: the user.
+- When a second `cstack unit collect` stops because the cherry-pick of an old commit is now empty, the message ends with git's own advice, which no longer applies after the abort. Should a later ticket make the collect say plainly that this commit's change is already on the ticket branch, and name the new commits that are still to apply, or drop such empty commits with `git cherry-pick --empty=drop`? For: the user.
+
+Fixes #66
+````
 
 ## Documentation
 
@@ -314,7 +357,7 @@ The implementer of unit 1 also built the guard of unit 2, because a line of Deci
 
 ## Hand-off log
 
-- 2026-11-20: build phase. Added the label `in progress` to ticket 66. Committed the plan file. Unit 1 and unit 2 are both in commit d4ebe3c. The run continues with the next phases.
+- 2026-11-20: build phase. Added the label `in progress` to ticket 66. Committed the plan file. Unit 1 and unit 2 are both in one commit. Review, independent review, rebase onto main, documentation, briefing and questions followed. The run returned a done report.
 
 ## History
 
