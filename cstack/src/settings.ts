@@ -40,6 +40,7 @@ export type SettingValues = {
   forbiddenTools: string[];
   commitAttribution: string[];
   testCommands: TestCommands | undefined;
+  setupCommand: string | undefined;
   review: Review;
   watchIntervalMinutes: number;
 };
@@ -59,6 +60,7 @@ export const DEFAULTS: SettingValues = {
   forbiddenTools: [],
   commitAttribution: [],
   testCommands: undefined,
+  setupCommand: undefined,
   // "opus" copies the header of skills/resolve-issue/agents/pr-reviewer.md (line 4).
   // The ticket that launches the review (#22) passes a model only when the source of `review` is "file".
   review: { agent: "claude", model: "opus" },
@@ -101,17 +103,18 @@ function quote(v: unknown): string {
   return t.length > 60 ? `${t.slice(0, 60)}...` : t;
 }
 
-function checkTestCommand(v: unknown, path: string, isFile: boolean, forbidden: string[], out: Problem[]): boolean {
+// isFile is null for a command that has no {file} rule, such as setupCommand.
+function checkTestCommand(v: unknown, path: string, isFile: boolean | null, forbidden: string[], out: Problem[]): boolean {
   if (typeof v !== "string" || v.trim() === "" || /\p{Cc}/u.test(v)) {
     out.push({ path, text: `must be a non-empty one-line command with no control character, not ${quote(v)}` });
     return false;
   }
   const count = v.split("{file}").length - 1;
-  if (isFile && count !== 1) {
+  if (isFile === true && count !== 1) {
     out.push({ path, text: `must contain the placeholder {file} exactly once, found ${count}` });
     return false;
   }
-  if (!isFile && count > 0) {
+  if (isFile === false && count > 0) {
     out.push({ path, text: "must not contain {file}. Put a command for one file in testCommands.file" });
     return false;
   }
@@ -267,6 +270,9 @@ export function readSettings(root: string): Settings {
       }
       if (ok && typeof o.all === "string") set("testCommands", { ...o });
     }
+  }
+  if (Object.hasOwn(data, "setupCommand")) {
+    if (checkTestCommand(data.setupCommand, "setupCommand", null, forbidden, problems)) set("setupCommand", data.setupCommand);
   }
   if (Object.hasOwn(data, "review")) {
     const o = checkObjectKeys(data.review, "review", REVIEW_KEYS, REVIEW_KEYS, problems);

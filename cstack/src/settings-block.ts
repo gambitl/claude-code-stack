@@ -7,7 +7,7 @@ export function settingsBlock(settings: Settings): string {
   }
   const lines = (Object.keys(DEFAULTS) as SettingKey[]).map((key) => {
     const value = settings.values[key];
-    const shown = key === "testCommands" && value === undefined ? "not set" : JSON.stringify(value);
+    const shown = value === undefined ? "not set" : JSON.stringify(value);
     return `- ${key}: ${shown}${settings.sources[key] === "default" ? " (default)" : ""}\n`;
   });
   return `Settings of this repository (.cstack/settings.json):\n${lines.join("")}\n`;
