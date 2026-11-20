@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -16,13 +16,13 @@ afterEach(() => {
 
 const approved = readFileSync(new URL("./fixtures/plans/approved.md", import.meta.url), "utf8");
 
-function planText(units: string[]): string {
+function planText(units: string[], filesLine = "`src/a.ts`, `test/a.test.ts`"): string {
   const head = approved.slice(0, approved.indexOf("## Implementation units"));
   const tail = approved.slice(approved.indexOf("## Documentation duties"));
   const body = units
     .map(
       (line, i) =>
-        `### Unit ${i + 1}: Thing ${i + 1}\n- Files: \`src/a.ts\`, \`test/a.test.ts\`\n${line}\n- Minimum code: Write it.\n- Refactor: None.\n- Commit message: \`feat(cli): add ${i + 1}\`\n- Depends on: none\n`,
+        `### Unit ${i + 1}: Thing ${i + 1}\n- Files: ${filesLine}\n${line}\n- Minimum code: Write it.\n- Refactor: None.\n- Commit message: \`feat(cli): add ${i + 1}\`\n- Depends on: none\n`,
     )
     .join("\n");
   return `${head}## Implementation units\n\n${body}\n${tail}`;
@@ -30,7 +30,7 @@ function planText(units: string[]): string {
 
 const TEST_LINE = "- Test: `test/a.test.ts`: a case.";
 
-function setup(units: string[] = [TEST_LINE], settings: string | null = '{"version":1,"testCommands":{"all":"true"}}') {
+function setup(units: string[] = [TEST_LINE], settings: string | null = '{"version":1,"testCommands":{"all":"true"}}', filesLine?: string) {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), "cstack-green-")));
   made.push(dir);
   git(dir, "init", "-b", "main");
@@ -38,7 +38,7 @@ function setup(units: string[] = [TEST_LINE], settings: string | null = '{"versi
   git(dir, "add", ".");
   git(dir, "commit", "-m", "chore: start");
   git(dir, "switch", "-c", "feature");
-  writeFileSync(join(dir, "plan.md"), planText(units));
+  writeFileSync(join(dir, "plan.md"), planText(units, filesLine));
   git(dir, "add", "plan.md");
   git(dir, "commit", "-m", "docs: plan");
   if (settings !== null) {
@@ -320,6 +320,90 @@ describe("cstack unit red", () => {
   }, 30_000);
 });
 
+describe("cstack unit red, files of the unit that already changed", () => {
+  function committed(filesLine?: string) {
+    const dir = setup([TEST_LINE], FILE_SETTINGS, filesLine);
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/a.ts"), "old");
+    git(dir, "add", "src/a.ts");
+    git(dir, "commit", "-m", "feat: a");
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    return dir;
+  }
+  const expectRestart = (stderr: string) => {
+    expect(stderr).toContain("must fail before any code of the unit exists");
+    expect(stderr).toContain("moving code aside to get a failure is not allowed");
+    expect(stderr).toContain("git restore");
+    expect(stderr).toContain("stuck");
+    expect(stderr).toContain("cstack unit red 1");
+  };
+
+  it("refuses a changed code file and saves nothing", async () => {
+    const dir = committed();
+    writeFileSync(join(dir, "src/a.ts"), "new");
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("src/a.ts (changed)");
+    expectRestart(r.stderr);
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("refuses a new code file", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/a.ts"), "new");
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("src/a.ts (new)");
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("refuses a deleted code file", async () => {
+    const dir = committed();
+    rmSync(join(dir, "src/a.ts"));
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("src/a.ts (deleted)");
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("leaves an earlier red.json and green.json as they were after a refusal", async () => {
+    const dir = committed();
+    saveRed(dir);
+    writeFileSync(join(unitFiles(dir), "green.json"), "{}");
+    const before = readFileSync(join(unitFiles(dir), "red.json"), "utf8");
+    writeFileSync(join(dir, "src/a.ts"), "new");
+    expect((await red(dir)).code).toBe(1);
+    expect(readFileSync(join(unitFiles(dir), "red.json"), "utf8")).toBe(before);
+    expect(readFileSync(join(unitFiles(dir), "green.json"), "utf8")).toBe("{}");
+  });
+
+  it("exits with 5 with the message of git when the index is damaged, and saves nothing", async () => {
+    const dir = committed();
+    writeFileSync(join(dir, ".git/index"), "damaged");
+    const r = await red(dir);
+    expect(r.code).toBe(5);
+    expect(r.stderr).not.toBe("");
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("accepts a unit where only the test file and a fixture changed", async () => {
+    const dir = committed("`src/a.ts`, `test/a.test.ts`, `test/fixtures/a.json`");
+    mkdirSync(join(dir, "test/fixtures"));
+    writeFileSync(join(dir, "test/fixtures/a.json"), "{}");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(existsSync(join(unitFiles(dir), "red.json"))).toBe(true);
+  });
+
+  it("accepts a unit whose new module does not exist yet", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    expect((await red(dir)).code).toBe(0);
+  });
+});
+
 describe("cstack unit green, running the test", () => {
   async function redThenCode(settings = FILE_SETTINGS) {
     const dir = setup([TEST_LINE], settings);
@@ -383,6 +467,9 @@ describe("cstack unit green, running the test", () => {
     const r = await green(dir);
     expect(r.code).toBe(1);
     expect(r.stderr).toContain("cstack unit red 1");
+    expect(r.stderr).not.toContain("Set the code aside");
+    expect(r.stderr).toContain("git restore");
+    expect(r.stderr).toContain("stuck");
     expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
   });
 
@@ -426,5 +513,115 @@ describe("cstack unit green, running the test", () => {
     expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
     expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(false);
     expect(existsSync(join(unitFiles(dir), "red.json"))).toBe(true);
+  });
+});
+
+describe("cstack unit green, code older than the latest failing run", () => {
+  async function redThenCode() {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    return dir;
+  }
+  const redFile = (dir: string) => join(unitFiles(dir), "red.json");
+  const startedAt = (dir: string) => Date.parse(JSON.parse(readFileSync(redFile(dir), "utf8")).startedAt);
+  const stamp = (path: string, ms: number) => utimesSync(path, ms / 1000, ms / 1000);
+  const writeA = (dir: string, ms: number) => {
+    writeFileSync(join(dir, "src/a.ts"), "code");
+    stamp(join(dir, "src/a.ts"), ms);
+  };
+
+  it("saves startedAt in red.json, no later than time", async () => {
+    const dir = await redThenCode();
+    const saved = JSON.parse(readFileSync(redFile(dir), "utf8"));
+    expect(Number.isNaN(Date.parse(saved.startedAt))).toBe(false);
+    expect(Date.parse(saved.startedAt)).toBeLessThanOrEqual(Date.parse(saved.time));
+  });
+
+  it("refuses a code file 60 seconds older, names it, runs no test and deletes the earlier passing run", async () => {
+    const dir = await redThenCode();
+    writeFileSync(join(unitFiles(dir), "green.json"), "{}");
+    writeFileSync(join(unitFiles(dir), "green.log"), "old");
+    writeA(dir, startedAt(dir) - 60_000);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("src/a.ts");
+    expect(r.stderr).toContain("git restore");
+    expect(r.stderr).toContain("cstack unit red 1");
+    expect(r.stderr).toContain("earlier passing run is deleted");
+    expect(r.stdout).toBe("");
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(false);
+  });
+
+  it("saves no green.json when it refuses", async () => {
+    const dir = await redThenCode();
+    writeA(dir, startedAt(dir) - 60_000);
+    await green(dir);
+    expect(existsSync(join(unitFiles(dir), "green.json"))).toBe(false);
+  });
+
+  it("accepts a code file 60 seconds newer", async () => {
+    const dir = await redThenCode();
+    writeA(dir, startedAt(dir) + 60_000);
+    expect((await green(dir)).code).toBe(0);
+  });
+
+  it("accepts a code file one second older, inside the margin", async () => {
+    const dir = await redThenCode();
+    writeA(dir, startedAt(dir) - 1_000);
+    expect((await green(dir)).code).toBe(0);
+  });
+
+  it("uses time when red.json has no startedAt", async () => {
+    const dir = await redThenCode();
+    const saved = JSON.parse(readFileSync(redFile(dir), "utf8"));
+    delete saved.startedAt;
+    saved.time = new Date(Date.now() + 3_600_000).toISOString();
+    writeFileSync(redFile(dir), JSON.stringify(saved));
+    writeA(dir, Date.now());
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("src/a.ts");
+  });
+
+  it("uses startedAt, not time, when startedAt is older than time", async () => {
+    const dir = await redThenCode();
+    const saved = JSON.parse(readFileSync(redFile(dir), "utf8"));
+    saved.startedAt = new Date(Date.now() - 3_600_000).toISOString();
+    saved.time = new Date(Date.now() + 3_600_000).toISOString();
+    writeFileSync(redFile(dir), JSON.stringify(saved));
+    writeA(dir, Date.now() - 1_800_000);
+    expect((await green(dir)).code).toBe(0);
+  });
+
+  it("skips a deleted code file", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    mkdirSync(join(dir, "src"));
+    writeFileSync(join(dir, "src/a.ts"), "old");
+    git(dir, "add", "src/a.ts");
+    git(dir, "commit", "-m", "feat: a");
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    rmSync(join(dir, "src/a.ts"));
+    expect((await green(dir)).code).toBe(0);
+  });
+
+  it("ignores an old test file and an old fixture", async () => {
+    const dir = await redThenCode();
+    const old = startedAt(dir) - 60_000;
+    stamp(join(dir, "test/a.test.ts"), old);
+    expect((await green(dir)).code).toBe(0);
+  });
+
+  it("asks for the change of the test file in the report", async () => {
+    const dir = await redThenCode();
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n# edited\n");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(r.stderr).toContain("what changed in the test and why");
   });
 });
