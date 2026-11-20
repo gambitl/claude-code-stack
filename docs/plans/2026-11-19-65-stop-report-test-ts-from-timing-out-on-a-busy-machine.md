@@ -294,7 +294,7 @@ I found no new question after the build. I checked failure modes and rollback, h
 
 ## Non-blocking questions
 
-<phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+none
 
 ## Pull request
 
