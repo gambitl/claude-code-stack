@@ -285,7 +285,8 @@ Independent reviewer: no finding, no change to the branch. The full tests and th
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #70: https://github.com/gambitl/claude-code-stack/issues/70#issuecomment-7034676629
+- Dependent tickets, ADRs and pages: none apply, as "Documentation duties" says. The format decision lives under "Decisions".
 
 ## Executor notes
 
