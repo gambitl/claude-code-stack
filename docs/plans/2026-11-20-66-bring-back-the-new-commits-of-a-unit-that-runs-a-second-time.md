@@ -273,7 +273,9 @@ Independent review (pr-reviewer). It added one test, in commit ec6ae3d, for the 
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #66: https://github.com/gambitl/claude-code-stack/issues/66#issuecomment-7034482876
+- Code comment: the `WHY:` comment above `applyUnits()` in `cstack/src/unit/collect.ts`.
+- Dependent tickets, ADR, README and specification page: nothing to write, as the plan says.
 
 ## Executor notes
 
