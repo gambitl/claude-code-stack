@@ -276,7 +276,10 @@ The independent reviewer found nothing to fix and made no commit. Judgment calls
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Ticket comment on #65: https://github.com/gambitl/claude-code-stack/issues/65#issuecomment-7034211874
+- Dependent tickets: none, the ticket feeds no other ticket.
+- ADR: none, as the plan says. The `WHY:` comment of the `beforeAll` hook records the choice.
+- `CLAUDE.md`: updated by unit 2.
 
 ## Executor notes
 
