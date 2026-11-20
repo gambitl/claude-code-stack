@@ -50,7 +50,8 @@ function commitProblem(root: string, unit: PlanUnit, hash: string): string | und
 // Cstack-Unit trailer and not by their hash.
 // For the same reason, the list of the commits to bring back compares changes and not hashes (git rev-list --cherry-pick):
 // a commit that was cherry-picked before has a new hash on the ticket branch, so a list by hash would offer it again.
-// A commit whose change is already on the ticket branch is left out, unless it comes after a new commit: that case is refused. A merge commit for each unit was rejected,
+// A commit whose change is already on the ticket branch is left out, unless it comes after a new commit: that case is refused.
+// A merge commit for each unit was rejected,
 // because it would add one commit per unit that carries no change of its own.
 // All the commits of one unit go in one cherry-pick call, so that `git cherry-pick --abort`
 // puts the branch back to where it was before that unit.

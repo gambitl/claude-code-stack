@@ -241,7 +241,17 @@ Write "- Answer: open" until someone answers. Number the questions from 1 with n
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes. The only symbol that changed is `applyInto()` in `cstack/src/unit/collect.ts`. Its one caller is `applyUnits()`. `listUnitCommits()` is unchanged, and its other callers are not affected. The tests that exercise the change are `cstack/test/unit/collect.test.ts` and `cstack/test/unit/collect-cleanup.test.ts`. The old skip message now appears only in a test that asserts it is gone, and in older plan files, which are history. The files that usually change with `collect.ts` are its two test files and `cstack/src/commands/unit-collect.ts`, which needs no change.
+
+Correctness reviewer: no finding at high confidence. Three small observations. A commit made on the ticket branch near the unit's lines before the first collect can make a plain second collect exit with 1, which the plan already accepts as a known limit and which loses nothing. A child branch deleted by hand now makes a second collect exit with 1. The guard runs after the `commitProblem()` checks, not before, so with two problems at once the user sees the trailer message first. Judgment call: none of the three is fixed, because they are accepted limits or cosmetic.
+
+Security reviewer: no finding. Git runs without a shell, the range arguments start with `HEAD`, nothing pushes or forces. One older point, outside this ticket: the branch name in the helper record is not checked with `isBranchName`.
+
+Conventions reviewer: no finding.
+
+Simplicity reviewer: no finding.
+
+Fix: one commit splits an over-long `WHY:` comment line that the unit 1 edit had glued to the next sentence.
 
 ## Briefing
 
