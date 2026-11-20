@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, writeFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { dirname, join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { run } from "../src/cli.js";
 import type { Io } from "../src/io.js";
 
@@ -17,6 +17,7 @@ function tmp(prefix: string): string {
 }
 
 afterEach(() => {
+  vi.unstubAllEnvs();
   for (const dir of made.splice(0)) rmSync(dir, { recursive: true, force: true });
 });
 
@@ -83,6 +84,17 @@ async function measure(plan: string, home: string) {
 describe("cstack measure with child worktrees", () => {
   it("counts a session in a child worktree that the plan names, and no other worktree", async () => {
     const { home, plan } = setup();
+    const { out, code } = await measure(plan, home);
+    expect(out.stderr).toBe("");
+    expect(out.stdout).toContain("main sessions: 3\n");
+    expect(out.stdout).toContain("input tokens: 111\n");
+    expect(code).toBe(0);
+  });
+
+  it("expands a ~/ Worktree line with the real home folder, not with --home", async () => {
+    const { home, plan, child } = setup();
+    writeFileSync(plan, readFileSync(plan, "utf8").replace(`- Worktree: ${child}\n`, "- Worktree: ~/child\n"));
+    vi.stubEnv("HOME", dirname(child));
     const { out, code } = await measure(plan, home);
     expect(out.stderr).toBe("");
     expect(out.stdout).toContain("main sessions: 3\n");

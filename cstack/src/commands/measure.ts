@@ -1,4 +1,5 @@
 import { homedir } from "node:os";
+import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { git, MomentsError, readMoments } from "../measure/moments.js";
@@ -49,8 +50,9 @@ export async function measure(args: string[], io: Io): Promise<number> {
     io.stderr("cstack measure: git cannot list the worktrees of the repository.\n");
     return 1;
   }
+  const worktrees = moments.worktrees.map((path) => (path.startsWith("~/") ? join(homedir(), path.slice(2)) : path));
   const end = moments.ready ?? new Date();
-  const result = await measureSessions(parsed.values.home ?? homedir(), moments.root, moments.approval, end, listed, moments.worktrees);
+  const result = await measureSessions(parsed.values.home ?? homedir(), moments.root, moments.approval, end, listed, worktrees);
   const lines = [
     `main sessions: ${result.mainSessions}`,
     `helper transcripts: ${result.helperTranscripts}`,
