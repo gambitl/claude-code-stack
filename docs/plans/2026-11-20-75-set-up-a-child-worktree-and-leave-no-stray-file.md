@@ -340,7 +340,39 @@ none
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): set up a child worktree for its implementer and leave no stray file in it
+
+````markdown
+## What this does
+
+When two units of a ticket run at the same time, each implementer works in its own child worktree. That worktree starts with no installed packages. This pull request lets the implementer install them, and it keeps stray files out of the worktree.
+
+The settings file `.cstack/settings.json` now accepts an optional `setupCommand`, such as `npm ci`. It follows the same rules as a test command. `cstack helper start` puts the command in the implementer's inputs, and the implementer runs it first, before its first test run. `cstack helper start` does not run it. Without the key, the implementer installs as the conventions file says, with a command that does not change the lock file.
+
+`cstack helper done` now refuses a `done` report while the child worktree holds any uncommitted change, except the plan file. This is the rule that `cstack unit collect` already uses. The message names each file, gives the command that fixes it, and lists at most twenty files. A `stuck` report is never checked.
+
+The implementer prompt explains the install and clean-up rules. The README has two new sentences about `setupCommand` and one about the Script Editor notification setting on macOS.
+
+## Decisions
+
+The implementer runs the setup command, not `cstack helper start`, so cstack never runs a command from a settings file by itself. The refusal covers every uncommitted file, so it agrees with `cstack unit collect`. During review I fixed one bug: `git status` stopped at Node's one megabyte output limit, so a worktree with thousands of untracked files made the command exit with 5. A test with 9000 file names now covers it.
+
+## Judgment calls from the independent review
+
+A staged file outside the unit gets a `git restore` hint that does nothing, but implementers never run `git add`. The README line of `cstack helper done` does not mention the new refusal, because #74 edits that area. A short follow-up fits after both merge. The settings are read after two read-only Orca checks, which changes nothing.
+
+## Follow-ups
+
+`shellQuote` now exists in three places, and the git status parsing repeats the one in `cstack unit collect`. This repository's own settings file still needs a `setupCommand`. Add it only after version 0.3.1 is installed on every machine that runs cstack here, because version 0.3.0 refuses an unknown key.
+
+## Checks
+
+`npm run typecheck` and the whole `npm test` pass.
+
+The plan file is `docs/plans/2026-11-20-75-set-up-a-child-worktree-and-leave-no-stray-file.md`.
+
+Fixes #75
+````
 
 ## Documentation
 
