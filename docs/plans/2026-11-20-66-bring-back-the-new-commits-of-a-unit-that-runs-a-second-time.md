@@ -294,6 +294,7 @@ I checked security and authorization, data model lock-in, scale and performance,
 <phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request, word for word, each with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
 
 - Should a later ticket let `cstack helper start` start a second attempt of a collected unit in a new child worktree? Today it refuses, because a unit with a commit on the ticket branch is not in the first batch of `cstack unit order` (`cstack/src/helper/start.ts`, line 152). For: the user. From the question round, open, not needed for this ticket.
+- When a second `cstack unit collect` stops because the cherry-pick of an old commit is now empty, the message ends with git's own advice, which no longer applies after the abort. Should a later ticket make the collect say plainly that this commit's change is already on the ticket branch, and name the new commits that are still to apply, or drop such empty commits with `git cherry-pick --empty=drop`? For: the user. From the briefing, not needed for this ticket.
 
 ## Pull request
 
