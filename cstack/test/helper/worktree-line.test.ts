@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
 import { tmpdir } from "node:os";
@@ -91,7 +92,11 @@ describe("the Worktree line of a child worktree", () => {
     commitFiles(child, [file], 2);
     saveUnitReport({ root: t.dir, planFile: PLAN }, 2, { kind: "done", text: "ok", helper: id });
     const { io } = collect();
-    const run: Runner = async () => ({ kind: "ok", stdout: '{"ok":true}' });
+    // Like Orca, the fake removes the worktree, so that git lets the collect delete its branch.
+    const run: Runner = async (_command, args) => {
+      if (args[0] === "worktree" && args[1] === "rm") spawnSync("git", ["worktree", "remove", args[3]!.replace(/^path:/, "")], { cwd: t.dir });
+      return { kind: "ok", stdout: '{"ok":true}' };
+    };
     expect(await unitCollect(["2", "--plan", PLAN], io, { cwd: t.dir, orca: { run, env: {} } })).toBe(0);
     expect(readFileSync(join(t.dir, PLAN), "utf8").split("### Unit 2")[1]).toContain(`- Worktree: ${child}`);
   });

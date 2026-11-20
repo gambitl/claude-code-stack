@@ -23,6 +23,8 @@ export interface HelperRecord {
   /** The child worktree of the helper, when it has one. */
   worktree?: { path: string; branch: string };
   released?: boolean;
+  /** When `cstack unit collect` applied the commits of the helper to the ticket branch. */
+  appliedAt?: string;
   collectedAt?: string;
 }
 
