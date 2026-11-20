@@ -1,6 +1,7 @@
 import { readFileSync, realpathSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { basename, join } from "node:path";
+import { tmpdir } from "node:os";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { unitCollect } from "../../src/commands/unit-collect.js";
 import { saveUnitReport } from "../../src/report/reports.js";
 import { helperStart } from "../../src/commands/helper-start.js";
@@ -48,7 +49,23 @@ function setup(options: { plan?: string; env?: Record<string, string>; features?
 }
 
 
+afterEach(() => vi.unstubAllEnvs());
+
 describe("the Worktree line of a child worktree", () => {
+  it("writes a child worktree inside the home folder as ~/ and keeps the absolute path in the record", async () => {
+    const t = setup();
+    vi.stubEnv("HOME", realpathSync(tmpdir()));
+    expect(await t.run(["implementer", "--unit", "2", "--plan", PLAN, "--child-worktree"])).toBe(0);
+    const args = t.starts()[0]!.args;
+    const child = realpathSync(`${t.dir}-child-${args[args.indexOf("--name") + 1]}`);
+    const unit2 = readFileSync(join(t.dir, PLAN), "utf8").split("### Unit 2")[1]!;
+    expect(unit2).toContain(`- Worktree: ~/${basename(child)}\n`);
+    const id = t.out.stdout.split("\n")[0]!;
+    const record = JSON.parse(readFileSync(join(runFolder(t.dir, PLAN), "helpers", `${id}.json`), "utf8"));
+    expect(record.worktree.path).toBe(child);
+    expect(t.out.stderr).toBe("");
+  });
+
   it("records the child in the plan, the helper record and the current run of the child", async () => {
     const t = setup();
     expect(await t.run(["implementer", "--unit", "2", "--plan", PLAN, "--child-worktree"])).toBe(0);

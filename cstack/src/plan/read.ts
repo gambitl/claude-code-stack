@@ -392,8 +392,8 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
   if (values["Worktree"]) {
     const { text, line } = values["Worktree"];
     // eslint-disable-next-line no-control-regex
-    if (!text.startsWith("/") || /[\u0000-\u001f\u007f]/.test(text)) {
-      problems.push({ line, rule: "`- Worktree:` holds one absolute path with no control character." });
+    if (!(text.startsWith("/") || text.startsWith("~/")) || /[\u0000-\u001f\u007f]/.test(text)) {
+      problems.push({ line, rule: "`- Worktree:` holds one path that starts with `/` or `~/`, with no control character." });
     } else unit.worktree = text;
   }
   // An empty Blocked line would let the build check skip a unit with no reason.

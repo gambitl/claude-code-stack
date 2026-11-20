@@ -1,3 +1,4 @@
+import { realpathSync } from "node:fs";
 import { readPlan } from "./read.js";
 
 const WORKTREE_LINE = /^- Worktree:/;
@@ -49,4 +50,28 @@ export function withoutWorktreeLines(text: string): string {
     }
   }
   return text.split("\n").filter((_, index) => !drop.has(index)).join("\n");
+}
+
+// Returns the path with `~/` in place of the home folder when the path is inside it.
+// The home folder is checked as given and with symbolic links resolved.
+export function worktreeValue(path: string, home: string): string {
+  if (home === "" || home === "/") return path;
+  let resolved = home;
+  try {
+    resolved = realpathSync(home);
+  } catch {
+    // The given form is the fallback.
+  }
+  for (const candidate of new Set([home, resolved])) {
+    if (candidate === "" || candidate === "/") continue;
+    const prefix = candidate.endsWith("/") ? candidate : `${candidate}/`;
+    if (path.startsWith(prefix) && path.length > prefix.length) return `~/${path.slice(prefix.length)}`;
+  }
+  return path;
+}
+
+// Returns the warning line for a Worktree value that still holds a home folder path.
+export function homePathWarning(unit: number, value: string): string | undefined {
+  if (!/^\/(?:Users|home)\//.test(value)) return undefined;
+  return `The Worktree line of unit ${unit} still starts with /Users/ or /home/, so the plan file holds a home folder path. Check HOME before you commit the plan file.\n`;
 }
