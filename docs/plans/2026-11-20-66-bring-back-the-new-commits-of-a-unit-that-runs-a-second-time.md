@@ -257,7 +257,37 @@ Independent review (pr-reviewer). It added one test, in commit ec6ae3d, for the 
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack unit collect` now brings back the new commits of a unit that runs a second time, in the same child worktree or in a new one. It compares changes instead of hashes. It refuses with exit 1 the one case where that comparison would lose a change without a word. This does what the ticket asked: I ran the type check and the full test suite again myself, and all 1350 tests pass.
+
+**What to watch**
+
+- A second collect can now stop with exit 1 in two new cases. The first is the guard: a second attempt removes a line, then puts it back exactly as before. The second happens when the copy of a commit changed, during a rebase or because of a nearby commit on the ticket branch. In that case, the message is git's own, and it says the cherry-pick is empty. Nothing is lost in either case, and the build guide passes the message to you for a decision. The second message is unclear, so I wrote down a question for a later ticket.
+- Today, `cstack helper start` almost never restarts a collected unit in a child worktree. The only real path is an escalation that reuses a child worktree that the collect could not remove. So this code runs mostly in tests until someone decides whether `cstack helper start` should allow that case.
+
+**What changed since the plan**
+
+- Units 1 and 2 share one commit with two `Cstack-Unit` trailers, because the first implementer also wrote the guard.
+- The guard runs after the checks of each commit (trailer and files), not before them. The result and the exit code are the same. Only the first message differs when both problems exist.
+- A second collect of a unit whose child branch was deleted by hand now exits with 1, instead of skipping the unit.
+- The independent review added one test: a child worktree whose new commit was refused is never removed.
+
+### Details
+
+I checked the build against the ticket on 2026-11-20. In `cstack/src/unit/collect.ts`, `applyInto()` no longer skips a unit that has a commit on the ticket branch (the old lines 85 to 89 are gone). It lists the commits twice. The first list goes by hash, with `git rev-list --reverse HEAD..refs/heads/<child> --` (line 100). The second list goes by content, with `git rev-list --reverse --right-only --cherry-pick HEAD...refs/heads/<child> --` (line 101). Only the commits of the second list are applied. The report check still comes before the listing (line 89). So a second attempt that has not reported is skipped, and its worker and worktree are left alone. An empty list counts as collected only when `listUnitCommits()` finds a commit of the unit on the ticket branch (line 108). That keeps the test "finishes the clean-up on a second run without applying anything again" green. I ran `npm run typecheck` and the full `npm test` in `cstack/` myself, on the branch at 3ccfc38. The type check passed, and 116 files with 1350 tests passed in 101 seconds. This answers the doubt in "Executor notes", where one unnamed test failed once after the rebase. The branch already contains the pull request of #31 (#69). It is 13 commits behind `origin/main`, all from #71, which changes only `cstack/test/report.test.ts`, `CLAUDE.md` and docs, so no conflict is expected.
+
+The first point to watch is the two new ways a second collect exits with 1. The guard (lines 121 to 129) refuses when a commit that the comparison by content leaves out comes after a kept commit. That is the case of a line removed and put back exactly as before in a reused child worktree. The message names the commit and says that nothing was applied. The known limit from "Code mapping" also stays. Sometimes the copy of a commit gets another patch id. That happens when a rebase solves a conflict in the copy, or when a commit on the ticket branch changed nearby lines before the first collect. A second collect then lists the old commit again. Its cherry-pick is empty, the collect aborts it, and the message ends with git's stderr. That stderr suggests `git commit --allow-empty` or `git cherry-pick --skip`, which no longer apply because the cherry-pick was already aborted. `cstack/guides/resolve-issue/build.md` (line 22) turns any exit 1 of the collect into a report that asks the user for a decision and quotes the message, so neither case is silent. By default, the user then has to apply the new commits by hand. The rejected alternative was `git cherry-pick --empty=drop`, which would remove the limit, but it is a behaviour change that deserves its own ticket and its own tests.
+
+The second point to watch is how rarely real runs reach this code today. Child worktrees need Orca (`cstack/src/helper/start.ts`, line 255). With Orca, `cleanUp()` removes a clean child worktree and sets `collectedAt` after the collect. `cstack helper start` then refuses a new child worktree for a unit that already has a commit (`checkChildStart()`, line 152), and it reuses a child worktree only when its record has no `collectedAt` (line 199). So the only path a run takes today is an escalation in a child worktree that the collect could not remove, because it was dirty or Orca refused. The new-worktree case is reached only by the tests, which build it by hand. The open question about `cstack helper start` from the question round decides when this changes.
+
+Four things differ from the plan. The implementer of unit 1 also built the guard, so units 1 and 2 share commit 3c23b3d with two `Cstack-Unit` trailers, which the plan format allows. The plan put the guard before `commitProblem()`, and the build put it after (lines 114 to 129). Both refuse with exit 1 before any cherry-pick and apply nothing, so only the first message differs when a commit has both problems. I accept this and do not ask for a change. A child branch deleted by hand used to reach the old skip when the unit had a commit on the ticket branch. It now makes `git rev-list` fail and the collect exit with 1, which is louder and loses nothing. The independent review added a test in commit a037e42 for the acceptance line that a child worktree whose new commits were not applied is never removed.
+
+The earlier questions are resolved as follows. Blocking question 1, how the collect finds the new commits, was answered by the user on 2026-11-20: compare by content and add the guard. The build does exactly that, and the test of the line removed and put back covers the guard. The leaving out of `--no-merges` and the distinct hash of each copy in the tests were applied as accepted. The question about `cstack helper start` stays open and non-blocking, and it is already in "Non-blocking questions".
+
+One new question came up, and it is non-blocking, because the work is complete and correct whatever the answer. It is for the user, word for word: "When a second `cstack unit collect` stops because the cherry-pick of an old commit is now empty, the message ends with git's own advice, which no longer applies after the abort. Should a later ticket make the collect say plainly that this commit's change is already on the ticket branch, and name the new commits that are still to apply, or drop such empty commits with `git cherry-pick --empty=drop`?"
+
+I checked security and authorization, data model lock-in, scale and performance, operations and cost, reversibility and the edge cases of a user interface, and found nothing new for this build. The change stores nothing, so reverting commit 3c23b3d restores the old behaviour.
 
 ## Non-blocking questions
 
