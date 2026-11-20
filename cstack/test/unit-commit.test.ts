@@ -3,6 +3,7 @@ import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSy
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { matchMention } from "../src/manifest.js";
 import { unitCommit } from "../src/commands/unit-commit.js";
 import type { Io } from "../src/io.js";
 
@@ -58,10 +59,10 @@ function setup(units: U[]) {
 
 const write = (dir: string, file: string, text = "changed") => writeFileSync(join(dir, file), text);
 
-async function commit(dir: string, n = "1", wait = 300) {
+async function commit(dir: string, n = "1", wait = 300, extra: string[] = []) {
   const out = { stdout: "", stderr: "" };
   const io: Io = { stdout: (t) => (out.stdout += t), stderr: (t) => (out.stderr += t) };
-  const code = await unitCommit([n, "--plan", "plan.md"], io, dir, wait);
+  const code = await unitCommit([n, ...extra, "--plan", "plan.md"], io, dir, wait);
   return { code, ...out };
 }
 
@@ -330,6 +331,102 @@ describe("cstack unit commit", () => {
       const r = await commit(dir);
       expect(r.stderr).toContain("later");
       expect(r.stderr).toContain("passing run");
+    });
+  });
+
+  describe("--message", () => {
+    const subject = (dir: string, rev = "HEAD") => git(dir, "log", "-1", "--format=%s", rev);
+    const second = async (dir: string, extra: string[] = []) => {
+      write(dir, "src/a.ts", "one");
+      expect((await commit(dir)).code).toBe(0);
+      write(dir, "src/a.ts", "two");
+      return commit(dir, "1", 300, extra);
+    };
+
+    it("refuses a second commit of a unit without --message and commits nothing", async () => {
+      const dir = setup(two);
+      write(dir, "src/a.ts", "one");
+      await commit(dir);
+      write(dir, "src/a.ts", "two");
+      const head = git(dir, "rev-parse", "HEAD");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("--message");
+      expect(r.stderr).toContain("feat(cli): add 1");
+      expect(r.stderr).toContain('cstack unit commit 1 --message "');
+      expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+      expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+    });
+
+    it("gives a second commit the subject of --message, with the trailer last", async () => {
+      const dir = setup(two);
+      const r = await second(dir, ["--message", "fix: add the missing cases"]);
+      expect(r.code).toBe(0);
+      expect(git(dir, "log", "-1", "--format=%B")).toBe("fix: add the missing cases\n\nCstack-Unit: 1");
+    });
+
+    it("keeps the subject of the plan on a first commit without --message", async () => {
+      const dir = setup(two);
+      write(dir, "src/a.ts");
+      expect((await commit(dir)).code).toBe(0);
+      expect(subject(dir)).toBe("feat(cli): add 1");
+    });
+
+    it("uses --message on a first commit, trimmed at both ends", async () => {
+      const dir = setup(two);
+      write(dir, "src/a.ts");
+      expect((await commit(dir, "1", 300, ["--message", "  fix: own subject  "])).code).toBe(0);
+      expect(git(dir, "log", "-1", "--format=%B")).toBe("fix: own subject\n\nCstack-Unit: 1");
+    });
+
+    it("refuses a --message equal to an earlier subject, also in another case or with spaces", async () => {
+      for (const same of ["feat(cli): add 1", "  FEAT(cli): Add 1  "]) {
+        const dir = setup(two);
+        const r = await second(dir, ["--message", same]);
+        expect(r.code).toBe(1);
+        expect(r.stderr).toContain("feat(cli): add 1");
+        expect(r.stderr).toContain("cstack unit commit 1 --message");
+        expect(subject(dir)).toBe("feat(cli): add 1");
+        expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+      }
+    });
+
+    it("rejects an empty value, spaces only and a line break with exit 2 and stages nothing", async () => {
+      for (const bad of ["", "   ", "a\nb"]) {
+        const dir = setup(two);
+        write(dir, "src/a.ts");
+        const r = await commit(dir, "1", 300, ["--message", bad]);
+        expect(r.code).toBe(2);
+        expect(r.stderr).toContain("Usage: cstack unit commit <n> [--message <subject>] [--plan <file>]");
+        expect(git(dir, "diff", "--cached", "--name-only")).toBe("");
+      }
+    });
+
+    it("names each earlier subject of the unit once, with no empty subject", async () => {
+      const dir = setup(two);
+      expect((await second(dir, ["--message", "fix: two"])).code).toBe(0);
+      write(dir, "src/a.ts", "three");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain('with the subject "fix: two", "feat(cli): add 1". Give');
+      expect(r.stderr).not.toContain('""');
+    });
+
+    it("lists the missing --message together with another broken rule", async () => {
+      const dir = setup([{ files: ["src/a.ts"] }, { files: ["src/b.ts"] }]);
+      write(dir, "src/a.ts", "one");
+      await commit(dir);
+      write(dir, "src/a.ts", "two");
+      write(dir, "src/b.ts");
+      git(dir, "add", "src/b.ts");
+      const r = await commit(dir);
+      expect(r.code).toBe(1);
+      expect(r.stderr).toContain("--message");
+      expect(r.stderr).toContain("src/b.ts is staged");
+    });
+
+    it("is accepted in a mention of the command list", () => {
+      expect(matchMention('unit commit 1 --message "x" --plan plan.md').ok).toBe(true);
     });
   });
 });
