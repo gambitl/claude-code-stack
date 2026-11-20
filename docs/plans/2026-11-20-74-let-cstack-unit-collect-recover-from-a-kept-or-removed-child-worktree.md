@@ -361,7 +361,10 @@ I found no new question for anyone. These locked decisions stay as they are: the
 ## Non-blocking questions
 
 - "When a child worktree folder was removed with git or by hand, does Orca still show that worktree in its list?" For the maintainer, during the next run with a real Orca.
-- "When `orca worktree rm` removes a child worktree, does it also delete the branch of that worktree?" For the maintainer, during the next run with a real Orca.
+- "Should `cstack unit collect` also check that the ticket branch still holds commits of the unit before it trusts `appliedAt` for a gone child branch? Today, if someone resets the ticket branch after the collect and then deletes the child branch, the command still answers 0." For the maintainer. The work stays correct whatever the answer, so it can be a follow-up ticket.
+- "Should the plan path in the suggested `--discard-untracked` command be quoted, so that it also works for a folder name with spaces?" For the maintainer, as a small follow-up.
+
+(The earlier question about whether `orca worktree rm` deletes the child branch is answered: it does not. The two child branches that this ticket's own build left behind show it.)
 
 ## Pull request
 
