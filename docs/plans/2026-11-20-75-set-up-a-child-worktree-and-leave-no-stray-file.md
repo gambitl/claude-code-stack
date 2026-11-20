@@ -192,6 +192,7 @@ Each unit commit carries the trailer "Cstack-Unit: <n>" in the final paragraph o
 - Refactor: none.
 - Commit message: feat(cli): read an optional setupCommand from the settings file
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/child-setup-unit-1-110503
 
 The existing cases that list every key change with this unit. They are the file with only the version, the full file, and the example settings file, which now holds every key except `testCommands`, `setupCommand` and `review`. In `cstack/test/next-settings.test.ts`, the printed key list gains `setupCommand` after `testCommands`, and a file without the key prints `- setupCommand: not set (default)`.
 
@@ -212,6 +213,7 @@ Add a case to `cstack/test/helper/child-escalation.test.ts`: with the key commit
 - Refactor: none.
 - Commit message: feat(cli): refuse a done report while the child worktree holds uncommitted changes
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/child-setup-unit-3-110509
 
 Add these cases to the same test file. A tracked file outside the `Files` line that is changed gets `git restore -- '<file>'`. A changed file of the unit gets the hint to commit it with `cstack unit commit` or to undo it. A changed plan file alone is accepted. An `implementer-escalation` record with a `worktree` is checked the same way. More than twenty stray files list twenty and say how many more. A record whose worktree folder does not exist exits with 5. An implementer record without a `worktree` is not checked. Do not change `cstack/src/helper/child.ts` or `cstack/src/unit/collect.ts`.
 
@@ -222,6 +224,7 @@ Add these cases to the same test file. A tracked file outside the `Files` line t
 - Refactor: none.
 - Commit message: docs(skill): tell the implementer how to set up and clean up its worktree
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/child-setup-unit-4-110515
 
 ### Unit 5: Document setupCommand and the Script Editor setting in the README
 - Files: `README.md`
@@ -230,6 +233,7 @@ Add these cases to the same test file. A tracked file outside the `Files` line t
 - Refactor: none.
 - Commit message: docs: document setupCommand and the Script Editor setting in the README
 - Depends on: none
+- Worktree: ~/orca/workspaces/claude-code-stack/child-setup-unit-5-110529
 
 Follow the documentation writing rules of this repository: one idea per sentence, plain words, and sentences under about twenty-five words. Do not touch the line of `cstack unit collect` or the line of `cstack helper done`.
 
@@ -292,11 +296,11 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+Nothing this time.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-20: I moved #75 to "in progress" with `cstack tracker move`, committed the plan file, and built units 1, 3, 4 and 5 in child worktrees, then unit 2 in the ticket worktree. All five units are committed.
 
 ## History
 
