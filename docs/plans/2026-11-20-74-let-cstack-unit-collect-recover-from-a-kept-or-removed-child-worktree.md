@@ -319,7 +319,44 @@ The independent reviewer found no defect in the code. It added one test, which c
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack unit collect` now finishes when the folder or the branch of a child worktree is gone, as long as cstack has already applied its commits. It deletes the child branch once all its changes are on the ticket branch. The option `--discard-untracked` removes a worktree that only holds untracked files. This covers the five points of the ticket. I ran again the 206 tests of the files involved and the type check, and everything passes.
+
+**What you need to do**
+
+- You can delete by hand the two child branches of this ticket, `gambitl/collect-recover-unit-1-110151` and `gambitl/collect-recover-unit-6-110157`. Version 0.3.0 left them behind. I checked that all their changes are already on the ticket branch. Nothing breaks if you keep them.
+
+**What to watch**
+
+- On the first real run with Orca on 0.3.1, the branch deletion will run for every collected unit. I checked on this repository that the real `orca worktree rm` removes the worktree but leaves the branch. Check that the command ends with 0 and prints "was deleted. It pointed to …". An exit code 5 at that point means that `git branch -D` refused.
+- The old hash of a deleted branch exists only in the output of the command. It is not saved in the file that cstack keeps for each helper. Git deletes those commits after about two weeks, so anyone who needs them must find the hash in the log of the run quickly.
+
+**What changed since the plan**
+
+- After the review, when git cannot drop its entry for a missing worktree folder, the unit stays open and the command exits with 5. The plan marked it as collected.
+- cstack also runs `git worktree prune` right before `git branch -D`, which the plan did not have. It acts on the whole repository, but only on worktrees whose folder is gone.
+- One open question now has its answer. The real Orca does not delete the child branch, as the two branches left by this ticket show.
+
+### Details
+
+What was built matches the ticket. All five points of the scope are in the diff, in `cstack/src/unit/collect.ts`, `cstack/src/helper/record.ts`, `cstack/src/commands/unit-collect.ts`, the `cstack unit collect` entry of `cstack/src/manifest.ts`, step 7 of `cstack/guides/resolve-issue/build.md` and the `cstack unit collect` line of `README.md`. One acceptance point is met in a different way than the ticket words it, on purpose. The ticket accepts a gone branch when the ticket branch holds commits of the unit. The code accepts it only when a helper record that shares the child worktree path has `appliedAt`, as the user decided for blocking question 3. On commit `1861ab6`, I ran the thirteen test files under `cstack/test/unit/`, plus `cstack/test/helper/worktree-line.test.ts`, `cstack/test/e2e/orca.test.ts`, `cstack/test/cli.test.ts`, `cstack/test/manifest-implemented.test.ts` and `cstack/test/guides/build-helpers.test.ts`. All 206 tests passed, and `npm run typecheck` passed. The independent review ran the full suite.
+
+The three blocking questions are resolved as answered. The option is named `--discard-untracked` in `UNIT_COLLECT_USAGE`, in the `parseArgs` options and in the manifest. `deleteChildBranch()` in `collect.ts` deletes the child branch with `git branch -D`, only when `git rev-list --right-only --cherry-pick HEAD...refs/heads/<child>` is empty. Its output line gives the short hash and the full restore command `git branch <name> <hash>`. `applyInto()` writes `appliedAt` after a successful cherry-pick, and also when the child branch has no new commit and `listUnitCommits()` finds the unit. A gone branch is accepted only when one record of the unit with the same worktree path has `appliedAt`. Otherwise the command exits with 1, and the test added by the independent reviewer covers that refusal.
+
+The non-blocking question "When `orca worktree rm` removes a child worktree, does it also delete the branch of that worktree?" is answered: no. Units 1 and 6 of this ticket were collected by the installed cstack 0.3.0 through the real Orca. Their worktrees are gone from `git worktree list` and from the disk. Their branches `gambitl/collect-recover-unit-1-110151` and `gambitl/collect-recover-unit-6-110157` still exist. The other non-blocking question stays open, still non-blocking: "When a child worktree folder was removed with git or by hand, does Orca still show that worktree in its list?" It is for the maintainer, during the next run with a real Orca. cstack never calls Orca for a missing folder, so the answer does not change the code.
+
+The two branches left by 0.3.0 are safe to delete. `git rev-list --right-only --cherry-pick --count HEAD...<branch>` prints 0 for both, so every change of them is on the ticket branch. The rule of this run says that no agent removes a branch with `git`, so only the user can delete them, with `git branch -D`. By default they stay, which costs nothing but clutter.
+
+The first real run on 0.3.1 exercises a path that the tests only cover with fakes. After Orca removes a child worktree, cstack reads the branch, compares it by change, runs `git worktree prune` and then `git branch -D`. Real Orca does not lock its worktrees: none of the three worktrees of this repository carries a `locked` line in `git worktree list --porcelain`. That matters, because I tested a locked worktree whose folder was deleted in a scratch repository with git 2.55.0. There, `git worktree remove` exits with 128, `git worktree prune` skips it, and `git branch -D` refuses with "used by worktree". If a future Orca locks its worktrees, the missing-folder path would leave the unit open with exit 5 on every retry, and the run would end as failed. When `git branch -D` fails after a successful removal, `collectedAt` is already written. The rule of `cstack/skills/resolve-issue/agents/executor.md` line 44 retries once on exit 5. That retry ends with 0, and the branch then stays for good. This follows the recorded decision that a failed branch deletion keeps the unit collected.
+
+The old tip of a deleted branch is printed but not stored. After `git branch -D`, the reflog of the branch is gone, and so is the reflog of the removed worktree. The commits become unreachable, and `git gc` prunes them after `gc.pruneExpire`, two weeks by default. A cheap follow-up is an optional field such as `deletedBranchTip` in `HelperRecord`, added the same way as `appliedAt`. Nobody needs to decide it for this ticket.
+
+Three things changed since the plan. First, the correctness review found that a failed `git worktree remove` on a missing folder still wrote `collectedAt`, so no later call could delete the branch. The code now reports the git error, sets exit 5 and leaves the unit open, and a test covers it. Second, `deleteChildBranch()` runs `git worktree prune` before `git branch -D`, because git refuses to delete a branch that an entry of a missing worktree still names. That command drops the entries of every unlocked worktree whose folder is missing, not only the one of this unit. In practice this only affects worktrees that are already broken. Third, the fake Orca of `cstack/test/helper/worktree-line.test.ts` now runs `git worktree remove`, as the real Orca does, because the branch deletion needs the worktree gone.
+
+Four follow-ups are possible, and none of them blocks this ticket. Someone who resets the ticket branch after a collect and then deletes the child branch still gets exit 0, because `appliedAt` is trusted without checking the ticket branch again. A branch kept because it holds a change that is not applied stays recorded as collected, so no later call looks at it again. The kept-worktree message says "because it is" for a list of several entries. The suggested command prints the plan path without quotes, which only matters for a path with spaces.
+
+I found no new question for anyone. These locked decisions stay as they are: the files of ticket #75, the version `0.3.1`, the rule that no agent removes a worktree or a branch with `git`, and ADR-SIC-A and ADR-SIC-B. I checked security and authorization, data model lock-in, scale, user-facing edge cases, operations and cost, and hidden coupling, and found nothing more. `--discard-untracked` deletes only relative paths that `git status` lists inside the child worktree. The new `appliedAt` field is optional, and `cstack/src/helper/start.ts` reads only `collectedAt`. No other code in `cstack/src/` reads the child branch of a helper record, except the escalation in `start.ts`, which never runs for a collected unit.
 
 ## Non-blocking questions
 
