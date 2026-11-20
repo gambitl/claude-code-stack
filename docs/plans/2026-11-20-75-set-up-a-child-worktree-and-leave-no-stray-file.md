@@ -355,15 +355,15 @@ The implementer prompt explains the install and clean-up rules. The README has t
 
 ## Decisions
 
-The implementer runs the setup command, not `cstack helper start`, so cstack never runs a command from a settings file by itself. The refusal covers every uncommitted file, so it agrees with `cstack unit collect`. During review I fixed one bug: `git status` stopped at Node's one megabyte output limit, so a worktree with thousands of untracked files made the command exit with 5. A test with 9000 file names now covers it.
+The implementer runs the setup command, not `cstack helper start`. One `orca orchestration worker-start` call creates the child worktree and starts the agent, so cstack has no moment between the two. The refusal covers every uncommitted file, so it agrees with `cstack unit collect`. During review I fixed one bug: `git status` stopped at Node's one megabyte output limit, so a worktree with thousands of untracked files made the command exit with 5. A test with 9000 file names now covers it.
 
 ## Judgment calls from the independent review
 
-A staged file outside the unit gets a `git restore` hint that does nothing, but implementers never run `git add`. The README line of `cstack helper done` does not mention the new refusal, because #74 edits that area. A short follow-up fits after both merge. The settings are read after two read-only Orca checks, which changes nothing.
+A staged file outside the unit gets a `git restore` hint that does nothing, but implementers never run `git add`. The README line of `cstack helper done` does not mention the new refusal. This branch changes only the README lines about the settings and about `--watch`, because #74 edits the README at the same time. A short follow-up fits after both merge. The settings are read after two read-only Orca checks, which changes nothing.
 
 ## Follow-ups
 
-`shellQuote` now exists in three places, and the git status parsing repeats the one in `cstack unit collect`. This repository's own settings file still needs a `setupCommand`. Add it only after version 0.3.1 is installed on every machine that runs cstack here, because version 0.3.0 refuses an unknown key.
+`shellQuote` now exists in three places, and the git status parsing repeats the one in `cstack unit collect`. This repository's own settings file still needs a `setupCommand`. Add it only after version 0.3.1 is installed on every machine that runs cstack here, because version 0.3.0 refuses an unknown key. The settings of the comparison sandbox of #32 need the same key.
 
 ## Checks
 
