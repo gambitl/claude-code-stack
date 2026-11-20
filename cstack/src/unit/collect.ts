@@ -106,7 +106,10 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       continue;
     }
     const child = record.worktree.branch.replace(/^refs\/heads\//, "");
-    const markApplied = () => updateRecord(folder, record.id, { appliedAt: now().toISOString() });
+    const markCollected = () => {
+      touched[touched.length - 1]!.collected = true;
+      updateRecord(folder, record.id, { appliedAt: now().toISOString() });
+    };
     if (!git(root, ["rev-parse", "--verify", "--quiet", `refs/heads/${child}`]).ok) {
       // WHY: a branch that is gone proves nothing by itself. Only the time that cstack wrote after it applied the commits does.
       // The same worktree path can hold several attempts, so the records of the other attempts count too.
@@ -130,8 +133,7 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
     const commits = list.stdout.split("\n").filter(Boolean);
     if (commits.length === 0) {
       if ((listUnitCommits(root, plan.header["Target branch"]).units[number] ?? []).length > 0) {
-        touched[touched.length - 1]!.collected = true;
-        markApplied();
+        markCollected();
       }
       skip(number, `the branch "${child}" has no commit that the ticket branch lacks`);
       continue;
@@ -161,8 +163,7 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       );
       return 1;
     }
-    touched[touched.length - 1]!.collected = true;
-    markApplied();
+    markCollected();
     io.stdout(`Unit ${number}: applied ${commits.length === 1 ? "1 commit" : `${commits.length} commits`}.\n`);
   }
   return 0;
@@ -203,6 +204,8 @@ function deleteChildBranch(root: string, number: number, path: string, branch: s
     io.stdout(`Unit ${number}: the child worktree ${path} ${how}. Its branch ${branch} was kept, because it holds a change that the ticket branch lacks.\n`);
     return true;
   }
+  // Drops the entries of worktrees whose folder is gone, because git refuses to delete a branch that such an entry still names.
+  git(root, ["worktree", "prune"]);
   const deleted = git(root, ["branch", "-D", branch]);
   if (!deleted.ok) {
     io.stderr(`Unit ${number}: git could not delete the branch ${branch}: ${deleted.stderr}\n`);
@@ -237,7 +240,15 @@ async function cleanUp(located: LocatedPlan, plan: PlanRead, touched: Touched[],
     // Git may still list it. Removing a listed folder that does not exist only drops git's entry.
     const listedAs = listWorktrees(located.root).find((w) => samePath(w.path, path))?.path;
     if (!existsSync(path)) {
-      if (listedAs !== undefined) git(located.root, ["worktree", "remove", listedAs]);
+      if (listedAs !== undefined) {
+        const dropped = git(located.root, ["worktree", "remove", listedAs]);
+        if (!dropped.ok) {
+          // Without this, the record would say collected and the branch could never be deleted by a later run.
+          orcaFailed = true;
+          io.stderr(`Unit ${number}: git could not drop its entry of the missing child worktree ${path}: ${dropped.stderr}\n`);
+          continue;
+        }
+      }
       updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
       if (!deleteChildBranch(located.root, number, path, latest.worktree.branch, "no longer exists, so it counts as removed", io)) orcaFailed = true;
       continue;

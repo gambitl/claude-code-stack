@@ -98,6 +98,18 @@ describe("cstack unit collect, clean-up", () => {
     expect(record.collectedAt).toBe("2026-11-19T10:00:00.000Z");
   });
 
+  it("still deletes the child branch when Orca removes the folder but leaves git's entry", async () => {
+    const { dir, children } = setup({ 1: "done" });
+    const run: Runner = async (_command, args) => {
+      if (args[0] === "worktree") rmSync(children[1]!, { recursive: true, force: true });
+      return { kind: "ok", stdout: '{"ok":true}' };
+    };
+    const result = await collectAll(dir, run, "1");
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("its branch child-1 was deleted");
+    expect(git(dir, "branch", "--list", "child-1")).toBe("");
+  });
+
   it("keeps a child worktree with an uncommitted file and exits with 1", async () => {
     const { dir, children, ids } = setup({ 1: "done" });
     writeFileSync(join(children[1]!, "left.txt"), "x");

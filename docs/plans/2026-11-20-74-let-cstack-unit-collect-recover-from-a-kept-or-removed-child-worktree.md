@@ -288,7 +288,24 @@ When the child branch of a unit no longer exists, what proves that the ticket br
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+- `collectUnits()` in `cstack/src/unit/collect.ts` is called from `cstack/src/commands/unit-collect.ts` and from the tests `cstack/test/unit/collect.test.ts`, `cstack/test/unit/collect-cleanup.test.ts` and `cstack/test/helper/child-worktree.test.ts`. The new `options` parameter is optional, so the old callers still compile.
+- `HelperRecord` gains the optional field `appliedAt`. `cstack/src/helper/start.ts` reads only `collectedAt`, so it is not affected. The tests `cstack/test/helper/record.test.ts` and `cstack/test/helper/spec.test.ts` use the record and have no check on its exact set of fields.
+- The usage line changed in `cstack/src/manifest.ts` and in `UNIT_COLLECT_USAGE`. `cstack/test/cli.test.ts` and `cstack/test/manifest-implemented.test.ts` check that both agree, and the implementer ran them.
+- The message "Its branch stays." was removed. A search of the repository finds it only in older plan files, which are history and stay as they are.
+- Files that usually change with `collect.ts` are its two test files and `unit-collect.ts`. All three are in the diff. Files that usually change with `manifest.ts` are `cstack/test/manifest.test.ts` and `README.md`. The manifest test is run by the full test command in this phase.
+- The comments `WHY:` above `cleanUp()` and in `applyInto()` were rewritten on purpose, as the plan decided.
+
+### Reviewer findings
+
+The four reviewers read the whole diff. Here is what they found and what I did.
+
+- Correctness: when `git worktree remove` failed for a missing folder, the record was still marked collected, so a later run could never delete the branch. Git also refuses `git branch -D` while an entry of a missing worktree remains. Fixed: the command now checks that call, reports the git error, exits with 5 and leaves the unit open. It also runs `git worktree prune` before `git branch -D`. A new test covers an Orca that removes the folder but leaves git's entry.
+- The full test run showed one more failure, in `cstack/test/helper/worktree-line.test.ts`. Its fake Orca did not remove the worktree, so the branch could not be deleted and the exit code was 5. Fixed: the fake now removes the worktree, as Orca does.
+- Security: no finding. Two low remarks stay open as follow-ups. The suggested command prints the plan path without quotes, and a process inside the child worktree could race `git status` and the deletion. Neither crosses a permission boundary.
+- Conventions: the README line said that `--discard-untracked` deletes the untracked files without saying when it refuses, and did not explain "untracked". Fixed, with shorter sentences.
+- Simplicity: the three pairs that mark a unit as collected and applied became one small function. I left the second remark open (one clock function passed around), because it saves about three lines and touches the fallback of the clean-up step.
 
 ## Briefing
 
