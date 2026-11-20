@@ -279,6 +279,20 @@ describe("cstack unit collect, clean-up", () => {
       expect(readRecord(folder, ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
     });
 
+    it("refuses a gone branch when the ticket branch has no commit of the unit", async () => {
+      const { dir, children, ids } = setup({ 1: "done" });
+      git(dir, "worktree", "remove", "--force", children[1]!);
+      git(dir, "branch", "-D", "child-1");
+      const head = git(dir, "rev-parse", "HEAD");
+      const fake = orca();
+      const result = await collectAll(dir, fake.run, "1");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("no record that its commits were applied");
+      expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).collectedAt).toBeUndefined();
+    });
+
     it("refuses a gone branch of a second attempt that was never applied", async () => {
       const { dir } = setup({ 1: "done" });
       expect((await collectAll(dir, orca().run, "1")).code).toBe(0);
