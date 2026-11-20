@@ -64,13 +64,13 @@ function commitProblem(root: string, unit: PlanUnit, hash: string): string | und
 // because it would add one commit per unit that carries no change of its own.
 // All the commits of one unit go in one cherry-pick call, so that `git cherry-pick --abort`
 // puts the branch back to where it was before that unit.
-function applyUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io): { code: number; touched: Touched[] } {
+function applyUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, now: () => Date): { code: number; touched: Touched[] } {
   const touched: Touched[] = [];
-  const code = applyInto(located, plan, numbers, io, touched);
+  const code = applyInto(located, plan, numbers, io, touched, now);
   return { code, touched };
 }
 
-function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, touched: Touched[]): number {
+function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, touched: Touched[], now: () => Date): number {
   const root = located.root;
   const branch = git(root, ["rev-parse", "--abbrev-ref", "HEAD"]).stdout.trim();
   if (branch !== plan.header["Branch"]) {
@@ -106,6 +106,21 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       continue;
     }
     const child = record.worktree.branch.replace(/^refs\/heads\//, "");
+    const markApplied = () => updateRecord(folder, record.id, { appliedAt: now().toISOString() });
+    if (!git(root, ["rev-parse", "--verify", "--quiet", `refs/heads/${child}`]).ok) {
+      // WHY: a branch that is gone proves nothing by itself. Only the time that cstack wrote after it applied the commits does.
+      // The same worktree path can hold several attempts, so the records of the other attempts count too.
+      const applied = unitRecords(folder, number).some((r) => r.worktree?.path === record.worktree?.path && r.appliedAt);
+      if (!applied) {
+        io.stderr(
+          `Unit ${number}: the branch "${child}" no longer exists, and cstack has no record that its commits were applied to the ticket branch. Nothing was changed.\n`,
+        );
+        return 1;
+      }
+      touched[touched.length - 1]!.collected = true;
+      io.stdout(`Unit ${number}: the branch "${child}" no longer exists, and its commits were applied before.\n`);
+      continue;
+    }
     const byHash = git(root, ["rev-list", "--reverse", `HEAD..refs/heads/${child}`, "--"]);
     const list = git(root, ["rev-list", "--reverse", "--right-only", "--cherry-pick", `HEAD...refs/heads/${child}`, "--"]);
     if (!byHash.ok || !list.ok) {
@@ -116,6 +131,7 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
     if (commits.length === 0) {
       if ((listUnitCommits(root, plan.header["Target branch"]).units[number] ?? []).length > 0) {
         touched[touched.length - 1]!.collected = true;
+        markApplied();
       }
       skip(number, `the branch "${child}" has no commit that the ticket branch lacks`);
       continue;
@@ -146,6 +162,7 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       return 1;
     }
     touched[touched.length - 1]!.collected = true;
+    markApplied();
     io.stdout(`Unit ${number}: applied ${commits.length === 1 ? "1 commit" : `${commits.length} commits`}.\n`);
   }
   return 0;
@@ -230,7 +247,7 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
 export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io): number;
 export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, orca: CollectOrca): Promise<number>;
 export function collectUnits(located: LocatedPlan, plan: PlanRead, numbers: number[], io: Io, orca?: CollectOrca): number | Promise<number> {
-  const { code, touched } = applyUnits(located, plan, numbers, io);
+  const { code, touched } = applyUnits(located, plan, numbers, io, orca?.now ?? (() => new Date()));
   if (!orca) return code;
   return cleanUp(located, touched, io, orca).then((after) => (code !== 0 ? code : after));
 }

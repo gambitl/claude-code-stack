@@ -238,6 +238,70 @@ describe("cstack unit collect, clean-up", () => {
     });
   });
 
+  describe("a child branch that is gone", () => {
+    const failingRm: Runner = async (_c, args) => (args[0] === "worktree" ? { kind: "failed", exitCode: 1 } : { kind: "ok", stdout: '{"ok":true}' });
+
+    it("accepts a gone branch after the first collect applied its commits", async () => {
+      const { dir, children, ids } = setup({ 1: "done" });
+      writeFileSync(join(children[1]!, "left.txt"), "x");
+      expect((await collectAll(dir, orca().run, "1")).code).toBe(1);
+      const folder = runFolder(dir, "docs/plan.md");
+      expect(readRecord(folder, ids[1]!).appliedAt).toBe("2026-11-19T10:00:00.000Z");
+      git(dir, "worktree", "remove", "--force", children[1]!);
+      git(dir, "branch", "-D", "child-1");
+      const head = git(dir, "rev-parse", "HEAD");
+      const fake = orca();
+      const result = await collectAll(dir, fake.run, "1");
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain('the branch "child-1" no longer exists');
+      expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+      expect(readRecord(folder, ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
+    });
+
+    it("refuses a gone branch of a second attempt that was never applied", async () => {
+      const { dir } = setup({ 1: "done" });
+      expect((await collectAll(dir, orca().run, "1")).code).toBe(0);
+      const fresh = `${dir}-child-1d`;
+      made.push(fresh);
+      git(dir, "worktree", "add", "-b", "child-1d", fresh, "HEAD");
+      commitFiles(fresh, ["src/1.ts"], 1);
+      const at = new Date(Date.now() + 5000);
+      const id = makeHelperId("implementer", 1, at);
+      createRecord(runFolder(dir, "docs/plan.md"), {
+        format: "cstack-helper/1",
+        id,
+        role: "implementer",
+        unit: 1,
+        startedAt: at.toISOString(),
+        mode: "orca-worker",
+        dispatchId: "ctx_1d",
+        worktree: { path: fresh, branch: "child-1d" },
+      });
+      saveUnitReport({ root: dir, planFile: "docs/plan.md" }, 1, { kind: "done", text: "ok", helper: id });
+      git(dir, "worktree", "remove", "--force", fresh);
+      git(dir, "branch", "-D", "child-1d");
+      const head = git(dir, "rev-parse", "HEAD");
+      const result = await collectAll(dir, orca().run, "1");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("no record that its commits were applied");
+      expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), id).collectedAt).toBeUndefined();
+    });
+
+    it("writes appliedAt too when the collect runs without Orca", () => {
+      const { dir, ids } = setup({ 1: "done" });
+      const { io } = collect();
+      expect(unitCollect(["1", "--plan", "docs/plan.md"], io, { cwd: dir })).toBe(0);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).appliedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    });
+
+    it("keeps working with a failing Orca: the record has appliedAt before the clean-up", async () => {
+      const { dir, ids } = setup({ 1: "done" });
+      expect((await collectAll(dir, failingRm, "1")).code).toBe(5);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).appliedAt).toBeDefined();
+    });
+  });
+
   it("removes a child worktree whose copy of the plan file holds uncommitted changes, as after a second attempt", async () => {
     const { dir, children, ids } = setup({ 1: "done" });
     // The second attempt copies the current plan file into the child, so the child holds an uncommitted plan file.
