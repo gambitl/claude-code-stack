@@ -300,7 +300,42 @@ none
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: test(tests): copy prepared git repositories in report.test.ts so its cases stay fast on a busy machine
+
+````markdown
+## What this changes
+
+`report.test.ts` used to build a new git repository for each of its 27 cases. On a busy machine that work was slow, and some cases went over the five-second limit of vitest although the code was right.
+
+The file now builds three git repositories once, in a `beforeAll` hook. They hold units 1 to 10, all units except unit 3, and no unit. Each case copies the one it needs with `cpSync` into a new temporary folder, then commits the plan file there. The 27 cases keep their names, order and assertions. The five-second limit of the cases is unchanged. The hook has its own 60-second limit, explained in a `WHY:` comment.
+
+The paragraph about the full test run in `CLAUDE.md` now says that `report.test.ts` copies prepared repositories and that other test files can still time out.
+
+## Decisions and why
+
+- The plan file is now committed last, on the feature branch, and no longer on `main` first. This changes no result, because that commit has no unit trailer and `listUnitCommits()` ignores it.
+- Copies come from `cpSync`, not from `git clone` or `git worktree add`. A clone has no local `main` branch, and a worktree shares the git folder where reports are saved, so one case could affect the next.
+- No helper in `cstack/test/helpers/` changed. `publish.test.ts` is unchanged, because its slowest case took 4,186 ms against a 30-second limit.
+
+## Measures
+
+The slowest case alone took 420 ms after the change and 1,515 ms before. Beside a full test run, it took 975 ms after and 2,210 ms before. With two full runs at the same time, both passed, and the slowest case took 3,586 ms. There is no earlier number for that load. Other workers also used the machine, so the numbers vary.
+
+## Judgment calls and risks
+
+- A new case that needs a new list of units must also add that list to `PREPARED_UNITS`. Otherwise `setup()` fails at once with a clear message.
+- The prepared repositories and their copies stay in the system temporary folder after the run, as before.
+- Other slow files, such as `next.test.ts` and `unit-red-green.test.ts`, are left for a separate ticket.
+- Under two full runs at once the margin to the five-second limit is smaller, so a very busy machine could still be a problem.
+
+## Checks
+
+`npm run typecheck` and `npm test` pass after a rebase on `main`: 116 files and 1,345 tests. Four reviewers and an independent reviewer found nothing that needed a fix.
+
+The plan file is `docs/plans/2026-11-19-65-stop-report-test-ts-from-timing-out-on-a-busy-machine.md`.
+
+Fixes #65
+````
 
 ## Documentation
 
