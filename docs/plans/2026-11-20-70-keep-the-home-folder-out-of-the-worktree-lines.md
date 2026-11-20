@@ -270,7 +270,43 @@ Independent reviewer: no finding, no change to the branch. The full tests and th
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The branch does what the ticket asked. `cstack helper start` now writes a child worktree inside the home folder as `~/` followed by the rest of the path. The plan reader accepts that form, `cstack measure` expands it with the real home folder, and a test scans `docs/plans/` and `docs/retros/`. The scan passes on this branch. I also checked every branch on GitHub, and none holds a home folder path with a real name, so this merge turns no other branch red.
+
+**What you need to do**
+
+- **Add one sentence to the README before the pull request opens.** The README tells you to add `--home` when your session records live elsewhere. A reader can then think that `--home` also sets the folder that `~/` stands for, and it does not. I recommend adding this to the sentence about the `- Worktree:` line: "cstack reads `~/` at the start of that line as the home folder of the account that runs the command, never as the `--home` folder." Your decisions allow exactly that sentence. Say "ok" and I add it.
+
+**What to watch**
+
+- The protection only exists in a cstack that holds this change. Until you install the build that contains it, which is the coming v0.3.0, keep `CSTACK_ORCA_WORKERS=off` for runs in this repository. Do not mix versions in one wave either, because an older cstack refuses a plan that holds a `~/` line.
+- If `cstack helper start` prints the warning about a Worktree line that still starts with `/Users/` or `/home/`, do not commit the plan file as it is. Rewrite that line with `~/` first. Only the function behind the warning has a test, not the full command.
+- `cstack measure` now depends on `HOME`. Run it under the same account that ran the ticket. Otherwise the sessions of the child worktrees drop out without a word, and the exit code still says the numbers are complete.
+
+**What changed since the plan**
+
+- A new function, `worktreeValue()`, turns the path into the `~/` form, and `setUnitWorktree()` kept its signature. The units already said this, but one line of the decisions still says that `setUnitWorktree()` takes the home folder.
+
+#### Details
+
+The build matches the five units and the ticket's acceptance. `cstack/src/plan/read.ts` (line 395) accepts a value that starts with `/` or `~/` and still refuses control characters. `cstack/src/plan/unit-line.ts` adds `worktreeValue()` and `homePathWarning()`. `cstack/src/helper/start.ts` (lines 315 to 321) writes the `~/` value and prints the warning on standard error after a successful write. `cstack/src/commands/measure.ts` (line 53) expands `~/` with `homedir()`, never with `--home`. `cstack/test/helpers/fixtures-public.ts` adds `findHomePaths()` with the reserved names `user`, `someone` and `runner`, and `cstack/test/fixtures-public.test.ts` scans `docs/plans/` and `docs/retros/`. I ran `npx vitest run test/fixtures-public.test.ts` on this branch today, and its 250 tests passed, including the scan of this plan file. The review log reports that the full suite and the type check pass, and no reviewer had a finding. I also ran `git grep` on every branch of `origin`, in `docs/plans/` and `docs/retros/`, for `/Users/` or `/home/` followed by a name other than the three reserved ones. It found nothing, so no open branch will fail the new scan after it brings `main` in.
+
+The README sentence is a decision for the developer, not a question for someone else. `README.md` line 78 says to add `--home <folder>` when the session records are not under the home folder, and line 82 says a session counts when its folder is a child worktree that a `- Worktree:` line names. Neither says how `~/` is expanded. The independent reviewer raised the same point as its second judgment call. The decisions allow a README change only to the sentence about the `- Worktree:` line, and the proposed sentence fits that rule. I rejected a note in the usage line of `cstack/src/manifest.ts`, because the command tests compare that line word for word and it is meant to stay short. If nobody decides, the README stays as it is, and someone who measures the comparison runs with `--home` may expect it to cover the `~/` lines too.
+
+The fix protects only a cstack that holds it. `cstack/package.json` already says 0.3.0, but the last tag is v0.2.0, and the header of this plan says it was written by cstack 0.2.0. An installed cstack without this change keeps writing absolute `- Worktree:` lines. The ticket names `CSTACK_ORCA_WORKERS=off` as the stopgap until this ships, and that stays true until the maintainer installs the build. An older reader refuses a `~/` line with a plan problem, by design, because the format stays `cstack-plan/1` (see the decision on the format). So every worktree of one wave must use the same installed cstack. If a run with child worktrees uses an older install, the home folder path reaches the push, and only the continuous integration reports it afterwards.
+
+The warning has no end-to-end test. `homePathWarning()` is tested in `cstack/test/plan/unit-line.test.ts`, but a test cannot create a folder under `/Users/` or `/home/`, so the path from `startHelper()` to standard error is covered only by reading the code. When the warning appears, the practical fix is to rewrite the line with `~/` by hand. The reader accepts it, and `ticketWorktreeProblems()` in `cstack/src/helper/child.ts` (line 36) ignores `- Worktree:` lines when it compares the plan with its committed version, so the next start is not blocked. A second start of the same unit is refused while the unit is not collected, so starting it again with another `HOME` is not an option. If nobody acts on the warning, the plan file is committed with the path, and the continuous integration reports it after the push.
+
+`cstack measure` now depends on `HOME`. In `cstack/src/measure/sessions.ts`, a session in a worktree that `git worktree list` still lists counts only when that worktree is one of the planned paths. When `~/` is expanded with another home folder, the planned path matches nothing, the child sessions are left out, and the exit code stays 0. Before this change, an absolute line matched whatever `HOME` was. The choice of `os.homedir()` over `--home` is scope item 3 of the ticket, so I do not reopen it. On the first measure of a run with child worktrees, check that the count of main sessions includes the child worktrees.
+
+The build changed one recorded detail. The decision dated 2026-11-20 says that `setUnitWorktree()` takes the home folder as an argument. Units 2 and 3 instead describe a separate `worktreeValue(path, home)`, and the build follows the units, with `setUnitWorktree()` unchanged. The correctness reviewer noted that the behaviour is the same. The decision line could be corrected to match, but nothing depends on it.
+
+The earlier questions are resolved as follows. The sample names question was answered with three reserved names, and the tests use the name `jane` for the case that must be reported. The question about a leak found only after the push was answered with a follow-up ticket, which stays under "Non-blocking questions" for the coordinator of the wave. The format stays `cstack-plan/1`, with a new rule text in the reader. The warning was built as decided. This plan file passes the new scan. The retrospective of this run is not written yet, so only the continuous integration will check it, as the answer to the second question accepted. Scope item 6 was settled by keeping the lines in the plan file.
+
+One gap stays below the bar, and the security reviewer named it. If `HOME` is a parent folder, such as `/Users/` alone, the value starts with `~/` followed by the account name. The warning does not fire, and the scan does not look at `~/` lines. That setting is unusual enough that I would not act on it now.
+
+No new question came up after the build. I checked authorization, data model lock-in, scale, operations and cost, and user experience edge cases, and found nothing else that this ticket changes.
 
 ## Non-blocking questions
 
@@ -286,6 +322,7 @@ Independent reviewer: no finding, no change to the branch. The full tests and th
 ## Documentation
 
 - Ticket comment on #70: https://github.com/gambitl/claude-code-stack/issues/70#issuecomment-7034676629
+- `README.md`: one sentence added to the `cstack measure` section, as the independent reviewer and the advisor asked. The decisions allow a change to that sentence only.
 - Dependent tickets, ADRs and pages: none apply, as "Documentation duties" says. The format decision lives under "Decisions".
 
 ## Executor notes
