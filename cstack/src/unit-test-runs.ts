@@ -7,6 +7,11 @@ export interface SavedUnitRun extends SavedTestRun {
   testFileSha256: string;
 }
 
+/** A failing run. startedAt is the moment `cstack unit red` read the status of the unit's files, as an ISO 8601 time. */
+export interface FailingUnitRun extends SavedUnitRun {
+  startedAt: string;
+}
+
 const unitFolder = (runDir: string, unit: number) => join(runDir, "units", String(unit));
 
 const write = (runDir: string, unit: number, kind: "red" | "green", run: SavedUnitRun, log: string) => {
@@ -23,7 +28,7 @@ export function deletePassingRun(runDir: string, unit: number): void {
 }
 
 /** Saves a failing run. It deletes the passing run first, and writes red.json last. */
-export function saveFailingRun(runDir: string, unit: number, run: SavedUnitRun, log: string): void {
+export function saveFailingRun(runDir: string, unit: number, run: FailingUnitRun, log: string): void {
   deletePassingRun(runDir, unit);
   write(runDir, unit, "red", run, log);
 }

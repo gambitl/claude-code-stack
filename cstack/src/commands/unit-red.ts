@@ -1,6 +1,7 @@
 import type { Io } from "../io.js";
 import { runTests, testScript } from "../test-run.js";
 import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
 import { saveFailingRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
@@ -9,6 +10,22 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
   const context = prepareUnitTest("red", args, io, cwd);
   if (typeof context === "number") return context;
   const { root, runDir, unit, testFile, commands, timeoutMs } = context;
+
+  const startedAt = new Date().toISOString();
+  const status = readUnitStatus(root, unit.files);
+  if ("error" in status) {
+    io.stderr(`${prefix}git could not give the status of the files of unit ${unit.number}: ${status.error}\n`);
+    return 5;
+  }
+  const code = status.entries.filter((e) => !isTestFile(e.path, testFile));
+  if (code.length > 0) {
+    io.stderr(
+      `${prefix}These files of unit ${unit.number} are not test files, and they already differ from HEAD:\n` +
+        code.map((e) => `  ${e.path} (${e.state})\n`).join("") +
+        `The test must fail before any code of the unit exists, and moving code aside to get a failure is not allowed. Nothing is saved.\n${restartText(unit.number)}\n`,
+    );
+    return 1;
+  }
 
   // WHY: the commit and the fingerprint are read just before the test runs, so they describe what ran.
   const commit = headCommit(root);
@@ -38,7 +55,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     saveFailingRun(
       runDir,
       unit.number,
-      { time: new Date().toISOString(), command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256 },
+      { time: new Date().toISOString(), startedAt, command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256 },
       run.output,
     );
   } catch (error) {
