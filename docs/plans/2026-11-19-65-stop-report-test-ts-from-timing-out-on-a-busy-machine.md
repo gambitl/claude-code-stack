@@ -262,7 +262,35 @@ The independent reviewer found nothing to fix and made no commit. Judgment calls
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`report.test.ts` now builds three git repositories once, at the start of the file, and each case works on its own copy. Under the same load, the slowest case went from 2.2 seconds to under 1 second. The 27 cases keep their names, their order and their checks. The ticket does what it asked. The measures before and after are in the plan, two `npm test` runs at the same time pass, and the type check passes.
+
+**What you need to do.**
+
+- Decide whether to open the follow-up ticket for the other slow test files, such as `next.test.ts` and `unit-red-green.test.ts`. You agreed to it in principle, and the wave is the right moment, once the tickets that change `unit red`, `unit green` (#63) and `unit commit` (#64) are merged.
+
+**What to watch.**
+
+- With two full suites at the same time, the slowest case still took 3.6 seconds out of 5. When three or four workers of a wave run their suites at once, a timeout of this file can still happen. If it comes back, the next step is a longer timeout for this file with a `WHY:` comment, not a hunt for a bug.
+- A new case that asks for another list of units now fails at once with "No repository is prepared for the units […]". Whoever adds it has to add that list to `PREPARED_UNITS` at the top of the file.
+- If the one-time preparation fails, all 27 cases fail together with the same hook error. That error means the machine was too slow, not that the report code broke.
+
+#### Details
+
+The build matches the plan. `cstack/test/report.test.ts` gains a top-level `beforeAll` hook that builds three repositories without a plan. The hook has a 60-second timeout and a `WHY:` comment. `setup()` copies one repository with `cpSync` into a new `mkdtempSync` folder, then commits the plan on the `feature` branch. I counted the cases on `main` and on the branch: 27 in both, and the `it` and `describe` lines are identical. No `expect` line appears in the diff. `CLAUDE.md` changes only the paragraph about the full test run, with the wording of unit 2 and the reviewer's fix ("take longer than" in place of "pass"). The helpers in `cstack/test/helpers/plan-repo.ts` did not change. `cpSync` is stable in the Node version that `engines.node` requires and in the `lts/*` version that continuous integration uses, and `cstack/test/e2e/chain.ts` already relies on it.
+
+The remaining margin is the main thing to watch. In "Measures after the change", the slowest case took 3,586 ms in the first of two full `npm test` runs started together, against 975 ms beside a single full run. No measure before the change exists under the heavier load, so the gain there is not proven, only likely. The coordinator's rules allow two of this run's suites at once, but a wave runs up to four workers, and seven vitest processes of other worktrees were seen right after the measures. If the file times out again, the cheapest next step is `vi.setConfig({ testTimeout })` for this file with a `WHY:` comment, as `cstack/test/publish.test.ts` line 12 already does. By default, nothing is done until it happens again.
+
+The guard in `setup()` throws when a case asks for a unit list that the hook did not prepare. The independent reviewer flagged it as a judgment call for the pull request body. It is the right choice, because a silent fallback to building a repository would bring back the slow path without anyone noticing. The cost is that the next ticket that adds a case to this file, usually together with `cstack/src/report/reports.ts`, must extend `PREPARED_UNITS`. The empty list is stored under the key `""`, which works with `Map`.
+
+A failure of the hook fails the whole file with one error. The hook builds about 66 `git` processes, and its 60-second timeout is six times the default of 10 seconds. That message is distinct from a case failure, so a reader can tell a slow machine from a broken report check.
+
+Smaller facts for a later reader. The temporary folders are not removed, as before: a run now leaves 3 prepared repositories and 27 copies, against 28 repositories before, so disk use does not grow. Every copy has the same unit commit hashes, because the unit files are written once in the template. No case compares hashes across repositories. The Hand-off log names commits 2b2a96a and 554c2ce for units 1 and 2. Those are the commits before the branch was rebased on `main`. The branch now holds them as 6533911 and 57efdfc, both with their `Cstack-Unit` trailer. Every commit of the branch carries the no-reply address as author and committer, and the branch sits on the current `origin/main` (0c70a39).
+
+The earlier questions are all resolved. Blocking question 1 (plan commit on the `feature` branch) was answered yes by the user, and the 27 cases pass with it. Blocking question 2 (keep the 5-second case timeout, give the hook 60 seconds) was answered yes, and the build did exactly that. The non-blocking question about the other slow test files was answered yes, in a separate ticket after this wave. That ticket does not exist yet, and creating it is the action left to the user.
+
+I found no new question after the build. I checked failure modes and rollback, hidden coupling, scale under load and operations. I found nothing in security, data model lock-in, user-facing edge cases or reversibility. The change touches one test file and one paragraph of the conventions file, and a revert of two commits undoes it.
 
 ## Non-blocking questions
 
@@ -284,10 +312,14 @@ The independent reviewer found nothing to fix and made no commit. Judgment calls
 ## Executor notes
 
 - The unit 1 implementer made no measure before the change, because the unit text asked only for measures after it, and the plan already holds the earlier numbers. The measure of two full runs has no earlier number to compare with.
+- A `sleep 60` call was refused by the shell tool, so I waited for the reviewers' notifications instead.
+- The `update-branch` phase rebased the branch, so the commit ids in the Hand-off log of run 1 changed.
+- The unit 2 sentence said "can pass the five-second timeout", and I changed it to "can take longer than" after review, because "pass" is unclear for a reader of English as a second language.
 
 ## Hand-off log
 
 - 2026-11-19, executor run 1: added the label `in progress` to ticket #65 and started the build phase on the branch gambitl/report-timeout. Units 1 and 2 are done (commits 2b2a96a and 554c2ce).
+- 2026-11-20, executor run 2: finished review, independent review, update branch (rebased onto the current `main`, 116 files and 1,345 tests pass), document (comment on #65) and briefing. Ready for the report. Commit ids of units 1 and 2 are now 6533911 and 57efdfc.
 
 ## History
 
