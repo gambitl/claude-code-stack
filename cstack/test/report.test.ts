@@ -24,7 +24,7 @@ const ALL_UNITS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 const PREPARED_UNITS = [ALL_UNITS, ALL_UNITS.filter((unit) => unit !== 3), []];
 const prepared = new Map<string, string>();
 
-// WHY: the hook builds three git repositories at once, and a timeout of the hook would fail all 27 cases together.
+// WHY: the hook builds three git repositories at once, and a timeout of the hook would fail every case of the file together.
 beforeAll(() => {
   for (const units of PREPARED_UNITS) {
     const dir = makeRepo();

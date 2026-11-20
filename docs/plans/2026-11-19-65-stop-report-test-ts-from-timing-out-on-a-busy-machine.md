@@ -236,7 +236,25 @@ After the speed-up, should the 5-second timeout of the cases stay as it is, whil
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+- Changed symbols: only the local `setup()` of `cstack/test/report.test.ts`, plus new local constants and a `beforeAll` hook. No other file calls them, and the file that is named in other files is only mentioned in `CLAUDE.md`. The helpers in `cstack/test/helpers/plan-repo.ts` did not change.
+- Usual companions: `cstack/src/report/reports.ts`, `cstack/src/commands/report-submit.ts` and `cstack/src/commands/report-check.ts`. The branch changes none of them, and it has no reason to, because it changes no behaviour.
+- The four calls of `setup()` that pass a unit list use lists that the hook prepares: units 1 to 10, all but unit 3, and none.
+- The `WHY:` comment of the hook matches decisions in this plan. No other `WHY:` or `DECISION:` comment exists in the changed files.
+
+### Reviewer findings
+
+- Correctness: no finding. The plan commit now sits on the feature branch, but it has no unit trailer, so no case depends on where it is.
+- Security: no finding. The temporary folders come from `mkdtempSync`, and git runs without a shell.
+- Conventions: no finding at high confidence. Two wording points were fixed: "pass the five-second timeout" now says "take longer than", and the `WHY:` comment no longer states a case count.
+- Simplicity: two optional ideas, about four lines in total (a plain object instead of a map, and dropping the guard). I kept the code, because the guard gives a clear error message.
+- One reviewer noted that "Other test files" in `CLAUDE.md` is broader than "files that use git". The plan fixed that wording with the user, so I left it.
+
+### Tests after the fixes
+
+`npm run typecheck` and `npm test` pass: 106 files, 1222 tests. `report.test.ts` alone passes in about 6 seconds.
+
 
 ## Briefing
 
