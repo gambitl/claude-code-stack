@@ -304,7 +304,12 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on #75 (https://github.com/gambitl/claude-code-stack/issues/75): what was built, the answers of the question round, and the follow-ups.
+- Comment on #32, the comparison runs: the sandbox settings need a `setupCommand` once 0.3.1 is installed.
+- README: written by unit 5.
+- Code comment: the `WHY:` comment of `cstack/src/helper/spec.ts`, written by unit 2.
+- Decision record: none, because ADR-SIC-D already covers how the settings file grows.
+- Specification page `docs/projects/skills-into-cli.md`: checked, and nothing in it is made wrong by this branch.
 
 ## Executor notes
 
