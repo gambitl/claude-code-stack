@@ -277,7 +277,7 @@ Independent review (pr-reviewer). It added one test, in commit ec6ae3d, for the 
 
 ## Executor notes
 
-The implementer of unit 1 also built the guard of unit 2, because a line of Decisions asked for it. Unit 2 then had nothing left to write and no red run could be saved. I added the trailer `Cstack-Unit: 2` to the commit of unit 1 (amended before any push), as the plan allows for a commit that counts for two units.
+The implementer of unit 1 also built the guard of unit 2, because a line of Decisions asked for it. Unit 2 then had nothing left to write and no red run could be saved. I added the trailer `Cstack-Unit: 2` to the commit of unit 1 (amended before any push), as the plan allows for a commit that counts for two units. After the rebase onto `main`, the first full `npm test` showed one failed test (I had cut its output, so I do not know which). A second full run passed with 1350 tests, so I treated it as a load timeout.
 
 ## Hand-off log
 
