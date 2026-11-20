@@ -263,6 +263,14 @@ describe("cstack helper done in a child worktree", () => {
     expect(t.out.stderr).toContain("3 more");
   });
 
+  it("refuses, and does not fail, when thousands of long-named files are untracked", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    const long = "x".repeat(150);
+    for (let i = 0; i < 9000; i++) stray(t, `vendor/pkg/${long}${i}.js`);
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("more");
+  }, 60000);
+
   it("escapes control characters in a file name", async () => {
     const t = setup({ role: "implementer", unit: 2, child: true });
     stray(t, "bad\u001b[31mname.txt");

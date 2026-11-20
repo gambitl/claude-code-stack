@@ -100,7 +100,7 @@ const shellQuote = (name: string) => `'${shown(name).replaceAll("'", "'\\''")}'`
  * Throws a HelperError with exit code 1 when files remain, and with exit code 5 when git cannot read the folder.
  */
 function checkChildWorktree(folder: string, planFile: string, unitFiles: string[], unit: number | undefined): void {
-  const status = spawnSync("git", ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"], { cwd: folder, encoding: "utf8" });
+  const status = spawnSync("git", ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"], { cwd: folder, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
   if (status.error !== undefined || status.status !== 0) {
     const why = status.error?.message ?? status.stderr.trim();
     throw new HelperError(`git cannot read the child worktree ${folder}, so cstack cannot check it: ${why} The report is not saved.`, EXIT.toolFailed);
