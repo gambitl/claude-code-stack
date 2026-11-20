@@ -608,6 +608,13 @@ Findings of the four reviewers (2026-11-19).
 
 After the fixes, `npm run typecheck` and the full `npm test` pass (115 files, 1295 tests).
 
+Independent review (2026-11-20). The reviewer made one fix, commit 398820b. The end message of `cstack next --done publish` still named `cstack report submit published`, and an Orca worker that followed it would send no `worker_done`. The message now names `cstack helper done published`, and `cstack/test/next.test.ts` covers it. After that change, `npm run typecheck` and the full `npm test` pass (115 files, 1295 tests).
+
+Judgment calls for the pull request body:
+
+- `cstack measure` can miss a removed child worktree in one layout. It happens when the child folder sat inside another worktree that the plan does not name, such as the main clone. The closest existing worktree decides first, so those sessions are not counted. Orca puts child worktrees outside the main clone, so this should not happen in practice.
+- The test "counts the executor session once" only checks that one "main sessions" line is printed. The count of 3 in the first test of the same file proves the executor session.
+
 ## Briefing
 
 <phase after-build>
