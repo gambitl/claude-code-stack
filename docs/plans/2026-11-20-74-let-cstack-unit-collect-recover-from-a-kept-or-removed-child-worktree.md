@@ -334,7 +334,10 @@ The independent reviewer found no defect in the code. It added one test, which c
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- A comment on ticket #74 on GitHub, posted with `cstack tracker comment`. It sums up what changed, the review fixes, the open questions and the follow-ups.
+- A comment on ticket #32 on GitHub, posted the same way. It says that 0.3.1 lets a run finish after a kept or removed child worktree, and names the files to build on.
+- The README line of `cstack unit collect`, step 7 of the build guide and the manifest entry were written in the units and are in the diff.
+- No decision record was written, as the plan's "Documentation duties" say. The specification page needs no change.
 
 ## Executor notes
 
