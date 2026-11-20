@@ -274,7 +274,17 @@ Should `cstack helper done` refuse a `done` report while the child worktree hold
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes. The branch changes `readSettings`, `checkTestCommand`, the settings block printer, `buildSpec`, `startHelper` and `doneHelper`. I searched their callers and tests. The usual companions are the settings tests, the next-settings tests and the helper tests, and the branch updates all of them. No recorded decision conflicts with the change.
+
+Correctness reviewer. One real bug: `git status` in `cstack helper done` stopped at Node's one megabyte output limit, so a child worktree with thousands of untracked files made the command exit with 5 instead of listing the files. I fixed it with a larger `maxBuffer` and added a test with 9000 long file names that fails without the fix. Two smaller notes were left: a staged file outside the unit gets a restore hint that does nothing, which only happens if an agent ran `git add`, and the settings are read after two read-only Orca checks, which changes nothing.
+
+Security reviewer. Nothing serious. A file name with a control character shows an escaped name in the hint, so the `rm` command in the hint would not match that file. I accepted this trade-off for terminal safety.
+
+Conventions reviewer. Nothing broken. It noted three copies of `shellQuote` and a status check that repeats the one in `cstack unit collect`. I left both as follow-ups.
+
+Simplicity reviewer. It suggested sharing `shellQuote` and the git status parsing, dropping the twenty-file cap, and reading the settings once in `start.ts`. I kept the cap and the unit-file hint because the question round decided them. The rest are small follow-ups.
+
+Tests. After the fix, `npm run typecheck` and the whole `npm test` pass (116 files, 1456 tests). One earlier run had two timeouts while other test runs went on at the same time, and the next runs were clean.
 
 ## Briefing
 
