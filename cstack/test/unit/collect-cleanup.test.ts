@@ -381,4 +381,70 @@ describe("cstack unit collect, clean-up", () => {
       expect(result.stdout).toContain("holds a change that the ticket branch lacks");
     });
   });
+
+  describe("--discard-untracked", () => {
+    const branchGone = (dir: string, name: string) =>
+      spawnSync("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${name}`], { cwd: dir }).status !== 0;
+
+    it("removes a child worktree whose only change is an untracked file, and names the file", async () => {
+      const { dir, children, ids } = setup({ 1: "done" });
+      writeFileSync(join(children[1]!, "package-lock.json"), "{}");
+      const fake = orca(dir);
+      const result = await collectAll(dir, fake.run, "1", "--discard-untracked");
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain("package-lock.json");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(true);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
+      expect(branchGone(dir, "child-1")).toBe(true);
+    });
+
+    it("keeps a child worktree with a changed tracked file, even with the option", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      writeFileSync(join(children[1]!, "src/1.ts"), "changed\n");
+      writeFileSync(join(children[1]!, "left.txt"), "x");
+      const fake = orca(dir);
+      const result = await collectAll(dir, fake.run, "1", "--discard-untracked");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("src/1.ts");
+      expect(result.stderr).toContain("cannot remove it");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(readFileSync(join(children[1]!, "left.txt"), "utf8")).toBe("x");
+    });
+
+    it("names the untracked file and the exact command when the option is missing", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      writeFileSync(join(children[1]!, "left.txt"), "x");
+      const result = await collectAll(dir, orca(dir).run, "1");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("left.txt");
+      expect(result.stderr).toContain("cstack unit collect 1 --discard-untracked --plan docs/plan.md");
+    });
+
+    it("keeps the worktree when an untracked file is one of the Files of the unit", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      writeFileSync(join(dir, "docs/plan.md"), readFileSync(join(dir, "docs/plan.md"), "utf8").replace("- Files: `src/1.ts`", "- Files: `src/1.ts`, `extra.txt`"));
+      git(dir, "add", "docs/plan.md");
+      git(dir, "commit", "-m", "docs: more files");
+      writeFileSync(join(children[1]!, "Extra.txt"), "forgotten");
+      const fake = orca(dir);
+      const result = await collectAll(dir, fake.run, "1", "--discard-untracked");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("Extra.txt");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(readFileSync(join(children[1]!, "Extra.txt"), "utf8")).toBe("forgotten");
+    });
+
+    it("keeps the worktree when git lists a whole folder, such as a nested repository", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      mkdirSync(join(children[1]!, "nested"));
+      git(join(children[1]!, "nested"), "init", "-q");
+      writeFileSync(join(children[1]!, "left.txt"), "x");
+      const fake = orca(dir);
+      const result = await collectAll(dir, fake.run, "1", "--discard-untracked");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("nested/");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(readFileSync(join(children[1]!, "left.txt"), "utf8")).toBe("x");
+    });
+  });
 });

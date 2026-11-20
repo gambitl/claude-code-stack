@@ -273,9 +273,16 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   }),
   planCommand({
-    usage: "cstack unit collect <n>...",
+    usage: "cstack unit collect <n>... [--discard-untracked]",
     summary: "Bring the commits of units from their child worktrees onto the ticket branch.",
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
+    flags: ["--discard-untracked"],
+    exitCodes: {
+      0: OK,
+      1: "A check or a cherry-pick failed, or a child worktree was kept because it has uncommitted changes.",
+      2: USAGE,
+      3: INVALID,
+      5: "Orca or git failed during the clean-up, for example when a child branch could not be deleted.",
+    },
     file: "unit-collect.ts",
     ticket: 28,
     built: true,

@@ -7,7 +7,7 @@ import type { CollectOrca } from "../unit/collect.js";
 import { collectUnits } from "../unit/collect.js";
 import { failWith } from "./errors.js";
 
-export const UNIT_COLLECT_USAGE = "Usage: cstack unit collect <n>... [--plan <file>]";
+export const UNIT_COLLECT_USAGE = "Usage: cstack unit collect <n>... [--discard-untracked] [--plan <file>]";
 
 // With an Orca runner in the deps, the command also cleans up and returns a promise. Without one, it only applies the commits.
 export function unitCollect(args: string[], io: Io, deps?: { cwd: string }): number;
@@ -16,7 +16,7 @@ export function unitCollect(args: string[], io: Io, deps: { cwd: string; orca?: 
   const prefix = "cstack unit collect: ";
   let parsed;
   try {
-    parsed = parseArgs({ args, options: { plan: { type: "string" } }, strict: true, allowPositionals: true });
+    parsed = parseArgs({ args, options: { plan: { type: "string" }, "discard-untracked": { type: "boolean" } }, strict: true, allowPositionals: true });
   } catch (error) {
     io.stderr(`${prefix}${(error as Error).message}\n${UNIT_COLLECT_USAGE}\n`);
     return 2;
@@ -35,7 +35,7 @@ export function unitCollect(args: string[], io: Io, deps: { cwd: string; orca?: 
       return 2;
     }
     if (!deps.orca) return collectUnits(located, plan, numbers, io);
-    return collectUnits(located, plan, numbers, io, deps.orca).catch((error) => failWith(error, io, prefix));
+    return collectUnits(located, plan, numbers, io, deps.orca, { discardUntracked: parsed.values["discard-untracked"] === true }).catch((error) => failWith(error, io, prefix));
   } catch (error) {
     return failWith(error, io, prefix);
   }
