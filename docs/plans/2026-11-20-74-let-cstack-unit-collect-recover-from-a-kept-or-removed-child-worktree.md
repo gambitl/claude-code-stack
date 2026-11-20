@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/collect-recover
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-20T12:01:24+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-20T12:28:23+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -370,7 +370,54 @@ I found no new question for anyone. These locked decisions stay as they are: the
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: fix(cli): let cstack unit collect recover from a kept or removed child worktree
+
+````markdown
+`cstack unit collect` can now finish a run when a child worktree is kept, or when it was removed by hand. Before, such a run ended as failed, although every commit was already on the ticket branch.
+
+## What was built
+
+When the folder of a child worktree is gone, the command drops git's leftover entry for it, records the unit as collected and exits with 0. When the child branch is gone, the command accepts it only if cstack itself recorded that it applied that attempt. For this, the helper record has a new optional field, `appliedAt`.
+
+After it removes a child worktree, the command also deletes the child branch. It first checks that every change of the branch is on the ticket branch. The output names the old tip hash, so `git branch <name> <hash>` brings the branch back.
+
+The new option `--discard-untracked` deletes the untracked files of a child worktree and then removes the worktree. It never removes a worktree that has a changed tracked file. It also keeps the worktree when an untracked file is one of the files of the unit, or when git lists a whole folder.
+
+Step 7 of the build guide now tells the executor to return a needs-decision report when a worktree is kept, and never to remove a worktree or a branch with git. The usage line, the manifest entry and the README line are updated. The version is raised to 0.3.1.
+
+## Key decisions and why
+
+- We accept a gone child branch only when `appliedAt` is recorded. Looking for commits of the unit on the ticket branch is not enough, because a second attempt could look collected when its commits were never applied.
+- We delete the branch with `git branch -D` after a check by change, not with `git branch -d`. After a cherry-pick, `git branch -d` always refuses.
+- The new option is called `--discard-untracked`, because "discard" says that the files are lost on purpose.
+- The helper record format name `cstack-helper/1` does not change, because the new field is optional.
+
+## Files touched
+
+`cstack/src/unit/collect.ts`, `cstack/src/commands/unit-collect.ts`, `cstack/src/helper/record.ts`, `cstack/src/manifest.ts`, `cstack/guides/resolve-issue/build.md`, `README.md`, the version in `cstack/package.json` and `cstack/package-lock.json`, and three test files. The plan is in `docs/plans/2026-11-20-74-let-cstack-unit-collect-recover-from-a-kept-or-removed-child-worktree.md`.
+
+## Review
+
+The reviewers found that a failed `git worktree remove` could leave a unit marked as collected with its branch stuck. This is fixed, and `git worktree prune` now runs before the branch is deleted. A fake Orca in one older test was also fixed. The independent reviewer found no defect and added one test.
+
+The independent reviewer raised these judgment calls, which we left as they are:
+
+- If someone resets the ticket branch after the collect and then deletes the child branch, the command still answers 0. Checking that the ticket branch still holds commits of the unit would close this gap.
+- `git worktree prune` drops the entries of every worktree whose folder is missing, not only this unit's. It is harmless, but wider than needed.
+- When a branch is kept because it holds a change that is not applied, the unit is still recorded as collected, so no later call deletes that branch.
+- The message says "because it is" for a list of several entries, and the suggested command prints the plan path without quotes.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- "When a child worktree folder was removed with git or by hand, does Orca still show that worktree in its list?" For the maintainer, during the next run with a real Orca.
+- "Should `cstack unit collect` also check that the ticket branch still holds commits of the unit before it trusts `appliedAt` for a gone child branch?" For the maintainer, as a possible follow-up.
+- "Should the plan path in the suggested `--discard-untracked` command be quoted, so that it also works for a folder name with spaces?" For the maintainer, as a small follow-up.
+
+Fixes #74
+````
+
 
 ## Documentation
 
@@ -381,11 +428,13 @@ I found no new question for anyone. These locked decisions stay as they are: the
 
 ## Executor notes
 
-nothing this time
+- The first full `npm test` failed in `cstack/test/helper/worktree-line.test.ts`, because its fake Orca did not remove the worktree and `git branch -D` then refused. Unit 3 had fixed only the fake in `collect-cleanup.test.ts`, and the implementer ran only the `test/unit` folder, so I fixed the other fake in the review phase.
+- One later full run failed one test and the next full run passed. I did not find the failing test in that run, and I suspect the five-second timeout on a busy machine, as the conventions file describes.
 
 ## Hand-off log
 
 - 2026-11-20, build phase: I moved the ticket to "in progress" with `cstack tracker move`. I built units 1 and 6 in child worktrees and collected them with exit code 0. I then built units 2, 3, 4 and 5 one after the other in the main worktree, because they depend on each other. All six units have a commit.
+- 2026-11-20, review to ready phases: I ran the four reviewers and fixed their findings. The independent reviewer added one test. I wrote the comments on #74 and #32, the briefing came from the CTO advisor, and I drafted the pull request. I then closed the build with the `ready` phase and returned a done report.
 
 ## History
 
