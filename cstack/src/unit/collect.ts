@@ -47,7 +47,11 @@ function commitProblem(root: string, unit: PlanUnit, hash: string): string | und
 // This function copies the commits of each unit onto the ticket branch with git cherry-pick, in plan order.
 // The branch then reads as if the units had run one after the other, with the commits of each unit together.
 // The commit hashes change on the way, but `cstack plan status` finds the commits of a unit by their
-// Cstack-Unit trailer and not by their hash. A merge commit for each unit was rejected,
+// Cstack-Unit trailer and not by their hash.
+// For the same reason, the list of the commits to bring back compares changes and not hashes (git rev-list --cherry-pick):
+// a commit that was cherry-picked before has a new hash on the ticket branch, so a list by hash would offer it again.
+// A commit whose change is already on the ticket branch is left out, unless it comes after a new commit: that case is refused.
+// A merge commit for each unit was rejected,
 // because it would add one commit per unit that carries no change of its own.
 // All the commits of one unit go in one cherry-pick call, so that `git cherry-pick --abort`
 // puts the branch back to where it was before that unit.
@@ -82,11 +86,6 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       skip(number, "it has no child worktree on record, so its commits are already on the ticket branch");
       continue;
     }
-    if ((listUnitCommits(root, plan.header["Target branch"]).units[number] ?? []).length > 0) {
-      touched[touched.length] = { number, collected: true };
-      skip(number, "the ticket branch already has a commit of this unit");
-      continue;
-    }
     const report = latestUnitReport(where, number, record.id);
     if (!report) {
       skip(number, "its helper has not reported");
@@ -98,13 +97,17 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
       continue;
     }
     const child = record.worktree.branch.replace(/^refs\/heads\//, "");
-    const list = git(root, ["rev-list", "--reverse", `HEAD..refs/heads/${child}`, "--"]);
-    if (!list.ok) {
-      io.stderr(`Unit ${number}: git cannot list the commits of the branch "${child}": ${list.stderr}\n`);
+    const byHash = git(root, ["rev-list", "--reverse", `HEAD..refs/heads/${child}`, "--"]);
+    const list = git(root, ["rev-list", "--reverse", "--right-only", "--cherry-pick", `HEAD...refs/heads/${child}`, "--"]);
+    if (!byHash.ok || !list.ok) {
+      io.stderr(`Unit ${number}: git cannot list the commits of the branch "${child}": ${byHash.ok ? list.stderr : byHash.stderr}\n`);
       return 1;
     }
     const commits = list.stdout.split("\n").filter(Boolean);
     if (commits.length === 0) {
+      if ((listUnitCommits(root, plan.header["Target branch"]).units[number] ?? []).length > 0) {
+        touched[touched.length - 1]!.collected = true;
+      }
       skip(number, `the branch "${child}" has no commit that the ticket branch lacks`);
       continue;
     }
@@ -114,6 +117,15 @@ function applyInto(located: LocatedPlan, plan: PlanRead, numbers: number[], io: 
         io.stderr(`Unit ${number}: nothing was applied. The commit ${hash.slice(0, 7)} was refused because ${problem}.\n`);
         return 1;
       }
+    }
+    const kept = new Set(commits);
+    const all = byHash.stdout.split("\n").filter(Boolean);
+    const leftOut = all.slice(all.indexOf(commits[0]!)).find((h) => !kept.has(h));
+    if (leftOut) {
+      io.stderr(
+        `Unit ${number}: nothing was applied. The commit ${leftOut.slice(0, 7)} has a change that the ticket branch already has, but it comes after a commit that is new.\n`,
+      );
+      return 1;
     }
     const pick = git(root, ["cherry-pick", ...commits]);
     if (!pick.ok) {
