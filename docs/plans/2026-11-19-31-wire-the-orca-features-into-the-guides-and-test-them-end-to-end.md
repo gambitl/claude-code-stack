@@ -682,7 +682,69 @@ For the coordinator of the wave, from the build:
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request>
+Title: feat(skill): wire the Orca features into the guides and test them end to end
+
+````markdown
+Part of #31.
+
+## What this pull request does
+
+The guides and the helper prompts of the `resolve-issue` skill now call the commands of milestone 3. This pull request also teaches `cstack measure` about child worktrees and adds end-to-end tests with a fake Orca. It is the first half of ticket #31. The second half needs a real Orca and a real release, so it comes after the merge.
+
+- The ticket guide reads the ticket with `cstack tracker read`. When cstack cannot reach the tracker, Claude reads it with its own connection and writes a small file from the new example `templates/tracker-file.json`.
+- The build guide moves the ticket with `cstack tracker move` and keeps the branch that `cstack wave` created. The `document` and `publish` guides post comments and the "in review" move with `cstack tracker`. On exit code 4, Claude makes the write itself, as before.
+- The plan and retro guides start the executor with `cstack helper start` and wait with `cstack helper wait`. The executor and the implementers end their reports with `cstack helper done`. The executor starts implementers in child worktrees when a batch holds more than one unit, then runs `cstack unit collect`.
+- `cstack measure` also counts a session that worked in a child worktree named by a `Worktree` line of the plan file. A session of any other worktree of the repository never counts. It still prints numbers only.
+- The README names the minimum Orca version, and a test ties it to the code. A new test fails when a command of the manifest keeps a placeholder handler. The version of cstack becomes 0.3.0.
+- Two end-to-end tests run the chain with a fake `orca` and a fake `gh`. One run uses the fake Orca. Three runs use no usable Orca: no `orca`, an Orca that is too old, and an Orca that does not run.
+
+## Key decisions
+
+The guides keep following the sentences that tests pin, so each unit changed its tests together with its guide. The `ticket` guide had no room under the size test, so two sentences were shortened and the limit did not change. The end-to-end tests build their environment from scratch, so they never reach a real `orca`, `gh` or `osascript`. The ADR for the helpers, ADR-SIC-A, has a dated paragraph that says the prompts now end with `cstack helper done` in both modes.
+
+## Review
+
+The independent review found one problem outside the plan. The end message of `cstack next --done publish` still named `cstack report submit published`, so an Orca worker would never wake the main conversation. It now names `cstack helper done published`, with a test. The four reviewers also led to two cleanups. The fake programs no longer call `process.exit()`, and `cstack measure` reuses the existing parser of `git worktree list`.
+
+Judgment calls to know about:
+
+- `cstack measure` can miss a removed child worktree whose folder sat inside another worktree that the plan does not name, such as the main clone. Orca puts child worktrees outside the main clone, so this should not happen in practice.
+- One test, "counts the executor session once", is weak on its own. The count of 3 in the first test of the same file proves the executor session.
+- Follow-up from the security review: the `document` guide puts the key of a dependent ticket in single quotes in a shell command. A guide sentence could say to use only keys that look like `#12` or `ABC-12`.
+
+The full `npm run typecheck` and `npm test` pass in `cstack/`. The plan file is `docs/plans/2026-11-19-31-wire-the-orca-features-into-the-guides-and-test-them-end-to-end.md`.
+
+## After the merge
+
+The coordinator still does these steps, with approval at each one.
+
+1. Run the chain by hand on a small test repository, with a real Orca, as scope item 7 of the ticket describes. This checks US-13 AC1 and US-14 AC3 for real.
+2. Push the tag `v0.3.0`, then install the release with `npm install -g` and run `cstack skills install` and `cstack doctor`.
+3. Say in the final pull request or ticket comment that Jira and Linear through Orca are covered only by recorded answers, unless a sandbox project exists.
+
+The recorded answers of Jira and Linear were not checked on a real machine. This pull request covers them with recorded answers only.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+For the coordinator of the wave, from the question round. These checks need a real Orca.
+
+- Does `orca linear list-issues --parent-id` accept a key such as `EXA-9`, or does it need the internal id? Does Orca keep the bold `**Size:` footer marker in a Jira Cloud description? (from #25)
+- How long does `worker-show` keep a finished worker, and which status does a stopped worker get? (from #27)
+- Does Orca accept a commit hash as `--base-branch`, and does the `workspace` field of the `worker-start` answer hold the path of the child worktree? (from #28)
+- Does `/resolve-issue <key>` in `--prompt` run the skill in both the chat surface and the terminal surface? (from #29)
+- When `orca worktree create` gets no `--base-branch`, does it fetch the remote first, and does it branch from the remote default branch or from the local one? (from #30)
+
+For the coordinator of the wave, from the question round, word for word:
+
+- From the next run with Orca in this repository, cstack writes `- Worktree: <absolute path>` lines into the plan file, and the executor commits them. These paths start with the home folder of the maintainer, which the public text rule forbids, and the private-names check does not catch them. Should a later ticket write them relative to the home folder, or should this repository stop committing plan files?
+
+For the coordinator of the wave, from the build:
+
+- When should version 0.3.0 be installed? Three other branches of the wave are still open. A run that starts with 0.2.0 has no helper id, and the 0.3.0 guides end its reports with `cstack helper done --helper <helper id>`. So install it only when no other ticket of the wave is between its approval and its pull request.
+- Should the paths of the plan take part in the choice of the closest worktree in `cstack measure`, for the layout in the first judgment call above?
+````
 
 ## Documentation
 
@@ -700,10 +762,13 @@ For the coordinator of the wave, from the build:
 - Unit 9 wrote its helper before the first red run, so the first run did not fail. The implementer redid it with a stub that returns an empty list.
 - The first implementer of unit 8 skipped the cases for a failing `git worktree list` and for output without paths. A second implementer added them in commit 0b99469.
 - Unit 12 saw one `skill-size.test.ts` failure in its full run, caused by unit 1 and other units editing guides in the same folder at the same time.
+- The independent reviewer ran while the machine had a load average between 70 and 96, so its two full test runs timed out. I ran the full suite again myself on a quieter machine and it passed (115 files, 1295 tests).
+- The installed `cstack` 0.2.0 guides still say direct connections and `cstack report submit`, so this run used `gh` and `cstack report submit done`, not the commands that this branch teaches.
 
 ## Hand-off log
 
 - 2026-11-19, build phase, first run. The ticket got the label `in progress` through `gh`, because the installed `cstack tracker move` is not built. The branch `gambitl/wire-orca-guides` already existed. All 12 units are committed. `npm run typecheck` and the full `npm test` pass (115 files, 1295 tests).
+- 2026-11-20, review to ready, same run. Four reviewers and the independent review ran, with fixes in commits 9dc0985 and 398820b. The ticket #31 and #32 got a comment, ADR-SIC-A got a dated paragraph, and the briefing and the pull request draft are written. The branch was not behind `main` at the update phase.
 
 ## History
 
