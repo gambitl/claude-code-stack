@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { readFileSync, realpathSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -59,10 +60,18 @@ function setup(kinds: Record<number, "done" | "stuck">) {
   return { dir, children, ids };
 }
 
-function orca() {
+/** Like Orca, a worktree rm removes the worktree folder. Only a clean worktree goes, as without --force. */
+function removeWorktree(_dir: string | undefined, args: string[]): boolean {
+  const target = args[args.indexOf("--worktree") + 1]!.replace(/^path:/, "");
+  const common = spawnSync("git", ["rev-parse", "--path-format=absolute", "--git-common-dir"], { cwd: target, encoding: "utf8" }).stdout.trim();
+  return spawnSync("git", [`--git-dir=${common}`, "worktree", "remove", target]).status === 0;
+}
+
+function orca(_dir?: string) {
   const calls: string[] = [];
   const run: Runner = async (_command, args) => {
     calls.push(args.join(" "));
+    if (args[0] === "worktree" && !removeWorktree(undefined, args)) return { kind: "failed", exitCode: 1 };
     return { kind: "ok", stdout: '{"ok":true}' };
   };
   return { calls, run };
@@ -310,12 +319,66 @@ describe("cstack unit collect, clean-up", () => {
     const calls: string[] = [];
     const run: Runner = async (_c, args) => {
       calls.push(args.join(" "));
-      if (args[0] === "worktree" && git(children[1]!, "status", "--porcelain") !== "") return { kind: "failed", exitCode: 1 };
+      if (args[0] === "worktree" && !removeWorktree(undefined, args)) return { kind: "failed", exitCode: 1 };
       return { kind: "ok", stdout: '{"ok":true}' };
     };
     const result = await collectAll(dir, run, "1");
     expect(result.code).toBe(0);
     expect(calls.some((c) => c.startsWith("worktree rm"))).toBe(true);
     expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
+  });
+
+  describe("the child branch", () => {
+    const branchTip = (dir: string, name: string) => spawnSync("git", ["rev-parse", "--verify", "--quiet", `refs/heads/${name}`], { cwd: dir, encoding: "utf8" }).stdout.trim();
+
+    it("deletes the child branch after a clean collect and names its old tip", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      const tip = git(children[1]!, "rev-parse", "HEAD");
+      const result = await collectAll(dir, orca(dir).run, "1");
+      expect(result.code).toBe(0);
+      expect(branchTip(dir, "child-1")).toBe("");
+      expect(result.stdout).toContain("its branch child-1 was deleted");
+      expect(result.stdout).toContain(tip.slice(0, 7));
+    });
+
+    it("deletes the branch on a second collect after the folder was deleted by hand", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      writeFileSync(join(children[1]!, "left.txt"), "x");
+      expect((await collectAll(dir, orca(dir).run, "1")).code).toBe(1);
+      rmSync(children[1]!, { recursive: true, force: true });
+      const result = await collectAll(dir, orca(dir).run, "1");
+      expect(result.code).toBe(0);
+      expect(branchTip(dir, "child-1")).toBe("");
+      expect(result.stdout).toContain("child-1 was deleted");
+    });
+
+    it("accepts a branch that Orca already deleted together with the worktree", async () => {
+      const { dir, children, ids } = setup({ 1: "done" });
+      const run: Runner = async (_c, args) => {
+        if (args[0] === "worktree") {
+          removeWorktree(dir, args);
+          git(dir, "branch", "-D", "child-1");
+        }
+        return { kind: "ok", stdout: '{"ok":true}' };
+      };
+      const result = await collectAll(dir, run, "1");
+      expect(result.code).toBe(0);
+      expect(readRecord(runFolder(dir, "docs/plan.md"), ids[1]!).collectedAt).toBe("2026-11-19T10:00:00.000Z");
+    });
+
+    it("keeps the branch when it holds a change that the ticket branch lacks", async () => {
+      const { dir, children } = setup({ 1: "done" });
+      const run: Runner = async (_c, args) => {
+        if (args[0] === "worktree") {
+          commitFiles(children[1]!, ["src/extra.ts"], 9);
+          removeWorktree(dir, args);
+        }
+        return { kind: "ok", stdout: '{"ok":true}' };
+      };
+      const result = await collectAll(dir, run, "1");
+      expect(result.code).toBe(0);
+      expect(branchTip(dir, "child-1")).not.toBe("");
+      expect(result.stdout).toContain("holds a change that the ticket branch lacks");
+    });
   });
 });

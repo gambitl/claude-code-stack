@@ -180,8 +180,35 @@ export interface CollectOrca {
   now?: () => Date;
 }
 
+/**
+ * Deletes the child branch once its worktree is gone. Says what happened in one line, and returns false when git could not delete it.
+ * WHY: `git branch -d` always refuses after a cherry-pick, because the copies on the ticket branch have new hashes.
+ * So the check is by change: the branch goes only when every change of it is on the ticket branch. The old tip is printed so that it can come back.
+ */
+function deleteChildBranch(root: string, number: number, path: string, branch: string, how: string, io: Io): boolean {
+  const ref = `refs/heads/${branch}`;
+  const tip = git(root, ["rev-parse", "--verify", "--quiet", ref]);
+  if (!tip.ok) {
+    io.stdout(`Unit ${number}: the child worktree ${path} ${how}, and its branch ${branch} is already gone.\n`);
+    return true;
+  }
+  const lacking = git(root, ["rev-list", "--right-only", "--cherry-pick", `HEAD...${ref}`]);
+  if (!lacking.ok || lacking.stdout.trim() !== "") {
+    io.stdout(`Unit ${number}: the child worktree ${path} ${how}. Its branch ${branch} was kept, because it holds a change that the ticket branch lacks.\n`);
+    return true;
+  }
+  const deleted = git(root, ["branch", "-D", branch]);
+  if (!deleted.ok) {
+    io.stderr(`Unit ${number}: git could not delete the branch ${branch}: ${deleted.stderr}\n`);
+    return false;
+  }
+  const old = tip.stdout.trim();
+  io.stdout(`Unit ${number}: the child worktree ${path} ${how}, and its branch ${branch} was deleted. It pointed to ${old.slice(0, 7)}. Run "git branch ${branch} ${old}" to bring it back.\n`);
+  return true;
+}
+
 // WHY: the commits are on the ticket branch after the collect, so the workers are done and the clean child worktrees are no use.
-// The child branch always stays, and no force is used, so nothing that is not applied is lost.
+// No force is used for the worktree. The child branch is deleted only when every change of it is on the ticket branch, so nothing that is not applied is lost.
 async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: CollectOrca): Promise<number> {
   const folder = runFolder(located.root, located.relative);
   let dirtyFound = false;
@@ -206,7 +233,7 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
     if (!existsSync(path)) {
       if (listedAs !== undefined) git(located.root, ["worktree", "remove", listedAs]);
       updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
-      io.stdout(`Unit ${number}: the child worktree ${path} no longer exists, so it counts as removed.\n`);
+      if (!deleteChildBranch(located.root, number, path, latest.worktree.branch, "no longer exists, so it counts as removed", io)) orcaFailed = true;
       continue;
     }
     if (listedAs === undefined) {
@@ -234,7 +261,7 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
     }
     if (await orcaOk(orca.run, orca.env, ["worktree", "rm", "--worktree", `path:${path}`])) {
       updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
-      io.stdout(`Unit ${number}: the child worktree ${path} was removed. Its branch stays.\n`);
+      if (!deleteChildBranch(located.root, number, path, latest.worktree.branch, "was removed", io)) orcaFailed = true;
     } else {
       orcaFailed = true;
       io.stderr(`Unit ${number}: Orca could not remove the child worktree ${path}.\n`);
