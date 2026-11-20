@@ -1,7 +1,8 @@
 import { spawnSync } from "node:child_process";
-import { rmSync } from "node:fs";
+import { existsSync, realpathSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import type { Io } from "../io.js";
+import { listWorktrees } from "../helper/child.js";
 import { latestUnitRecord, unitRecords, updateRecord } from "../helper/record.js";
 import { callOrca } from "../orca/call.js";
 import { parseAnswer } from "../orca/answer.js";
@@ -11,6 +12,14 @@ import type { LocatedPlan } from "../plan/locate.js";
 import type { PlanRead, PlanUnit } from "../plan/read.js";
 import { latestUnitReport } from "../report/reports.js";
 import { runFolder } from "../run-state.js";
+
+const samePath = (a: string, b: string) => {
+  try {
+    return realpathSync(a) === realpathSync(b);
+  } catch {
+    return a === b;
+  }
+};
 
 function git(cwd: string, args: string[]) {
   const r = spawnSync("git", args, { cwd, encoding: "utf8" });
@@ -174,6 +183,20 @@ async function cleanUp(located: LocatedPlan, touched: Touched[], io: Io, orca: C
     }
     if (!collected || latest.collectedAt) continue;
     const path = latest.worktree.path;
+    // WHY: a folder that is gone is never read with git status, because git would climb to a parent repository or fail.
+    // Git may still list it. Removing a listed folder that does not exist only drops git's entry.
+    const listedAs = listWorktrees(located.root).find((w) => samePath(w.path, path))?.path;
+    if (!existsSync(path)) {
+      if (listedAs !== undefined) git(located.root, ["worktree", "remove", listedAs]);
+      updateRecord(folder, latest.id, { collectedAt: (orca.now?.() ?? new Date()).toISOString() });
+      io.stdout(`Unit ${number}: the child worktree ${path} no longer exists, so it counts as removed.\n`);
+      continue;
+    }
+    if (listedAs === undefined) {
+      dirtyFound = true;
+      io.stderr(`Unit ${number}: the folder ${path} was kept, because it is not a git worktree of this repository.\n`);
+      continue;
+    }
     const status = git(path, ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"]);
     if (!status.ok) {
       orcaFailed = true;

@@ -182,6 +182,62 @@ describe("cstack unit collect, clean-up", () => {
     expect(readRecord(runFolder(dir, "docs/plan.md"), id).collectedAt).toBeUndefined();
   });
 
+  describe("a child worktree whose folder is gone", () => {
+    /** A first collect applies the commits, but Orca fails to remove the worktree, so the worktree stays. */
+    async function keptAfterFirstCollect() {
+      const made = setup({ 1: "done" });
+      const failing: Runner = async (_c, args) => (args[0] === "worktree" ? { kind: "failed", exitCode: 1 } : { kind: "ok", stdout: '{"ok":true}' });
+      expect((await collectAll(made.dir, failing, "1")).code).toBe(5);
+      return made;
+    }
+    const listed = (dir: string) => git(dir, "worktree", "list", "--porcelain");
+
+    it("counts the worktree as removed when its folder was deleted by hand, and drops the entry of git", async () => {
+      const { dir, children, ids } = await keptAfterFirstCollect();
+      rmSync(children[1]!, { recursive: true, force: true });
+      expect(listed(dir)).toContain(children[1]!);
+      const head = git(dir, "rev-parse", "HEAD");
+      const fake = orca();
+      const result = await collectAll(dir, fake.run, "1");
+      expect(result.code).toBe(0);
+      expect(result.stdout).toContain("no longer exists");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(listed(dir)).not.toContain(children[1]!);
+      expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+      const record = readRecord(runFolder(dir, "docs/plan.md"), ids[1]!);
+      expect(record.released).toBe(true);
+      expect(record.collectedAt).toBe("2026-11-19T10:00:00.000Z");
+    });
+
+    it("counts the worktree as removed when it was removed with git", async () => {
+      const { dir, children, ids } = await keptAfterFirstCollect();
+      git(dir, "worktree", "remove", "--force", children[1]!);
+      const fake = orca();
+      const result = await collectAll(dir, fake.run, "1");
+      expect(result.code).toBe(0);
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      const record = readRecord(runFolder(dir, "docs/plan.md"), ids[1]!);
+      expect(record.released).toBe(true);
+      expect(record.collectedAt).toBe("2026-11-19T10:00:00.000Z");
+    });
+
+    it("keeps a folder that exists but is not a worktree of this repository", async () => {
+      const { dir, children, ids } = await keptAfterFirstCollect();
+      git(dir, "worktree", "remove", "--force", children[1]!);
+      mkdirSync(children[1]!, { recursive: true });
+      writeFileSync(join(children[1]!, "other.txt"), "x");
+      const fake = orca();
+      const result = await collectAll(dir, fake.run, "1");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("not a git worktree of this repository");
+      expect(fake.calls.some((c) => c.startsWith("worktree rm"))).toBe(false);
+      expect(readFileSync(join(children[1]!, "other.txt"), "utf8")).toBe("x");
+      const record = readRecord(runFolder(dir, "docs/plan.md"), ids[1]!);
+      expect(record.released).toBe(true);
+      expect(record.collectedAt).toBeUndefined();
+    });
+  });
+
   it("removes a child worktree whose copy of the plan file holds uncommitted changes, as after a second attempt", async () => {
     const { dir, children, ids } = setup({ 1: "done" });
     // The second attempt copies the current plan file into the child, so the child holds an uncommitted plan file.
