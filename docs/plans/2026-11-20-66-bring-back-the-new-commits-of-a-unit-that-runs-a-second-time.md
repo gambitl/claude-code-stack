@@ -265,11 +265,11 @@ Write "- Answer: open" until someone answers. Number the questions from 1 with n
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+The implementer of unit 1 also built the guard of unit 2, because a line of Decisions asked for it. Unit 2 then had nothing left to write and no red run could be saved. I added the trailer `Cstack-Unit: 2` to the commit of unit 1 (amended before any push), as the plan allows for a commit that counts for two units.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-20: build phase. Added the label `in progress` to ticket 66. Committed the plan file. Unit 1 and unit 2 are both in commit d4ebe3c. The run continues with the next phases.
 
 ## History
 
