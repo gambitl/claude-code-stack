@@ -40,4 +40,17 @@ describe("the Worktree line of a unit", () => {
       expect.objectContaining({ rule: expect.stringContaining("Worktree") }),
     );
   });
+
+  const RULE = "`- Worktree:` holds one path that starts with `/` or `~/`, with no control character.";
+
+  it("accepts a path that starts with ~/ and returns it as written", () => {
+    const plan = readPlan(withWorktree("~/a/b"));
+    expect(plan.units.find((unit) => unit.worktree)?.worktree).toBe("~/a/b");
+  });
+
+  it("refuses a bare ~, a ~name path and a control character after ~/, with the new rule", () => {
+    for (const value of ["~", "~name/a", "a/b", "~/a\u0007b", "/a\u0007b"]) {
+      expect(problemsOf(withWorktree(value))).toContainEqual(expect.objectContaining({ rule: RULE }));
+    }
+  });
 });
