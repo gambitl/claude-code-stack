@@ -13,12 +13,18 @@ const PLAN = "docs/plans/full.md";
 // Units 1 and 2 share no file and no dependency, so both are in the first batch.
 const full = readFileSync(join(PKG, "test", "fixtures", "plans", "full.md"), "utf8").replace("- Depends on: 1\n", "- Depends on: none\n");
 
-function setup(options: { workers?: boolean } = {}) {
+function setup(options: { workers?: boolean; settings?: string } = {}) {
   const dir = makeRepo();
   commitPlan(dir, full);
   writeFileSync(join(dir, "CLAUDE.md"), "rules\n");
   git(dir, "add", "CLAUDE.md");
   git(dir, "commit", "-m", "docs: rules");
+  if (options.settings !== undefined) {
+    mkdirSync(join(dir, ".cstack"), { recursive: true });
+    writeFileSync(join(dir, ".cstack", "settings.json"), options.settings);
+    git(dir, "add", ".cstack/settings.json");
+    git(dir, "commit", "-m", "chore: settings");
+  }
   git(dir, "checkout", "-b", "gambitl/full-example");
   const calls: { args: string[] }[] = [];
   const answers: Record<string, string> = {
@@ -54,8 +60,8 @@ function setup(options: { workers?: boolean } = {}) {
   return { dir, out, run, starts };
 }
 
-async function stuckChild() {
-  const t = setup();
+async function stuckChild(settings?: string) {
+  const t = setup(settings === undefined ? {} : { settings });
   expect(await t.run(["implementer", "--unit", "2", "--plan", PLAN, "--child-worktree"])).toBe(0);
   const args = t.starts()[0]!.args;
   const child = realpathSync(`${t.dir}-child-${args[args.indexOf("--name") + 1]}`);
@@ -114,5 +120,11 @@ describe("the second attempt of a stuck unit in a child worktree", () => {
     expect(await t.run(["implementer-escalation", "--unit", "2", "--plan", PLAN], { CSTACK_ORCA_WORKERS: "off" })).toBe(6);
     expect(t.out.stdout).toContain(`- Repository root: ${t.child}`);
     expect(t.out.stdout).toContain(`- Plan file: ${join(t.child, PLAN)}`);
+  });
+
+  it("prints the setup command among the sub-agent inputs when the child worktree is reused", async () => {
+    const t = await stuckChild(JSON.stringify({ version: 1, setupCommand: "npm ci" }));
+    expect(await t.run(["implementer-escalation", "--unit", "2", "--plan", PLAN], { CSTACK_ORCA_WORKERS: "off" })).toBe(6);
+    expect(t.out.stdout).toContain("- Setup command: npm ci");
   });
 });

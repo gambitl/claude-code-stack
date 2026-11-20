@@ -63,6 +63,7 @@ describe("readSettings results", () => {
       forbiddenTools: [],
       commitAttribution: [],
       testCommands: undefined,
+      setupCommand: undefined,
       review: { agent: "claude", model: "opus" },
       watchIntervalMinutes: 5,
     });
@@ -76,6 +77,7 @@ describe("readSettings results", () => {
       forbiddenTools: ["yarn"],
       commitAttribution: ["Co-Authored-By: Claude <noreply@anthropic.com>"],
       testCommands: { all: "npm test", file: "npm test -- {file}" },
+      setupCommand: "npm ci",
       review: { agent: "codex", model: "gpt-5" },
       watchIntervalMinutes: 10,
     };
@@ -222,13 +224,13 @@ describe("readSettings JSON syntax errors", () => {
 
 describe("the example settings file", () => {
   const examplePath = new URL("../skills/resolve-issue/templates/settings.json", import.meta.url);
-  it("is accepted, equals the defaults and holds every key except testCommands and review", () => {
+  it("is accepted, equals the defaults and holds every key except testCommands, setupCommand and review", () => {
     const text = readFileSync(examplePath, "utf8");
     const s = readSettings(repo(text));
     expect(s.found).toBe(true);
     expect(s.values).toEqual(DEFAULTS);
     const keys = Object.keys(JSON.parse(text)).sort();
-    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands" && k !== "review")].sort();
+    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands" && k !== "setupCommand" && k !== "review")].sort();
     expect(keys).toEqual(expected);
   });
 });
@@ -278,5 +280,28 @@ describe("attribution line with the Cstack-Unit key", () => {
       expect(e.message).toContain("Cstack-Unit");
       expect(e.message).toContain("belongs to cstack");
     }
+  });
+});
+
+describe("setupCommand", () => {
+  it("is read from the file and marked as from the file", () => {
+    const s = readSettings(repo({ version: 1, setupCommand: "npm ci" }));
+    expect(s.values.setupCommand).toBe("npm ci");
+    expect(s.sources.setupCommand).toBe("file");
+  });
+  it("is undefined and marked as default when the key is missing, and nothing else changes", () => {
+    const s = readSettings(repo({ version: 1, integration: "merge" }));
+    expect(s.values.setupCommand).toBeUndefined();
+    expect(s.sources.setupCommand).toBe("default");
+    expect(s.values).toEqual({ ...DEFAULTS, integration: "merge" });
+  });
+  it("refuses an empty value, a line break and a forbidden first word, on the path setupCommand", () => {
+    expect(problemPaths(repo({ version: 1, setupCommand: "" }))).toEqual(["setupCommand"]);
+    expect(problemPaths(repo({ version: 1, setupCommand: "npm ci\nrm -rf x" }))).toEqual(["setupCommand"]);
+    expect(problemPaths(repo({ version: 1, setupCommand: 3 }))).toEqual(["setupCommand"]);
+    expect(problemPaths(repo({ version: 1, forbiddenTools: ["yarn"], setupCommand: "yarn install" }))).toEqual(["setupCommand"]);
+  });
+  it("does not look for the {file} placeholder", () => {
+    expect(readSettings(repo({ version: 1, setupCommand: "echo {file}" })).values.setupCommand).toBe("echo {file}");
   });
 });

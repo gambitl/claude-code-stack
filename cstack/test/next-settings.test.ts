@@ -52,6 +52,7 @@ describe("cstack next and the settings", () => {
       "forbiddenTools",
       "commitAttribution",
       "testCommands",
+      "setupCommand",
       "review",
       "watchIntervalMinutes",
     ]);
@@ -63,6 +64,7 @@ describe("cstack next and the settings", () => {
     writeSettings(dir, { integration: "merge" });
     const { stdout } = await run(dir);
     expect(stdout).toContain("- testCommands: not set (default)\n");
+    expect(stdout).toContain("- setupCommand: not set (default)\n");
     expect(stdout).toContain('- integration: "merge"\n');
   });
 

@@ -1,4 +1,5 @@
 // WHY: the report text is external input. It is checked and saved as JSON, and it reaches Orca only as the path of the saved file, never as an argument.
+import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
@@ -8,6 +9,7 @@ import type { Runner } from "../orca/run.js";
 import { checkShape, ShapeError } from "../orca/shapes.js";
 import { parseVersion } from "../orca/version.js";
 import { locatePlan } from "../plan/locate.js";
+import { readPlan } from "../plan/read.js";
 import { checkReport, saveReport, saveUnitReport } from "../report/reports.js";
 import { runFolder, type SavedReport } from "../run-state.js";
 import { HelperError, readRecord, updateRecord, type HelperRecord } from "./record.js";
@@ -87,6 +89,43 @@ async function sendReport(record: HelperRecord, kind: string, file: string, deps
   }
 }
 
+const MAX_LISTED = 20;
+
+// A file name written in a message: control characters are escaped, so a terminal escape cannot get through.
+const shown = (name: string) => name.replace(/\p{Cc}/gu, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+const shellQuote = (name: string) => `'${shown(name).replaceAll("'", "'\\''")}'`;
+
+/**
+ * Lists what `cstack unit collect` would refuse to leave in a child worktree: the same git status, and the same exception for the plan file.
+ * Throws a HelperError with exit code 1 when files remain, and with exit code 5 when git cannot read the folder.
+ */
+function checkChildWorktree(folder: string, planFile: string, unitFiles: string[], unit: number | undefined): void {
+  const status = spawnSync("git", ["status", "--porcelain", "-z", "--untracked-files=all", "--no-renames"], { cwd: folder, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+  if (status.error !== undefined || status.status !== 0) {
+    const why = status.error?.message ?? status.stderr.trim();
+    throw new HelperError(`git cannot read the child worktree ${folder}, so cstack cannot check it: ${why} The report is not saved.`, EXIT.toolFailed);
+  }
+  const entries = status.stdout.split("\0").filter((entry) => entry !== "").map((entry) => ({ code: entry.slice(0, 2), file: entry.slice(3) }));
+  const stray = entries.filter((entry) => entry.file !== planFile);
+  if (stray.length === 0) return;
+  const lines = stray.slice(0, MAX_LISTED).map(({ code, file }) => {
+    if (unitFiles.includes(file)) {
+      return `- ${shown(file)}: it belongs to the unit. Commit it with \`cstack unit commit ${unit} --message "<subject>"\`, or undo it.`;
+    }
+    return code === "??" ? `- ${shown(file)}: run \`rm -- ${shellQuote(file)}\`.` : `- ${shown(file)}: run \`git restore -- ${shellQuote(file)}\`.`;
+  });
+  const more = stray.length > MAX_LISTED ? [`There are ${stray.length - MAX_LISTED} more.`] : [];
+  throw new HelperError(
+    [
+      `The child worktree ${folder} has uncommitted files, and \`cstack unit collect\` would keep it. The report is not saved.`,
+      ...lines,
+      ...more,
+      "A file that git ignores can stay. Fix the files above, then run this command again.",
+    ].join("\n"),
+    EXIT.refused,
+  );
+}
+
 export async function doneHelper(request: DoneRequest, io: Io, deps: DoneDeps): Promise<number> {
   const located = locatePlan(deps.cwd, request.plan);
   const where = { root: located.root, planFile: located.relative };
@@ -106,6 +145,10 @@ export async function doneHelper(request: DoneRequest, io: Io, deps: DoneDeps): 
   }
 
   const unit = record.unit ?? undefined;
+  if (record.worktree !== undefined && request.kind === "done") {
+    const planned = readPlan(readFileSync(located.path, "utf8")).units.find((u) => u.number === unit);
+    checkChildWorktree(record.worktree.path, located.relative, planned?.files ?? [], unit);
+  }
   const reasons = checkReport({ role: record.role, kind: request.kind, text: request.text, ...(unit !== undefined ? { unit } : {}) }, where);
   if (reasons.length > 0) {
     io.stderr(`${reasons.join("\n")}\n`);

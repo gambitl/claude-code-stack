@@ -36,6 +36,32 @@ describe("the implementer prompt", () => {
     const text = read("../skills/resolve-issue/agents/implementer.md");
     expect(implementerProblems(text)).toEqual([]);
   });
+
+  describe("in a child worktree", () => {
+    const text = read("../skills/resolve-issue/agents/implementer.md");
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    const has = (...parts: string[]) => sentences.some((s) => parts.every((p) => s.includes(p)));
+
+    it("runs the setup command of its inputs before the first test run", () => {
+      const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## How you work"));
+      expect(inputs).toContain("setup command");
+      expect(has("setup command", "before your first test run")).toBe(true);
+    });
+
+    it("forbids npm install and git clean", () => {
+      expect(has("Never run another install command", "npm install")).toBe(true);
+      expect(has("Never run", "git clean")).toBe(true);
+    });
+
+    it("cleans up stray files with rm and git restore", () => {
+      expect(has("rm --", "untracked", "outside your `Files` line")).toBe(true);
+      expect(has("git restore --", "tracked", "outside your `Files` line")).toBe(true);
+    });
+
+    it("says what to do when cstack helper done refuses a done report", () => {
+      expect(has("`cstack helper done` refuses", "run it again")).toBe(true);
+    });
+  });
 });
 
 describe("the executor prompt", () => {

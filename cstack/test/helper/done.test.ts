@@ -1,4 +1,5 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { reportCheck } from "../../src/commands/report-check.js";
@@ -22,6 +23,8 @@ interface Options {
   unit?: number | null;
   mode?: "orca-worker" | "sub-agent";
   env?: Record<string, string>;
+  /** Gives the helper a real child worktree, made with git worktree add. */
+  child?: boolean;
 }
 
 function setup(options: Options = {}) {
@@ -33,6 +36,14 @@ function setup(options: Options = {}) {
   const unit = options.unit ?? null;
   const id = `20261119-143205123-${role}${unit === null ? "" : `-${unit}`}`;
   const mode = options.mode ?? "orca-worker";
+  let childPath: string | undefined;
+  if (options.child) {
+    writeFileSync(join(dir, ".gitignore"), "node_modules/\n");
+    git(dir, "add", ".gitignore");
+    git(dir, "commit", "-m", "chore: ignore packages");
+    childPath = join(mkdtempSync(join(tmpdir(), "cstack-child-")), "wt");
+    git(dir, "worktree", "add", "-b", "child", childPath, "feature");
+  }
   createRecord(runFolder(dir, PLAN), {
     format: "cstack-helper/1",
     id,
@@ -40,6 +51,7 @@ function setup(options: Options = {}) {
     unit,
     startedAt: "2026-11-19T14:32:05.123Z",
     mode,
+    ...(childPath !== undefined ? { worktree: { path: childPath, branch: "child" } } : {}),
     ...(mode === "orca-worker" ? { dispatchId: DISPATCH } : { reason: "CSTACK_ORCA_WORKERS is off." }),
   });
   const calls: string[][] = [];
@@ -65,7 +77,7 @@ function setup(options: Options = {}) {
     return existsSync(folder) ? readdirSync(folder).map((n) => join(folder, n)) : [];
   };
   const sends = () => calls.filter((a) => a[1] === "send");
-  return { dir, id, calls, out, run, record, files, sends, results };
+  return { dir, child: childPath ?? "", id, calls, out, run, record, files, sends, results };
 }
 
 const emptyBriefing = full.replace("The build is done. Every unit has its commit.", "<what was built>");
@@ -182,5 +194,101 @@ describe("cstack helper done", () => {
     expect(await t.run(["done"])).toBe(2);
     expect(await t.run(["done", "--helper", "nope"])).toBe(2);
     expect(await t.run(["done", "--helper", t.id, "--nope"])).toBe(2);
+  });
+});
+
+describe("cstack helper done in a child worktree", () => {
+  const stray = (t: { child: string }, name: string, text = "x\n") => {
+    mkdirSync(join(t.child, name, ".."), { recursive: true });
+    writeFileSync(join(t.child, name), text);
+  };
+
+  it("refuses a done report while an untracked file is outside the unit, and names the fix", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "package-lock.json");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("package-lock.json");
+    expect(t.out.stderr).toContain("rm -- 'package-lock.json'");
+    expect(t.files("units", "2", "reports")).toEqual([]);
+    expect(t.calls).toEqual([]);
+  });
+
+  it("accepts a file that git ignores", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "node_modules/pkg/index.js");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(0);
+  });
+
+  it("accepts a stuck report with a stray file", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "package-lock.json");
+    expect(await t.run(["stuck", "--helper", t.id, "--plan", PLAN], "Blocked.")).toBe(0);
+  });
+
+  it("tells to restore a tracked file outside the unit that was changed", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "src/u1.ts", "changed\n");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("git restore -- 'src/u1.ts'");
+  });
+
+  it("tells to commit or undo a changed file of the unit", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "src/u2.ts", "changed\n");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("src/u2.ts");
+    expect(t.out.stderr).toContain("cstack unit commit 2 --message");
+    expect(t.out.stderr).not.toContain("rm -- 'src/u2.ts'");
+  });
+
+  it("accepts a changed plan file alone", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, PLAN, "different plan\n");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(0);
+  });
+
+  it("checks an implementer-escalation record the same way", async () => {
+    const t = setup({ role: "implementer-escalation", unit: 2, child: true });
+    stray(t, "package-lock.json");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("package-lock.json");
+  });
+
+  it("lists twenty files and counts the rest", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    for (let i = 0; i < 23; i++) stray(t, `extra/f${String(i).padStart(2, "0")}.txt`);
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("f19.txt");
+    expect(t.out.stderr).not.toContain("f20.txt");
+    expect(t.out.stderr).toContain("3 more");
+  });
+
+  it("refuses, and does not fail, when thousands of long-named files are untracked", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    const long = "x".repeat(150);
+    for (let i = 0; i < 9000; i++) stray(t, `vendor/pkg/${long}${i}.js`);
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).toContain("more");
+  }, 60000);
+
+  it("escapes control characters in a file name", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    stray(t, "bad\u001b[31mname.txt");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(1);
+    expect(t.out.stderr).not.toContain("\u001b");
+  });
+
+  it("exits with 5 when git cannot read the child worktree", async () => {
+    const t = setup({ role: "implementer", unit: 2, child: true });
+    rmSync(t.child, { recursive: true, force: true });
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(5);
+    expect(t.out.stderr).toContain(t.child);
+    expect(t.files("units", "2", "reports")).toEqual([]);
+  });
+
+  it("does not check an implementer without a worktree", async () => {
+    const t = setup({ role: "implementer", unit: 2 });
+    writeFileSync(join(t.dir, "package-lock.json"), "x\n");
+    expect(await t.run(["done", "--helper", t.id, "--plan", PLAN])).toBe(0);
   });
 });
