@@ -307,6 +307,16 @@ The four reviewers read the whole diff. Here is what they found and what I did.
 - Conventions: the README line said that `--discard-untracked` deletes the untracked files without saying when it refuses, and did not explain "untracked". Fixed, with shorter sentences.
 - Simplicity: the three pairs that mark a unit as collected and applied became one small function. I left the second remark open (one clock function passed around), because it saves about three lines and touches the fallback of the clean-up step.
 
+
+### Independent review
+
+The independent reviewer found no defect in the code. It added one test, which checks that a gone child branch is refused when the ticket branch holds no commit of the unit. The full test run and the type check pass. The reviewer raised these judgment calls, which stay as they are:
+
+- The ticket asks to accept a gone branch when the ticket branch has commits of the unit. The code trusts the time that cstack writes in the helper record after the apply instead, as the user decided. If someone resets the ticket branch after the collect and then deletes the child branch, the collect still answers 0. Checking that the ticket branch still holds commits of the unit would close that gap, and it is a possible follow-up.
+- Before it deletes a branch, the code runs `git worktree prune`. That drops git's entries for every worktree whose folder is missing, not only the entry of this unit. It is harmless in practice, but wider than needed.
+- When a branch is kept because it holds a change that is not applied, the unit is still recorded as collected, so no later call deletes that branch. This follows a recorded decision.
+- Two small wording issues remain. The message says "because it is" for a list of several entries, and the suggested command prints the plan path without quotes.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
