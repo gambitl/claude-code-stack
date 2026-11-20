@@ -279,13 +279,15 @@ The new test runs in the continuous integration after the branch is pushed, and 
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The implementer of unit 4 had its first `cstack unit commit` refused because it passed a relative plan path from the wrong folder. It reran the command with the absolute path.
+- In the full `npm test`, 18 tests in 8 files timed out at five seconds under load. The same folders passed alone (571 of 571).
+- The full `npm test` took more than 180 seconds in the foreground, so the shell moved it to the background.
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
-- 2026-11-20: moved ticket 70 to the `in progress` label on GitHub and started the build phase on the existing branch.
+- 2026-11-20: moved ticket 70 to the `in progress` label on GitHub and started the build phase on the existing branch. Built units 1 to 5 with implementers, no escalation, no returned report yet.
 
 ## History
 
