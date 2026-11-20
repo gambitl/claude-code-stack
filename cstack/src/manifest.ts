@@ -173,7 +173,8 @@ export const COMMANDS: CommandEntry[] = [
   }),
   {
     ...planCommand({
-      usage: "cstack unit commit <n>",
+      usage: "cstack unit commit <n> [--message <subject>]",
+      flags: ["--message"],
       summary: "Commit the files of a unit with its message and trailer.",
       exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: "git commit failed, for example because of a commit hook." },
       file: "unit-commit.ts",

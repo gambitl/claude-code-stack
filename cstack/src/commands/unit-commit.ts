@@ -12,7 +12,7 @@ import { gitFolders, runFolder, RunStateError } from "../run-state.js";
 import { readSavedRun } from "../saved-runs.js";
 import { readSettings, SettingsError } from "../settings.js";
 
-export const UNIT_COMMIT_USAGE = "Usage: cstack unit commit <n> [--plan <file>]";
+export const UNIT_COMMIT_USAGE = "Usage: cstack unit commit <n> [--message <subject>] [--plan <file>]";
 
 // WHY: the lock lives in the git folder of this worktree, not in the run folder.
 // The run folder sits in the common git folder and is shared by every worktree,
@@ -56,11 +56,13 @@ function checkUnit(
   plan: PlanRead,
   unit: PlanUnit,
   runDir: string,
+  message: string | undefined,
 ): { problems: string[]; entries: Entry[]; own: Set<string> } {
   const problems: string[] = [];
   const n = unit.number;
   const own = new Set(unit.files.map((f) => f.toLowerCase()));
-  const committed = new Set(Object.keys(listUnitCommits(root, plan.header["Target branch"]).units).map(Number));
+  const unitCommits = listUnitCommits(root, plan.header["Target branch"]).units;
+  const committed = new Set(Object.keys(unitCommits).map(Number));
 
   if (unit.blocked) problems.push(`Unit ${n} is blocked: ${unit.blocked}`);
 
@@ -70,6 +72,21 @@ function checkUnit(
     if (!green) problems.push(`Unit ${n} has a Test line but no saved passing run. Run its test and see it pass first.`);
     else if (red && Date.parse(green.time) <= Date.parse(red.time)) {
       problems.push(`Unit ${n} has no saved passing run that is newer than its saved failing run.`);
+    }
+  }
+
+  const earlier = unitCommits[n] ?? [];
+  if (earlier.length > 0) {
+    // git log ends each entry with a newline after its NUL, so the last item is a lone newline that trims to "".
+    const subjects = nulList(git(root, ["log", "--no-walk", "--format=%s%x00", "--end-of-options", ...earlier]).stdout)
+      .map((t) => t.trim())
+      .filter((s) => s !== "");
+    const quoted = subjects.map((s) => `"${s}"`).join(", ");
+    const help = `Run cstack unit commit ${n} --message "<subject>" with a subject that says what this commit changes.`;
+    if (message === undefined) {
+      problems.push(`Unit ${n} already has a commit, with the subject ${quoted}. Give this commit a subject of its own. ${help}`);
+    } else if (subjects.some((s) => s.toLowerCase() === message.toLowerCase())) {
+      problems.push(`Unit ${n} already has a commit with the subject "${message}". Earlier subjects: ${quoted}. Give this commit a different subject. ${help}`);
     }
   }
 
@@ -113,8 +130,8 @@ function checkUnit(
   return { problems, entries, own };
 }
 
-function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string, attribution: string[]): Outcome {
-  const { problems, entries, own } = checkUnit(root, plan, unit, runDir);
+function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string, attribution: string[], message: string | undefined): Outcome {
+  const { problems, entries, own } = checkUnit(root, plan, unit, runDir, message);
 
   if (problems.length > 0) return { code: 1, stderr: `${problems.join("\n")}\n` };
 
@@ -146,7 +163,7 @@ function commitUnit(root: string, plan: PlanRead, unit: PlanUnit, runDir: string
     const file = join(folder, "message.txt");
     // The trailer must be the last paragraph, because git reads trailers only there.
     // The attribution lines follow it with no blank line, so git reads them as trailers too.
-    writeFileSync(file, `${unit.commitMessage}\n\nCstack-Unit: ${unit.number}\n${attribution.map((l) => `${l}\n`).join("")}`);
+    writeFileSync(file, `${message ?? unit.commitMessage}\n\nCstack-Unit: ${unit.number}\n${attribution.map((l) => `${l}\n`).join("")}`);
     // WHY: --only commits exactly these paths. Without it, git would also commit any
     // other file that is staged in this worktree, which may be the work of another unit.
     const commit = git(root, ["commit", "-F", file, "--only", "--", ...paths]);
@@ -168,8 +185,12 @@ export async function unitCommit(
 ): Promise<number> {
   let parsed;
   try {
-    parsed = parseArgs({ args, options: { plan: { type: "string" } }, strict: true, allowPositionals: true });
+    parsed = parseArgs({ args, options: { plan: { type: "string" }, message: { type: "string" } }, strict: true, allowPositionals: true });
     if (parsed.positionals.length !== 1) throw new Error("give exactly one unit number");
+    const given = parsed.values.message;
+    if (given !== undefined && (given.trim() === "" || /[\r\n]/.test(given.trim()))) {
+      throw new Error("--message needs a subject that is not empty and has one line");
+    }
   } catch (error) {
     io.stderr(`cstack unit commit: ${error instanceof Error ? error.message : String(error)}\n${UNIT_COMMIT_USAGE}\n`);
     return 2;
@@ -185,9 +206,10 @@ export async function unitCommit(
       );
       return 2;
     }
+    const message = parsed.values.message?.trim();
     const attribution = readSettings(located.root).values.commitAttribution;
     const lockPath = join(gitFolders(located.root).gitDir, "cstack", LOCK_FILE);
-    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, plan, unit, runFolder(located.root, located.relative), attribution));
+    const result = await withCommitLock(lockPath, unit.number, lockWaitMs, () => commitUnit(located.root, plan, unit, runFolder(located.root, located.relative), attribution, message));
     if (!result.ok) {
       io.stderr(`cstack unit commit: ${result.message}\n`);
       return 1;
