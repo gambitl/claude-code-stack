@@ -253,6 +253,8 @@ Simplicity reviewer: no finding.
 
 Fix: one commit splits an over-long `WHY:` comment line that the unit 1 edit had glued to the next sentence.
 
+Independent review (pr-reviewer). It added one test, in commit ec6ae3d, for the acceptance line that a child worktree whose new commits were not applied is never removed: a second attempt whose new commit the collect refuses keeps its worktree. It checked the five acceptance cases, saw every new case fail on the old code, and saw the full tests and the type check pass. A temporary merge with the current `main` had no conflict. Judgment calls for the pull request body: the guard runs after `commitProblem()` and not before, with the same exit code and the same result, so only the first message differs. Units 1 and 2 share one commit with two `Cstack-Unit` trailers. After a rebase of the ticket branch in which a commit was changed to solve a conflict, a second collect stops with exit 1 instead of skipping, and nothing is lost. A second collect of a unit whose child branch was deleted by hand now exits with 1.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
