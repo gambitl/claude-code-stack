@@ -673,6 +673,11 @@ For the coordinator of the wave, from the question round, word for word:
 
 - From the next run with Orca in this repository, cstack writes `- Worktree: <absolute path>` lines into the plan file, and the executor commits them. These paths start with `/Users/`, which the public text rule forbids, and the private-names check does not catch them. Should a later ticket write them relative to the home folder, or should this repository stop committing plan files?
 
+For the coordinator of the wave, from the build:
+
+- When should version 0.3.0 be installed? Three other branches of the wave are still open. A run that starts with 0.2.0 has no helper id, and the 0.3.0 guides end its reports with `cstack helper done --helper <helper id>`. So install it only when no other ticket of the wave is between its approval and its pull request. (from the briefing)
+- `cstack measure` misses a removed child worktree whose folder sat inside another worktree that the plan does not name, such as the main clone. Orca puts child worktrees outside the main clone, so the run by hand of scope item 7 should show whether this matters. Should the paths of the plan take part in the choice of the closest worktree? (from the independent review)
+
 ## Pull request
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
