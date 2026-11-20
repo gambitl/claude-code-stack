@@ -81,6 +81,18 @@ test("the spec of an implementer in a child worktree holds relative paths and th
   expect(spec.includes("- Conventions file: CLAUDE.md")).toBe(true);
   expect(spec.includes("folder where Orca starts you")).toBe(true);
   expect(spec.includes("Install the packages as the conventions file says before your first test run")).toBe(true);
+  expect(spec.includes("does not change the lock file, such as `npm ci`, and never `npm install`")).toBe(true);
+  expect(spec.includes("- Setup command:")).toBe(false);
   expect(spec.trimEnd().endsWith(`--plan 'docs/plans/p.md'`)).toBe(true);
   expect(buildSpec(inputs("implementer", { planFile: plan }, root)).includes(root)).toBe(true);
+});
+
+test("the spec of an implementer in a child worktree with a setup command names it and asks to run it once", () => {
+  const root = repo();
+  const plan = join(root, "docs", "plans", "p.md");
+  const i = { ...inputs("implementer", { planFile: plan }, root), childWorktree: true as const, setupCommand: "npm ci" };
+  const spec = buildSpec(i);
+  expect(spec.includes("- Setup command: npm ci\n")).toBe(true);
+  expect(spec.includes("Before your first test run, run the setup command of your inputs once, from the root of this worktree. Never run another install command, such as `npm install`.")).toBe(true);
+  expect(spec.includes("Install the packages as the conventions file says")).toBe(false);
 });

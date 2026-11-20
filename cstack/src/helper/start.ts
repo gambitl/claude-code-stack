@@ -18,6 +18,7 @@ import { latestStuckReportPath } from "../report/reports.js";
 import { homePathWarning, setUnitWorktree, worktreeValue } from "../plan/unit-line.js";
 import { gitFolders, runFolder, writeCurrentRun, writeFileAtomic } from "../run-state.js";
 import { withCommitLock } from "../commit-lock.js";
+import { readSettings } from "../settings.js";
 import { WriteShapeError } from "../tracker/errors.js";
 import {
   createRecord,
@@ -100,6 +101,7 @@ async function fallback(
     ...(inputs.writingGuide ? [`- Writing guide: ${inputs.writingGuide}`] : []),
     ...(inputs.unit !== undefined ? [`- Unit number: ${inputs.unit}`] : []),
     ...(inputs.stuckReport ? [`- Stuck report: ${inputs.stuckReport}`] : []),
+    ...(inputs.setupCommand !== undefined ? [`- Setup command: ${inputs.setupCommand}`] : []),
     `Helper id: ${inputs.helperId}`,
   ];
   io.stdout(`${lines.join("\n")}\n`);
@@ -237,8 +239,11 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
   let fallbackInputs = inputs;
   if (reuse !== undefined) {
     const inChild = (path: string) => join(reuse.path, relative(located.root, path));
+    // Read the settings first, so that an invalid file leaves the child worktree untouched.
+    const setup = readSettings(located.root).values.setupCommand;
     copyFileSync(located.path, inChild(located.path));
     inputs.childWorktree = true;
+    if (setup !== undefined) inputs.setupCommand = setup;
     fallbackInputs = { ...inputs, repoRoot: reuse.path, planFile: inChild(inputs.planFile), conventionsFile: inChild(inputs.conventionsFile) };
   }
 
@@ -265,6 +270,10 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
       base = headHash(located.root);
       before = listWorktrees(located.root);
       inputs.childWorktree = true;
+      // A refused new child start falls back to a sub-agent in the ticket worktree, so its inputs get no setup command.
+      fallbackInputs = { ...inputs };
+      const setup = readSettings(located.root).values.setupCommand;
+      if (setup !== undefined) inputs.setupCommand = setup;
     }
   }
 

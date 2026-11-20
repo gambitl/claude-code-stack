@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { helperStart } from "../../src/commands/helper-start.js";
@@ -13,12 +13,18 @@ const PLAN = "docs/plans/full.md";
 // Units 1 and 2 share no file and no dependency, so both are in the first batch.
 const full = readFileSync(join(PKG, "test", "fixtures", "plans", "full.md"), "utf8").replace("- Depends on: 1\n", "- Depends on: none\n");
 
-function setup(options: { plan?: string; env?: Record<string, string>; features?: boolean } = {}) {
+function setup(options: { plan?: string; env?: Record<string, string>; features?: boolean; settings?: string; refuse?: boolean } = {}) {
   const dir = makeRepo();
   commitPlan(dir, options.plan ?? full);
   writeFileSync(join(dir, "CLAUDE.md"), "rules\n");
   git(dir, "add", "CLAUDE.md");
   git(dir, "commit", "-m", "docs: rules");
+  if (options.settings !== undefined) {
+    mkdirSync(join(dir, ".cstack"), { recursive: true });
+    writeFileSync(join(dir, ".cstack", "settings.json"), options.settings);
+    git(dir, "add", ".cstack/settings.json");
+    git(dir, "commit", "-m", "chore: settings");
+  }
   git(dir, "checkout", "-b", "gambitl/full-example");
   const calls: { command: string; args: string[] }[] = [];
   const context = fixture("agent-context.current.json");
@@ -30,6 +36,7 @@ function setup(options: { plan?: string; env?: Record<string, string>; features?
   const runner: Runner = async (command, args) => {
     calls.push({ command, args });
     if (args[0] === "orchestration" && args[1] === "worker-start") {
+      if (options.refuse === true) return { kind: "ok", stdout: JSON.stringify({ ok: false, error: { code: "invalid_argument", message: "no child worktrees here" } }) };
       const path = `${dir}-child-${args[args.indexOf("--name") + 1]}`;
       const base = args[args.indexOf("--base-branch") + 1]!;
       if (args[args.indexOf("--worktree") + 1] === "new-child") git(dir, "worktree", "add", "-b", `child/${args[args.indexOf("--name") + 1]}`, path, base);
@@ -61,6 +68,42 @@ describe("cstack helper start --child-worktree", () => {
     expect(arg(two!, "--name")).toBe("full-example-unit-2-143205");
     expect(readFileSync(arg(one!, "--spec-file")!, "utf8")).toContain("Plan file: docs/plans/full.md");
     expect(t.out.stdout.split("\n")[0]).toBe("20261119-143205123-implementer-1");
+  });
+
+  describe("the setup command", () => {
+    const withKey = JSON.stringify({ version: 1, setupCommand: "npm ci" });
+
+    it("gives the setup command to the spec and keeps --setup skip", async () => {
+      const t = setup({ settings: withKey });
+      expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
+      const args = t.starts()[0]!.args;
+      const spec = readFileSync(arg(args, "--spec-file")!, "utf8");
+      expect(spec).toContain("- Setup command: npm ci\n");
+      expect(spec).toContain("run the setup command of your inputs once");
+      expect(arg(args, "--setup")).toBe("skip");
+    });
+
+    it("asks for an install that keeps the lock file when the key is missing", async () => {
+      const t = setup({ settings: JSON.stringify({ version: 1 }) });
+      expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(0);
+      const spec = readFileSync(arg(t.starts()[0]!.args, "--spec-file")!, "utf8");
+      expect(spec).not.toContain("- Setup command:");
+      expect(spec).toContain("does not change the lock file");
+    });
+
+    it("prints no setup command for the sub-agent after Orca refuses the new child start", async () => {
+      const t = setup({ settings: withKey, refuse: true });
+      expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(6);
+      expect(t.out.stdout).toContain("Sub-agent: resolve-issue:implementer");
+      expect(t.out.stdout).not.toContain("- Setup command:");
+    });
+
+    it("exits with 3 before any worker-start call when the setup command is invalid", async () => {
+      const t = setup({ settings: JSON.stringify({ version: 1, setupCommand: "" }) });
+      expect(await t.run(["implementer", "--unit", "1", "--plan", PLAN, "--child-worktree"])).toBe(3);
+      expect(t.out.stderr).toContain("setupCommand");
+      expect(t.starts()).toEqual([]);
+    });
   });
 
   it("refuses a unit that is not in the first batch", async () => {

@@ -1,4 +1,4 @@
-// WHY: the spec is the task text that an Orca worker receives. It is built from fixed text and paths only, never from the plan, the ticket or a report, so that text written by someone else can never become an instruction for the worker.
+// WHY: the spec is the task text that an Orca worker receives. It is built from fixed text and paths only, never from the plan, the ticket or a report, so that text written by someone else can never become an instruction for the worker. It also holds the setup command. That command comes from the committed settings file, which the team writes like a script of `package.json`, and the settings reader refuses a line break or a control character in it.
 import { existsSync, readFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { EXIT } from "../manifest.js";
@@ -21,6 +21,8 @@ export interface HelperInputs {
   stuckReport?: string;
   /** The worker runs in its own child worktree, so the spec gives paths relative to it. */
   childWorktree?: true;
+  /** The `setupCommand` of the settings, only for a worker that really runs in a child worktree. */
+  setupCommand?: string;
 }
 
 export interface InputOptions {
@@ -111,6 +113,7 @@ export function buildSpec(inputs: HelperInputs): string {
     ...(inputs.writingGuide ? [`- Writing guide: ${inputs.writingGuide}`] : []),
     ...(inputs.unit !== undefined ? [`- Unit number: ${inputs.unit}`] : []),
     ...(inputs.stuckReport ? [`- Stuck report: ${inputs.stuckReport}`] : []),
+    ...(inputs.setupCommand !== undefined ? [`- Setup command: ${inputs.setupCommand}`] : []),
   ];
   return [
     `You are the helper "${inputs.role}" of a cstack run.`,
@@ -121,7 +124,9 @@ export function buildSpec(inputs: HelperInputs): string {
     "",
     ...(child
       ? [
-          "This worktree is new and has no installed packages. Install the packages as the conventions file says before your first test run. Run every cstack command from the root of this worktree.",
+          inputs.setupCommand !== undefined
+            ? "This worktree is new and has no installed packages. Before your first test run, run the setup command of your inputs once, from the root of this worktree. Never run another install command, such as `npm install`. Run every cstack command from the root of this worktree."
+            : "This worktree is new and has no installed packages. Install the packages as the conventions file says before your first test run. Use a command that does not change the lock file, such as `npm ci`, and never `npm install`. Run every cstack command from the root of this worktree.",
           "",
         ]
       : []),
