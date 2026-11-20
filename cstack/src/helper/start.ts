@@ -1,5 +1,6 @@
 // WHY: ADR-SIC-A and ADR-SIC-F. no ticket title, plan text or report text reaches an Orca command line. The worker reads the plan file itself, from the path in its spec.
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { dirname, join, relative } from "node:path";
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
@@ -14,7 +15,7 @@ import { locatePlan } from "../plan/locate.js";
 import { orderUnits } from "../plan/order.js";
 import { readPlan } from "../plan/read.js";
 import { latestStuckReportPath } from "../report/reports.js";
-import { setUnitWorktree } from "../plan/unit-line.js";
+import { homePathWarning, setUnitWorktree, worktreeValue } from "../plan/unit-line.js";
 import { gitFolders, runFolder, writeCurrentRun, writeFileAtomic } from "../run-state.js";
 import { withCommitLock } from "../commit-lock.js";
 import { WriteShapeError } from "../tracker/errors.js";
@@ -311,10 +312,13 @@ export async function startHelper(request: StartRequest, io: Io, deps: StartDeps
     if (found !== undefined) {
       writeCurrentRun(found.path, located.relative);
       const lockPath = join(gitFolders(located.root).gitDir, "cstack", "plan-file.lock");
+      const value = worktreeValue(found.path, homedir());
       const locked = await withCommitLock(lockPath, unit as number, 60_000, () =>
-        writeFileAtomic(located.path, setUnitWorktree(readFileSync(located.path, "utf8"), unit as number, found.path)),
+        writeFileAtomic(located.path, setUnitWorktree(readFileSync(located.path, "utf8"), unit as number, value)),
       );
       if (!locked.ok) throw new HelperError(`cstack could not write the Worktree line of unit ${unit} into the plan file: ${locked.message}.`, EXIT.toolFailed);
+      const warning = homePathWarning(unit as number, value);
+      if (warning !== undefined) io.stderr(warning);
     }
     io.stdout(`${inputs.helperId}\n${note === "" ? "" : `${note}\n`}Run \`cstack helper wait ${inputs.helperId}\` to wait for its report.\n`);
     return 0;
