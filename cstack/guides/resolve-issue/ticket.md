@@ -6,7 +6,9 @@ If the user gave no ticket id or URL, ask for one, then go on.
 
 ## Fetch the ticket
 
-Fetch the ticket through the direct connection to the tracker. Capture its title, full body, status, labels and parent (project, epic or milestone). Also capture its relations to other tickets when the tracker shows them, and the branch name that the tracker suggests, if any.
+Read the ticket with `cstack tracker read '<key>' --tracker <name>`. The name is `jira`, `linear`, `github` or `gitlab`, as the ticket URL or the conventions file shows. On exit code `4`, read the ticket with your own connection and fill `templates/tracker-file.json` from the skill folder. Run the same command again with `--from-file <file>`.
+
+Also capture the labels, the parent (project, epic or milestone), the comments, the relations to other tickets and the suggested branch name.
 
 Read the ticket once, in full. Do not summarise it.
 

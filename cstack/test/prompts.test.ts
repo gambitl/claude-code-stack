@@ -17,6 +17,8 @@ export function implementerProblems(text: string): string[] {
   if (green >= 0 && commit >= 0 && commit < green) {
     problems.push("cstack unit commit comes before the first cstack unit green");
   }
+  const done = text.indexOf("cstack helper done", commit);
+  if (commit >= 0 && done < 0) problems.push("it never names cstack helper done after cstack unit commit");
   const sentences = text.split(/(?<=[.!?])\s+/);
   if (!sentences.some((s) => s.includes("No test") && s.includes("cstack unit commit"))) {
     problems.push("no sentence says that a No test unit goes straight to cstack unit commit");
@@ -39,13 +41,20 @@ describe("the implementer prompt", () => {
 describe("the executor prompt", () => {
   const text = read("../skills/resolve-issue/agents/executor.md");
 
-  it("names cstack next and cstack report submit", () => {
+  it("names cstack next and cstack helper done, and no longer cstack report submit", () => {
     expect(text).toContain("cstack next");
-    expect(text).toContain("cstack report submit");
+    expect(text).toContain("cstack helper done");
+    expect(text).not.toContain("cstack report submit");
+  });
+
+  it("names the helper id among its inputs and says that cstack helper start gives it", () => {
+    const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## Vocabulary"));
+    expect(inputs).toContain("helper id");
+    expect(inputs).toContain("cstack helper start");
   });
 
   it("submits exactly the four kinds of report, and no other", () => {
-    const kinds = new Set([...text.matchAll(/cstack report submit (\S+)/g)].map((m) => m[1]));
+    const kinds = new Set([...text.matchAll(/cstack helper done (\S+) --helper <helper id> --plan <plan file>/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
   });
 

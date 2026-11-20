@@ -13,7 +13,7 @@ The live setup stays in `~/.claude`. The `config` folder is only a copy. Editing
 - **git**: required. Run `xcode-select --install` to get it.
 - **Forge client**: required. You need one of two tools. Install `gh` with `brew install gh` for GitHub. Install `glab` with `brew install glab` for GitLab.
 - **Claude Code**: required. Install it with `curl -fsSL https://claude.ai/install.sh | bash`.
-- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
+- **Orca**: optional. Download it from https://github.com/stablyai/orca/releases. The minimum Orca version is `1.4.259`. `cstack doctor` prints the minimum Orca version. It also says which Orca features work on your Mac, and why a feature does not.
 
 ## Install cstack
 
@@ -79,7 +79,7 @@ You run it from the repository of the run, on the plan file that the run committ
 
 The command prints one line per number, in this order. It gives the number of main sessions and of helper transcripts. It gives the four kinds of tokens: input, cache creation input, cache read input and output. It repeats the four kinds for each Claude model. It gives the minutes from the approval of the plan to "ready for review". It ends with the number of skipped lines and of unreadable files.
 
-The command finds the sessions in two steps. It takes the commit dates of the plan file from git as the start and the end of the run. Then it counts every session whose working folder is the repository, or a folder inside it, and that was active between those two dates. It also counts all the helpers of those sessions. It counts each answer of the model once.
+The command finds the sessions in two steps. It takes the commit dates of the plan file from git as the start and the end of the run. Then it counts every session whose working folder is the repository, or a folder inside it, and that was active between those two dates. A session also counts when its working folder is a child worktree that a `- Worktree:` line of the plan names. A session in any other worktree of the repository never counts, even when that worktree is inside the repository folder. The command asks `git worktree list` for the worktrees, so it exits with 1 when git cannot list them. It also counts all the helpers of those sessions. It counts each answer of the model once.
 
 Run the command before you remove the folder of the run, and before a squash merge, because both erase what the command reads. Run it after the session has ended, because anything said later in a session that counts adds to the totals.
 

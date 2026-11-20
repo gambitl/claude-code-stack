@@ -36,3 +36,5 @@ An Orca worker is a full Claude Code session. It may use more tokens than a sub-
 A worker that waits for an answer to a permission question stalls the run, because nobody answers it. So the permission rule of the ticket that handles the forges (#26) matters here. When `cstack` sees that a worker waits for a person, it says so and tells the person to answer in Orca.
 
 The way of starting a helper is the only thing that changes. The prompts of the helpers, the plan and the report check stay the same. This is why the fallback to sub-agents costs nothing.
+
+Update of 2026-11-20, from ticket #31. The last paragraph above is no longer true as written. The prompts of the helpers now end with `cstack helper done <kind> --helper <helper id> --plan <plan file>`, in both modes. The command runs the same check as `cstack report submit`, and it also sends `worker_done` to Orca when the helper is a worker. The helper always runs this command itself, so the main conversation never runs it for a helper. The fallback to sub-agents still costs nothing, because both ways use the same prompt and the same check.

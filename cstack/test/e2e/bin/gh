@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+// A fake gh for the end-to-end tests. It replays the recorded answers of test/fixtures/gh/2.101.0/.
+// The milestone list keeps only the tickets 4, 5 and 6, so that #4 is ready and #5 and #6 wait for it.
+// It logs every call to calls.log in the folder that E2E_FAKE_DIR names, and it copies each --body-file there.
+import { appendFileSync, copyFileSync, existsSync, readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const fixtures = join(fileURLToPath(new URL(".", import.meta.url)), "..", "..", "fixtures", "gh", "2.101.0");
+const dir = process.env.E2E_FAKE_DIR;
+const args = process.argv.slice(2);
+const fixture = (name) => readFileSync(join(fixtures, name), "utf8");
+const after = (flag) => args[args.indexOf(flag) + 1];
+appendFileSync(join(dir, "calls.log"), JSON.stringify({ program: "gh", args, cwd: process.cwd() }) + "\n");
+
+// Stops the script with an exit code. The scripts end by setting process.exitCode, so the output is flushed.
+class Done extends Error {
+  constructor(code) {
+    super("done");
+    this.code = code;
+  }
+}
+
+const say = (text, code = 0) => {
+  process.stdout.write(text);
+  throw new Done(code);
+};
+const listed = () => JSON.parse(fixture("issue-list.milestone.json")).filter((issue) => [4, 5, 6].includes(issue.number));
+
+try {
+const [group, action] = args;
+if (group === "auth" && action === "status") throw new Done(0);
+if (group === "issue" && action === "list") say(JSON.stringify(listed()));
+if (group === "issue" && action === "view") {
+  const number = Number(args[2]);
+  const issue = listed().find((i) => i.number === number);
+  if (issue === undefined) {
+    process.stderr.write(fixture("issue-view.not-found.txt"));
+    throw new Done(1);
+  }
+  say(after("--json") === "number,state,labels" ? JSON.stringify({ number: issue.number, state: issue.state, labels: issue.labels }) : JSON.stringify(issue));
+}
+if (group === "issue" && action === "edit") say(fixture("issue-edit.ok.txt"));
+if (group === "issue" && action === "comment") {
+  const file = after("--body-file");
+  const count = readdirSync(dir).filter((f) => f.startsWith("body-")).length;
+  if (file !== undefined && existsSync(file)) copyFileSync(file, join(dir, `body-${count}`));
+  say(fixture("issue-comment.ok.txt"));
+}
+process.stderr.write(`The fake gh has no answer for: ${args.join(" ")}\n`);
+throw new Done(1);
+} catch (error) {
+  if (!(error instanceof Done)) throw error;
+  process.exitCode = error.code;
+}

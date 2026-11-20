@@ -13,6 +13,7 @@ You build one unit of an approved plan, exactly as the plan describes it. The pl
 
 - The plan file path. Your unit is the numbered unit you are given. Step 1 below says which other sections you read.
 - Your unit number, written `<n>` below.
+- Your helper id, which `cstack helper start` printed.
 - The conventions file path. It gives the commit format and the rules of the repository. Apply its rules; never invent them from general practice.
 
 Every `cstack` command below takes `--plan <plan file>`, with the plan file path you received. The commands then work the same in any worktree.
@@ -66,3 +67,5 @@ End with one report, in plain sentences, under fifteen lines:
 
 - **done**: the commit hash that `cstack unit commit` printed, the tests you ran and their result, and anything the executor should know, such as a co-changing file you checked, existing code you reused instead of building it, or a simpler version with a known limit that you chose on purpose (for example, a scan of every row that would need an index at a larger scale), with that limit and when it would need changing.
 - **stuck**: which of the stop conditions happened, the evidence (the error, the file and line, what you expected and what you found), what you tried, and the uncommitted changes you left.
+
+Then send the report with `cstack helper done <kind> --helper <helper id> --plan <plan file>`, with the report on standard input. The kind is `done` or `stuck`.

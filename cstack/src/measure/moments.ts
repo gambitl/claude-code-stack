@@ -7,7 +7,7 @@ import { PlanFormatError, readPlan } from "../plan/read.js";
 const execFileAsync = promisify(execFile);
 const GIT_OPTIONS = ["--literal-pathspecs", "-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];
 
-async function git(cwd: string, args: string[]): Promise<string> {
+export async function git(cwd: string, args: string[]): Promise<string> {
   const { stdout } = await execFileAsync("git", [...GIT_OPTIONS, ...args], {
     cwd,
     maxBuffer: 256 * 1024 * 1024,
@@ -24,6 +24,8 @@ export type Moments = {
   ready: Date | undefined;
   // Where the two moments come from: the header of a version 1 plan file, or the git history.
   source: "header" | "history";
+  // The `Worktree` paths of the units, as the plan file writes them. A plan without them gives an empty list.
+  worktrees: string[];
 };
 
 // "not yet" is a missing moment. Any other value has the shape that the plan reader checked.
@@ -74,7 +76,8 @@ export async function readMoments(planArgument: string): Promise<Moments> {
     if (ready && ready.getTime() < approval.getTime()) {
       throw new MomentsError("the ready moment of the plan file comes before its approval moment.");
     }
-    return { root, approval, ready, source: "header" };
+    const worktrees = readPlan(text).units.flatMap((unit) => (unit.worktree ? [unit.worktree] : []));
+    return { root, approval, ready, source: "header", worktrees };
   }
   const path = relative(root, plan).split("\\").join("/");
   let added: string[] = [];
@@ -104,5 +107,5 @@ export async function readMoments(planArgument: string): Promise<Moments> {
       // The file does not exist in this commit, so skip it.
     }
   }
-  return { root, approval, ready, source: "history" };
+  return { root, approval, ready, source: "history", worktrees: [] };
 }

@@ -26,6 +26,8 @@ const IMPLEMENTER = read(CSTACK, "skills", "resolve-issue", "agents", "implement
 const EXECUTOR = read(CSTACK, "skills", "resolve-issue", "agents", "executor.md");
 const READY_GUIDE = read(GUIDES, "ready.md");
 const RETRO_GUIDE = read(GUIDES, "retro.md");
+const PLAN_GUIDE = read(GUIDES, "plan.md");
+const BUILD_GUIDE = read(GUIDES, "build.md");
 
 interface Result {
   code: number;
@@ -42,6 +44,16 @@ let home: string;
 let env: NodeJS.ProcessEnv;
 // The text of the guide that the last `cstack next` printed.
 let lastGuide = "";
+
+// The id that `cstack helper start` printed on its last line.
+let helperId = "";
+
+function startExecutor(): void {
+  const started = follow(PLAN_GUIDE, ["helper", "start", "executor", "--plan", PLAN]);
+  expect(started.code, started.stderr).toBe(6);
+  expect(started.stdout).toContain("Sub-agent: resolve-issue:executor");
+  helperId = started.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
+}
 
 function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: project, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -60,7 +72,13 @@ function written(args: string[]): string {
     if (at >= 0) words.splice(at, extra.length);
   }
   words = words.map((w) => (w === PLAN ? "<plan file>" : w));
+  if (words[0] === "helper" && words[1] === "wait") words[2] = "<helper id>";
+  const helperAt = words.indexOf("--helper");
+  if (words[0] === "helper" && words[1] === "done" && helperAt >= 0) words[helperAt + 1] = "<helper id>";
   if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
+  if (words[0] === "unit" && words[1] === "collect") words.splice(2, words.indexOf("--plan") - 2, "<n>...");
+  const unitAt = words.indexOf("--unit");
+  if (words[0] === "helper" && words[1] === "start" && unitAt >= 0) words[unitAt + 1] = "<n>";
   if (words[0] === "plan" && words[1] === "section") words[2] = "<name>";
   return `cstack ${words.join(" ")}`;
 }
@@ -132,6 +150,11 @@ const ATTRIBUTION = "Assisted-by: cstack end-to-end test";
 
 /** What an implementer does for one unit, with the commands of its prompt. */
 function implement(unit: number): void {
+  // The build guide starts each implementer. No batch holds two units, so no --child-worktree is given.
+  const started = follow(BUILD_GUIDE, ["helper", "start", "implementer", "--plan", PLAN, "--unit", String(unit)]);
+  expect(started.code, started.stderr).toBe(6);
+  expect(started.stdout).toContain("Sub-agent: resolve-issue:implementer");
+  const implementerId = started.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
   if (unit === 3) {
     copyFromUnit(3, "README.md");
   } else {
@@ -150,7 +173,8 @@ function implement(unit: number): void {
   }
   if (unit === 3) {
     // US-7: the done report is refused while unit 3 has no commit, and the message names it.
-    const early = follow(READY_GUIDE, ["report", "submit", "done", "--plan", PLAN], "A done report.\n");
+    startExecutor();
+    const early = follow(READY_GUIDE, ["helper", "done", "done", "--helper", helperId, "--plan", PLAN], "A done report.\n");
     expect(early.code).toBe(1);
     expect(early.stderr).toContain("Unit 3 has no commit");
   }
@@ -162,6 +186,14 @@ function implement(unit: number): void {
   const message = git("log", "-1", "--format=%B").split("\n");
   expect(message.slice(-2)).toEqual([`${TRAILER}${unit}`, ATTRIBUTION]);
   expect(message.filter((l) => l.startsWith(TRAILER))).toHaveLength(1);
+
+  // The implementer prompt ends the report with cstack helper done, and the build guide waits for it.
+  expect(IMPLEMENTER).toContain("cstack helper done <kind> --helper <helper id> --plan <plan file>");
+  const done = run(["helper", "done", "done", "--helper", implementerId, "--plan", PLAN], `Unit ${unit} is committed.\n`);
+  expect(done.code, done.stderr).toBe(0);
+  const waited = follow(BUILD_GUIDE, ["helper", "wait", implementerId]);
+  expect(waited.code, waited.stderr).toBe(0);
+  expect(waited.stdout).toBe(`done\nUnit ${unit} is committed.\n`);
 }
 
 beforeAll(() => {
@@ -188,6 +220,9 @@ beforeAll(() => {
     GIT_ALLOW_PROTOCOL: "file",
     FAKE_BARE: bare,
     FAKE_BRANCH: BRANCH,
+    // No Orca worker runs in this test, so `cstack helper start` falls back to a sub-agent and never reaches the real Orca.
+    CSTACK_ORCA_WORKERS: "off",
+    ORCA_CLI_COMMAND: join(temp, "no-such-orca"),
   };
 
   execFileSync("git", ["init", "--bare", "-b", "main", bare], { env, stdio: "ignore" });
@@ -303,15 +338,19 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
         implement(unit);
         committed.push(unit);
       }
+      // No unit ran in a child worktree, so the collect skips every unit.
+      const collected = follow(BUILD_GUIDE, ["unit", "collect", ...batch.map(String), "--plan", PLAN]);
+      expect(collected.code, collected.stderr).toBe(0);
       const status = follow(lastGuide, ["plan", "status", "--plan", PLAN]);
       expect(status.code, status.stderr).toBe(0);
       for (const n of [1, 2, 3]) {
         expect(status.stdout).toMatch(new RegExp(`^Unit ${n}: .*: ${committed.includes(n) ? "done \\(" : "not done"}`, "m"));
       }
     }
-    // Unit 3 has no test, so it left no saved run.
+    // Unit 3 has no test, so it left no saved run. Its folder holds only the report of its helper.
     const runs = join(git("rev-parse", "--path-format=absolute", "--git-common-dir"), "cstack", "runs", "e2e-math", "units");
-    expect(existsSync(join(runs, "3"))).toBe(false);
+    expect(existsSync(join(runs, "3", "red.json"))).toBe(false);
+    expect(existsSync(join(runs, "3", "green.json"))).toBe(false);
     expect(existsSync(join(runs, "1", "red.json"))).toBe(true);
     expect(existsSync(join(runs, "2", "red.json"))).toBe(true);
     expect(git("status", "--porcelain", "--untracked-files=no", "--", "src", "test", "README.md")).toBe("");
@@ -349,14 +388,15 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     git("add", PLAN);
     git("commit", "-m", "docs: mark the plan ready for review");
 
+    // The executor was started at unit 3 of the build, so its helper id is still the one in use.
     // The guide that was printed last is the ready guide, and it names the report command.
-    const submitted = follow(guide, ["report", "submit", "done", "--plan", PLAN], "Two functions and a README section were added.\n");
+    const submitted = follow(guide, ["helper", "done", "done", "--helper", helperId, "--plan", PLAN], "Two functions and a README section were added.\n");
     expect(submitted.code, submitted.stderr).toBe(0);
     const wrong = run(["report", "submit", "complete", "--plan", PLAN], "Finished.\n");
     expect(wrong.code).toBe(1);
     expect(wrong.stderr).toContain("complete");
 
-    const checked = follow(RETRO_GUIDE, ["report", "check", "--plan", PLAN]);
+    const checked = follow(PLAN_GUIDE, ["helper", "wait", helperId]);
     expect(checked.code, checked.stderr).toBe(0);
     expect(checked.stdout).toBe("done\nTwo functions and a README section were added.\n");
   });
@@ -371,6 +411,10 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     const retro = follow(lastGuide, ["next", "--done", "retro", "--plan", PLAN]);
     expect(retro.code, retro.stderr).toBe(0);
     expect(retro.stdout).toContain("publish, runs in the executor");
+    // The retro guide starts the executor again for the publish phase.
+    const again = follow(RETRO_GUIDE, ["helper", "start", "executor", "--plan", PLAN]);
+    expect(again.code, again.stderr).toBe(6);
+    helperId = again.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
     expectGuide(follow(EXECUTOR, ["next", "--plan", PLAN]), "publish");
 
     // US-12: the answer is set back to open in the working tree, so nothing may leave the machine.
@@ -406,8 +450,11 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     const done = follow(lastGuide, ["next", "--done", "publish", "--plan", PLAN]);
     expect(done.code, done.stderr).toBe(0);
     expect(done.stdout).toContain("The run is finished");
-    const report = follow(lastGuide, ["report", "submit", "published", "--plan", PLAN], `Pull request: ${LINK}\n`);
+    const report = follow(lastGuide, ["helper", "done", "published", "--helper", helperId, "--plan", PLAN], `Pull request: ${LINK}\n`);
     expect(report.code, report.stderr).toBe(0);
+    const waited = follow(PLAN_GUIDE, ["helper", "wait", helperId]);
+    expect(waited.code, waited.stderr).toBe(0);
+    expect(waited.stdout).toBe(`published\nPull request: ${LINK}\n`);
   });
 
   it("never touched the home folder", () => {

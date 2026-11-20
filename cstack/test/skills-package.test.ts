@@ -54,6 +54,7 @@ describe("the resolve-issue skill as installed", () => {
       "templates/plan.md",
       "templates/settings.json",
       "templates/retro.md",
+      "templates/tracker-file.json",
       ".claude-plugin/plugin.json",
       "writing.md",
       "settled-decisions.md",

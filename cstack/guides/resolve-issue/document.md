@@ -2,15 +2,17 @@
 
 In this phase you write down what happened, in the ticket, in the dependent tickets and in the documentation tool. An undocumented ticket is not done. The settings that `cstack next` printed above this guide apply. They win over any default here. Write every text as the writing guide asks, in the `recordsLanguage` setting.
 
-You write in the tracker and the documentation tool, through their direct connections. These writes are not commits, so they start no checks.
+You write in the tracker with `cstack tracker comment`, and in the documentation tool with your own connection. These writes are not commits, so they start no checks.
 
 ## Write back into the ticket
 
 Add one comment to the ticket. Someone who opens the ticket in six months should understand what happened without reading the code. Say what the pull request body will carry, what was left out of scope, and anything that differs from what the ticket asked for. If the tracker has a field for a resolution note, fill it too.
 
+Write the comment into a file in a temporary folder outside the repository. Then post it with `cstack tracker comment '<key>' --body-file <file> --tracker <name>`. Take `<name>` from the `Tracker:` line of the plan file, in lower case. If cstack exits with exit code `4`, no client can reach the tracker. Post the comment with your own connection instead.
+
 ## Hand the context down
 
-Read the ticket's `Feeds` footer and the "blocks" relations of the tracker. For every ticket that depends on this one, add a comment that helps it start well. Name the interfaces, schemas, functions or files it will build on, and where they are. Name the decisions that constrain it, and the assumptions it must not break. Add any follow-up from the "Review log" that lands in its area. Write it for the person or agent who will resolve that ticket, and do not copy the first comment. If its description is now wrong because of what was built, say so, and fix the description when the tracker allows it.
+Read the ticket's `Feeds` footer and the "blocks" relations of the tracker. For every ticket that depends on this one, add a comment that helps it start well. Name the interfaces, schemas, functions or files it will build on, and where they are. Name the decisions that constrain it, and the assumptions it must not break. Add any follow-up from the "Review log" that lands in its area. Write each comment into a file in a temporary folder outside the repository. Post it with `cstack tracker comment '<key>' --body-file <file> --tracker <name>`, where `<key>` is the dependent ticket. If cstack exits with exit code `4`, post it with your own connection instead. Write it for the person or agent who will resolve that ticket, and do not copy the first comment. If its description is now wrong because of what was built, say so, and fix the description when the tracker allows it.
 
 ## Record every big decision
 
