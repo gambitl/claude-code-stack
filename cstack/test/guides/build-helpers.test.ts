@@ -37,6 +37,16 @@ describe("the build sections of the build guide", () => {
     expect(line, "no sentence about exit code 1 of cstack unit collect").toContain("needs-decision");
   });
 
+  it("asks before a kept child worktree goes and never removes one with git", () => {
+    const step = units.slice(units.indexOf("7. When every unit"), units.indexOf("8. "));
+    expect(step).toContain("kept");
+    expect(step).toContain("needs-decision");
+    expect(step).toContain("quotes the message");
+    expect(step).toMatch(/never remove a worktree or a branch with `git`/i);
+    expect(step).toContain("--discard-untracked");
+    expect(step).toContain("`## Decisions`");
+  });
+
   it("commits the plan file at the end of the build because of the Worktree lines", () => {
     expect(units).toContain("Worktree");
   });
