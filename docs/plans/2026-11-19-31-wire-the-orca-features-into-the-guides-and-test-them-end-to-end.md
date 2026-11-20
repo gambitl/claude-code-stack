@@ -641,7 +641,12 @@ For the coordinator of the wave, from the question round, word for word:
 
 ## Documentation
 
-<phase document>
+- Comment on ticket #31: https://github.com/gambitl/claude-code-stack/issues/31#issuecomment-7033491529
+- Comment on the dependent ticket #32: https://github.com/gambitl/claude-code-stack/issues/32#issuecomment-7033491902
+- `docs/decisions/ADR-SIC-A-helpers.md`: a dated paragraph says that the prompts now end with `cstack helper done`, in both modes.
+- `README.md`: written by units 7 and 8.
+- `docs/projects/skills-into-cli.md`: checked, and no sentence there is wrong, so it did not change.
+- New ADR: none, as the plan says.
 
 ## Executor notes
 
