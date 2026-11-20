@@ -256,7 +256,15 @@ The new test runs in the continuous integration after the branch is pushed, and 
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: `readPlan` and `unit-line.ts` are read for the Worktree line only by `cstack measure`, through `cstack/src/measure/moments.ts`. `cstack unit collect` and `helper/child.ts` use the helper record under `.git`, which keeps the absolute path, so they are unaffected. The tests of each changed file pass alone, and typecheck is clean.
+
+Correctness reviewer: no finding. Two notes below the bar: `worktreeValue` is a separate function instead of an argument of `setUnitWorktree()`, with the same behaviour, and a relative `HOME` is unusual.
+
+Security reviewer: no finding. The warning never prints the path. Two notes below the bar: the scan lets the three reserved names pass, and a `HOME` set to a parent such as `/Users` would keep the account name behind `~/`.
+
+Conventions reviewer: no finding. Note below the bar: the `~/` expansion in `measure.ts` could sit next to `worktreeValue()`. Left as it is, because one caller reads it.
+
+Simplicity reviewer: one line, the early return for an empty or `/` home folder, could go. Kept, because the plan names that case and the early return states it.
 
 ## Briefing
 
