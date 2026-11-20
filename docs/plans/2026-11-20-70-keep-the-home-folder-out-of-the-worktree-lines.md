@@ -266,6 +266,8 @@ Conventions reviewer: no finding. Note below the bar: the `~/` expansion in `mea
 
 Simplicity reviewer: one line, the early return for an empty or `/` home folder, could go. Kept, because the plan names that case and the early return states it.
 
+Independent reviewer: no finding, no change to the branch. The full tests and the type check pass. Three judgment calls for the pull request body. First, `cstack/src/helper/start.ts` reads the home folder with `os.homedir()`, so a test can only fake it by changing `HOME` for the process. The plan records this choice. Second, the README is unchanged, and it does not say that `cstack measure` expands a `~/` Worktree line with the home folder of the machine that runs the command, never with `--home`. One sentence there would help. Third, the template comment under `## Implementation units` of this plan still shows an absolute path for the Worktree line. It is harmless.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
