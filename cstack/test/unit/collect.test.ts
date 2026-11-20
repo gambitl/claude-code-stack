@@ -50,16 +50,16 @@ function setup(units: number[]) {
 }
 
 /** Writes the helper record and a report for a unit, as a helper that started in a child worktree would. */
-function helped(dir: string, child: string, n: number, kind: "done" | "stuck" = "done") {
-  const id = makeHelperId("implementer", n);
+function helped(dir: string, child: string, n: number, kind: "done" | "stuck" = "done", branch = `child-${n}`, at = new Date()) {
+  const id = makeHelperId("implementer", n, at);
   createRecord(runFolder(dir, "docs/plan.md"), {
     format: "cstack-helper/1",
     id,
     role: "implementer",
     unit: n,
-    startedAt: new Date().toISOString(),
+    startedAt: at.toISOString(),
     mode: "orca-worker",
-    worktree: { path: child, branch: `child-${n}` },
+    worktree: { path: child, branch },
   });
   saveUnitReport({ root: dir, planFile: "docs/plan.md" }, n, { kind, text: "ok", helper: id });
 }
@@ -158,10 +158,78 @@ describe("cstack unit collect", () => {
     commitFiles(children[1]!, ["src/a.ts"], 1);
     helped(dir, children[1]!, 1);
     expect(run(dir, "1").code).toBe(0);
-    const head = git(dir, "rev-parse", "HEAD");
+    const before = git(dir, "rev-list", "main..HEAD");
     const again = run(dir, "1");
     expect(again.code).toBe(0);
-    expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+    expect(git(dir, "rev-list", "main..HEAD")).toBe(before);
+    expect(again.stdout).toContain('the branch "child-1" has no commit that the ticket branch lacks');
+    expect(again.stdout).not.toContain("already has a commit of this unit");
+  });
+
+  it("applies only the new commit when the same child branch gets a second commit", () => {
+    const { dir, children } = setup([1]);
+    commitFiles(dir, ["other.txt"]);
+    const original = commitFiles(children[1]!, ["src/a.ts"], 1);
+    helped(dir, children[1]!, 1);
+    expect(run(dir, "1").code).toBe(0);
+    expect(git(dir, "rev-parse", "HEAD")).not.toBe(original);
+    const count = Number(git(dir, "rev-list", "--count", "main..HEAD"));
+    commitFiles(children[1]!, ["src/a.ts"], 1);
+    helped(dir, children[1]!, 1, "done", "child-1", new Date(Date.now() + 5000));
+    const second = run(dir, "1");
+    expect(second.code).toBe(0);
+    expect(Number(git(dir, "rev-list", "--count", "main..HEAD"))).toBe(count + 1);
+    expect(readFileSync(join(dir, "src/a.ts"), "utf8")).toBe(readFileSync(join(children[1]!, "src/a.ts"), "utf8"));
+    expect(git(dir, "rev-parse", "HEAD")).not.toBe(git(children[1]!, "rev-parse", "HEAD"));
+  });
+
+  it("applies only the new commit of a new child worktree that starts after the first collect", () => {
+    const { dir, children } = setup([1]);
+    commitFiles(dir, ["other.txt"]);
+    commitFiles(children[1]!, ["src/a.ts"], 1);
+    helped(dir, children[1]!, 1);
+    expect(run(dir, "1").code).toBe(0);
+    const count = Number(git(dir, "rev-list", "--count", "main..HEAD"));
+    const fresh = `${dir}-child-1b`;
+    made.push(fresh);
+    git(dir, "worktree", "add", "-b", "child-1b", fresh, "HEAD");
+    const original = commitFiles(fresh, ["src/a.ts"], 1);
+    commitFiles(dir, ["other2.txt"]);
+    const count2 = Number(git(dir, "rev-list", "--count", "main..HEAD"));
+    helped(dir, fresh, 1, "done", "child-1b", new Date(Date.now() + 5000));
+    const second = run(dir, "1");
+    expect(second.code).toBe(0);
+    expect(count2).toBe(count + 1);
+    expect(Number(git(dir, "rev-list", "--count", "main..HEAD"))).toBe(count2 + 1);
+    expect(git(dir, "rev-parse", "HEAD")).not.toBe(original);
+    expect(readFileSync(join(dir, "src/a.ts"), "utf8")).toBe(readFileSync(join(fresh, "src/a.ts"), "utf8"));
+  });
+
+  it("refuses with 1 and applies nothing when a left-out commit comes after a kept one", () => {
+    const { dir, children } = setup([1]);
+    commitFiles(dir, ["other.txt"]);
+    const child = children[1]!;
+    const put = (text: string) => {
+      mkdirSync(join(child, "src"), { recursive: true });
+      writeFileSync(join(child, "src/a.ts"), text);
+      git(child, "add", "src/a.ts");
+      git(child, "commit", "-m", "feat(cli): unit 1", "-m", "Cstack-Unit: 1");
+      return git(child, "rev-parse", "HEAD");
+    };
+    put("line1\n");
+    put("line1\nline2\n");
+    helped(dir, child, 1);
+    expect(run(dir, "1").code).toBe(0);
+    const before = git(dir, "rev-parse", "HEAD");
+    put("line1\n");
+    const back = put("line1\nline2\n");
+    helped(dir, child, 1, "done", "child-1", new Date(Date.now() + 5000));
+    const second = run(dir, "1");
+    expect(second.code).toBe(1);
+    expect(second.stderr).toContain("Unit 1");
+    expect(second.stderr).toContain(back.slice(0, 7));
+    expect(second.stderr).toContain("nothing was applied");
+    expect(git(dir, "rev-parse", "HEAD")).toBe(before);
   });
 
   it("has no push, reset or force in its source", () => {

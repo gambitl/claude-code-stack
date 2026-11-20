@@ -125,6 +125,33 @@ describe("cstack unit collect, clean-up", () => {
     expect(fake.calls.map((c) => c.split(" ")[1])).toEqual(["rm"]);
   });
 
+  it("skips a second attempt that has not reported, and releases and removes nothing", async () => {
+    const { dir } = setup({ 1: "done" });
+    expect((await collectAll(dir, orca().run, "1")).code).toBe(0);
+    const fresh = `${dir}-child-1b`;
+    made.push(fresh);
+    git(dir, "worktree", "add", "-b", "child-1b", fresh, "HEAD");
+    commitFiles(fresh, ["src/1.ts"], 1);
+    const at = new Date(Date.now() + 5000);
+    createRecord(runFolder(dir, "docs/plan.md"), {
+      format: "cstack-helper/1",
+      id: makeHelperId("implementer", 1, at),
+      role: "implementer",
+      unit: 1,
+      startedAt: at.toISOString(),
+      mode: "orca-worker",
+      dispatchId: "ctx_1b",
+      worktree: { path: fresh, branch: "child-1b" },
+    });
+    const head = git(dir, "rev-parse", "HEAD");
+    const fake = orca();
+    const result = await collectAll(dir, fake.run, "1");
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain("its helper has not reported");
+    expect(git(dir, "rev-parse", "HEAD")).toBe(head);
+    expect(fake.calls).toEqual([]);
+  });
+
   it("removes a child worktree whose copy of the plan file holds uncommitted changes, as after a second attempt", async () => {
     const { dir, children, ids } = setup({ 1: "done" });
     // The second attempt copies the current plan file into the child, so the child holds an uncommitted plan file.
