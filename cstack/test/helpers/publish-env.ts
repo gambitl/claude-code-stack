@@ -23,6 +23,8 @@ export interface Call {
 }
 
 export interface PublishEnv {
+  /** The fake home folder, inside the temporary base folder. */
+  home: string;
   /** The working repository, on the feature branch. */
   repo: string;
   /** The bare repository that plays the remote. */
@@ -91,13 +93,15 @@ export function writeFakePrograms(folder: string): void {
 }
 
 /** Options: `plan` replaces the text of the committed plan. */
-export function makePublishEnv(options: { plan?: (text: string) => string } = {}): PublishEnv {
+export function makePublishEnv(options: { plan?: (text: string, home: string) => string } = {}): PublishEnv {
   const base = mkdtempSync(join(tmpdir(), "cstack-publish-"));
   const repo = makeRepo();
   const bare = join(base, "remote.git");
   const fakes = join(base, "fakes");
   const log = join(base, "pushes.log");
   mkdirSync(fakes);
+  const home = join(base, "someone");
+  mkdirSync(home);
 
   execFileSync("git", ["init", "--bare", "-b", "main", bare]);
   git(repo, "config", "user.name", "t");
@@ -113,18 +117,20 @@ export function makePublishEnv(options: { plan?: (text: string) => string } = {}
   chmodSync(hook, 0o755);
 
   git(repo, "checkout", "-b", BRANCH);
-  commitPlan(repo, options.plan ? options.plan(readFileSync(FIXTURE, "utf8")) : readFileSync(FIXTURE, "utf8"), PLAN_PATH);
+  commitPlan(repo, options.plan ? options.plan(readFileSync(FIXTURE, "utf8"), home) : readFileSync(FIXTURE, "utf8"), PLAN_PATH);
 
   writeFakePrograms(fakes);
   const clock = { value: Date.parse("2026-11-19T12:00:00Z") };
   const env: NodeJS.ProcessEnv = {
     ...process.env,
+    HOME: home,
     PATH: `${fakes}:${process.env.PATH ?? ""}`,
     FAKE_BARE: bare,
     FAKE_BRANCH: BRANCH,
   };
   const lines = (file: string) => (existsSync(file) ? readFileSync(file, "utf8").split("\n").filter(Boolean) : []);
   return {
+    home,
     repo,
     bare,
     scenario: (answers) => writeFileSync(join(fakes, "scenario.json"), JSON.stringify(answers)),

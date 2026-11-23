@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { readPlan } from "../src/plan/read.js";
@@ -760,5 +761,122 @@ describe("cstack publish on GitLab", () => {
     const { code } = await run(env);
     expect(code).toBe(4);
     expect(env.pushes()).toEqual([]);
+  });
+});
+
+describe("cstack publish refuses the home folder path", () => {
+  /** Writes a file with the given lines and commits it. Returns the short id of the commit. */
+  const commitLines = (env: PublishEnv, file: string, lines: string[]) => {
+    writeFileSync(join(env.repo, file), `${lines.join("\n")}\n`);
+    git(env.repo, "add", file);
+    git(env.repo, "commit", "-m", `chore: add ${file}`);
+    return git(env.repo, "log", "-1", "--format=%h");
+  };
+  const clean = (env: PublishEnv, stderr: string) => {
+    expect(stderr).not.toContain("someone");
+    expect(stderr).not.toContain(env.home);
+  };
+
+  it("refuses a commit that adds a line with the home folder, and names the file, the line and the commit", async () => {
+    const env = makePublishEnv();
+    const id = commitLines(env, "notes.md", ["first", `see ${env.home}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`notes.md` line 2");
+    expect(out.stderr).toContain(id);
+    expect(out.stderr).toContain("~/projects/x");
+    clean(env, out.stderr);
+  });
+
+  it("matches only a real home folder path, not a longer name", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "notes.md", [
+      "/home/user/app",
+      `${env.home}2/x`,
+      `${env.home}.old/x`,
+      `${env.home}/projects/x`,
+      `see ${env.home}.`,
+      `cd ${env.home}`,
+    ]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`notes.md` line 4");
+    expect(out.stderr).toContain("`notes.md` line 5");
+    expect(out.stderr).toContain("`notes.md` line 6");
+    expect(out.stderr).not.toMatch(/line [123],/);
+    clean(env, out.stderr);
+  });
+
+  it("still names a commit whose line a later commit removes", async () => {
+    const env = makePublishEnv();
+    const id = commitLines(env, "notes.md", [`${env.home}/projects/x`]);
+    commitLines(env, "notes.md", ["gone"]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain(`added by commit ${id}`);
+    expect(env.pushes()).toEqual([]);
+    clean(env, out.stderr);
+  });
+
+  it("ignores a line that the target branch already had", async () => {
+    const env = makePublishEnv();
+    git(env.repo, "checkout", "main");
+    commitLines(env, "old.md", [`${env.home}/projects/old`]);
+    git(env.repo, "push", "origin", "main");
+    git(env.repo, "checkout", "gambitl/units");
+    git(env.repo, "rebase", "main");
+    commitLines(env, "new.md", [`${env.home}/projects/new`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`new.md`");
+    expect(out.stderr).not.toContain("old.md");
+    expect(env.pushes().filter((l) => l.startsWith("refs/heads/gambitl/units"))).toEqual([]);
+    clean(env, out.stderr);
+  });
+
+  it("finds the real path of a home folder that is a symbolic link", async () => {
+    const env = makePublishEnv();
+    const real = realpathSync(mkdtempSync(join(tmpdir(), "cstack-real-")));
+    const link = join(env.home, "..", "link-home");
+    symlinkSync(real, link);
+    env.deps.env!.HOME = link;
+    commitLines(env, "notes.md", [`${real}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`notes.md` line 1");
+    expect(out.stderr).toContain("~/projects/x");
+    expect(out.stderr).not.toContain(real);
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("refuses when there is no target ref to compare with", async () => {
+    const env = makePublishEnv();
+    git(env.repo, "update-ref", "-d", "refs/remotes/origin/main");
+    git(env.repo, "branch", "-D", "main");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("origin/main");
+    expect(out.stderr).toContain("git fetch origin main");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("refuses when git log fails", async () => {
+    const env = makePublishEnv();
+    Object.assign(env.deps.env!, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "log.date", GIT_CONFIG_VALUE_0: "bogus" });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("cstack could not read the commits of the push");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("lists at most 20 places", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "many.md", Array.from({ length: 22 }, () => `${env.home}/x`));
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr.match(/`many\.md` line/g)).toHaveLength(20);
+    expect(out.stderr).toContain("and 2 more places");
+    clean(env, out.stderr);
   });
 });

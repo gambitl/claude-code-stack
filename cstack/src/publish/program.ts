@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 // WHY: every git, gh, glab and ssh call of `cstack publish` goes through this one
 // function, and it never starts a shell. Ticket #24 can then switch all of them onto
 // the common program runner by changing only this file.
-export type ProgramOptions = { cwd: string; env?: NodeJS.ProcessEnv };
+export type ProgramOptions = { cwd: string; env?: NodeJS.ProcessEnv; maxBuffer?: number };
 
 export interface ProgramResult {
   ok: boolean;
@@ -18,7 +18,7 @@ export function runProgram(
   args: string[],
   options: ProgramOptions,
 ): ProgramResult {
-  const r = spawnSync(command, args, { cwd: options.cwd, env: options.env, encoding: "utf8" });
+  const r = spawnSync(command, args, { cwd: options.cwd, env: options.env, encoding: "utf8", maxBuffer: options.maxBuffer });
   const missing = (r.error as NodeJS.ErrnoException | undefined)?.code === "ENOENT";
   return {
     ok: r.status === 0,
