@@ -181,15 +181,25 @@ describe("gitlabGlabTracker moveState", () => {
     expect(glab()).toEqual([label("in progress"), label("in review"), update("in progress", "in review")]);
   });
 
-  it("refuses a missing label, prints the create command and runs no update", async () => {
+  it("refuses a missing label to add, prints the create command and runs no update", async () => {
     const { runner, glab } = fake({
-      [label("in progress")]: ok(fixture("api-label.found.json")),
-      [label("in review")]: failed(fixture("api-label.not-found.txt")),
+      [label("in progress")]: failed(fixture("api-label.not-found.txt")),
+      [label("in review")]: ok(fixture("api-label.found.json")),
     });
     const err = await gitlabGlabTracker(runner, "/root").moveState("#7", "in progress").catch((e) => e);
     expect(err.exitCode).toBe(1);
-    expect(err.message).toContain(`glab label create --name "in review" -R ${R}`);
+    expect(err.message).toContain(`glab label create --name "in progress" -R ${R}`);
     expect(glab().some((c) => c.startsWith("glab issue update"))).toBe(false);
+  });
+
+  it("moves the ticket without --unlabel when only the label to remove is missing", async () => {
+    const { runner, glab } = fake({
+      [label("in progress")]: ok(fixture("api-label.found.json")),
+      [label("in review")]: failed(fixture("api-label.not-found.txt")),
+      [`glab issue update 7 -R ${R} --label in progress`]: ok(fixture("issue-update.ok.txt")),
+    });
+    await gitlabGlabTracker(runner, "/root").moveState("#7", "in progress");
+    expect(glab()).toEqual([label("in progress"), label("in review"), `glab issue update 7 -R ${R} --label in progress`]);
   });
 
   it("refuses a state name that is not a state, and makes no glab call", async () => {
