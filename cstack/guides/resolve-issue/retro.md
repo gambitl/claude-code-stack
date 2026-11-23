@@ -15,7 +15,7 @@ This phase runs in the main conversation, not in the executor. The settings that
 
 Run `cstack audit <plan file>` before you write anything. It checks the steps of the phases that are over.
 
-The audit leaves out the phases that are not over yet. In a finished run, these are retro and publish. It prints one sentence on standard error to say so.
+The audit leaves out the phases that are not over yet. At this point, these are retro and publish. It prints one sentence on standard error to say so.
 
 Paste every line of its standard output into the section `## Steps` of the retrospective. Put the lines inside a code block that opens with three backticks and the word `text`, like this:
 
