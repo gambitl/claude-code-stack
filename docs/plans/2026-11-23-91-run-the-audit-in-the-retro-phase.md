@@ -305,8 +305,6 @@ The reviewer changed no code and found no bug, no missing acceptance criterion, 
 
 The full test run hit vitest timeouts on a busy machine (load average 16 to 25) in files that this branch does not touch. Those files passed when run alone.
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
-
 ## Briefing
 
 ### What you should know about what was built
