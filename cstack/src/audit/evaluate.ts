@@ -81,6 +81,8 @@ export type StepInput = {
   root: string;
   targetBranch: string;
   conditions: Conditions;
+  /** The `review.agent` setting. An Orca worker launch proves the independent review when it is not `claude`. */
+  reviewAgent: string;
 };
 
 type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[]; helper?: string };
@@ -245,8 +247,9 @@ export function evaluateSteps(input: StepInput): Line[] {
         const free = phaseLaunches.filter(
           (launch) =>
             !takenLaunches.has(launch) &&
-            launch.kind === "sub-agent" &&
-            launch.type === node.helper &&
+            (launch.kind === "sub-agent"
+              ? launch.type === node.helper
+              : node.helper === "resolve-issue:pr-reviewer" && input.reviewAgent !== "claude") &&
             (earlier === undefined || launch.time >= earlier) &&
             (end === undefined || launch.time <= end),
         );

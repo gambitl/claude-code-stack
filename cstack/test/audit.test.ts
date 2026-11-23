@@ -1074,6 +1074,56 @@ describe("cstack audit helper steps", () => {
     expect(r.stdout).not.toContain(LINES.delta);
   });
 
+  const REVIEW_LINE = "independent-review: resolve-issue:pr-reviewer";
+  const worker = (program: string): Call => ({ time: at(index("independent-review"), 10), command: `${program} orchestration worker-start --agent codex`, });
+  const withSettings = async (text: string | undefined, calls: Call[]) => {
+    const s = setup({ calls: [...fullCalls().filter((c) => c.launch === undefined), ...calls] });
+    writeGuides(s.guides, Object.fromEntries(Object.entries(GUIDES).map(([name, lines]) => [name, block(lines)])));
+    if (text !== undefined) {
+      mkdirSync(join(s.repo, ".cstack"), { recursive: true });
+      writeFileSync(join(s.repo, ".cstack", "settings.json"), text);
+    }
+    return { s, r: await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg) };
+  };
+  const CODEX = JSON.stringify({ version: 1, review: { agent: "codex", model: "x" } });
+  const CLAUDE = JSON.stringify({ version: 1, review: { agent: "claude", model: "x" } });
+
+  it("makes the independent review line done for an Orca worker launch when the review agent is not claude", async () => {
+    const call = worker("orca");
+    const { r } = await withSettings(CODEX, [call]);
+    expect(r.stdout).toContain(doneLine(REVIEW_LINE, call.time));
+  });
+
+  it("leaves the independent review line skipped for an Orca worker launch when there is no settings file", async () => {
+    const { r } = await withSettings(undefined, [worker("orca")]);
+    expect(r.stdout).toContain(`${REVIEW_LINE}: skipped\n`);
+  });
+
+  it("makes the independent review line done for an orca-dev worker launch when the review agent is not claude", async () => {
+    const call = worker("orca-dev");
+    const { r } = await withSettings(CODEX, [call]);
+    expect(r.stdout).toContain(doneLine(REVIEW_LINE, call.time));
+  });
+
+  it("leaves the independent review line skipped for an orca-dev worker launch when the review agent is claude", async () => {
+    const { r } = await withSettings(CLAUDE, [worker("orca-dev")]);
+    expect(r.stdout).toContain(`${REVIEW_LINE}: skipped\n`);
+  });
+
+  it("makes the independent review line done for an orca-ide worker launch when the review agent is not claude", async () => {
+    const call = worker("orca-ide");
+    const { r } = await withSettings(CODEX, [call]);
+    expect(r.stdout).toContain(doneLine(REVIEW_LINE, call.time));
+  });
+
+  it("refuses a settings file that is not valid JSON, with nothing on standard output and no path", async () => {
+    const { s, r } = await withSettings("{ not json", []);
+    expect(r.code).toBe(3);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toBe("cstack audit: the settings file of the repository cannot be used.\n");
+    noPath(r.stderr, s);
+  });
+
   it("prints a helper line with only a fixed text, a verdict, a time and a record, whatever the launch holds", async () => {
     const MARK = "SECRET_MARKER_4821";
     const s = setup({ calls: fullCalls().filter((c) => c.launch === undefined) });
