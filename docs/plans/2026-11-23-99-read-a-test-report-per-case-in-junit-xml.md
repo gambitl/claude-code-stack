@@ -310,7 +310,11 @@ none
 
 ## Documentation
 
-<phase document>
+- The new section `## A test report per case` of `README.md`, written by unit 4.
+- A comment on ticket #99: https://github.com/gambitl/claude-code-stack/issues/99
+- A comment on ticket #100 with the names it builds on: https://github.com/gambitl/claude-code-stack/issues/100
+- A comment on ticket #101 with the same names: https://github.com/gambitl/claude-code-stack/issues/101
+- No ADR and no specification change, as the documentation duties say.
 
 ## Executor notes
 
