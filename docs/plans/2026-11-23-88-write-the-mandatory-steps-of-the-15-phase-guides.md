@@ -507,6 +507,47 @@ I checked security and authorization, data model lock-in, scale, operations and 
 
 ## Pull request
 
+Title: feat(skill): write the block of mandatory steps at the top of the 15 phase guides
+
+````markdown
+## What this adds
+
+Each of the 15 phase guides of `resolve-issue` now starts with a block of mandatory steps, in the format that #86 defined. The command `cstack audit` will read these blocks to know which steps a run should have done. We did not change any word of the prose of a guide.
+
+## How a block chooses its steps
+
+A block lists every `cstack` command and every named helper that the prose requires. It also lists one `action` step for each other deed that writes something, runs a check that the guide requires, or waits for the user's answer. A block follows the normal path, so it leaves out steps for refusals, stuck units and other exit codes. It also leaves out a step whose condition is not one of the seven conditions of the format. This ticket adds no condition and does not change `cstack/src/guide-steps.ts`.
+
+The rules are written in a new section of ADR-RQG-C, called "How a block chooses its steps". The next person who edits a guide needs to keep its block true, and this section tells them how.
+
+## The tests
+
+A new file, `cstack/test/guides/steps-blocks.test.ts`, fails when a phase has no block, or when a block lacks the command that closes its phase. It also checks that `cstack guide` prints each guide without its block.
+
+Four test files read a guide as a program reads it, so they now read it without its block: `cstack/test/skill-size.test.ts`, `cstack/test/guides/ticket-read.test.ts`, `cstack/test/e2e/chain.ts` and `cstack/test/e2e/resolve-issue.test.ts`. The tests that look for forbidden words still read the raw guides, because a block must follow the same rules as the prose. The full suite passes, and so does the type check.
+
+## Choices to know about
+
+- The block of `review.md` has four helper steps, because the guide starts four reviewers. The ticket speaks of three code reviews.
+- The block of `build.md` lists `cstack unit red`, `green` and `commit` in their short form. Only the implementer prompt names `unit commit`. The audit checks exactly these three commands for each unit.
+- The blocks keep the `cstack helper start` commands of version 0.3.2. They list no `helper:` step for the executor or the implementers. Milestone R2 will replace the commands.
+- The block of `build.md` leaves out the second commit of the plan file at the end of the build, as decided.
+- The block of `document.md` leaves out the decision records, because they apply only when a run has a big decision, and none of the seven conditions says that.
+
+The independent review found no bug. The correctness review found that the block of `build.md` had no wait for an escalated implementer. That is fixed.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the maintainer, about #90 or milestone R2: "The block of `document.md` does not list the decision records or the `WHY:` comments, because they apply only when a run has a big decision, and none of the seven conditions says that. Should #90 or milestone R2 add a condition for it, such as `big-decision`, so that the audit can check that a run recorded its decisions?"
+- For the maintainer: "The plan file names two private folders of your home in a rule copied from the brief of the run. Older plans on `main` already name them, and the private-names check passes. Do you want to replace the two names with a general phrase?"
+
+The plan file is `docs/plans/2026-11-23-88-write-the-mandatory-steps-of-the-15-phase-guides.md`.
+
+Fixes #88
+````
+
 ## Documentation
 
 - ADR-RQG-C: new section "How a block chooses its steps" in `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, committed on the branch.
@@ -517,9 +558,12 @@ I checked security and authorization, data model lock-in, scale, operations and 
 
 ## Executor notes
 
+- `cstack helper wait <helper id> --plan <plan file>` exited with 2 ("Unknown option '--plan'") on the first call. The command takes only the helper id, so I ran it again without the flag.
+- The independent reviewer and the conventions reviewer both asked for a step that `## Decisions` had already decided to leave out (the second commit of the plan file). The decision answered it, but the reviewers did not see that line until they read the plan.
+
 ## Hand-off log
 
-- 2026-11-23, executor: moved the ticket #88 to "in progress" with `cstack tracker move`.
+- 2026-11-23, executor: moved the ticket #88 to "in progress" with `cstack tracker move`. Built the three units one at a time with sub-agents, ran the four reviews and the independent review, fixed two findings, wrote the comments on #88, #91 and #92, and drafted the pull request.
 
 ## History
 
