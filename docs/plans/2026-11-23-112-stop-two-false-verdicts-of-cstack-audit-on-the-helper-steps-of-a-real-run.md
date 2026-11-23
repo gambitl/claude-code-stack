@@ -305,7 +305,12 @@ none
 
 ## Documentation
 
-<phase document>
+- Comment on #112: https://github.com/gambitl/claude-code-stack/issues/112
+- Comment on #90: https://github.com/gambitl/claude-code-stack/issues/90
+- Comment on #92: https://github.com/gambitl/claude-code-stack/issues/92
+- README: the `cstack audit` bullet of `README.md`, written by unit 6 and simplified in the review fix.
+- Manifest: the exit code 1 of `cstack audit` in `cstack/src/manifest.ts` now names the new case.
+- Architecture decision record and specification page: not needed, as "Documentation duties" says.
 
 ## Executor notes
 
