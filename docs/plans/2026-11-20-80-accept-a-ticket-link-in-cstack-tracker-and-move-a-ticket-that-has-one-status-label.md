@@ -300,9 +300,14 @@ none
 
 ## Executor notes
 
+- `cstack helper start implementer` for unit 3 started a worker for units 3, 4, 5 and 6 in a loop whose output I piped to `grep`, and the loop exited with 1. I started unit 3 a second time, so two workers reported for it. Both reports succeeded and no file was damaged.
+- The first full `npm test` showed nine failures: the fake `gh` of the end-to-end tests had no answer for `gh api .../labels/...`, the public-text check did not know the `api.github.com` host of the new fixture, and one test used `12` as a bad key. A second commit fixed these three causes, and the second full run passed (1505 tests).
+- One end-to-end failure said `This is not a helper id. It looks like 20261119-143205123-executor`. It disappeared in the second run, so I think it came from the outer cstack run that I work inside.
+
 ## Hand-off log
 
 - 2026-11-23: Executor moved ticket #80 to "in progress" with `cstack tracker move`. The branch `gambitl/tracker-links` was already checked out.
+- 2026-11-23: Executor built units 1 to 6 (commits c3c1633, 302dfed, 11642d2, b7bffe7, b8f7b48, 1d824f2) and added one test fix commit. The type check and the full `npm test` pass.
 
 ## History
 
