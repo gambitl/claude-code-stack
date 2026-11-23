@@ -302,6 +302,44 @@ Independent review: no bug, no security problem and no broken convention. It cha
 
 ## Briefing
 
+### What you should know about what was built
+
+`cstack tracker read`, `move`, `comment` and `list --epic` now accept `12` and the link of an issue of the `origin` project, as well as `'#12'`. A link to another project, a pull request or a merge request is refused, and the message names the `origin` project. On GitHub and GitLab, a move now needs only the label that it adds. The build does what the ticket asked: each acceptance line has its test, and I ran the type check and the 248 tracker and guide tests again myself, all green.
+
+**What you need to do.**
+
+1. When the pull request is open, you merge it yourself, and you push no tag. The tag `v0.3.2` starts the release, which checks that the tag matches the version in `cstack/package.json`. The coordinator pushes it once the pull request of the ticket that makes `cstack publish` refuse the home folder path (#79) is merged too.
+2. Install `cstack` 0.3.2 from that release before the next comparison measure. The decision to continue (ADR-SIC-G) wants both fixes in the measured version, and the installed version here is still 0.3.1.
+
+**What to watch.**
+
+1. Nobody ran the real `glab`, so the GitLab move is tested only with hand-written answers. At the first real move on GitLab, such as in the next measure, check that the ticket shows "in progress" and that no "in review" label appeared.
+2. On GitHub, any 404 answer to the label check reads as "the label does not exist". If the `gh` account cannot see the repository, the message says to create the label instead of talking about access. If someone reports that message while the label exists, this is the cause.
+
+**What changed since the plan.**
+
+One existing test used `12` as a bad key, and the fake `gh` had no answer for the label check. A separate test commit fixes both. So the commit of the GitHub move, taken alone, has a red test suite.
+
+#### Details
+
+The build matches the approved plan. The conversion lives in `cstack/src/tracker/keys.ts` (`looksLikeLink()`, `keyOfNumber()`, `keyOfLink()`, `keyForms()`), and `checkedTracker()` in `cstack/src/tracker/checked.ts` takes the optional fourth parameter `origin` and checks every converted key with `isValidKey()`, which did not change. `openTracker()` passes `readOrigin` to the file, `gh` and `glab` branches, and `refuseWithoutClient()` passes `() => originRepo(options.run, options.root)` (`cstack/src/tracker/open.ts`). Both forge moves check the label to add first, refuse with today's message when it is missing, and leave the label to remove out of the edit when it is missing (`cstack/src/tracker/github-gh.ts` `moveState()`, `cstack/src/tracker/gitlab-glab.ts` `moveState()`). On 2026-11-23 I ran `npm run typecheck` and `npx vitest run test/tracker test/guides test/skill-size.test.ts` in `cstack/`: the type check passed, and 32 files with 248 tests passed. The full `npm test` result (1505 tests) comes from the executor and the independent review, and I did not run it again.
+
+The merge and the tag are actions only the user can take, as the decisions of the run say: the user merges, and the coordinator pushes `v0.3.2` after #79 and #80 are both merged. `.github/workflows/release.yml` runs on a tag that starts with `v` and fails when the tag differs from the version in `cstack/package.json`. Only this branch raises the version, so a tag pushed before this branch is merged would fail the release. The recent merges on `main` (for example `eb7cc03`) are merge commits, so the usual merge button fits. A merge commit keeps the red intermediate commit described below in the history of `main`, and a squash would hide it. Neither choice changes the code. Default if nobody decides: the usual merge commit.
+
+Installing 0.3.2 before the next measure matters because `docs/decisions/ADR-SIC-G-continue-or-stop.md` line 95 says that #79 and #80 ship before the next measure. Agents in this run may not install `cstack` globally, so only the user can do it. Default if nobody does it: the next measure runs on 0.3.1 and loses calls on the same two problems again.
+
+The GitLab move was never run against a real GitLab, because the run never runs `glab`. The tests in `cstack/test/tracker/gitlab-glab.test.ts` use the hand-written fixtures of `cstack/test/fixtures/glab/1.119.0/`. The risky case is the label check: when `glab api .../labels/<name>` answers in a way that the `\b404\b` test does not match, the move fails through `forgeFailure()` instead of skipping the label. A failure is loud, not silent, so the fallback is a visible error, not a wrong label. GitLab also looks labels up by their exact title, so a project whose label is "In Progress" would be refused, as it was before this ticket.
+
+On GitHub, `moveState()` treats exit code 1 with `HTTP 404` as a missing label. GitHub also answers 404 for a private repository that the token cannot see. The independent review raised the same point in `## Review log`. The message then tells the user to run `gh label create`, which fails with its own 404, so the user finds the real cause on the next step. I do not recommend a change in this branch, because question 1 of the round approved this check, and the case needs a logged-in `gh` that cannot see the repository it works in.
+
+Between commit `11642d2` (the GitHub move) and commit `446fde5` (the test fix), the full test suite is red. `446fde5` updates `cstack/test/e2e/bin/gh` with an answer for the label check, adds `api.github.com` to the allowed hosts of `cstack/test/helpers/fixtures-public.ts`, and changes `cstack/test/tracker/claude-file-fallback.test.ts` to use `12abc` as a bad key, because `12` is now valid. The conventions review accepted this. The only cost is a `git bisect` that lands on one of those commits. The allowed host is a public GitHub host, so the public-text check keeps its purpose.
+
+All earlier questions are resolved as answered. Question 1 (how the GitHub move skips a missing label) is built as the check of both labels with `gh api` before the edit. Question 2 (where the conversion runs) is built as the optional fourth parameter of `checkedTracker()`, wired in `openTracker()` and in `refuseWithoutClient()`. Question 3 (the texts) is built word for word: the key refusal, the link refusal, the missing-origin refusal and the second sentence of `KEY_HINT` match `## Decisions`. The questions accepted by default are built too. `list --epic` accepts the new forms. A link may end with `/`, a query or a fragment. `move` and `comment` print the key as typed. GitLab leaves out `--unlabel` for a missing label. A link given with `--from-file` in a clone without `origin` exits with 1.
+
+I found no new question. Two small limits stay, and neither needs an answer. First, a clone whose `origin` uses an SSH host alias, such as `git@github-alias:owner/repo.git`, refuses every link. That clone already fails to reach `gh` with that host name, so the link rule adds nothing new there. Second, an https `origin` that writes the default port, such as `https://github.com:443/...`, would refuse every link, because `new URL()` drops a default port, while the `Remote` may keep it. The user then writes `'#12'`. The key hint also shows on Jira and Linear, as the correctness review noted.
+
+I checked security and isolation between projects (only `#<number>` reaches `gh` or `glab`, and a link to another project is refused before any program runs), scale (two read calls more per move), hidden coupling (`isValidKey()` is unchanged, so the footer parser, the file reader and `cstack wave` keep today's rule), the data model, reversibility, and operations and cost, and found nothing else to raise.
+
 ## Non-blocking questions
 
 none
