@@ -296,7 +296,7 @@ No design surface. This project changes a command-line tool and prose only.
 
 - **ADR-RQG-A, how helpers and units run inside a ticket.** The options are Orca workers, sub-agents in their own worktrees, or sub-agents one after the other in the ticket's workspace. The interview chose sub-agents, one after the other, chosen by the ticket's session as the skill guides it. This replaces ADR-SIC-A. The US-3 ticket writes it.
 - **ADR-RQG-B, version 2 of the plan format.** The options for facts are free prose checked by the reviews, or a fixed list that `cstack` checks. The interview chose the fixed list, plus the named test cases of US-6. The US-8 ticket writes it.
-- **ADR-RQG-C, how the audit knows the expected steps.** The options are a list in the code, a reading of the prose of the guides, or a block of steps in each guide. The interview chose the block in each guide. The US-1 ticket writes it.
+- **ADR-RQG-C, how the audit knows the expected steps.** The options are a list in the code, a reading of the prose of the guides, or a block of steps in each guide. The interview chose the block in each guide. The US-1 ticket wrote it, in [ADR-RQG-C](../decisions/ADR-RQG-C-expected-steps-of-a-run.md).
 
 ## 10. Challenged choices
 

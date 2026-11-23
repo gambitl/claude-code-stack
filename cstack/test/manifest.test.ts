@@ -2,6 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { readSteps, stepProblems } from "../src/guide-steps.js";
 import { COMMANDS, type CommandEntry, commandWords, EXIT, matchMention, unbuiltRefusal } from "../src/manifest.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -192,5 +193,43 @@ describe("the command list", () => {
 
   it("does not treat cstack --version as a mention of a command", () => {
     expect(extractMentions("Run `cstack --version` first.", "x.md")).toEqual([]);
+  });
+});
+
+/** Every refusal and every problem of the blocks of mandatory steps in the guides under the folders. */
+function scanSteps(folders: string[], base: string, skillsRoot: string): string[] {
+  const found: string[] = [];
+  for (const file of folders.flatMap(filesUnder).filter((f) => f.endsWith(".md"))) {
+    const name = relative(base, file);
+    const read = readSteps(readFileSync(file, "utf8"), name);
+    if (!read.ok) found.push(read.message);
+    else found.push(...stepProblems(read.steps, name, skillsRoot));
+  }
+  return found;
+}
+
+describe("the check of the blocks of mandatory steps", () => {
+  const skillsRoot = join(root, "skills");
+
+  it("reports the file and the line of each command, helper and word that does not exist", () => {
+    const base = join(here, "fixtures", "steps-check");
+    const file = join("guides", "example", "broken-steps.md");
+    const problems = scanSteps([base], base, skillsRoot);
+    expect(problems).toHaveLength(3);
+    expect(problems[0]).toContain(`${file}, line 3:`);
+    expect(problems[0]).toContain("cstack frobnicate");
+    expect(problems[1]).toContain(`${file}, line 4:`);
+    expect(problems[1]).toContain("skills/resolve-issue/agents/no-such-helper.md");
+    expect(problems[2]).toContain(`${file}, line 5:`);
+    expect(problems[2]).toContain("befor-plan");
+  });
+
+  it("passes on the real guides", () => {
+    expect(scanSteps([join(root, "guides")], root, skillsRoot)).toEqual([]);
+  });
+
+  it("passes on the fixture guide with a block", () => {
+    const base = join(here, "fixtures", "steps-block");
+    expect(scanSteps([base], base, skillsRoot)).toEqual([]);
   });
 });

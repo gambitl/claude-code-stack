@@ -87,6 +87,36 @@ describe("guide", () => {
   });
 });
 
+describe("guide with a block of mandatory steps", () => {
+  const blockRoot = fileURLToPath(new URL("./fixtures/steps-block", import.meta.url));
+
+  it("prints the text that follows the block and the empty line after it", async () => {
+    const { out, io } = collect();
+    const code = await guide(["build"], io, { packageRoot: blockRoot });
+    const fixture = readFileSync(join(blockRoot, "guides/resolve-issue/build.md"), "utf8");
+    const expected = fixture.slice(fixture.indexOf("-->\n\n") + "-->\n\n".length);
+    expect(out.stdout).toBe(expected);
+    expect(out.stderr).toBe("");
+    expect(code).toBe(0);
+  });
+
+  it("exits with 3 and names the guide and line 1 when the block never closes", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cstack-guide-"));
+    try {
+      mkdirSync(join(root, "guides", "resolve-issue"), { recursive: true });
+      writeFileSync(join(root, "guides", "resolve-issue", "build.md"), "<!-- mandatory steps\ncommand: cstack next\n");
+      const { out, io } = collect();
+      const code = await guide(["build"], io, { packageRoot: root });
+      expect(code).toBe(3);
+      expect(out.stdout).toBe("");
+      expect(out.stderr).toContain("guides/resolve-issue/build.md");
+      expect(out.stderr).toContain("line 1");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("readGuide", () => {
   function fixtureRoot(): string {
     const root = mkdtempSync(join(tmpdir(), "cstack-readguide-"));
