@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/cstack-audit
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T13:46:37+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T14:33:51+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -409,9 +409,41 @@ Areas checked with nothing more to raise: security and tenant isolation (the aud
 
 ## Pull request
 
-<!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
+Title: feat(cli): add cstack audit for the phases and commands of a run
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+````markdown
+## What this adds
+
+`cstack audit <plan file>` reads the records of a finished run and says, for each phase and each required command, whether the run did it, skipped it or did it out of order. The records are the session files, the run state and git. The command prints one line per phase and one line per command, and it exits with 1 when any line is not done.
+
+Each run is judged with the guides of the version that the run used. The option `--guides <folder>` gives those guides, in the layout `resolve-issue/<phase>.md`. Without it, the audit uses the installed guides. It refuses with exit code 1 when the run was written by another version than the one that runs the audit.
+
+## Key decisions
+
+- The audit looks for the call of a step only inside a window of its phase. The window starts at the close of the earlier phase. It ends at the next close of a phase that runs in the same place. This way a helper wait that comes after the executor closed later phases is still found, as it is when the executor is a sub-agent.
+- A step takes the first matching call that comes after the steps that must precede it. A placeholder followed by `...`, such as `<n>...`, matches one or more words.
+- `cstack measure` and the audit share the session selection, now in `findRunFiles()`. The tests of `cstack measure` pass without any change.
+- The output is an interface for the tickets #90 and #91. A later change to its lines, verdicts or exit codes must update both.
+- The audit prints no text from a session and no path. Tests check this.
+
+## Files touched
+
+The new code is in `cstack/src/audit/` (the shell reader, the call reader, the matcher and the evaluation) and `cstack/src/commands/audit.ts`. The session selection moved in `cstack/src/measure/`. The manifest, the command table and the README count the new command. The tests are in `cstack/test/audit*.test.ts`, with a plan fixture. The plan file is `docs/plans/2026-11-23-89-add-cstack-audit-for-the-phases-and-commands-of-a-run.md`.
+
+## Judgment calls from the reviews
+
+- The shell reader does not see `cstack` behind `timeout`, `npx` or a full path. Such a call shows as skipped, never as done.
+- The real guides have no block of mandatory steps yet. So `cstack audit` without `--guides` exits with 3 until #88 merges. The README says so.
+- No real run has been audited yet, because every test session is written by hand. After #88 merges, run the audit on a real run with `--guides` before #91 relies on it.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- For the user or the worker of #88: once the build guide holds a `cstack helper wait <helper id>` step for each implementer, should the plan line of the audit stop taking that wait as its call? The plan line could print a false "done" with the time of the first implementer wait. It is best checked on the first real audit, and fixed in a follow-up ticket if it shows.
+
+Fixes #89
+````
 
 ## Documentation
 
