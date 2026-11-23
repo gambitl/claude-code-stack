@@ -338,6 +338,90 @@ describe("the Test lines of a unit", () => {
   });
 });
 
+describe("the negative criteria and the units that cover them", () => {
+  const base = fixture("version-2");
+  const swap = (from: string, to: string) => {
+    const text = base.replace(from, to);
+    expect(text).not.toBe(base);
+    return text;
+  };
+  const lineOf = (text: string, needle: string) => text.split("\n").findIndex((row) => row.includes(needle)) + 1;
+  const noUnitLines = (text: string) => text.replace(/^- Negative criterion .*\n(  .*\n)*/gm, "");
+  const CRITERIA = "1. The command never changes the plan file.\n2. The reader never accepts a plan with no Format line.";
+
+  it("reads the numbered negative criteria", () => {
+    const plan = readPlan(base);
+    expect(plan.negativeCriteria).toEqual([
+      { number: 1, line: lineOf(base, "1. The command never"), text: "The command never changes the plan file." },
+      { number: 2, line: lineOf(base, "2. The reader never"), text: "The reader never accepts a plan with no Format line." },
+    ]);
+  });
+
+  it("reads the word none as no negative criterion", () => {
+    const plan = readPlan(noUnitLines(swap(CRITERIA, "none")));
+    expect(plan.negativeCriteria).toEqual([]);
+  });
+
+  it("refuses a criterion line that is not in the form <k>. <criterion>", () => {
+    const text = noUnitLines(swap("2. The reader never", "- The reader never"));
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "- The reader never")}:`);
+    expect(error.message).toContain("<k>. <criterion>");
+  });
+
+  it("refuses a criterion whose number is out of place", () => {
+    const text = noUnitLines(swap("2. The reader never", "3. The reader never"));
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "3. The reader never")}: Negative criterion 3 is out of place`);
+    expect(error.message).toContain("number 2 comes here");
+  });
+
+  it("refuses the word none next to a criterion", () => {
+    const text = noUnitLines(swap(CRITERIA, `${CRITERIA}\nnone`));
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "2. The reader never") + 1}:`);
+    expect(error.message).toContain("The word `none` cannot sit next to a negative criterion");
+  });
+
+  it("reads the criteria that a unit covers, with the case that proves each one", () => {
+    const plan = readPlan(base);
+    expect(plan.units[0].negativeCriteria).toEqual([
+      { criterion: 1, case: "the case 1 fails" },
+      { criterion: 2, case: "the case 1b fails and it fails for a second reason" },
+    ]);
+    expect(plan.units[1].negativeCriteria).toEqual([]);
+    expect(plan.units[2].negativeCriteria).toEqual([]);
+  });
+
+  it("refuses a unit that names a negative criterion that does not exist", () => {
+    const text = swap("- Negative criterion 1: the case 1 fails", "- Negative criterion 7: the case 1 fails");
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "Negative criterion 7")}:`);
+    expect(error.message).toContain("Unit 1 names the negative criterion 7, which is not in `## Negative criteria`");
+  });
+
+  it("refuses a Negative criterion line whose case is not a case of the unit", () => {
+    const text = swap("- Negative criterion 1: the case 1 fails", "- Negative criterion 1: a case nobody wrote");
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "a case nobody wrote")}:`);
+    expect(error.message).toContain('The case "a case nobody wrote" of negative criterion 1 is not one of the cases');
+  });
+
+  it("refuses a Negative criterion line in a unit with no test", () => {
+    const text = swap("- No test: The unit changes prose only.", "- No test: The unit changes prose only.\n- Negative criterion 1: the case 1 fails");
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "Docs only") + 3}:`);
+    expect(error.message).toContain("Unit 2 has a `- No test:` line, so it cannot name a negative criterion");
+  });
+
+  it("refuses the same criterion twice in one unit", () => {
+    const text = swap("- Negative criterion 2: the case 1b fails", "- Negative criterion 1: the case 1b fails");
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, "- Negative criterion 1: the case 1b fails")}: Unit 1 names`);
+    expect(error.message).toContain("Unit 1 names the negative criterion 1 twice");
+  });
+});
+
 describe("isBranchName", () => {
   it.each(["main", "gambitl/plan-format", "release/1.2+x", "a_b"])("accepts %s", (name) => {
     expect(isBranchName(name)).toBe(true);

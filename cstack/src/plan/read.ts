@@ -97,6 +97,8 @@ export interface PlanUnit {
   files: string[];
   test?: { file: string; cases: string[] };
   noTest?: string;
+  /** The negative criteria that the unit covers, each with the case that proves it. */
+  negativeCriteria: { criterion: number; case: string }[];
   minimumCode: string;
   refactor: string;
   commitMessage: string;
@@ -116,6 +118,12 @@ export interface BlockingQuestion {
   open: boolean;
 }
 
+export interface NegativeCriterion {
+  number: number;
+  line: number;
+  text: string;
+}
+
 export interface PlanPullRequest {
   title: string;
   body: string;
@@ -125,6 +133,7 @@ export interface PlanRead {
   header: Record<HeaderKey, string>;
   headings: PlanHeading[];
   sections: PlanSection[];
+  negativeCriteria: NegativeCriterion[];
   units: PlanUnit[];
   blockingQuestions: BlockingQuestion[];
   pullRequest?: PlanPullRequest;
@@ -314,17 +323,30 @@ const UNIT_FIELDS = [
   ["Worktree"],
 ] as const;
 const REQUIRED_FIELDS = 6;
+const CRITERION_LINE = /^- Negative criterion (\d+):(?: (.*))?$/;
 const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|Depends on|Design specification|Blocked|Worktree):(?: (.*))?$/;
 
-function readUnit(region: Region, number: number, heading: PlanHeading, last: number): PlanUnit {
+function readUnit(region: Region, number: number, heading: PlanHeading, last: number, criteriaCount: number): PlanUnit {
   const { problems } = region;
   const values: Record<string, { line: number; text: string }> = {};
   const tests: { line: number; text: string }[] = [];
+  const criteria: { line: number; criterion: number; text: string }[] = [];
   let slot = -1;
   let current: string | undefined;
   for (let line = heading.line + 1; line <= last; line++) {
     const text = region.lines[line - 1];
     if (region.comments.has(line)) continue;
+    const criterion = CRITERION_LINE.exec(text);
+    if (criterion) {
+      // The Negative criterion lines come after the Test lines and before Minimum code.
+      if (slot !== 1) {
+        problems.push({ line, rule: "The line `- Negative criterion <k>:` is out of order. It comes after the `- Test:` lines and before `- Minimum code:`." });
+        continue;
+      }
+      current = "Negative criterion";
+      criteria.push({ line, criterion: Number(criterion[1]), text: (criterion[2] ?? "").trim() });
+      continue;
+    }
     const field = FIELD_LINE.exec(text);
     if (field) {
       const label = field[1];
@@ -351,7 +373,10 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
     if (slot >= 5) continue; // After Depends on, free notes and optional lines follow.
     const continues = text.trim() === "" || text.startsWith("  ");
     if (continues && current !== undefined && current !== "Commit message") {
-      if (text.trim() !== "") values[current].text += ` ${text.trim()}`;
+      if (text.trim() !== "") {
+        const target = current === "Negative criterion" ? criteria[criteria.length - 1] : values[current];
+        target.text += ` ${text.trim()}`;
+      }
       continue;
     }
     if (text.trim() === "" && current === undefined) continue;
@@ -379,6 +404,7 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
     line: heading.line,
     files: [],
     minimumCode: values["Minimum code"]?.text ?? "",
+    negativeCriteria: [],
     refactor: values["Refactor"]?.text ?? "",
     commitMessage: (values["Commit message"]?.text ?? "").replace(/^`(.*)`$/, "$1"),
     dependsOn: [],
@@ -413,6 +439,19 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       problems.push({ line, rule: `The case "${name}" is named twice in this unit. Name each case once.` });
     } else unit.test.cases.push(name);
   }
+  const seen = new Set<number>();
+  for (const { line, criterion, text } of criteria) {
+    if (criterion < 1 || criterion > criteriaCount) {
+      problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion}, which is not in \`## Negative criteria\`.` });
+    } else if (seen.has(criterion)) {
+      problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion} twice. Name each criterion once.` });
+    } else if (values["No test"] || !unit.test) {
+      problems.push({ line, rule: `Unit ${number} has a \`- No test:\` line, so it cannot name a negative criterion. Add a \`- Test:\` line.` });
+    } else if (!unit.test.cases.includes(text)) {
+      problems.push({ line, rule: `The case "${text}" of negative criterion ${criterion} is not one of the cases of the \`- Test:\` lines of Unit ${number}.` });
+    } else unit.negativeCriteria.push({ criterion, case: text });
+    seen.add(criterion);
+  }
   if (values["No test"]) unit.noTest = values["No test"].text;
   if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;
   if (values["Blocked"]) unit.blocked = values["Blocked"].text;
@@ -437,7 +476,7 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
   return unit;
 }
 
-function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[] {
+function readUnits(region: Region, section: PlanSection | undefined, criteriaCount: number): PlanUnit[] {
   if (!section) return [];
   const { problems } = region;
   const unitHeadings = region.headings.filter(
@@ -458,7 +497,7 @@ function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[]
       problems.push({ line: heading.line, rule: `Unit ${number} is out of place. Units are numbered from 1 with no gap, so Unit ${units.length + 1} comes here.` });
     }
     const next = unitHeadings[index + 1]?.line ?? section.last + 1;
-    units.push(readUnit(region, number, heading, next - 1));
+    units.push(readUnit(region, number, heading, next - 1, criteriaCount));
   });
   for (const unit of units) {
     let line = unit.line;
@@ -475,6 +514,31 @@ function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[]
     }
   }
   return units;
+}
+
+function readNegativeCriteria(region: Region, section: PlanSection | undefined): NegativeCriterion[] {
+  if (!section || !section.filled) return [];
+  const { problems } = region;
+  const content = contentLines(region, section.first + 1, section.last);
+  if (content.length === 1 && content[0].text.trim() === "none") return [];
+  const criteria: NegativeCriterion[] = [];
+  for (const { line, text } of content) {
+    if (text.trim() === "none") {
+      problems.push({ line, rule: "The word `none` cannot sit next to a negative criterion. Remove it." });
+      continue;
+    }
+    const parsed = /^(\d+)\. (\S.*)$/.exec(text);
+    if (!parsed) {
+      problems.push({ line, rule: "A negative criterion line is `<k>. <criterion>`, with <k> a number from 1. Write the word `none` when the ticket has none." });
+      continue;
+    }
+    const number = Number(parsed[1]);
+    if (number !== criteria.length + 1) {
+      problems.push({ line, rule: `Negative criterion ${number} is out of place. Criteria are numbered from 1 with no gap, so number ${criteria.length + 1} comes here.` });
+    }
+    criteria.push({ number, line, text: parsed[2].trim() });
+  }
+  return criteria;
 }
 
 function readQuestions(region: Region, section: PlanSection | undefined): BlockingQuestion[] {
@@ -638,7 +702,8 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
 
   const region: Region = { lines, headings, comments, problems };
   const section = (name: SectionName) => sections.find((candidate) => candidate.name === name);
-  const units = readUnits(region, section("Implementation units"));
+  const negativeCriteria = readNegativeCriteria(region, section("Negative criteria"));
+  const units = readUnits(region, section("Implementation units"), negativeCriteria.length);
   const blockingQuestions = readQuestions(region, section("Blocking questions"));
   const pullRequest = readPullRequest(region, section("Pull request"));
 
@@ -649,5 +714,5 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
       problems,
     );
   }
-  return { header, headings, sections, units, blockingQuestions, pullRequest };
+  return { header, headings, sections, negativeCriteria, units, blockingQuestions, pullRequest };
 }

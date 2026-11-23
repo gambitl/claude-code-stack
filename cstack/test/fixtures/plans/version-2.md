@@ -49,6 +49,9 @@ Text of architecture.
 - Test: `test/a1.test.ts`: the case 1 fails
 - Test: `test/a1.test.ts`: the case 1b fails
   and it fails for a second reason
+- Negative criterion 1: the case 1 fails
+- Negative criterion 2: the case 1b fails
+  and it fails for a second reason
 - Minimum code: Write a1.
 - Refactor: None.
 - Commit message: `feat(cli): add a1`
