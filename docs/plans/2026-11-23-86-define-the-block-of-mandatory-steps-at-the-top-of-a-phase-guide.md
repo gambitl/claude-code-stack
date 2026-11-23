@@ -351,7 +351,12 @@ Independent review: no bug, security problem or broken convention. The full `npm
 
 ## Documentation
 
-<phase document>
+- ADR-RQG-C: `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, committed on the branch.
+- Specification page: section 9 of `docs/projects/refocus-and-quality-guards.md` links to ADR-RQG-C, committed on the branch.
+- README: the paragraphs of `cstack guide` and `cstack next`, committed on the branch.
+- Comment on #86: https://github.com/gambitl/claude-code-stack/issues/86
+- Comment on #88, with the four tests that read the raw guides: https://github.com/gambitl/claude-code-stack/issues/88
+- Comment on #89, with the reader that takes text and the open question about runs 3 and 4: https://github.com/gambitl/claude-code-stack/issues/89
 
 ## Executor notes
 
