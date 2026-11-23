@@ -11,6 +11,7 @@ import type { Io } from "../io.js";
 import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
 import { findRunFiles } from "../measure/sessions.js";
 import { PHASES } from "../phases.js";
+import { isDone } from "../run-progress.js";
 import { readSettings, SettingsError } from "../settings.js";
 import { PlanFormatError, readPlan, type PlanRead } from "../plan/read.js";
 import { cstackVersion, planFileName, runFolder, readState, RunStateError, type RunState } from "../run-state.js";
@@ -131,8 +132,15 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     conditions: readConditions(planText, plan),
     reviewAgent,
   });
-  const lines = [...phaseLines, ...stepLines];
+  const open = PHASES.findIndex(({ name }) => !isDone(state, name));
+  const leftOut = open === -1 ? [] : PHASES.slice(open).map(({ name }) => name);
+  const belongsTo = (text: string, name: string): boolean =>
+    text === `phase ${name}` || text === `phase ${name} started` || text.startsWith(`${name}: `);
+  const lines = [...phaseLines, ...stepLines].filter((line) => !leftOut.some((name) => belongsTo(line.text, name)));
   for (const line of lines) io.stdout(`${formatLine(line)}\n`);
+  if (leftOut.length > 0) {
+    io.stderr(`cstack audit: these phases are not over yet, so their lines are left out: ${leftOut.join(", ")}.\n`);
+  }
   const unreadable = found.unreadableFiles + read.unreadableFiles > 0;
   if (unreadable) io.stderr("cstack audit: some session files could not be read, so some steps may show as skipped.\n");
   if (main.fallback) {
