@@ -76,6 +76,6 @@ Raising the version once, for both stories, means that a user upgrades only once
 
 A plan written by an older `cstack` cannot be finished with a newer one. The user installs the older release, finishes the run, and then upgrades. The release notes of the epic say so.
 
-The template `cstack/skills/resolve-issue/templates/plan.md` describes every new line, and the plan guides tell the agent to fill them. A person who edits the template must keep it in step with `readPlan()`.
+The template `cstack/skills/resolve-issue/templates/plan.md` describes every new line and says who fills it. The plan guides do not tell the agent to fill the new sections yet, so a later ticket adds those steps. A person who edits the template must keep it in step with `readPlan()`.
 
 The format of a line is strict on purpose. A fact line with a small mistake, such as a range of lines, is refused until it is fixed. We accept this cost, because a lenient reader would let the unchecked claims back in.
