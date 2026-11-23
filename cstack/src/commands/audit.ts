@@ -48,7 +48,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     return fail(3, error.message);
   }
   let plan: PlanRead;
-  let planText = "";
+  let planText: string;
   try {
     planText = readFileSync(planArgument, "utf8");
     plan = readPlan(planText);

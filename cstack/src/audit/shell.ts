@@ -14,7 +14,7 @@ interface Word {
   quoted: boolean;
 }
 
-function toArguments(words: Word[], programs: string[]): string[] | null {
+function toArguments(words: Word[], programs: readonly string[]): string[] | null {
   let i = 0;
   while (i < words.length && (ASSIGNMENT.test(words[i].text) || SKIPPED_WORDS.has(words[i].text))) i++;
   if (i >= words.length || !programs.includes(words[i].text) || words[i].quoted) return null;
@@ -35,7 +35,7 @@ export function cstackCommands(command: string): string[][] {
 }
 
 // The arguments of each simple command whose program is one of the given words.
-export function commandsOf(command: string, programs: string[]): string[][] {
+export function commandsOf(command: string, programs: readonly string[]): string[][] {
   const result: string[][] = [];
   const heredocs: { word: string; strip: boolean }[] = [];
   let words: Word[] = [];
