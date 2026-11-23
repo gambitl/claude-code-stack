@@ -84,7 +84,8 @@ type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?
 const REPEATED = ["each-unit", "each-unit-with-test"];
 
 // The listed steps of one guide as nodes, in the order they print, each with the nodes that must precede it.
-function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[]): Node[] {
+// `late` holds the units that were built after the build phase closed.
+function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<number>): Node[] {
   const listed = steps.filter((step) => step.kind === "command" && (step.condition === undefined || REPEATED.includes(step.condition)));
   const segments: Step[][] = [];
   for (const step of listed) {
@@ -115,7 +116,8 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[]): Node[] {
         nodes.push(node);
         previous = [node.id];
       }
-      if (previous !== tail) next.push(previous[0]!);
+      // A unit built after the build phase does not hold back the steps that follow its group.
+      if (previous !== tail && !late.has(unit.number)) next.push(previous[0]!);
     }
     tail = next;
   });
@@ -162,6 +164,20 @@ export function evaluateSteps(input: StepInput): Line[] {
     return undefined;
   };
 
+  // The time a unit was built: its commit call, else its saved failing run, else its commit in git.
+  const commitWords = stepWords("unit commit <n>");
+  const buildTime = (unit: number): number | undefined =>
+    input.calls.find((call) => matchesStep(commitWords, call.args, unit))?.time ?? savedTime(unit, "red") ?? commitTime(unit);
+  const buildClose = closes[PHASES.findIndex((phase) => phase.name === "build")];
+  const builtAt = new Map<number, number>();
+  if (buildClose !== undefined) {
+    for (const { number } of input.units) {
+      const time = buildTime(number);
+      if (time !== undefined && time > buildClose) builtAt.set(number, time);
+    }
+  }
+  const late = new Set(builtAt.keys());
+
   const lines: Line[] = [];
   const results = new Map<string, number | undefined>();
   PHASES.forEach(({ name }, index) => {
@@ -169,12 +185,15 @@ export function evaluateSteps(input: StepInput): Line[] {
     const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
     const planning = PLANNING_PHASES.includes(name);
     const phaseCalls = PHASES[index]!.runsIn === "main conversation" ? input.calls.filter((call) => input.mainFiles.has(call.file)) : input.calls;
-    for (const node of nodesOf(name, input.guides[name] ?? [], input.units)) {
+    for (const node of nodesOf(name, input.guides[name] ?? [], input.units, late)) {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
       const floor = floors.length === 0 ? undefined : Math.max(...floors);
       const text = `${name}: ${node.text}`;
+      // A step of a late unit is looked for until the close of the phase that built the unit, or with no end.
+      const builtTime = node.unit === undefined ? undefined : builtAt.get(node.unit);
+      const end = builtTime === undefined ? later : closes.find((time) => time !== undefined && time >= builtTime);
       const inWindow = phaseCalls.filter(
-        (call) => (earlier === undefined || call.time >= earlier) && (later === undefined || call.time <= later) && matchesStep(node.words, call.args, node.unit),
+        (call) => (earlier === undefined || call.time >= earlier) && (end === undefined || call.time <= end) && matchesStep(node.words, call.args, node.unit),
       );
       let line: Line = { text, verdict: "skipped" };
       const chosen = chooseCall(inWindow.map((call) => call.time), floor);

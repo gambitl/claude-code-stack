@@ -653,6 +653,134 @@ describe("cstack audit steps of the main conversation", () => {
   });
 });
 
+describe("cstack audit units built after the build phase", () => {
+  const PLAN = "docs/plans/audit.md";
+  const BUILD = [
+    "command: cstack tracker move '<key>' --to \"in progress\" --tracker <name>",
+    "command: cstack unit order --plan <plan file>",
+    "command: cstack helper start implementer --plan <plan file> --unit <n> | each-unit",
+    "command: cstack unit red <n> | each-unit-with-test",
+    "command: cstack unit green <n> | each-unit-with-test",
+    "command: cstack unit commit <n> | each-unit",
+    "command: cstack helper wait <helper id> | each-unit",
+    "command: cstack unit collect <n>... --plan <plan file>",
+    "command: cstack plan status --plan <plan file>",
+    "command: cstack next --done build --plan <plan file>",
+  ];
+  const WAIT = "cstack helper wait x";
+  const startText = (n: number) => `build: cstack helper start implementer --plan <plan file> --unit ${n}`;
+  const WAIT_LINE = "build: cstack helper wait <helper id>";
+  const readyAt = PHASES.findIndex((p) => p.name === "ready");
+  const publishAt = PHASES.findIndex((p) => p.name === "publish");
+  const abqAt = PHASES.findIndex((p) => p.name === "after-build-questions");
+  const runsIn = (phase: string) => PHASES.find((p) => p.name === phase)!.runsIn;
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const done = (text: string, time: string, record = "session") => `${text}: done ${localTime(new Date(time))} ${record}\n`;
+
+  // The calls of one unit: its helper start, red, green, commit and wait, two seconds apart.
+  function unitCalls(n: number, minute: number, second: number, skip: string[] = []): Call[] {
+    const steps: [string, string][] = [
+      ["start", `cstack helper start implementer --plan ${PLAN} --unit ${n}`],
+      ["red", `cstack unit red ${n}`],
+      ["green", `cstack unit green ${n}`],
+      ["commit", `cstack unit commit ${n}`],
+      ["wait", WAIT],
+    ];
+    return steps
+      .map(([kind, command], k) => ({ kind, call: { time: at(minute, second + 2 * k), command } }))
+      .filter(({ kind }) => !skip.includes(kind) && !(n === 3 && (kind === "red" || kind === "green")))
+      .map(({ call }) => call);
+  }
+  const before = (): Call[] => [
+    { time: at(buildAt, 1), command: "cstack tracker move 'x' --to \"in progress\" --tracker x" },
+    { time: at(buildAt, 2), command: `cstack unit order --plan ${PLAN}` },
+  ];
+  const after = (): Call[] => [
+    { time: at(buildAt, 50), command: `cstack unit collect 1 2 3 --plan ${PLAN}` },
+    { time: at(buildAt, 52), command: `cstack plan status --plan ${PLAN}` },
+    { time: at(buildAt + 1), command: `cstack next --done build --plan ${PLAN}` },
+  ];
+  const collectLines = (stdout: string) =>
+    stdout.split("\n").filter((l) => /^build: (cstack unit collect|cstack plan status|cstack next --done build)/.test(l));
+  // The main conversation: its own calls, with its waits after the close of ready and after the close of publish.
+  function mainCalls(): Call[] {
+    const tagged = taggedCalls();
+    let seen = 0;
+    return fullCalls()
+      .map((c) => (c.command === WAIT ? { ...c, time: seen++ === 0 ? at(readyAt + 1, 5) : at(publishAt + 1, 5) } : c))
+      .filter((_, i) => runsIn(tagged[i]!.phase) === "main conversation");
+  }
+  function build(executor: Call[]): Setup {
+    const s = setup({ calls: mainCalls(), files: [{ file: "s/subagents/agent-1.jsonl", calls: executor, sidechain: true }] });
+    writeGuides(s.guides, { build: `<!-- mandatory steps\n${BUILD.join("\n")}\n-->\n\n${MARKER}\n` });
+    return s;
+  }
+  function commitOn(s: Setup, unit: number, time: string): void {
+    git(s.repo, "checkout", "-b", "feature");
+    process.env.GIT_AUTHOR_DATE = time;
+    try {
+      commitFiles(s.repo, [`u${unit}.txt`], unit);
+    } finally {
+      delete process.env.GIT_AUTHOR_DATE;
+    }
+  }
+  const early = (): Call[] => [...before(), ...unitCalls(1, buildAt, 10), ...unitCalls(2, buildAt, 20)];
+  const waitLines = (stdout: string) => stdout.split("\n").filter((l) => l.startsWith(`${WAIT_LINE}: `));
+
+  it("finds the steps of a unit built during after-build-questions, and keeps the steps after the group done", async () => {
+    const s = build([...early(), ...unitCalls(3, abqAt, 10), ...after()]);
+    commitOn(s, 3, at(buildAt, 40));
+    const r = await run(s);
+    expect(r.stdout).toContain(done(startText(3), at(abqAt, 10)));
+    expect(r.stdout).toContain(done("build: cstack unit commit 3", at(abqAt, 16)));
+    expect(r.stdout.split("\n").filter((l) => l.startsWith("build: cstack helper wait <helper id>: "))[2]! + "\n").toBe(done(WAIT_LINE, at(abqAt, 18)));
+    expect(collectLines(r.stdout)).toHaveLength(3);
+    for (const line of collectLines(r.stdout)) expect(line, line).toContain(": done ");
+  });
+
+  it("finds the steps of a unit whose build time comes from its saved failing run", async () => {
+    const late = [
+      { time: at(buildAt + 1, 10), command: `cstack helper start implementer --plan ${PLAN} --unit 2` },
+      { time: at(buildAt + 1, 30), command: WAIT },
+    ];
+    const s = build([...before(), ...unitCalls(1, buildAt, 10), ...late, ...unitCalls(3, buildAt, 30), ...after()]);
+    const common = git(s.repo, "rev-parse", "--path-format=absolute", "--git-common-dir");
+    const folder = join(common, "cstack", "runs", "audit", "units", "2");
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, "red.json"), JSON.stringify({ time: at(buildAt + 1, 20) }));
+    commitOn(s, 2, at(buildAt, 45));
+    const r = await run(s);
+    expect(r.stdout).toContain(done(startText(2), at(buildAt + 1, 10)));
+    expect(r.stdout).toContain(done("build: cstack unit red 2", at(buildAt + 1, 20), "run state"));
+    expect(waitLines(r.stdout)[1]! + "\n").toBe(done(WAIT_LINE, at(buildAt + 1, 30)));
+    for (const line of collectLines(r.stdout)) expect(line, line).toContain(": done ");
+  });
+
+  it("finds the steps of a unit whose build time comes from git, after the close of build", async () => {
+    const s = build([...early(), ...unitCalls(3, buildAt + 1, 20, ["commit"]), ...after()]);
+    commitOn(s, 3, at(buildAt + 1, 24));
+    const r = await run(s);
+    expect(r.stdout).toContain(done(startText(3), at(buildAt + 1, 20)));
+    expect(collectLines(r.stdout)).toHaveLength(3);
+    for (const line of collectLines(r.stdout)) expect(line, line).toContain(": done ");
+  });
+
+  it("looks with no end for the steps of a unit built after the close of the last phase", async () => {
+    const s = build([...early(), ...unitCalls(3, publishAt + 1, 10), ...after()]);
+    const r = await run(s);
+    expect(r.stdout).toContain(done(startText(3), at(publishAt + 1, 10)));
+    expect(r.stdout).toContain(done("build: cstack unit commit 3", at(publishAt + 1, 16)));
+    expect(waitLines(r.stdout)[2]! + "\n").toBe(done(WAIT_LINE, at(publishAt + 1, 18)));
+    for (const line of collectLines(r.stdout)) expect(line, line).toContain(": done ");
+  });
+
+  it("never takes the wait of the main conversation for a unit whose wait was never run", async () => {
+    const s = build([...early(), ...unitCalls(3, abqAt, 10, ["wait"]), ...after()]);
+    const r = await run(s);
+    expect(waitLines(r.stdout)[2]).toBe(`${WAIT_LINE}: out of order ${localTime(new Date(at(buildAt, 28)))} session`);
+  });
+});
+
 describe("nothing private leaves the command", () => {
   const MARK = "SECRET_MARKER_4821";
   const withMarker = (s: Setup) => {
