@@ -294,6 +294,17 @@ The retro phase runs `cstack audit` before the retro phase and the publish phase
 - Conventions: one finding, that the filter reads the printed text of a line to find its phase, and that a `phase` field on `Line` would be sturdier. Judgment call: not done. The plan decides to filter by text and forbids changing `cstack/src/audit/evaluate.ts`, where six of the last ten commits are fixes. The text shapes are covered by tests for the phase, start, step and helper lines.
 - Simplicity: one finding, to drop the empty-output sentence and the copy of standard error sentences from the guide. Judgment call: not done. Both are decisions of the plan taken in the question round.
 
+### Independent review (phase independent-review)
+
+The reviewer changed no code and found no bug, no missing acceptance criterion, no security problem and no broken convention. Four judgment calls for the pull request body:
+
+1. The filter finds the phase of a line from its printed text. A `phase` field on each line would be sturdier, but the plan chose text matching and forbids changes to `cstack/src/audit/evaluate.ts`.
+2. The audit hides every phase after the first one that is not done, so a later phase done out of order does not show. This is the documented behaviour.
+3. The wording "In a finished run, these are retro and publish" in the retro guide could read better. The example line `phase ticket: done` in the guide also leaves out the time and the kind of proof. Left as it is, because both are accurate.
+4. The template has no placeholder for the standard error sentences that the guide asks to copy under the code block. The guide covers it.
+
+The full test run hit vitest timeouts on a busy machine (load average 16 to 25) in files that this branch does not touch. Those files passed when run alone.
+
 <phase review findings and fixes; phase independent-review: fixes and judgment calls>
 
 ## Briefing
