@@ -236,7 +236,17 @@ Should the part "Exit code 1" of `cstack/guides/resolve-issue/publish.md` (line 
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+`buildDone` has two callers outside the diff: the build phase check in `cstack/src/phases.ts` and the report code in `cstack/src/report/reports.ts`, which passes a whole `PhaseContext`. The type check accepts both. The publish tests, the end-to-end test of the resolve-issue chain and the guide and README tests cover the other dependents. The usual companions of `publish.ts` are its test file, the test helper `publish-env.ts`, `README.md` and the publish guide, and all of them are in the diff. No `WHY:` or `DECISION:` comment conflicts with the change.
+
+### Phase review
+
+- Correctness: no bug found. One note below the threshold. When neither the local `main` nor `origin/main` exists, the new line advises `git branch --track main origin/main`, which then fails, while the home folder line gives the right first step. The advice text is fixed by the user's answer, so it stays. This is recorded as a follow-up, not fixed.
+- Security: nothing found. The target branch name is checked by `readPlan` before the new code runs, and git starts without a shell.
+- Conventions: nothing found.
+- Simplicity: nothing to remove.
+- Tests: typecheck passes. `cstack/test/publish.test.ts` passes, 85 cases. The full `npm test` shows only timeout failures of the 5-second limit on a busy machine, in other files each time. Those files pass when run alone, except `cstack/test/e2e/no-orca.test.ts`, which still times out in its Orca chain cases and does not touch publishing.
 
 ## Briefing
 
