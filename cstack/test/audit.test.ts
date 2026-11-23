@@ -774,6 +774,17 @@ describe("cstack audit units built after the build phase", () => {
     for (const line of collectLines(r.stdout)) expect(line, line).toContain(": done ");
   });
 
+  it("keeps the floor of the step before the group for the steps after it when every unit is late", async () => {
+    // A collect call before the order of the units must not count for the step after the group.
+    const early = { time: at(buildAt, 1), command: `cstack unit collect 1 2 3 --plan ${PLAN}` };
+    const late = [...unitCalls(1, abqAt, 10), ...unitCalls(2, abqAt, 20), ...unitCalls(3, abqAt, 30)];
+    const s = build([early, ...before(), ...late, ...after()]);
+    const r = await run(s);
+    expect(r.stdout).toContain(done("build: cstack unit collect <n>... --plan <plan file>", at(buildAt, 50)));
+    expect(r.stdout).toContain(done("build: cstack plan status --plan <plan file>", at(buildAt, 52)));
+    expect(r.stdout).toContain(done("build: cstack next --done build --plan <plan file>", at(buildAt + 1)));
+  });
+
   it("never takes the wait of the main conversation for a unit whose wait was never run", async () => {
     const s = build([...early(), ...unitCalls(3, abqAt, 10, ["wait"]), ...after()]);
     const r = await run(s);

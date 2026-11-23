@@ -119,7 +119,8 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
       // A unit built after the build phase does not hold back the steps that follow its group.
       if (previous !== tail && !late.has(unit.number)) next.push(previous[0]!);
     }
-    tail = next;
+    // With no unit left to hold them back, the steps after the group keep the floor of the steps before it.
+    if (next.length > 0) tail = next;
   });
   return nodes;
 }
