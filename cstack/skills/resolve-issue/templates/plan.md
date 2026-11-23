@@ -27,6 +27,8 @@ Ready for review at: not yet
 
 ## Negative criteria
 
+<!-- Phase ticket fills this section. Write one line for each negative criterion of the ticket: "<k>. <the criterion, word for word>". The number <k> starts at 1 and has no gap. A criterion fits on one line. Write the single word "none" when the ticket has no negative criterion. Do not write "none" next to a criterion. -->
+
 <the negative criteria of the ticket, numbered from 1, or "none">
 
 ## Dependencies
@@ -38,6 +40,8 @@ Ready for review at: not yet
 <phase code-map>
 
 ## Facts
+
+<!-- Phase plan fills this section. Write one line for each fact that the plan relies on. A fact that comes from the code has this form: "- <the fact> Source: `<path>`, line <n>: "<the quoted text>"". The path is relative to the repository root. The line <n> is one line number, never a range. The quoted text is what that line says, copied as it is. A fact that comes from the user has this form: "- <the fact> Source: the user, on <YYYY-MM-DD>". Write the single word "none" when the plan relies on no fact. Do not write "none" next to a fact. -->
 
 <the facts the plan relies on, each with its source, or "none">
 
@@ -53,8 +57,11 @@ Ready for review at: not yet
 
 <!-- Phase plan writes the units here. Until then this section holds no unit. Every unit has the heading "### Unit <n>: <name>", numbered 1, 2, 3 with no gap. The heading carries no status, because the status comes from git. The lines of a unit come in this order:
 - Files: one or more paths in backticks, separated by ", ". A path is relative to the repository root.
-- Test: `<test file>`: <the failing case it checks>   or   - No test: <reason>
-  The test file of a Test line also appears in Files.
+- Test: `<test file>`: <the case>   or   - No test: <reason>
+  Write one Test line for each new case, one after the other. All the Test lines of a unit name the same test file, and that file also appears in Files. Never name the same case twice in a unit. A line that starts with two spaces after a Test line continues the case of that line.
+  Write a case exactly as the JUnit report names it. For vitest, that is the titles of the describe blocks and the title of the test, joined by " > ".
+- Negative criterion <k>: <the case that proves it>
+  Write one line for each negative criterion that the unit covers, right after the Test lines. <k> is the number of the criterion in "Negative criteria". The case is one of the cases of the Test lines of this unit. A unit with a No test line has none of these lines.
 - Minimum code:
 - Refactor:
 - Commit message: on one line only
@@ -81,6 +88,8 @@ Write "- Answer: open" until someone answers. Number the questions from 1 with n
 <"none", or the questions>
 
 ## Changes to what the ticket fixes
+
+<!-- Phase questions and phase plan fill this section. Write one line for each change to what the ticket fixes, such as a function signature or a message: "- <the change> Blocking question: <n>". The number <n> is the blocking question where the user decided the change. Write the single word "none" when nothing changes. Do not write "none" next to a change. -->
 
 <each change to what the ticket fixes, with its blocking question, or "none">
 
