@@ -8,7 +8,7 @@ import { listUnitCommits } from "../plan/commits.js";
 import type { PlanUnit } from "../plan/read.js";
 import { isDone } from "../run-progress.js";
 import type { RunState } from "../run-state.js";
-import type { Call } from "./calls.js";
+import type { Call, Launch } from "./calls.js";
 import type { Conditions } from "./conditions.js";
 import { matchesStep, split, stepWords } from "./match.js";
 
@@ -70,6 +70,8 @@ export type StepInput = {
   guides: Record<string, Step[]>;
   units: PlanUnit[];
   calls: Call[];
+  /** The launches of sub-agents. */
+  launches: Launch[];
   /** The indexes of the session files of the main conversation. */
   mainFiles: Set<number>;
   state: RunState;
@@ -81,19 +83,20 @@ export type StepInput = {
   conditions: Conditions;
 };
 
-type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[] };
+type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[]; helper?: string };
 
 const REPEATED = ["each-unit", "each-unit-with-test"];
-type Kind = "unit" | "ticket" | "single";
+type Kind = "unit" | "ticket" | "single" | "helper";
 
 // Which group a listed step joins, or undefined when its condition does not hold for this plan.
 function kindOf(step: Step, conditions: Conditions): Kind | undefined {
-  if (step.kind !== "command") return undefined;
-  if (step.condition === undefined) return "single";
+  if (step.kind === "action") return undefined;
+  const once: Kind = step.kind === "helper" ? "helper" : "single";
+  if (step.condition === undefined) return once;
   if (REPEATED.includes(step.condition)) return "unit";
   if (step.condition === "each-dependent-ticket") return conditions.dependentTickets > 0 ? "ticket" : undefined;
-  if (step.condition === "user-interface") return conditions.userInterface ? "single" : undefined;
-  if (step.condition === "new-structural-decision") return conditions.newStructuralDecision ? "single" : undefined;
+  if (step.condition === "user-interface") return conditions.userInterface ? once : undefined;
+  if (step.condition === "new-structural-decision") return conditions.newStructuralDecision ? once : undefined;
   return undefined;
 }
 
@@ -112,6 +115,9 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
   let tail: string[] = [];
   segments.forEach((segment, index) => {
     const make = (step: Step, id: string, unit: number | undefined, before: string[]): Node => {
+      if (step.kind === "helper") {
+        return { id, phase, text: step.word === undefined ? step.helper : `${step.helper} ${step.word}`, words: [], unit, before, helper: step.helper };
+      }
       const text = (step as { command: string }).command;
       const shown = unit === undefined ? text : text.replace(/<n>(?!\.\.\.)/g, String(unit));
       return { id, phase, text: shown, words: stepWords(text), unit, before };
@@ -120,6 +126,13 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
       const node = make(segment.steps[0]!, `${phase}:${index}`, undefined, tail);
       nodes.push(node);
       tail = [node.id];
+      return;
+    }
+    if (segment.kind === "helper") {
+      // The steps of a helper group are not ordered among themselves.
+      const group = segment.steps.map((step, position) => make(step, `${phase}:${index}:${position}`, undefined, tail));
+      nodes.push(...group);
+      tail = group.map((node) => node.id);
       return;
     }
     if (segment.kind === "ticket") {
@@ -212,11 +225,15 @@ export function evaluateSteps(input: StepInput): Line[] {
   const results = new Map<string, number | undefined>();
   // A call serves one line of the audit only.
   const taken = new Set<Call>();
+  const takenLaunches = new Set<Launch>();
+  const helperLines: Line[] = [];
   PHASES.forEach(({ name }, index) => {
     const earlier = closes.slice(0, index).reverse().find((time) => time !== undefined);
     const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
     const planning = PLANNING_PHASES.includes(name);
-    const phaseCalls = PHASES[index]!.runsIn === "main conversation" ? input.calls.filter((call) => input.mainFiles.has(call.file)) : input.calls;
+    const mainOnly = PHASES[index]!.runsIn === "main conversation";
+    const phaseCalls = mainOnly ? input.calls.filter((call) => input.mainFiles.has(call.file)) : input.calls;
+    const phaseLaunches = mainOnly ? input.launches.filter((launch) => input.mainFiles.has(launch.file)) : input.launches;
     for (const node of nodesOf(name, input.guides[name] ?? [], input.units, late, input.conditions)) {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
       const floor = floors.length === 0 ? undefined : Math.max(...floors);
@@ -224,6 +241,25 @@ export function evaluateSteps(input: StepInput): Line[] {
       // A step of a late unit is looked for until the close of the phase that built the unit, or with no end.
       const builtTime = node.unit === undefined ? undefined : builtAt.get(node.unit);
       const end = builtTime === undefined ? later : closes.find((time) => time !== undefined && time >= builtTime);
+      if (node.helper !== undefined) {
+        const free = phaseLaunches.filter(
+          (launch) =>
+            !takenLaunches.has(launch) &&
+            launch.kind === "sub-agent" &&
+            launch.type === node.helper &&
+            (earlier === undefined || launch.time >= earlier) &&
+            (end === undefined || launch.time <= end),
+        );
+        const picked = chooseCall(free.map((launch) => launch.time), floor);
+        let helperLine: Line = { text, verdict: "skipped" };
+        if (picked) {
+          helperLine = { text, ...picked, record: "session" };
+          takenLaunches.add(free.find((launch) => launch.time === picked.time)!);
+        }
+        results.set(node.id, helperLine.verdict === "skipped" ? floor : helperLine.time);
+        helperLines.push(helperLine);
+        continue;
+      }
       const inWindow = phaseCalls.filter(
         (call) => !taken.has(call) && (earlier === undefined || call.time >= earlier) && (end === undefined || call.time <= end) && matchesStep(node.words, call.args, node.unit),
       );
@@ -241,5 +277,5 @@ export function evaluateSteps(input: StepInput): Line[] {
       lines.push(line);
     }
   });
-  return lines;
+  return [...lines, ...helperLines];
 }

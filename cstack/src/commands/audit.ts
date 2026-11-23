@@ -112,6 +112,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     guides: guideSteps,
     units: plan.units,
     calls: read.calls,
+    launches: read.launches,
     mainFiles: main.files,
     state,
     phaseLines,

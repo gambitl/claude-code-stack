@@ -74,7 +74,12 @@ function fullPhases(): Record<string, { startedAt?: string; doneAt: string }> {
   });
   return phases;
 }
-type Call = { time: string; command: string };
+// A call with `launch` is a launch of a sub-agent of that type, written as the tool `tool` (default `Agent`).
+type Call = { time: string; command: string; launch?: string; tool?: string };
+const item = (call: Call, id: string) =>
+  call.launch === undefined
+    ? { type: "tool_use", id, name: "Bash", input: { command: call.command } }
+    : { type: "tool_use", id, name: call.tool ?? "Agent", input: { description: "sample description", prompt: "sample prompt", subagent_type: call.launch } };
 // The lines of the block of a guide, as the test guides write them.
 function blockOf(name: string): string[] {
   if (name !== "build") return BLOCKS[name] ?? [`command: cstack next --done ${name}`];
@@ -126,11 +131,21 @@ function taggedCalls(): (Call & { phase: string })[] {
         command: step.text.replace(/<plan file>/g, "docs/plans/audit.md").replace(/<[^<>]+>/g, "x"),
       });
     });
+    // One launch for every helper step of the test guides, in the window of its phase and after the calls before it.
+    const launch = (type: string, second: number): void => {
+      calls.push({ phase: name, time: at(i, second), command: "", launch: type });
+    };
+    if (name === "questions") launch("resolve-issue:cto-review", 4);
+    if (name === "build") {
+      for (const _unit of UNITS) launch("resolve-issue:implementer", 8);
+      launch("resolve-issue:cto-review", 30);
+      launch("resolve-issue:code-reviewer-deep", 31);
+    }
   });
   return calls;
 }
 function fullCalls(): Call[] {
-  return taggedCalls().map(({ time, command }) => ({ time, command }));
+  return taggedCalls().map(({ phase: _phase, ...call }) => call);
 }
 const buildAt = PHASES.findIndex((p) => p.name === "build");
 const retroAt = PHASES.findIndex((p) => p.name === "retro");
@@ -171,7 +186,7 @@ function setup(options: {
       type: "assistant",
       cwd: repo,
       timestamp: call.time,
-      message: { content: [{ type: "tool_use", id: `t${i}`, name: "Bash", input: { command: call.command } }] },
+      message: { content: [item(call, `t${i}`)] },
     }));
     writeFileSync(join(folder, "s.jsonl"), lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
     if (options.extraFile !== undefined) writeFileSync(join(folder, "bad.jsonl"), options.extraFile);
@@ -182,7 +197,7 @@ function setup(options: {
         cwd: repo,
         ...(extra.sidechain ? { isSidechain: true } : {}),
         timestamp: call.time,
-        message: { content: [{ type: "tool_use", id: `${extra.file}#${i}`, name: "Bash", input: { command: call.command } }] },
+        message: { content: [item(call, `${extra.file}#${i}`)] },
       }));
       writeFileSync(join(folder, extra.file), text.map((l) => `${JSON.stringify(l)}\n`).join(""));
     }
@@ -489,11 +504,12 @@ describe("cstack audit command steps", () => {
     expect(r.stdout).not.toContain("cstack unit green 3");
   });
 
-  it("does not print helper steps, action steps or steps with another condition", async () => {
+  it("does not print action steps or steps whose condition is false", async () => {
     const s = setup();
     const r = await run(s);
     expect(r.stdout).toContain("build: cstack unit order --plan <plan file>: done ");
-    expect(r.stdout).not.toContain("implementer");
+    expect(r.stdout).toContain("build: resolve-issue:implementer: done ");
+    expect(r.stdout).not.toContain("implementer-escalation");
     expect(r.stdout).not.toContain("approval-gate");
     expect(r.stdout).not.toContain("break-the-rule");
     expect(r.stdout).not.toContain("tracker comment");
@@ -590,7 +606,7 @@ describe("cstack audit steps of the main conversation", () => {
     const tagged = taggedCalls();
     const retimed = mainCalls();
     const main = retimed.filter((_, i) => runsIn(tagged[i]!.phase) === "main conversation");
-    const worker = tagged.filter((t) => runsIn(t.phase) === "executor").map(({ time, command }) => ({ time, command }));
+    const worker = tagged.filter((t) => runsIn(t.phase) === "executor").map(({ phase: _phase, ...call }) => call);
     const s = setup({ calls: main, files: [{ file: "worker.jsonl", calls: [...worker, wait(at(buildAt, 50))] }] });
     const r = await run(s);
     const executorLines = r.stdout.split("\n").filter((l) => PHASES.some((p) => p.runsIn === "executor" && l.startsWith(`${p.name}: `)));
@@ -604,8 +620,8 @@ describe("cstack audit steps of the main conversation", () => {
   it("shows the waits of the second main session when the main conversation resumed there", async () => {
     const tagged = taggedCalls();
     const early = ["ticket", "dependencies", "code-map", "questions"];
-    const first = tagged.filter((t) => early.includes(t.phase)).map(({ time, command }) => ({ time, command }));
-    const second = mainCalls().filter((c) => !first.some((f) => f.time === c.time && f.command === c.command));
+    const first = tagged.filter((t) => early.includes(t.phase)).map(({ phase: _phase, ...call }) => call);
+    const second = mainCalls().filter((c) => !first.some((f) => f.time === c.time && f.command === c.command && f.launch === c.launch));
     const helper = [wait(at(buildAt, 20)), wait(at(publishAt + 1, 2))];
     const s = setup({
       calls: first,
@@ -934,6 +950,152 @@ describe("cstack audit conditional command steps", () => {
   });
 });
 
+describe("cstack audit helper steps", () => {
+  const block = (lines: string[]) => `<!-- mandatory steps\n${lines.join("\n")}\n-->\n\n${MARKER}\n`;
+  const CTO = "resolve-issue:cto-review";
+  const DEEP = "resolve-issue:code-reviewer-deep";
+  const CONVENTIONS = "resolve-issue:code-reviewer";
+  const SIMPLICITY = "resolve-issue:code-reviewer-simplicity";
+  const REVIEWERS = [
+    `helper: ${DEEP} correctness`,
+    `helper: ${DEEP} security`,
+    `helper: ${CONVENTIONS} conventions`,
+    `helper: ${SIMPLICITY}`,
+  ];
+  const GUIDES = {
+    questions: [`helper: ${CTO} before-plan`, "command: cstack next --done questions"],
+    plan: [`helper: ${CTO} plan-delta | new-structural-decision`, "command: cstack next --done plan"],
+    review: [...REVIEWERS, "command: cstack next --done review"],
+    "independent-review": ["helper: resolve-issue:pr-reviewer", "command: cstack next --done independent-review"],
+    briefing: [`helper: ${CTO} after-build`, "command: cstack next --done briefing"],
+    // The guide of the build phase of the other tests holds helper steps, and they would take the launches of the review phase.
+    build: ["command: cstack next --done build --plan <plan file>"],
+  };
+  const index = (phase: string) => PHASES.findIndex((p) => p.name === phase);
+  const launch = (phase: string, type: string, second: number, tool?: string): Call => ({
+    time: at(index(phase), second),
+    command: "",
+    launch: type,
+    ...(tool === undefined ? {} : { tool }),
+  });
+  const run = async (launches: Call[], files: { file: string; calls: Call[]; sidechain?: boolean }[] = [], guides: Record<string, string[]> = GUIDES, plan?: string) => {
+    const s = setup({ calls: [...fullCalls().filter((c) => c.launch === undefined), ...launches], files, ...(plan === undefined ? {} : { plan }) });
+    writeGuides(s.guides, Object.fromEntries(Object.entries(guides).map(([name, lines]) => [name, block(lines)])));
+    return await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  };
+  const helperFile = (calls: Call[]) => [{ file: "s/subagents/agent-1.jsonl", calls, sidechain: true }];
+  const doneLine = (text: string, time: string) => `${text}: done ${localTime(new Date(time))} session\n`;
+  const LINES = {
+    before: `questions: ${CTO} before-plan`,
+    delta: `plan: ${CTO} plan-delta`,
+    after: `briefing: ${CTO} after-build`,
+    correctness: `review: ${DEEP} correctness`,
+    security: `review: ${DEEP} security`,
+    conventions: `review: ${CONVENTIONS} conventions`,
+    simplicity: `review: ${SIMPLICITY}`,
+  };
+
+  it("prints the three lines of the CTO advisor as done, from the main conversation and from a helper transcript", async () => {
+    const before = launch("questions", CTO, 10);
+    const delta = launch("plan", CTO, 10);
+    const after = launch("briefing", CTO, 10);
+    const r = await run([before, delta], helperFile([after]));
+    expect(r.stdout).toContain(doneLine(LINES.before, before.time));
+    expect(r.stdout).toContain(doneLine(LINES.delta, delta.time));
+    expect(r.stdout).toContain(doneLine(LINES.after, after.time));
+  });
+
+  it("prints the four review lines as skipped when no code reviewer was launched", async () => {
+    const r = await run([launch("questions", CTO, 10)]);
+    for (const key of ["correctness", "security", "conventions", "simplicity"] as const) expect(r.stdout).toContain(`${LINES[key]}: skipped\n`);
+    expect(r.stdout).toContain(doneLine(LINES.before, launch("questions", CTO, 10).time));
+  });
+
+  it("lets one launch of the deep reviewer serve only the correctness line", async () => {
+    const deep = launch("review", DEEP, 10);
+    const r = await run([deep]);
+    expect(r.stdout).toContain(doneLine(LINES.correctness, deep.time));
+    expect(r.stdout).toContain(`${LINES.security}: skipped\n`);
+  });
+
+  it("prints the four review lines as done when the reviewers were launched in the reverse order of the block", async () => {
+    const calls = [launch("review", SIMPLICITY, 10), launch("review", CONVENTIONS, 12), launch("review", DEEP, 14), launch("review", DEEP, 16)];
+    const r = await run(calls);
+    expect(r.stdout).toContain(doneLine(LINES.simplicity, calls[0]!.time));
+    expect(r.stdout).toContain(doneLine(LINES.conventions, calls[1]!.time));
+    expect(r.stdout).toContain(doneLine(LINES.correctness, calls[2]!.time));
+    expect(r.stdout).toContain(doneLine(LINES.security, calls[3]!.time));
+  });
+
+  it("leaves the questions line skipped for a launch of the CTO advisor in a helper transcript", async () => {
+    const after = launch("briefing", CTO, 10);
+    const r = await run([], helperFile([launch("questions", CTO, 10), after]));
+    expect(r.stdout).toContain(`${LINES.before}: skipped\n`);
+    expect(r.stdout).toContain(doneLine(LINES.after, after.time));
+  });
+
+  it("leaves the questions line skipped for a launch of a general-purpose sub-agent", async () => {
+    const after = launch("briefing", CTO, 10);
+    const r = await run([launch("questions", "general-purpose", 10)], helperFile([after]));
+    expect(r.stdout).toContain(`${LINES.before}: skipped\n`);
+    expect(r.stdout).toContain(doneLine(LINES.after, after.time));
+  });
+
+  it("leaves the plan-delta line skipped for a SendMessage call", async () => {
+    const before = launch("questions", CTO, 10);
+    const r = await run([before, launch("plan", CTO, 10, "SendMessage")]);
+    expect(r.stdout).toContain(`${LINES.delta}: skipped\n`);
+    expect(r.stdout).toContain(doneLine(LINES.before, before.time));
+  });
+
+  it("prints every helper line after every command line", async () => {
+    const r = await run([launch("questions", CTO, 10), launch("review", DEEP, 10)]);
+    const lines = r.stdout.split("\n").filter((l) => l !== "" && !l.startsWith("phase "));
+    const isHelper = (l: string) => /^[a-z-]+: resolve-issue:/.test(l);
+    expect(lines.some(isHelper)).toBe(true);
+    expect(lines.some((l) => !isHelper(l))).toBe(true);
+    expect(lines.findIndex(isHelper)).toBeGreaterThan(lines.map((l, i) => (isHelper(l) ? -1 : i)).reduce((a, b) => Math.max(a, b)));
+  });
+
+  it("prints only the first helper step of a block that holds a helper, an action and a helper with a false condition", async () => {
+    const guides = { questions: [`helper: ${CTO} before-plan`, "action: approval-gate", `helper: ${CTO} plan-delta | each-stuck-unit`, "command: cstack next --done questions"] };
+    const before = launch("questions", CTO, 10);
+    const r = await run([before], [], guides);
+    expect(r.stdout).toContain(doneLine(LINES.before, before.time));
+    expect(r.stdout).not.toContain("questions: resolve-issue:cto-review plan-delta");
+    expect(r.stdout).not.toContain("approval-gate");
+  });
+
+  it("prints no helper line for a step whose condition is false", async () => {
+    const withSentence = readFileSync(join(fixtures, "audit", "plan.md"), "utf8").replace("## Architecture\n", "## Architecture\n\nNo new decision since the question round.\n");
+    const before = launch("questions", CTO, 10);
+    const r = await run([before], [], GUIDES, withSentence);
+    expect(r.stdout).toContain(doneLine(LINES.before, before.time));
+    expect(r.stdout).not.toContain(LINES.delta);
+  });
+
+  it("prints a helper line with only a fixed text, a verdict, a time and a record, whatever the launch holds", async () => {
+    const MARK = "SECRET_MARKER_4821";
+    const s = setup({ calls: fullCalls().filter((c) => c.launch === undefined) });
+    writeGuides(s.guides, Object.fromEntries(Object.entries(GUIDES).map(([name, lines]) => [name, block(lines)])));
+    const file = join(s.home, ".claude", "projects", "p", "s.jsonl");
+    const extra = {
+      type: "assistant",
+      cwd: s.repo,
+      timestamp: at(index("questions"), 10),
+      message: { content: [{ type: "tool_use", id: "m2", name: "Agent", input: { description: MARK, prompt: `${MARK} ${s.repo}`, subagent_type: CTO } }] },
+    };
+    writeFileSync(file, readFileSync(file, "utf8") + `${JSON.stringify(extra)}\n`);
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.stdout + r.stderr).not.toContain(MARK);
+    expect(r.stdout + r.stderr).not.toContain(s.repo);
+    const helperLines = r.stdout.split("\n").filter((l) => /^[a-z-]+: resolve-issue:/.test(l));
+    expect(helperLines.length).toBeGreaterThan(0);
+    for (const line of helperLines) expect(line).toMatch(/^[a-z-]+: resolve-issue:[a-z-]+( [a-z-]+)?: (done \S+ session|skipped|out of order \S+ session)$/);
+    expect(r.stdout).toContain(doneLine(LINES.before, at(index("questions"), 10)));
+  });
+});
+
 describe("nothing private leaves the command", () => {
   const MARK = "SECRET_MARKER_4821";
   const withMarker = (s: Setup) => {
@@ -951,6 +1113,7 @@ describe("nothing private leaves the command", () => {
     new RegExp(`^phase [a-z-]+ started: ${verdict}$`),
     new RegExp(`^phase [a-z-]+: ${verdict}$`),
     new RegExp(`^(${texts.join("|")}): ${verdict}$`),
+    new RegExp(`^[a-z-]+: resolve-issue:[a-z-]+( [a-z-]+)?: ${verdict}$`),
   ];
 
   it("prints only the allowed lines and never the marker", async () => {
