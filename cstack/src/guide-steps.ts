@@ -76,11 +76,14 @@ export function readSteps(text: string, name: string): StepsResult {
   const lines = text.split("\n").map((line) => (line.endsWith("\r") ? line.slice(0, -1) : line));
   if (lines[lines.length - 1] === "") lines.pop();
   try {
-    if (lines[0] !== OPENING) {
-      const stray = lines.findIndex((line) => line.startsWith(OPENING));
+    const refuseStray = (from: number): void => {
+      const stray = lines.findIndex((line, index) => index >= from && line.startsWith(OPENING));
       if (stray !== -1) {
         refuse(name, stray + 1, 'the block of mandatory steps must open on line 1, with exactly "<!-- mandatory steps".');
       }
+    };
+    if (lines[0] !== OPENING) {
+      refuseStray(0);
       return { ok: true, steps: [] };
     }
     const steps: Step[] = [];
@@ -91,6 +94,7 @@ export function readSteps(text: string, name: string): StepsResult {
         if (steps.length === 0) {
           refuse(name, line, "the block of mandatory steps is empty. Write at least one step before the closing line.");
         }
+        refuseStray(index + 1);
         return { ok: true, steps };
       }
       if (raw === "") {

@@ -157,4 +157,9 @@ describe("readSteps", () => {
       /^build\.md, line 3: /,
     );
   });
+
+  it("refuses a second opening line after a valid block", async () => {
+    const text = "<!-- mandatory steps\ncommand: cstack next\n-->\n\n# Phase\n\n<!-- mandatory steps\naction: some-action\n-->\n";
+    expect(await refusal(text)).toMatch(/^build\.md, line 7: .*open on line 1/);
+  });
 });
