@@ -1,16 +1,16 @@
 import { readLines } from "../measure/sessions.js";
 import { cstackCommands } from "./shell.js";
 
-export type Call = { time: number; args: string[] };
+export type Call = { time: number; args: string[]; file: number; helper: boolean };
 
 // Reads the cstack commands of the Bash calls of the session files, once per tool call id, sorted by time.
-export async function readCalls(files: string[]): Promise<{ calls: Call[]; unreadableFiles: number }> {
+export async function readCalls(files: { path: string; helper: boolean }[]): Promise<{ calls: Call[]; unreadableFiles: number }> {
   const calls: Call[] = [];
   const seen = new Set<string>();
   let unreadableFiles = 0;
-  for (const file of files) {
+  for (const [index, file] of files.entries()) {
     try {
-      await readLines(file, (line) => {
+      await readLines(file.path, (line) => {
         if (line.type !== "assistant") return;
         const time = typeof line.timestamp === "string" ? Date.parse(line.timestamp) : NaN;
         if (Number.isNaN(time)) return;
@@ -24,7 +24,7 @@ export async function readCalls(files: string[]): Promise<{ calls: Call[]; unrea
             if (seen.has(item.id)) continue;
             seen.add(item.id);
           }
-          for (const args of cstackCommands(command)) calls.push({ time, args });
+          for (const args of cstackCommands(command)) calls.push({ time, args, file: index, helper: file.helper });
         }
       });
     } catch {
