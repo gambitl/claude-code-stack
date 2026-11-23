@@ -371,6 +371,8 @@ I checked security and authorization, data model lock-in, scale and performance,
 ## Non-blocking questions
 
 - At milestone R4, which guides does the audit use to judge runs 3 and 4: the guides as they are at the end of milestone R1, or the result of US-1 AC10? For: the maintainer.
+- When #88 writes the blocks, should it also add a CI test that fails when a phase guide of `resolve-issue` has no block of mandatory steps? Without it, a guide that loses its block, or gets a byte-order mark on line 1, makes the audit expect no step for that phase, and the run looks complete. For: the maintainer, to ask on #88.
+- Should `cstack next --done <phase>` stop marking the phase done when the next guide's block never closes, or is a follow-up note enough? Today a retry then prints "already done". CI already refuses such a block in the shipped guides, so only a local edit of a guide can cause it. For: the maintainer.
 
 ## Pull request
 
