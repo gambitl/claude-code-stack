@@ -323,7 +323,11 @@ The full test run hit vitest timeouts on a busy machine (load average 16 to 25) 
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on the ticket #91: posted with `cstack tracker comment` on 2026-11-23, at https://github.com/gambitl/claude-code-stack/issues/91.
+- ADR-RQG-C: a new section "How the audit treats the phases that are not over" in `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`. A `WHY:` comment in `cstack/src/commands/audit.ts` names it.
+- The `cstack audit` paragraph of `README.md` and the entry in `cstack/src/manifest.ts`: written by units 5 and 1.
+- Dependent tickets: none, because the ticket says "Feeds: none".
+- Specification page: no change, because its acceptance criteria do not change.
 
 ## Executor notes
 
