@@ -368,7 +368,10 @@ Judgment calls for the pull request:
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- A comment on ticket #90 (https://github.com/gambitl/claude-code-stack/issues/90).
+- A comment on each dependent ticket: #91, #92 and #108.
+- A new section "How the audit judges helper steps and conditions" in `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`.
+- The `cstack audit` paragraph of `README.md` and the `cstack audit` entry of `cstack/src/manifest.ts`, written by units 6 and 7.
 
 ## Executor notes
 
