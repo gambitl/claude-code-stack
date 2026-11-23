@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<testsuites name="vitest tests" tests="4" failures="1" errors="0" time="0.01">
+    <testsuite name="test/sample.test.ts" timestamp="2026-01-01T00:00:00.000Z" hostname="runner" tests="4" failures="1" errors="0" skipped="2" time="0.005">
+        <testcase classname="test/sample.test.ts" name="parser &gt; reads a &lt;tag&gt; &amp; more" time="0.001">
+        </testcase>
+        <testcase classname="test/sample.test.ts" name="parser &gt; says &quot;no&quot; and &apos;yes&apos;" time="0.001">
+            <failure message="expected 1 to be 2" type="AssertionError">
+AssertionError: expected 1 to be 2
+ at /home/user/sample.test.ts:3:3
+            </failure>
+        </testcase>
+        <testcase classname="test/sample.test.ts" name="parser &gt; is skipped" time="0">
+            <skipped/>
+        </testcase>
+        <testcase classname="test/sample.test.ts" name="parser &gt; is a todo" time="0">
+            <skipped/>
+        </testcase>
+    </testsuite>
+</testsuites>
