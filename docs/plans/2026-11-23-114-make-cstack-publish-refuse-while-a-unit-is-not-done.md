@@ -248,6 +248,14 @@ Should the part "Exit code 1" of `cstack/guides/resolve-issue/publish.md` (line 
 - Simplicity: nothing to remove.
 - Tests: typecheck passes. `cstack/test/publish.test.ts` passes, 85 cases. The full `npm test` shows only timeout failures of the 5-second limit on a busy machine, in other files each time. Those files pass when run alone, except `cstack/test/e2e/no-orca.test.ts`, which still times out in its Orca chain cases and does not touch publishing.
 
+### Independent review
+
+The independent reviewer changed nothing and found no bug, no security problem and no broken convention. It broke the new rule on purpose, saw the new cases fail, and restored the file. It ran the files that timed out under load again with a longer timeout, and they passed. Judgment calls for the pull request body:
+
+1. `cstack publish` now needs a local copy of the target branch, such as `main`. Before, `origin/main` alone was enough. The user decided this in question 1, and the refusal names the command that creates the branch.
+2. The test where `git log` fails works only because `listUnitCommits` ignores `deps.env`. If a later change makes it use that environment, this test must change too.
+3. Whether `cstack next --done ready` should refuse a missing unit too stays open, as the non-blocking question says.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
