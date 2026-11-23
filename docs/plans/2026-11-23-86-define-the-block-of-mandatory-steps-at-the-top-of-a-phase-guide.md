@@ -337,7 +337,36 @@ Independent review: no bug, security problem or broken convention. The full `npm
 
 ## Briefing
 
-<phase briefing>
+### What you should know about what was built
+
+The branch adds a reader for the block of mandatory steps, in `cstack/src/guide-steps.ts`. `cstack guide` and `cstack next` now print a guide without its block. They exit with code 3 when the block never closes. A CI test fails when a block names a command that does not exist, a helper without a prompt, or a word that the helper's prompt does not contain. The ADR, the README and the link in the specification are written, so the branch does what the ticket asked. I ran the four affected test files again (78 tests) and the type check, and both pass.
+
+**What you need to do.**
+
+Decide whether a small problem of `cstack next --done` deserves its own ticket. The command marks the phase done before it prints the next guide. If that guide's block never closes, it exits with 3, and a retry only says "already done". CI already refuses such a block in the guides that ship, so only someone who edits a guide locally can hit it. I would leave it as a follow-up note in the pull request, not a ticket.
+
+**What to watch.**
+
+- A guide with no block gives an empty list of steps, with no error. The same happens when line 1 has a space in front or an invisible byte-order mark. Once #88 writes the real blocks, a guide that loses its block makes the audit expect nothing for that phase, and the run looks complete. A CI test that every guide of `resolve-issue` has a block would close this gap. I wrote that question for the maintainer in the details.
+- Nothing checks that the prose of a guide and its block list the same steps. Only the rule of the specification and the reviews keep them in line. `cstack guide` hides the block, so a reviewer has to open the raw file to see it.
+
+#### Details
+
+The build matches the plan. `readSteps()`, `withoutBlock()` and `stepProblems()` live in `cstack/src/guide-steps.ts` (lines 75, 118 and 127). `guide()` calls `withoutBlock()` in `cstack/src/commands/guide.ts` (around line 74) and `printGuide()` calls it in `cstack/src/commands/next.ts` (line 46), before the run line is printed. The `cstack guide` entry of `cstack/src/manifest.ts` gained exit code 3. ADR-RQG-C is `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, and section 9 of `docs/projects/refocus-and-quality-guards.md` links to it. After the build I ran `cstack/test/guide-steps.test.ts`, `cstack/test/guide.test.ts`, `cstack/test/next.test.ts` and `cstack/test/manifest.test.ts` (78 tests, all passing) and `npm run typecheck` (clean). The review log records a full `npm test` run with 1553 passing tests.
+
+Both blocking questions of the question round were built as answered. The form of the block (question 1) is the one that `readSteps()` reads: an exact line 1, one `<kind>: <text>` line per step with an optional ` | <condition>`, and an exact `-->` line. The seven conditions of question 2 are the `CONDITIONS` constant (`cstack/src/guide-steps.ts`, lines 8 to 16), without `no-file-map` and `architecture-choice`. The items accepted by default were all built. `readGuide()` still returns the raw file. The reader takes text and a name, never a path. The CI check requires a helper's word to appear as a whole word in its prompt (line 138). A line inside the block that contains `-->` but is not the closing line is refused (line 103).
+
+Two deviations from the plan were found and fixed during the build, so none remains. The first version of `withoutBlock()` called `readSteps()`, so any invalid step stopped a guide from printing. The executor fixed it in commit `d4a45ca`, and the function now only checks that the block closes, as the plan says. The correctness review found that `readSteps()` accepted a second opening line after a valid block. Commit `83fdfac` refuses it (`refuseStray(index + 1)`, line 97), with a test that failed first.
+
+The decision about `cstack next --done` is non-blocking. In `cstack/src/commands/next.ts`, `--done` writes the header lines and calls `markDone()` (around line 166) before `printGuide()` runs (line 200). When the next guide's block never closes, the phase is already recorded as done, the command exits with 3, and a retry prints "<phase> is already done". The real guides cannot ship such a block, because the CI scan in `cstack/test/manifest.test.ts` runs `readSteps()` on every guide under `cstack/guides/` and refuses a block that never closes. So only a developer who edits a guide and runs `cstack next` before the tests can meet it. A fix would check the next guide before `markDone()`, which touches the ordering that the `WHY:` comment at line 162 protects. I recommend a follow-up note only. If nobody decides, it stays as a follow-up in the pull request body, as the review log already plans. A related judgment call from the independent review also goes there: the exit code 3 text of `cstack next` (`INVALID`, `cstack/src/manifest.ts` line 38) still speaks only of the plan file, the settings and the run state, although a guide whose block never closes now also returns 3.
+
+The silent empty list is the main fragile spot for the next tickets. `readSteps()` returns an empty list when line 1 is not exactly `<!-- mandatory steps` and no later line starts with it (lines 85 to 88). A leading space or a byte-order mark therefore reads as "no block", and `withoutBlock()` then prints the block as text (line 119). The comment left on #88 already warns about the space, the byte-order mark and a ` | ` written without spaces, which `matchMention()` accepts because it does not check positional words. That comment does not ask for a check that each guide has a block. Today no real guide has one, so such a test belongs to #88. A new question, non-blocking for this ticket because it writes no real block, for the maintainer, in English, to go on #88: "When #88 writes the blocks, should it also add a CI test that fails when a phase guide of `resolve-issue` has no block of mandatory steps? Without it, a guide that loses its block, or gets a byte-order mark on line 1, makes the audit expect no step for that phase, and the run looks complete."
+
+The drift between prose and block is a known cost of the chosen design, recorded in ADR-RQG-C and locked upstream, so I do not reopen it. The rule of section 4 of the specification asks every story that changes a guide to update its block, and only the reviews enforce it.
+
+The earlier non-blocking question about which guides the audit uses for runs 3 and 4 is still open. It is carried in the comment on #89 and listed under `## Non-blocking questions`.
+
+I checked security and authorization, data model lock-in, scale and performance, operations and cost, reversibility and user interface edge cases, and found nothing that applies to this branch. The helper path is built only from kebab-case parts, and the block format is internal to this package.
 
 ## Non-blocking questions
 
