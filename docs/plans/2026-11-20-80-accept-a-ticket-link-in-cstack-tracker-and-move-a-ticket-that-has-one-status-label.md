@@ -288,6 +288,16 @@ Are these texts right? A refused GitHub or GitLab key: `"<value>" is not a valid
 
 ## Review log
 
+Impact notes. The functions of `keys.ts` that the branch added have no other caller than `checked.ts`. `isValidKey()` did not change, so its other callers (`blockers.ts`, `claude-file.ts` and the Jira and Linear adapters) behave as before. `checkedTracker()` is called in `open.ts` only, and Jira and Linear get no origin function on purpose. Two tests, the fake `gh` and the public-text check had to learn the new behaviour, and they were fixed in the test commit.
+
+Correctness review: no finding. It noted three small things. The link rule does not call `isValidUrl()`, which cannot let a bad value through because only `#<number>` comes out. A self-hosted GitLab over plain `http://` refuses every link. The key hint also shows on Jira and Linear. All three follow the approved decisions, so I changed nothing.
+
+Security review: no finding. Only `#<number>` reaches `gh` or `glab`, and the label names are fixed strings. Error messages hide user information.
+
+Conventions review: no finding. The only note was that the test suite is red between the commit of unit 3 and the test fix commit. The final tree is green, so I left it.
+
+Simplicity review: six suggestions, none applied. Replacing the two label checks by one edit call, and keeping the original origin error, would go against decisions the user approved in questions 1 and 3. The version bump is unit 6 of the plan. The change of the ticket guide text is given word for word in the decisions.
+
 ## Briefing
 
 ## Non-blocking questions
