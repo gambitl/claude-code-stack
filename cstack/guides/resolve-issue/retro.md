@@ -15,7 +15,7 @@ This phase runs in the main conversation, not in the executor. The settings that
 
 Run `cstack audit <plan file>` before you write anything. It checks the steps of the phases that are over.
 
-The audit leaves out the phases retro and publish at this point, because they are not over yet. It prints one sentence on standard error to say so.
+The audit leaves out the phases that are not over yet. In a finished run, these are retro and publish. It prints one sentence on standard error to say so.
 
 Paste every line of its standard output into the section `## Steps` of the retrospective. Put the lines inside a code block that opens with three backticks and the word `text`, like this:
 
@@ -29,7 +29,7 @@ Copy the lines as they were printed. Do not change them.
 
 When no line came out, write one plain sentence in `## Steps` instead. It says that the audit printed no line, and why. Do not write a path in it.
 
-Under the code block, copy each sentence from standard error that starts with the words cstack audit and a colon. Copy it as printed. If standard error holds any other text, such as a stack trace, do not copy it. Write only that the audit stopped with an unexpected error.
+Under the code block, copy each sentence from standard error that starts with the words cstack audit and a colon. Copy it as printed, inside inline code, so that GitHub does not hide a placeholder such as `<folder>`. If standard error holds any other text, such as a stack trace, do not copy it. Write only that the audit stopped with an unexpected error.
 
 The run goes on whatever the exit code is. Rely on the lines that the audit printed, never on its exit code.
 
