@@ -76,3 +76,17 @@ The expected steps now live in the guides, next to the prose, and a test fails w
 A person who edits a guide must keep its block true. The test catches a missing command or helper, but it cannot tell that a step is no longer needed.
 
 Some tests read the raw guides, so they will see the blocks once ticket #88 adds them. Ticket #88 must check them.
+
+## How the audit judges helper steps and conditions
+
+This section was added when ticket #90 made `cstack audit` evaluate the helper steps and the conditions. It adds to the record above and changes none of its decisions.
+
+The audit prints one line for each helper step whose condition holds. Only a launch of the named sub-agent proves a helper step. A plan section never proves it. A launch of another type, and a message sent to a running sub-agent, never count, because the guides ask for a fresh launch. When the setting `review.agent` is not `claude`, the independent review also accepts an Orca worker launch.
+
+The audit never prints a line for a step of the `action` kind. The close of most phases already refuses an empty plan section, so the audit does not repeat that check.
+
+The audit lists a step only when its condition holds. The condition `each-dependent-ticket` repeats the step once for each ticket that the `Feeds:` line of the ticket names. The conditions `user-interface` and `new-structural-decision` list the step once, or not at all. The conditions `each-stuck-unit` and `each-negative-criterion` count as false for now, so their steps are never listed.
+
+One call or one launch serves at most one line. This stops a single wait or a single launch from proving several steps. The phase lines take no call, so a phase line and the `cstack next --done` step of the same phase still share their call.
+
+Two limits are known. The sentence "No new decision since the question round" is searched in the whole plan text, so a plan that only quotes it hides the step. The time windows of two phases can overlap, so a missing launch can be blamed on a neighbouring line. The exit code is still 1 in that case.
