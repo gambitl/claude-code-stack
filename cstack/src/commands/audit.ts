@@ -3,14 +3,15 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { readCalls } from "../audit/calls.js";
-import { evaluatePhases, formatLine } from "../audit/evaluate.js";
+import { evaluatePhases, evaluateSteps, formatLine } from "../audit/evaluate.js";
 import { readSteps } from "../guide-steps.js";
 import type { Io } from "../io.js";
 import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
 import { findRunFiles } from "../measure/sessions.js";
+import type { Step } from "../guide-steps.js";
 import { PHASES } from "../phases.js";
-import { PlanFormatError, readPlan } from "../plan/read.js";
-import { cstackVersion, planFileName, readState, RunStateError, type RunState } from "../run-state.js";
+import { PlanFormatError, readPlan, type PlanRead } from "../plan/read.js";
+import { cstackVersion, planFileName, runFolder, readState, RunStateError, type RunState } from "../run-state.js";
 
 export const AUDIT_USAGE = "Usage: cstack audit <plan file> [--home <folder>] [--guides <folder>]";
 const VERSION = /^[0-9]+\.[0-9]+\.[0-9]+[0-9A-Za-z.+-]*$/;
@@ -44,8 +45,9 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     if (!(error instanceof MomentsError)) throw error;
     return fail(3, error.message);
   }
+  let plan: PlanRead;
   try {
-    readPlan(readFileSync(planArgument, "utf8"));
+    plan = readPlan(readFileSync(planArgument, "utf8"));
   } catch (error) {
     if (!(error instanceof PlanFormatError)) throw error;
     return fail(3, "the plan file is not a valid cstack plan file.");
@@ -71,6 +73,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     return fail(1, `${writer} wrote this run, and this is cstack ${cstackVersion()}. Give the guides of the run with --guides <folder>.`);
   }
   const guides = join(guidesFolder ?? join(options.packageRoot, "guides"), "resolve-issue");
+  const guideSteps: Record<string, Step[]> = {};
   for (const { name } of PHASES) {
     let text: string;
     try {
@@ -81,6 +84,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     const steps = readSteps(text, `the guide of the phase ${name}`);
     if (!steps.ok) return fail(3, steps.message);
     if (steps.steps.length === 0) return fail(3, `the guide of the phase ${name} has no block of mandatory steps.`);
+    guideSteps[name] = steps.steps;
   }
 
   let folders;
@@ -99,7 +103,18 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
   );
   if (!found.files.some((file) => !file.helper)) return fail(3, "no session file of this run was found.");
   const read = await readCalls(found.files.map((file) => file.path));
-  const lines = evaluatePhases(state, read.calls);
+  const phaseLines = evaluatePhases(state, read.calls);
+  const stepLines = evaluateSteps({
+    guides: guideSteps,
+    units: plan.units,
+    calls: read.calls,
+    state,
+    phaseLines,
+    runFolder: runFolder(moments.root, planArgument),
+    root: moments.root,
+    targetBranch: plan.header["Target branch"],
+  });
+  const lines = [...phaseLines, ...stepLines];
   for (const line of lines) io.stdout(`${formatLine(line)}\n`);
   const unreadable = found.unreadableFiles + read.unreadableFiles > 0;
   if (unreadable) io.stderr("cstack audit: some session files could not be read, so some steps may show as skipped.\n");

@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Io } from "../src/io.js";
 import { localTime } from "../src/local-time.js";
 import { PHASES } from "../src/phases.js";
-import { commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
+import { commitFiles, commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
 
 async function load() {
   return await import("../src/commands/audit.js");
@@ -75,9 +75,62 @@ function fullPhases(): Record<string, { startedAt?: string; doneAt: string }> {
   return phases;
 }
 type Call = { time: string; command: string };
-function fullCalls(): Call[] {
-  return PLANNING.map((name) => ({ time: at(PHASES.findIndex((p) => p.name === name) + 1), command: `cstack next --done ${name}` }));
+// The lines of the block of a guide, as the test guides write them.
+function blockOf(name: string): string[] {
+  if (name !== "build") return BLOCKS[name] ?? [`command: cstack next --done ${name}`];
+  const text = readFileSync(join(fixtures, "steps-block", "guides", "resolve-issue", "build.md"), "utf8");
+  return text.split("\n").slice(1, text.split("\n").indexOf("-->"));
 }
+const UNITS = [1, 2, 3];
+const WITH_TEST = [1, 2];
+// The command steps that the audit lists, with `<n>` replaced by a unit number in the order of the plan, and the other placeholders by a sample word.
+function stepTexts(name: string): { text: string; unit?: number }[] {
+  const listed = blockOf(name)
+    .filter((line) => line.startsWith("command: "))
+    .map((line) => {
+      const [text, condition] = line.slice("command: ".length).split(" | ");
+      return { text: text!, condition };
+    })
+    .filter((step) => step.condition === undefined || step.condition.startsWith("each-unit"));
+  const out: { text: string; unit?: number }[] = [];
+  let group: typeof listed = [];
+  const flush = () => {
+    for (const unit of UNITS) {
+      for (const step of group) {
+        if (step.condition === "each-unit-with-test" && !WITH_TEST.includes(unit)) continue;
+        out.push({ text: step.text.replace(/<n>/g, String(unit)), unit });
+      }
+    }
+    group = [];
+  };
+  for (const step of listed) {
+    if (step.condition === undefined) {
+      flush();
+      out.push({ text: step.text });
+    } else group.push(step);
+  }
+  flush();
+  return out;
+}
+// One call for every step: the calls of a phase come in the last minute before its close, and the ones after `cstack next --done` just after it.
+function fullCalls(): Call[] {
+  const calls: Call[] = [];
+  PHASES.forEach(({ name }, i) => {
+    let after = false;
+    stepTexts(name).forEach((step, k) => {
+      const done = step.text.startsWith("cstack next --done");
+      if (done) after = true;
+      calls.push({
+        time: done ? at(i + 1) : after ? at(i + 1, 5 + k * 2) : at(i, 5 + k * 2),
+        command: step.text.replace(/<[^<>]+>/g, "x"),
+      });
+    });
+  });
+  return calls;
+}
+const buildAt = PHASES.findIndex((p) => p.name === "build");
+const retroAt = PHASES.findIndex((p) => p.name === "retro");
+const without = (calls: Call[], text: string): Call[] => calls.filter((c) => c.command !== text);
 
 type Setup = { repo: string; home: string; guides: string; plan: string; pkg: string };
 
@@ -369,5 +422,144 @@ describe("cstack audit inputs", () => {
     } finally {
       process.env.PATH = before;
     }
+  });
+});
+
+describe("cstack audit command steps", () => {
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const stepLines = (stdout: string) => stdout.split("\n").filter((l) => l !== "" && !l.startsWith("phase "));
+
+  it("prints every command line as done for a full run", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    const lines = stepLines(r.stdout);
+    expect(lines.length).toBeGreaterThan(20);
+    expect(lines.every((l) => / done \d{4}-\d\d-\d\dT[^ ]+ session$|: done /.test(l))).toBe(true);
+    expect(lines.some((l) => l.startsWith("build: cstack unit red 2: done "))).toBe(true);
+    expect(lines.some((l) => l.startsWith("ticket: cstack tracker read '<key>' --tracker <name>: done "))).toBe(true);
+  });
+
+  it("prints a step with no call as skipped", async () => {
+    const s = setup({ calls: without(fullCalls(), "cstack unit red 2") });
+    const r = await run(s);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("build: cstack unit red 2: skipped\n");
+    expect(r.stdout).toContain("build: cstack unit red 1: done ");
+  });
+
+  it("prints a planning step with no call as skipped", async () => {
+    const s = setup({ calls: fullCalls().filter((c) => !c.command.startsWith("cstack tracker read")) });
+    const r = await run(s);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("ticket: cstack tracker read '<key>' --tracker <name>: skipped\n");
+  });
+
+  it("prints a step out of order when green comes before red", async () => {
+    const calls = fullCalls().map((c) => (c.command === "cstack unit green 2" ? { ...c, time: at(buildAt, 1) } : c));
+    const s = setup({ calls });
+    const r = await run(s);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain(`build: cstack unit green 2: out of order ${localTime(new Date(at(buildAt, 1)))} session\n`);
+  });
+
+  it("gives unit 3, which has no test, a commit line and no red or green line", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stdout).toContain("build: cstack unit commit 3: done ");
+    expect(r.stdout).not.toContain("cstack unit red 3");
+    expect(r.stdout).not.toContain("cstack unit green 3");
+  });
+
+  it("does not print helper steps, action steps or steps with another condition", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stdout).toContain("build: cstack unit order --plan <plan file>: done ");
+    expect(r.stdout).not.toContain("implementer");
+    expect(r.stdout).not.toContain("approval-gate");
+    expect(r.stdout).not.toContain("break-the-rule");
+    expect(r.stdout).not.toContain("tracker comment");
+  });
+
+  it("counts the second cstack helper start executor for the retro phase", async () => {
+    const calls = fullCalls().filter((c) => !(c.command.startsWith("cstack helper start executor") && new Date(c.time) > new Date(at(retroAt))));
+    const s = setup({ calls });
+    const r = await run(s);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("plan: cstack helper start executor --plan <plan file>: done ");
+    expect(r.stdout).toContain("retro: cstack helper start executor --plan <plan file>: skipped\n");
+  });
+
+  it("takes the second cstack next --done build, the one after the unit steps", async () => {
+    const calls = [...fullCalls(), { time: at(buildAt, 1), command: "cstack next --done build" }];
+    const s = setup({ calls });
+    const r = await run(s);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain(`build: cstack next --done build --plan <plan file>: done ${localTime(new Date(at(buildAt + 1)))} session\n`);
+    const early = [...without(fullCalls(), "cstack next --done build --plan x"), { time: at(buildAt, 1), command: "cstack next --done build" }];
+    const only = setup({ calls: early.filter((c) => c.command !== "cstack next --done build --plan x") });
+    const r2 = await run(only);
+    expect(r2.stdout).toContain(`build: cstack next --done build --plan <plan file>: out of order ${localTime(new Date(at(buildAt, 1)))} session\n`);
+  });
+
+  it("uses the saved failing run of a unit when no call shows it", async () => {
+    const s = setup({ calls: without(fullCalls(), "cstack unit red 1") });
+    const common = git(s.repo, "rev-parse", "--path-format=absolute", "--git-common-dir");
+    const folder = join(common, "cstack", "runs", "audit", "units", "1");
+    mkdirSync(folder, { recursive: true });
+    writeFileSync(join(folder, "red.json"), JSON.stringify({ time: at(buildAt, 11) }));
+    const r = await run(s);
+    expect(r.stdout).toContain(`build: cstack unit red 1: done ${localTime(new Date(at(buildAt, 11)))} run state\n`);
+  });
+
+  it("uses a commit with the Cstack-Unit trailer when no call shows it", async () => {
+    const s = setup({ calls: without(fullCalls(), "cstack unit commit 1") });
+    git(s.repo, "checkout", "-b", "feature");
+    process.env.GIT_AUTHOR_DATE = at(buildAt, 40);
+    try {
+      commitFiles(s.repo, ["a.txt"], 1);
+    } finally {
+      delete process.env.GIT_AUTHOR_DATE;
+    }
+    const r = await run(s);
+    expect(r.stdout).toContain(`build: cstack unit commit 1: done ${localTime(new Date(at(buildAt, 40)))} git\n`);
+  });
+});
+
+describe("nothing private leaves the command", () => {
+  const MARK = "SECRET_MARKER_4821";
+  const withMarker = (s: Setup) => {
+    const file = join(s.home, ".claude", "projects", "p", "s.jsonl");
+    const extra = [
+      { type: "assistant", cwd: s.repo, timestamp: at(1), message: { content: [{ type: "text", text: `answer ${MARK}` }, { type: "tool_use", id: "m1", name: "Bash", input: { command: `echo ${MARK} && cstack tracker read ${MARK}` } }] } },
+      { type: "user", cwd: s.repo, timestamp: at(1), message: { content: [{ type: "tool_result", tool_use_id: "m1", content: MARK }] } },
+    ];
+    writeFileSync(file, readFileSync(file, "utf8") + extra.map((l) => `${JSON.stringify(l)}\n`).join(""));
+  };
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const texts = PHASES.flatMap(({ name }) => stepTexts(name).map((step) => `${name}: ${escape(step.text).replace(/\d+/g, "\\d+")}`));
+  const verdict = "(done \\S+ (session|run state|git)|skipped|out of order \\S+ (session|run state|git))";
+  const allowed = [
+    new RegExp(`^phase [a-z-]+ started: ${verdict}$`),
+    new RegExp(`^phase [a-z-]+: ${verdict}$`),
+    new RegExp(`^(${texts.join("|")}): ${verdict}$`),
+  ];
+
+  it("prints only the allowed lines and never the marker", async () => {
+    const s = setup();
+    withMarker(s);
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.stdout + r.stderr).not.toContain(MARK);
+    const lines = r.stdout.split("\n").filter((l) => l !== "");
+    expect(lines.filter((l) => !l.startsWith("phase ")).length).toBeGreaterThan(0);
+    for (const line of lines) expect(allowed.some((pattern) => pattern.test(line)), line).toBe(true);
+  });
+
+  it("never prints the repository, the home or the guide folder", async () => {
+    const s = setup();
+    withMarker(s);
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    for (const path of [s.repo, s.home, s.guides]) expect(r.stdout + r.stderr).not.toContain(path);
   });
 });
