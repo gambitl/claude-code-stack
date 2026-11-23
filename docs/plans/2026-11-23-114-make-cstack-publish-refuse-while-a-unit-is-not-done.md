@@ -272,7 +272,10 @@ The independent reviewer changed nothing and found no bug, no security problem a
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on #114, the ticket: https://github.com/gambitl/claude-code-stack/issues/114
+- Comment on #104, the dependent ticket: https://github.com/gambitl/claude-code-stack/issues/104
+- The part "Exit code 1" of `cstack/guides/resolve-issue/publish.md` and the `cstack publish` paragraph of `README.md`: written by unit 2, in this branch.
+- No decision record and no specification change, as "Documentation duties" says.
 
 ## Executor notes
 
