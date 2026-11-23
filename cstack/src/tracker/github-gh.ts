@@ -20,12 +20,18 @@ const isObject = (v: unknown): v is Json => typeof v === "object" && v !== null 
 const labelNames = (issue: Json): string[] =>
   (Array.isArray(issue.labels) ? issue.labels : []).flatMap((l) => (isObject(l) && typeof l.name === "string" ? [l.name] : []));
 
+const missingLabel = (name: string, repo: string) =>
+  new RefusedArgumentError(
+    `The label "${name}" does not exist in ${repo}. cstack never creates a label. Run this command, then move the ticket again: gh label create "${name}" --repo ${repo}`,
+  );
+
 /** Reads tickets and groups of the `origin` repository on GitHub through `gh`. Moves a ticket with labels and adds comments. */
 export function githubGhTracker(run: Runner, root: string, warn: (message: string) => void = (m) => void process.stderr.write(`${m}\n`)): Tracker {
-  let context: Promise<{ repo: string; path: string; urlPrefix: string }> | undefined;
+  let context: Promise<{ repo: string; host: string; path: string; urlPrefix: string }> | undefined;
   const where = () =>
     (context ??= originRepo(run, root).then((r) => ({
       repo: `${r.host}/${r.path}`,
+      host: r.host,
       path: r.path,
       urlPrefix: `https://${r.host}${r.port ? `:${r.port}` : ""}/${r.path}/issues/`.toLowerCase(),
     })));
@@ -152,15 +158,22 @@ export function githubGhTracker(run: Runner, root: string, warn: (message: strin
     async moveState(key, stateName) {
       checkStateName("github", stateName);
       const [add, remove] = stateName === "in progress" ? ["in progress", "in review"] : ["in review", "in progress"];
-      const { repo } = await where();
-      const result = await run("gh", ["issue", "edit", key.slice(1), "--repo", repo, "--add-label", add, "--remove-label", remove], root);
+      const { repo, host, path } = await where();
+      // Only the label to add must exist. A missing label to remove is left out of the edit.
+      const exists = async (name: string): Promise<boolean> => {
+        const check = await run("gh", ["api", "--hostname", host, `repos/${path}/labels/${encodeURIComponent(name)}`], root);
+        if (check.kind === "ok") return true;
+        if (check.kind === "failed" && check.exitCode === 1 && /HTTP 404/.test(check.stderr ?? "")) return false;
+        throw forgeFailure("gh", check, true);
+      };
+      const addExists = await exists(add);
+      if (!addExists) throw missingLabel(add, repo);
+      const removeExists = await exists(remove);
+      const args = ["issue", "edit", key.slice(1), "--repo", repo, "--add-label", add, ...(removeExists ? ["--remove-label", remove] : [])];
+      const result = await run("gh", args, root);
       if (result.kind === "ok") return;
       const missing = result.kind === "failed" && result.exitCode === 1 ? /'([^']+)' not found/.exec(result.stderr ?? "")?.[1] : undefined;
-      if (missing) {
-        throw new RefusedArgumentError(
-          `The label "${missing}" does not exist in ${repo}. cstack never creates a label. Run this command, then move the ticket again: gh label create "${missing}" --repo ${repo}`,
-        );
-      }
+      if (missing) throw missingLabel(missing, repo);
       throw forgeFailure("gh", result, true);
     },
 

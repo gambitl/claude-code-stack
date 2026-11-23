@@ -83,7 +83,7 @@ describe("cstack tracker move with no client", () => {
 
   it("still exits with 1 for a bad key or a bad state name, and with 2 for a missing key or --to", async () => {
     const { out, io, deps } = setup();
-    expect(await trackerMove(["12", "--to", "in progress"], io, deps)).toBe(1);
+    expect(await trackerMove(["12abc", "--to", "in progress"], io, deps)).toBe(1);
     expect(await trackerMove(["#12", "--to", "done"], io, deps)).toBe(1);
     expect(await trackerMove([], io, deps)).toBe(2);
     expect(out.stderr).toContain("'#12'");

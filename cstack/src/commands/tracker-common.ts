@@ -15,7 +15,7 @@ export interface TrackerDeps {
 
 const TRACKERS: TrackerName[] = ["jira", "linear", "github", "gitlab"];
 
-export const KEY_HINT = "A key such as #12 must be written in single quotes, as '#12', because the shell reads an unquoted #12 as a comment.";
+export const KEY_HINT = "A key such as #12 must be written in single quotes, as '#12', because the shell reads an unquoted #12 as a comment. You can also write 12, or the link of the issue in single quotes.";
 
 /** The manifest usage line of a tracker command, such as "read". */
 export function trackerUsage(word: string): string {

@@ -132,18 +132,21 @@ export function gitlabGlabTracker(run: Runner, root: string, warn: (message: str
       checkStateName("gitlab", stateName);
       const t = await target();
       const other = stateName === "in progress" ? "in review" : "in progress";
-      // GitLab creates a missing label silently when an update adds it, so cstack checks both labels first.
-      for (const name of [stateName, other]) {
+      // GitLab creates a missing label silently when an update adds it, so cstack refuses when the label to add is missing.
+      // cstack never sends --unlabel for a label that does not exist, so it checks the label to remove too and leaves it out when it is missing.
+      const exists = async (name: string): Promise<boolean> => {
         const result = await run("glab", ["api", "--hostname", t.host, `${t.api}/labels/${encodeURIComponent(name)}`], root);
-        if (result.kind === "ok") continue;
-        if (result.kind === "failed" && /\b404\b/.test(result.stderr ?? "")) {
-          throw new RefusedArgumentError(
-            `The label "${name}" does not exist in this project, so cstack did not move the ticket. cstack never creates a label. To create it, run: glab label create --name "${name}" -R ${t.repo}`,
-          );
-        }
+        if (result.kind === "ok") return true;
+        if (result.kind === "failed" && /\b404\b/.test(result.stderr ?? "")) return false;
         throw forgeFailure("glab", result, true);
+      };
+      if (!(await exists(stateName))) {
+        throw new RefusedArgumentError(
+          `The label "${stateName}" does not exist in this project, so cstack did not move the ticket. cstack never creates a label. To create it, run: glab label create --name "${stateName}" -R ${t.repo}`,
+        );
       }
-      const result = await run("glab", ["issue", "update", key.slice(1), "-R", t.repo, "--label", stateName, "--unlabel", other], root);
+      const unlabel = (await exists(other)) ? ["--unlabel", other] : [];
+      const result = await run("glab", ["issue", "update", key.slice(1), "-R", t.repo, "--label", stateName, ...unlabel], root);
       if (result.kind !== "ok") throw forgeFailure("glab", result, true);
     },
 

@@ -6,9 +6,9 @@ If the user gave no ticket id or URL, ask for one, then go on.
 
 ## Fetch the ticket
 
-Read the ticket with `cstack tracker read '<key>' --tracker <name>`. The name is `jira`, `linear`, `github` or `gitlab`, as the ticket URL or the conventions file shows. On exit code `4`, read the ticket with your own connection and fill `templates/tracker-file.json` from the skill folder. Run the same command again with `--from-file <file>`.
+Read the ticket with `cstack tracker read '<key>' --tracker <name>`. The name is `jira`, `linear`, `github` or `gitlab`. The key is `ABC-12` on Jira and Linear, and `'#12'`, `12` or the issue link on GitHub and GitLab. On exit code `4`, read the ticket with your own connection and fill `templates/tracker-file.json` from the skill folder. Run the same command again with `--from-file <file>`.
 
-Also capture the labels, the parent (project, epic or milestone), the comments, the relations to other tickets and the suggested branch name.
+Its answer holds only the key, title, body, link, state and blockers. Read the labels, parent, comments, relations and branch name with the tracker's own tool.
 
 Read the ticket once, in full. Do not summarise it.
 
@@ -21,7 +21,7 @@ Tickets come from the `create-tickets` skill. They have these headings, in this 
 - `## Scope`.
 - `## Acceptance (TDD)`.
 - A footer line: `**Size: S/M/L** · Blocked by: … · Feeds: …`.
-- Sometimes a last `## CTO review — …` block. Most tickets have none, and that is normal.
+- Sometimes a last `## CTO review — …` block.
 
 ## Hand-written tickets
 

@@ -15,6 +15,21 @@ describe("the ticket guide reads the ticket with cstack tracker read", () => {
     expect(paragraph).toContain("--from-file <file>");
   });
 
+  it("names the key forms of each tracker in the paragraph of the read command", () => {
+    const paragraph = guide.split("\n\n").find((p) => p.includes("cstack tracker read '<key>' --tracker <name>"));
+    expect(paragraph).toContain("`'#12'`");
+    expect(paragraph).toContain("`12`");
+    expect(paragraph).toContain("the issue link");
+    expect(paragraph).toContain("`ABC-12`");
+  });
+
+  it("says in the next paragraph that the answer holds only some fields", () => {
+    const paragraphs = guide.split("\n\n");
+    const index = paragraphs.findIndex((p) => p.includes("cstack tracker read '<key>' --tracker <name>"));
+    expect(paragraphs[index + 1]).toContain("holds only the key, title, body, link, state and blockers");
+    expect(paragraphs[index + 1]).toContain("tracker's own tool");
+  });
+
   it("ships an example file that the file reader of cstack reads back", async () => {
     const example = JSON.parse(readFileSync(examplePath, "utf8"));
     expect(Object.keys(example).sort()).toEqual(["format", "tickets", "tracker"]);

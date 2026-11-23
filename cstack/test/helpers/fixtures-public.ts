@@ -1,5 +1,5 @@
 const RESERVED = /(^|\.)(example\.(com|org|net)|example|test|invalid|localhost)$/i;
-const ALLOWED_HOSTS = new Set(["github.com", "gitlab.com"]);
+const ALLOWED_HOSTS = new Set(["github.com", "gitlab.com", "api.github.com"]);
 
 function reserved(host: string): boolean {
   return RESERVED.test(host) || ALLOWED_HOSTS.has(host.toLowerCase());
