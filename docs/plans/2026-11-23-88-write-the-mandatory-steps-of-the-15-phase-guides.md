@@ -457,6 +457,10 @@ Three test files read a raw guide where they mean the text that the agent reads,
 
 Tests after the fixes: the impact-note tests pass, and the full suite passed before the fixes (119 files, 1600 tests).
 
+### Independent review
+
+The independent reviewer found no bug and changed nothing. The full suite passes (119 files, 1600 tests) and the type check is clean. It raised two judgment calls for the pull request. First, the block of `document.md` leaves out the writing of decision records, because that step is conditional and outside the seven conditions. A reader could take it as mandatory, since the guide says an undocumented ticket is not done. Second, the plan file names two home folders of the maintainer in a rule copied from the brief. Older plans on `main` carry the same text.
+
 ## Briefing
 
 ## Non-blocking questions
