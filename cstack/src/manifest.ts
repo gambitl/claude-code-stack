@@ -80,7 +80,7 @@ export const COMMANDS: CommandEntry[] = [
     flags: ["--home", "--guides"],
     exitCodes: {
       0: "Every phase and every required command was done.",
-      1: "A phase or a command was skipped or done out of order, a session file could not be read, or the run needs the guides of another version.",
+      1: "A phase or a command was skipped or done out of order, a session file could not be read, no session file holds the close of the ticket phase, or the run needs the guides of another version.",
       2: USAGE,
       3: "The plan file, the run state, a guide or the session files cannot be used.",
       5: "git cannot list the worktrees of the repository.",

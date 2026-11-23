@@ -22,13 +22,14 @@ function planOf(args: string[]): string | undefined {
 // Finds the session files of the main conversation, from the calls alone.
 export function mainFiles(calls: Call[], planFile: string): { files: Set<number>; fallback: boolean } {
   const name = basename(planFile);
-  const forThisPlan = (c: Call) => {
+  const planName = (c: Call) => {
     const p = planOf(c.args);
-    return p === undefined || basename(p) === name;
+    return p === undefined ? undefined : basename(p);
   };
+  const forThisPlan = (c: Call) => (planName(c) ?? name) === name;
   const notHelper = calls.filter((c) => !c.helper);
   const closed = notHelper.some(
-    (c) => matchesStep(CLOSE_TICKET, c.args) && planOf(c.args) !== undefined && basename(planOf(c.args)!) === name,
+    (c) => matchesStep(CLOSE_TICKET, c.args) && planName(c) === name,
   );
   if (!closed) return { files: new Set(notHelper.map((c) => c.file)), fallback: true };
   const files = new Set<number>();

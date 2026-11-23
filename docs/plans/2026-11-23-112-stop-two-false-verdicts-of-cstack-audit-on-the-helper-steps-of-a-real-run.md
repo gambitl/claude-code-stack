@@ -272,7 +272,17 @@ The ticket counts as the main conversation only the session that holds `cstack n
 
 ## Review log
 
-<phase review>
+Impact notes. `readCalls`, `evaluateSteps` and `mainFiles` are used only in `cstack/src/audit/` and `cstack/src/commands/audit.ts`, and tested in `cstack/test/audit*.test.ts`. The usual companions of `evaluate.ts` are `audit.test.ts`, `commands/audit.ts`, `audit/match.ts` and `README.md`. The branch touched all of them except `match.ts`, which needs no change. The manifest entry of `cstack audit` was a companion the branch had missed (fixed below).
+
+Correctness reviewer: no bug at confidence 80 or more. It ran the full tests and ran `cstack audit` on this run's own plan, and the first false verdict is gone. Weak notes, not acted on: a forked session may credit its calls to the old file, the window search walks phases in listed order, and a repeated step in a guide after the building phase would get an empty window (no such guide exists).
+
+Security reviewer: nothing found. The `--plan` value of a transcript is only compared by file name and never opened or printed.
+
+Conventions reviewer: two findings, both fixed. The exit code 1 of `cstack audit` in `cstack/src/manifest.ts` did not name the new case. The README paragraph used the label "late unit" and a hard sentence about the `--plan` value.
+
+Simplicity reviewer: removed the repeated "exits with 1" sentence from the README and the double `planOf` read in `main-session.ts`. The optional merge of `late` and `builtAt` in `evaluate.ts` was left as it is.
+
+The fixes are in one commit. Typecheck and the full `npm test` pass (124 files, 1707 tests).
 
 ## Briefing
 
