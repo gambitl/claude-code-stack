@@ -287,7 +287,39 @@ Independent review: no change, no bug, no security problem. Typecheck clean and 
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack tracker list` now takes `--ready`. It keeps only the tickets that are open, not in progress, and whose blockers are all finished. The output format stays the same. When a ticket is left out because a state or its blockers are unknown, the command prints one line on standard error that says why. It does what the ticket asks. The 22 new test cases cover GitHub, GitLab, Jira, Linear and the file from Claude, through fake clients. The type check is clean and the 1730 tests pass. `main` has not moved since the branch started.
+
+**What you need to do.**
+
+- Merge the pull request yourself once its checks are green. Nothing else is waiting on you.
+
+**What to watch.**
+
+- The rule trusts the closed state of each blocker issue. If someone closes a blocker by hand before its pull request merges, its dependents show up as ready too early. If a pull request lacks "Closes #n", the blocker stays open and its dependents never show up. During the first waves, compare the list with what you expect.
+- A ticket whose agent has started, but whose `in progress` label is not set yet, is still listed. The coordinator must keep asking `orca reference find` before it starts a ticket, or two agents can take the same ticket.
+- Jira and Linear were tested only with fake answers. On a Jira project whose tickets have no "Blocked by:" footer, `--ready` prints an empty list. You will then see one line per ticket that says its blockers are unknown.
+
+**What changed since the plan.**
+
+- After the review, one commit changes both code and the README, and it carries no unit line. It stays as it is, because splitting it would rewrite the history.
+
+### Details
+
+The build matches the plan. `trackerList()` in `cstack/src/commands/tracker-list.ts` reads `--ready` as a boolean option and, when it is set, passes the result of `listGroup()` through a new private function `keepReady()`. That function calls `readyState(ticket, false)` for each ticket and keeps only `{ kind: "ready" }`, in list order. For a `blocked` result, it prints the `unknown-state` line, the `unknown-blockers` line, or, for `blocked-by`, one line per blocker whose `stateKind` is `unknown`, through `warnTo(io)`. The output object and its two-space indentation are unchanged, and the exit code stays 0. The manifest entry (`cstack/src/manifest.ts`, lines 229 and 231) gained `[--ready]` and `"--ready"`, and its `ticket` field stays `[25, 26]`. `git log HEAD..origin/main` was empty when I checked, so the rebase onto `main` should meet no conflict with #90 for now.
+
+The first earlier question, about the shared option parser, was answered yes and built as decided. `cstack/src/commands/tracker-common.ts` now has a `TrackerValues<T>` type that gives `boolean` for a boolean option and `string` otherwise. The runtime body of `parseTrackerArgs()` did not change, so `tracker read`, `move` and `comment` behave as before. The conditional type reads `T[K]["type"]`, which is not a bare type parameter, so it does not distribute over a union, and an option typed `"string" | "boolean"` would fall to `string`. No caller declares such an option, so this has no effect today.
+
+The second earlier question, about warnings for tickets left out because something is unknown, was answered yes with three cases and built with the exact lines of `## Decisions`. A ticket that has one known open blocker and one blocker of unknown state gets only the line for the unknown blocker. That follows the decided format, and the independent review recorded it as a judgment call.
+
+The two points accepted by default were built too. The filter sits between `listGroup()` and the print. The test "adds no call, on each of the four trackers" (`cstack/test/tracker/tracker-list-ready.test.ts`, line 210) compares the recorded calls with and without `--ready`, instead of refusing every `orca` call.
+
+The first point to watch is the trust in a closed blocker issue (`cstack/src/tracker/states.ts`, line 31). It was already raised before the plan, and it becomes real now that the coordinator will rely on `--ready` instead of the wave, which the ticket that removes the wave (#95) deletes. The second point is the gap between an agent starting and the `in progress` label being set. US-4 AC3 assigns that check to `orca reference find`, and the README now tells the reader to run it. The third point is that no test touched a real Jira or Linear connection, by the rule of this run. The Jira blockers come only from the footer line (`cstack/src/tracker/jira-orca.ts`, line 1, and `cstack/src/tracker/blockers.ts`, line 12), so a project without footers will list nothing and print one `unknown-blockers` line per open ticket. That is the decided behaviour, but its first real run is the moment to confirm it reads well.
+
+The only change from the plan is the review fix commit `ab6360e`. It changes `tracker-common.ts`, `tracker-list.ts` and `README.md` together and carries no `Cstack-Unit` trailer. `cstack plan status` still shows the three units as done, so it does not block the publish. The README also says "worktree" where the plan said "workspace", after the conventions review. The test file has small style points that the independent review left as they are: one test title says "three lines" and expects four, and the "in review" case ends with an assertion on another list.
+
+I checked the commit addresses of `origin/main..HEAD`, and all of them end in `@users.noreply.github.com`. I found no new question, blocking or not. I checked security and authorization (the keys printed in the warnings are validated by `checkedTracker()` first), the data model, scale and performance, operations and cost, reversibility and UX edge cases, and found nothing new there.
 
 ## Non-blocking questions
 
