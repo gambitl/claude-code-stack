@@ -471,6 +471,12 @@ none
 
 ## Documentation
 
+- ADR-RQG-C: new section "How a block chooses its steps" in `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, committed on the branch.
+- Comment on the ticket #88: https://github.com/gambitl/claude-code-stack/issues/88
+- Comment on #91, where the retro block stands and where `cstack audit` goes: https://github.com/gambitl/claude-code-stack/issues/91
+- Comment on #92, about the blocks that describe version 0.3.2: https://github.com/gambitl/claude-code-stack/issues/92
+- Nothing posted on #90, because the coordinator already posted the note there.
+
 ## Executor notes
 
 ## Hand-off log
