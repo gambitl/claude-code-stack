@@ -369,7 +369,11 @@ For the user: the step `cstack helper wait <helper id>` of the plan and retro ph
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on #89, the ticket: https://github.com/gambitl/claude-code-stack/issues/89
+- Comment on #90, which adds the helper checks: https://github.com/gambitl/claude-code-stack/issues/90
+- Comment on #91, which runs the audit in the retro phase: https://github.com/gambitl/claude-code-stack/issues/91
+- README.md: the command count and the `cstack audit` bullet, written on this branch.
+- No decision record and no specification page change, as the plan's documentation duties say.
 
 ## Executor notes
 
