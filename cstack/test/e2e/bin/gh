@@ -40,6 +40,7 @@ if (group === "issue" && action === "view") {
   }
   say(after("--json") === "number,state,labels" ? JSON.stringify({ number: issue.number, state: issue.state, labels: issue.labels }) : JSON.stringify(issue));
 }
+if (group === "api" && /\/labels\/(in%20progress|in%20review)$/.test(args.at(-1))) say(fixture("api-label.found.json"));
 if (group === "issue" && action === "edit") say(fixture("issue-edit.ok.txt"));
 if (group === "issue" && action === "comment") {
   const file = after("--body-file");
