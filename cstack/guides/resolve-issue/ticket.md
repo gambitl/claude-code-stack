@@ -1,3 +1,9 @@
+<!-- mandatory steps
+command: cstack tracker read '<key>' --tracker <name>
+action: create-plan-file
+command: cstack next --done ticket --plan <plan file>
+-->
+
 # Phase `ticket`: fetch the ticket
 
 In this phase you read the ticket and create the plan file.

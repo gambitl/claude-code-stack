@@ -1,3 +1,8 @@
+<!-- mandatory steps
+helper: resolve-issue:cto-review after-build
+command: cstack next --done briefing --plan <plan file>
+-->
+
 # Briefing
 
 In this phase the CTO advisor writes the briefing of what was built. The settings that `cstack next` printed above this guide apply. They win over any default here. The briefing runs after the documentation, so it can name the places where the work was documented.

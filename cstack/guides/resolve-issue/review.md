@@ -1,3 +1,14 @@
+<!-- mandatory steps
+action: write-impact-notes
+helper: resolve-issue:code-reviewer-deep correctness
+helper: resolve-issue:code-reviewer-deep security
+helper: resolve-issue:code-reviewer conventions
+helper: resolve-issue:code-reviewer-simplicity
+action: write-review-findings
+action: run-test-commands
+command: cstack next --done review --plan <plan file>
+-->
+
 # Review
 
 In this phase you review the whole diff of the branch against its target. The settings that `cstack next` printed above this guide apply. They win over any default here.

@@ -1,3 +1,20 @@
+<!-- mandatory steps
+command: cstack tracker move '<key>' --to "in progress" --tracker <name>
+action: check-out-branch
+action: commit-plan-file
+command: cstack unit order --plan <plan file>
+command: cstack helper start implementer --plan <plan file> --unit <n> | each-unit
+command: cstack unit red <n> | each-unit-with-test
+command: cstack unit green <n> | each-unit-with-test
+command: cstack unit commit <n> | each-unit
+command: cstack helper wait <helper id> | each-unit
+command: cstack helper start implementer-escalation --plan <plan file> --unit <n> | each-stuck-unit
+command: cstack unit collect <n>... --plan <plan file>
+command: cstack plan status --plan <plan file>
+action: check-the-user-interface | user-interface
+command: cstack next --done build --plan <plan file>
+-->
+
 # Build
 
 In this phase you start the work and build every unit of the plan. The settings that `cstack next` printed above this guide apply. They win over any default here.

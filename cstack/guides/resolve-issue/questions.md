@@ -1,3 +1,11 @@
+<!-- mandatory steps
+action: write-open-questions
+action: write-blocking-questions
+helper: resolve-issue:cto-review before-plan
+action: question-round
+command: cstack next --done questions
+-->
+
 # Phase `questions`: one round of questions
 
 You use this guide in the `questions` phase. It reads the "Scope" and "Decisions already taken upstream" parts of the plan file, and the "Code mapping" section.

@@ -1,3 +1,9 @@
+<!-- mandatory steps
+action: check-the-settings-file
+helper: resolve-issue:pr-reviewer
+command: cstack next --done independent-review --plan <plan file>
+-->
+
 # Independent review
 
 In this phase a reviewer who saw nothing of this run reads the finished branch. The settings that `cstack next` printed above this guide apply. They win over any default here.

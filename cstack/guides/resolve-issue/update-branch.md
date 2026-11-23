@@ -1,3 +1,8 @@
+<!-- mandatory steps
+action: fetch-the-target-branch
+command: cstack next --done update-branch --plan <plan file>
+-->
+
 # Update the branch
 
 In this phase you bring the branch up to date with its target. The settings that `cstack next` printed above this guide apply. They win over any default here. The `integration` setting says how.
