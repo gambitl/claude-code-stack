@@ -258,11 +258,11 @@ Should the part "Exit code 1" of `cstack/guides/resolve-issue/publish.md` (line 
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The full `npm test` failed on a busy machine with different timeout failures on each run (9 failed in the first run, 12 in the second, both with the vitest 5-second timeout, mostly in tests that build git repositories). Rerun alone, five of the six failing files passed. `cstack/test/e2e/no-orca.test.ts` still timed out at 5 seconds in its Orca chain cases, also alone, and it does not touch publishing.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-23, executor run of the build phase: moved #114 to "in progress" with `cstack tracker move`, committed the plan file, and built unit 1 (commit 26649aa) and unit 2 (commit 66ab586), one implementer after the other, with `CSTACK_ORCA_WORKERS=off` and no child worktree. Typecheck passes. The run goes on to the next phases.
 
 ## History
 
