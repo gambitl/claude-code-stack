@@ -345,13 +345,21 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 - Security: nothing at confidence 80 or above.
 - Fixes are in one commit after this log.
 
+### Independent review
+
+The reviewer changed only the README: an `out of order` line also shows its time and proof (commit 49988c7). The full tests and the type check pass. Judgment calls for the pull request body:
+
+- A group of steps that holds no step for any unit gives the next step no "must come after" check. The real build guide does not have such a group, so this does not happen in practice.
+- The shell reader does not see `cstack` behind `timeout`, `npx` or a full path, and `2&>/dev/null` loses the `2`. These are edge cases.
+- The real guides have no block of mandatory steps yet, so `cstack audit` without `--guides` exits with 3 until #88 merges. The README says so.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
 
 ## Non-blocking questions
 
-none
+For the user: the step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the case when Orca workers are off. The wait runs after the executor closed later phases, so it falls outside the window of Question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. A fix is to end the window of a phase at the next close of a phase that runs in the same place, so plan ends at the close of retro. That changes the rule you accepted, so I did not do it. Do you want this change, in this pull request or in a follow-up ticket?
 
 ## Pull request
 
