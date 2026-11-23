@@ -1,8 +1,10 @@
 import { execFile } from "node:child_process";
 import { readFileSync, realpathSync } from "node:fs";
-import { dirname, relative, resolve } from "node:path";
+import { homedir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { PlanFormatError, readPlan } from "../plan/read.js";
+import { parseWorktreeList } from "../wave/worktrees.js";
 
 const execFileAsync = promisify(execFile);
 const GIT_OPTIONS = ["--literal-pathspecs", "-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];
@@ -108,4 +110,11 @@ export async function readMoments(planArgument: string): Promise<Moments> {
     }
   }
   return { root, approval, ready, source: "history", worktrees: [] };
+}
+
+// The worktrees that git lists for the repository, and the worktrees of the plan with a leading "~/" expanded.
+// Throws when git cannot list the worktrees.
+export async function worktreeFolders(root: string, planned: string[]): Promise<{ listed: string[]; planned: string[] }> {
+  const listed = parseWorktreeList(await git(root, ["worktree", "list", "--porcelain"])).map((entry) => entry.path);
+  return { listed, planned: planned.map((path) => (path.startsWith("~/") ? join(homedir(), path.slice(2)) : path)) };
 }
