@@ -329,6 +329,12 @@ Conventions review: nothing at or above the reporting bar. Follow-up, not fixed:
 
 Simplicity review: small cuts only (an unused `StepKind` export, one shared "never closes" message, two chained replaces). Not done, because they are optional and the plan asks for the exported types. Follow-up for the maintainer.
 
+Independent review: no bug, security problem or broken convention. The full `npm test` passed (1553 tests). Judgment calls for the pull request body:
+1. The exit code 3 entry of `cstack next` in the manifest still speaks only of the plan file, the settings and the run state. A guide whose block never closes now also returns 3. The plan keeps that entry unchanged.
+2. `readSteps()` treats an opening line with spaces before it, or with a byte-order mark, as no block, without an error. #88 should keep this in mind.
+3. A command step written with `|` and no spaces around it, such as `cstack next |each-unit`, is accepted and loses its condition, because `matchMention()` does not check positional words.
+4. Two follow-ups: `cstack next --done` marks the phase done even when the guide's block never closes, and a few small simplicity cuts remain.
+
 ## Briefing
 
 <phase briefing>
