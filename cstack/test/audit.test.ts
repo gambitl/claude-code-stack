@@ -827,6 +827,113 @@ describe("cstack audit units built after the build phase", () => {
   });
 });
 
+describe("cstack audit conditional command steps", () => {
+  const block = (lines: string[]) => `<!-- mandatory steps\n${lines.join("\n")}\n-->\n\n${MARKER}\n`;
+  const COMMENT = "cstack tracker comment '<key>' --body-file <file> --tracker <name>";
+  const basePlan = () => readFileSync(join(fixtures, "audit", "plan.md"), "utf8");
+  const withFeeds = (feeds: string) => basePlan().replace("The ticket text starts here.", `The ticket text starts here.\n\n**Size: M** · Blocked by: #89 · Feeds: ${feeds}`);
+  const withDesign = (text: string) => text.replace("- Depends on: none", "- Depends on: none\n- Design specification: a sample");
+  const withDecisionSentence = (text: string) => text.replace("## Architecture\n", "## Architecture\n\nNo new decision since the question round.\n");
+  const run = async (plan: string, guides: Record<string, string[]>, extra: Call[] = [], prepare?: (s: Setup) => void) => {
+    const s = setup({ plan, calls: [...fullCalls(), ...extra] });
+    writeGuides(s.guides, Object.fromEntries(Object.entries(guides).map(([name, lines]) => [name, block(lines)])));
+    prepare?.(s);
+    return await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  };
+  const phaseIndex = (name: string) => PHASES.findIndex((p) => p.name === name);
+  const only = (stdout: string, prefix: string) => stdout.split("\n").filter((l) => l.startsWith(prefix));
+  const DOCUMENT = {
+    document: [`command: ${COMMENT}`, `command: ${COMMENT} | each-dependent-ticket`, "command: cstack next --done document"],
+  };
+  const commentCalls = (count: number): Call[] =>
+    Array.from({ length: count }, (_, k) => ({ time: at(phaseIndex("document"), 10 + k), command: "cstack tracker comment x --body-file x --tracker x" }));
+  const commentLines = (stdout: string) => only(stdout, `document: ${COMMENT}: `);
+
+  it("prints the ticket comment and one line for each dependent ticket, all done with three calls", async () => {
+    const r = await run(withFeeds("#91, #92"), DOCUMENT, commentCalls(3));
+    const lines = commentLines(r.stdout);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) expect(line).toContain(": done ");
+  });
+
+  it("marks the two last of three comment lines skipped when only one call was made", async () => {
+    const r = await run(withFeeds("#91, #92"), DOCUMENT, commentCalls(1));
+    const lines = commentLines(r.stdout);
+    expect(lines).toHaveLength(3);
+    expect(lines[0]).toContain(": done ");
+    expect(lines[1]).toBe(`document: ${COMMENT}: skipped`);
+    expect(lines[2]).toBe(`document: ${COMMENT}: skipped`);
+  });
+
+  it("prints one dependent-ticket line for Feeds with one ticket", async () => {
+    const r = await run(withFeeds("#91"), DOCUMENT, commentCalls(2));
+    expect(commentLines(r.stdout)).toHaveLength(2);
+  });
+
+  it("prints no dependent-ticket line for Feeds: none", async () => {
+    const one = await run(withFeeds("#91"), DOCUMENT, commentCalls(2));
+    expect(commentLines(one.stdout)).toHaveLength(2);
+    const none = await run(withFeeds("none"), DOCUMENT, commentCalls(2));
+    expect(commentLines(none.stdout)).toHaveLength(1);
+  });
+
+  const UI = { ready: ["command: cstack next --done ready", "command: cstack plan status --plan <plan file> | user-interface"] };
+  const UI_LINE = "ready: cstack plan status --plan <plan file>: ";
+  it("prints a user-interface step only when a unit has a design specification", async () => {
+    const yes = await run(withDesign(basePlan()), UI);
+    expect(only(yes.stdout, UI_LINE)).toHaveLength(1);
+    expect(only(yes.stdout, "ready: cstack next --done ready")).toHaveLength(1);
+    const no = await run(basePlan(), UI);
+    expect(only(no.stdout, "ready: cstack next --done ready")).toHaveLength(1);
+    expect(only(no.stdout, UI_LINE)).toHaveLength(0);
+  });
+
+  const DECISION = { ready: ["command: cstack next --done ready", "command: cstack plan status --plan <plan file> | new-structural-decision"] };
+  it("prints a new-structural-decision step only when the plan lacks the sentence", async () => {
+    const lacks = await run(basePlan(), DECISION);
+    expect(only(lacks.stdout, UI_LINE)).toHaveLength(1);
+    const holds = await run(withDecisionSentence(basePlan()), DECISION);
+    expect(only(holds.stdout, "ready: cstack next --done ready")).toHaveLength(1);
+    expect(only(holds.stdout, UI_LINE)).toHaveLength(0);
+  });
+
+  it("prints a new-structural-decision step once when it follows a step with each-unit", async () => {
+    const guides = {
+      build: [
+        "command: cstack unit order --plan <plan file>",
+        "command: cstack unit commit <n> | each-unit",
+        "command: cstack plan status --plan <plan file> | new-structural-decision",
+        "command: cstack next --done build --plan <plan file>",
+      ],
+    };
+    const r = await run(basePlan(), guides);
+    expect(only(r.stdout, "build: cstack unit commit ")).toHaveLength(3);
+    expect(only(r.stdout, "build: cstack plan status --plan <plan file>: ")).toHaveLength(1);
+  });
+
+  it("lists only the dependent-ticket step among that step, a stuck-unit step and a negative-criterion step", async () => {
+    const guides = {
+      build: [
+        `command: ${COMMENT} | each-dependent-ticket`,
+        "command: cstack unit green <n> | each-stuck-unit",
+        "command: cstack unit red <n> | each-negative-criterion",
+        "command: cstack next --done build --plan <plan file>",
+      ],
+    };
+    const prepare = (s: Setup) => {
+      const common = git(s.repo, "rev-parse", "--path-format=absolute", "--git-common-dir");
+      const folder = join(common, "cstack", "runs", "audit", "units", "1", "reports");
+      mkdirSync(folder, { recursive: true });
+      writeFileSync(join(folder, "2026-11-23T10-00-00-stuck.json"), "{}");
+    };
+    const r = await run(withFeeds("#91"), guides, [], prepare);
+    const lines = only(r.stdout, "build: ");
+    expect(lines.filter((l) => l.startsWith(`build: ${COMMENT}: `))).toHaveLength(1);
+    expect(lines.filter((l) => l.includes("cstack unit green") || l.includes("cstack unit red"))).toHaveLength(0);
+    expect(lines).toHaveLength(2);
+  });
+});
+
 describe("nothing private leaves the command", () => {
   const MARK = "SECRET_MARKER_4821";
   const withMarker = (s: Setup) => {

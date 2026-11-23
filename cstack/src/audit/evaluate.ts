@@ -9,6 +9,7 @@ import type { PlanUnit } from "../plan/read.js";
 import { isDone } from "../run-progress.js";
 import type { RunState } from "../run-state.js";
 import type { Call } from "./calls.js";
+import type { Conditions } from "./conditions.js";
 import { matchesStep, split, stepWords } from "./match.js";
 
 export type Verdict = "done" | "skipped" | "out of order";
@@ -77,21 +78,35 @@ export type StepInput = {
   runFolder: string;
   root: string;
   targetBranch: string;
+  conditions: Conditions;
 };
 
 type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[] };
 
 const REPEATED = ["each-unit", "each-unit-with-test"];
+type Kind = "unit" | "ticket" | "single";
+
+// Which group a listed step joins, or undefined when its condition does not hold for this plan.
+function kindOf(step: Step, conditions: Conditions): Kind | undefined {
+  if (step.kind !== "command") return undefined;
+  if (step.condition === undefined) return "single";
+  if (REPEATED.includes(step.condition)) return "unit";
+  if (step.condition === "each-dependent-ticket") return conditions.dependentTickets > 0 ? "ticket" : undefined;
+  if (step.condition === "user-interface") return conditions.userInterface ? "single" : undefined;
+  if (step.condition === "new-structural-decision") return conditions.newStructuralDecision ? "single" : undefined;
+  return undefined;
+}
 
 // The listed steps of one guide as nodes, in the order they print, each with the nodes that must precede it.
 // `late` holds the units that were built after the build phase closed.
-function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<number>): Node[] {
-  const listed = steps.filter((step) => step.kind === "command" && (step.condition === undefined || REPEATED.includes(step.condition)));
-  const segments: Step[][] = [];
-  for (const step of listed) {
+function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<number>, conditions: Conditions): Node[] {
+  const segments: { kind: Kind; steps: Step[] }[] = [];
+  for (const step of steps) {
+    const kind = kindOf(step, conditions);
+    if (kind === undefined) continue;
     const last = segments[segments.length - 1];
-    if (step.condition !== undefined && last && last[0]!.condition !== undefined) last.push(step);
-    else segments.push([step]);
+    if (kind !== "single" && last && last.kind === kind) last.steps.push(step);
+    else segments.push({ kind, steps: [step] });
   }
   const nodes: Node[] = [];
   let tail: string[] = [];
@@ -101,16 +116,30 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
       const shown = unit === undefined ? text : text.replace(/<n>(?!\.\.\.)/g, String(unit));
       return { id, phase, text: shown, words: stepWords(text), unit, before };
     };
-    if (segment[0]!.condition === undefined) {
-      const node = make(segment[0]!, `${phase}:${index}`, undefined, tail);
+    if (segment.kind === "single") {
+      const node = make(segment.steps[0]!, `${phase}:${index}`, undefined, tail);
       nodes.push(node);
       tail = [node.id];
+      return;
+    }
+    if (segment.kind === "ticket") {
+      const next: string[] = [];
+      for (let ticket = 0; ticket < conditions.dependentTickets; ticket++) {
+        let previous: string[] = tail;
+        for (const [position, step] of segment.steps.entries()) {
+          const node = make(step, `${phase}:${index}:${position}:t${ticket}`, undefined, previous);
+          nodes.push(node);
+          previous = [node.id];
+        }
+        next.push(previous[0]!);
+      }
+      tail = next;
       return;
     }
     const next: string[] = [];
     for (const unit of units) {
       let previous: string[] = tail;
-      for (const [position, step] of segment.entries()) {
+      for (const [position, step] of segment.steps.entries()) {
         if (step.condition === "each-unit-with-test" && !unit.test) continue;
         const node = make(step, `${phase}:${index}:${position}:${unit.number}`, unit.number, previous);
         nodes.push(node);
@@ -188,7 +217,7 @@ export function evaluateSteps(input: StepInput): Line[] {
     const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
     const planning = PLANNING_PHASES.includes(name);
     const phaseCalls = PHASES[index]!.runsIn === "main conversation" ? input.calls.filter((call) => input.mainFiles.has(call.file)) : input.calls;
-    for (const node of nodesOf(name, input.guides[name] ?? [], input.units, late)) {
+    for (const node of nodesOf(name, input.guides[name] ?? [], input.units, late, input.conditions)) {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
       const floor = floors.length === 0 ? undefined : Math.max(...floors);
       const text = `${name}: ${node.text}`;
