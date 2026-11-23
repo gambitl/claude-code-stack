@@ -60,7 +60,7 @@ export const COMMANDS: CommandEntry[] = [
     usage: "cstack guide <phase> [--skill <name>]",
     summary: "Print a phase guide of the installed version.",
     flags: ["--skill"],
-    exitCodes: { 0: OK, 1: "The skill or the phase is unknown.", 2: USAGE, 3: "The block of mandatory steps at the top of the guide is not valid." },
+    exitCodes: { 0: OK, 1: "The skill or the phase is unknown.", 2: USAGE, 3: "A guide opens a block of mandatory steps that never closes." },
     file: "guide.ts",
     ticket: 9,
     built: true,

@@ -112,10 +112,9 @@ export type BlockFreeResult = { ok: true; text: string } | { ok: false; message:
 
 /** The guide text without its block of mandatory steps and the empty line after the block. */
 export function withoutBlock(text: string, name: string): BlockFreeResult {
-  const checked = readSteps(text, name);
-  if (!checked.ok) return checked;
   if (!text.startsWith(`${OPENING}\n`) && !text.startsWith(`${OPENING}\r\n`)) return { ok: true, text };
-  const closing = text.search(/^-->\r?\n?/m);
+  const closing = text.search(/^-->\r?$/m);
+  if (closing < 0) return { ok: false, message: `${name}, line 1: the block of mandatory steps never closes. Its last line must be "-->".` };
   const after = text.slice(closing).replace(/^-->\r?\n?/, "");
   return { ok: true, text: after.replace(/^\r?\n/, "") };
 }
