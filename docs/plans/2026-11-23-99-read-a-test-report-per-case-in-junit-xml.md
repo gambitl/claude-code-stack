@@ -296,11 +296,51 @@ The independent reviewer changed no code and found no bug, security problem, mis
 
 ## Briefing
 
-<CTO advisor, moment after-build>
+### What you should know about what was built
+
+The ticket is done, and it does what it asked. A repository can now declare `"report": "junit"` with `{report}` in its `file` command. `runTests()` then returns the result of each case, or the reason there are none: the report is missing, malformed, or the run timed out. I ran the three changed test files again (119 cases) and the type check, and everything passes.
+
+**What you need to do.**
+
+Review the pull request and merge it yourself, with the usual button. The reviewers left six small follow-ups, such as a size limit on the report and a refusal of a repeated attribute. I would not open a ticket for them, because none of them changes a result for a report that vitest or pytest writes.
+
+**What to watch.**
+
+- Until the ticket that checks each named case in `unit red` and `unit green` (#100) is merged, those two commands do not ask for the report. A repository that declared the key would pass an empty report path to vitest or pytest. I checked that this cannot ship: the 0.4.0 release (#104) waits for #103, which waits for #100.
+- `runTests()` loads the reader with a dynamic `import()`. In the built `cstack` this works. But a test of #100 that starts a child process on the TypeScript source of `test-run.ts` and asks for the report will crash on a missing module, instead of getting a clean problem.
+- On a busy machine, the full suite hits five-second timeouts in unrelated files (`fallback.test.ts`, `worktree-line.test.ts`). If the GitHub check fails there, run that file alone before you look for a bug.
+
+**What changed since the plan.**
+
+- The reader refuses the whole report when it holds a raw control character, instead of only escaping it in a message. XML forbids these characters, and vitest and pytest already remove them.
+- `quote()` is now exported from `cstack/src/settings.ts` instead of being copied.
+- The plan gave no text for the new refusal messages of the settings, so the wording was chosen during the build.
+
+#### Details
+
+The build matches the ticket's scope and acceptance. `cstack/src/junit-report.ts` reads a report with one linear pass and no dependency. `cstack/src/settings.ts` accepts `testCommands.report` with the value `"junit"` and refuses the six invalid combinations at lines 271 to 290, each with its own test. `cstack/src/test-run.ts` replaces `{report}` with `"$2"` (line 49), passes `report.xml` of the run's temporary folder as the second argument, and reads it in `readReport()` (line 87). The README section sits before `## Measure a run`. On 2026-11-23, `npx vitest run test/junit-report.test.ts test/settings.test.ts test/test-run.test.ts` gave 3 files and 119 cases passed, and `npm run typecheck` was clean.
+
+The merge needs nothing special. The branch is rebased on `main` before the pull request opens, and there is no merge commit to keep. The review log lists six follow-ups, under "Not done, as follow-ups". They are quality items, and none changes a result. A report comes from the repository's own test command on one test file, so a size limit protects against nothing realistic. If nobody decides, they stay in the review log and nothing breaks.
+
+The empty report path until #100 is a known gap, not a bug. `testScript()` replaces `{report}` with `"$2"` whenever there is a test file and a `file` command (line 49), but `runTests()` passes a second argument only when asked. `cstack unit red` and `cstack unit green` do not ask yet, so the vitest example would run with `--outputFile.junit=` and an empty value. No repository can use the key before the release, because 0.3.2 refuses it as an unknown key. I checked the dependency chain with `gh issue view` on 2026-11-23: #104 is blocked by #103, and #103 is blocked by #100 and #101. So the release cannot ship this ticket without #100.
+
+The dynamic import in `readReport()` (`cstack/src/test-run.ts`, line 98) sits outside the `try` that turns a `ReportError` into the `malformed` problem. Its comment explains why it is dynamic. The interrupt tests of `cstack/test/test-run.test.ts` (lines 140 to 160) start a child process that imports `src/test-run.ts` as source. In that mode, `./junit-report.js` has no file. In the built package, the import always resolves. Now imagine a test that starts such a child with `{ report: true }`. The import then throws `ERR_MODULE_NOT_FOUND` out of `runTests()`. That breaks the promise that `runTests()` never throws because of a report. This only matters for the tests of #100. Here is the question, non-blocking, for the developer who takes #100, to post as a comment on #100: "In #99, `runTests()` loads the JUnit reader with a dynamic `import(\"./junit-report.js\")`, because some tests start a child process that imports `cstack/src/test-run.ts` as TypeScript source, where a `.js` import has no file. If a test of #100 starts such a child and asks for the report, that import fails with `ERR_MODULE_NOT_FOUND`, and `runTests()` throws instead of returning a problem. Will #100 keep those child-process tests without a report, or change how they load the source so that a static import works?" It cannot be tested now, because the tests of #100 do not exist yet. If nobody decides, #100 finds it when such a test fails.
+
+The unrelated timeouts come from test files that build a new git repository for each case, as the conventions file says. The executor notes record 13 timeout failures on a busy machine and zero on a rerun. The independent review saw the same in `test/helper/fallback.test.ts` and `test/helper/worktree-line.test.ts`. If the GitHub check fails with "The job was not acquired by Runner", rerun it with `gh run rerun`, as `## Decisions` says.
+
+The plan changed in five small ways. The reader refuses any character that XML forbids, even written raw (`cstack/src/junit-report.ts`, line 42), after the security review found that a raw control character reached a case name. The plan only asked to escape quoted text. pytest escapes such characters as references, and vitest strips them. So a real report from either tool is not affected. A report from a less careful writer is now `malformed` as a whole. The entity lookup uses `Object.hasOwn`, so `&constructor;` and `&__proto__;` are unknown entities. `quote()` is exported from `cstack/src/settings.ts` (line 100) and reused by the reader, which makes the reader import `settings.ts`. The wording of the four new settings messages was chosen during the build, because the plan named the cases but not the text. Finally, the last refusal test of unit 1 was changed after its red run, so `cstack unit green` printed a warning. The executor notes record it.
+
+The earlier questions were all resolved as answered. Blocking question 1 is built as the key `testCommands.report` with the value `"junit"`, plus `{report}` once in `file`. Blocking question 2 is built as `report.xml` in the run's temporary folder, deleted with it. Blocking question 3 is built as the optional field `report` of `TestRun`, holding the cases or one of the problems `missing`, `malformed` and `timed-out`, and `runTests()` catches only `ReportError`. The non-blocking points accepted by default are built as planned: numeric references are decoded, `{report}` becomes `"$2"`, `setupCommand` has no `{report}` test, and `{report}` is refused in `all`.
+
+A few facts for #100 and #101 remain true after the build. vitest names a case with its describe titles and test title joined by " > ", and pytest adds the parameters to the function name, such as `test_x[1-2]`. So matching the named cases of a plan against a report needs the exact format of each tool. An empty case list is a valid report, for example when pytest collects no test, so #100 must not read "no case" as "every new case failed". The comment on #100 already covers the empty `"$2"`, duplicate names, `quote()` for untrusted names, and `error` for a broken pytest fixture.
+
+I checked tenant isolation and authorization, the data model, scale, operations and cost, and reversibility, and found nothing: the change is local, adds no dependency, and the new key can still change before the release ships it.
 
 ## Non-blocking questions
 
-none
+A question from #99, for whoever takes #100. In #99, `runTests()` loads the JUnit reader with a dynamic `import("./junit-report.js")`. This is because some tests start a child process that imports `cstack/src/test-run.ts` as TypeScript source, where a `.js` import has no file. If a test of #100 starts such a child and asks for the report, the import fails with `ERR_MODULE_NOT_FOUND`, and `runTests()` throws instead of returning a problem. Will #100 keep those child-process tests without a report, or change how they load the source so that a static import works?
+
+For: the developer who takes #100. It was posted as a comment on #100. Nothing waits for it.
 
 ## Pull request
 
@@ -314,6 +354,7 @@ none
 - A comment on ticket #99: https://github.com/gambitl/claude-code-stack/issues/99
 - A comment on ticket #100 with the names it builds on: https://github.com/gambitl/claude-code-stack/issues/100
 - A comment on ticket #101 with the same names: https://github.com/gambitl/claude-code-stack/issues/101
+- The non-blocking question about the dynamic import, as a second comment on #100.
 - No ADR and no specification change, as the documentation duties say.
 
 ## Executor notes
