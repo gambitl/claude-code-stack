@@ -37,7 +37,7 @@ export function stepWords(text: string): string[] {
   return words;
 }
 
-function split(words: string[]): { head: string[]; flags: string[] } {
+export function split(words: string[]): { head: string[]; flags: string[] } {
   const i = words.findIndex((x) => x.startsWith("-"));
   return i < 0 ? { head: words, flags: [] } : { head: words.slice(0, i), flags: words.slice(i) };
 }

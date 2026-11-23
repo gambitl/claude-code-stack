@@ -337,6 +337,14 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 - The measure tests exercise the changed code and must keep passing. The count of commands in `manifest.ts` and `README.md` and the tests `manifest.test.ts`, `cli.test.ts` and `manifest-implemented.test.ts` were updated for the new command.
 - No `WHY:` or `DECISION:` comment conflicts with the change.
 
+### Reviewer findings
+
+- Correctness: the step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent. The wait comes after the executor closed later phases, so it falls outside the window that Question 2 decided. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. Not fixed, because it changes a decided rule. It is recorded as a question for the user.
+- Correctness and conventions: the README bullet said the audit prints nothing. Fixed.
+- Simplicity: two time parsers, a hand-made split of flags and a double import. Fixed.
+- Security: nothing at confidence 80 or above.
+- Fixes are in one commit after this log.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">

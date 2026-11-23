@@ -9,7 +9,7 @@ import type { PlanUnit } from "../plan/read.js";
 import { isDone } from "../run-progress.js";
 import type { RunState } from "../run-state.js";
 import type { Call } from "./calls.js";
-import { matchesStep, stepWords } from "./match.js";
+import { matchesStep, split, stepWords } from "./match.js";
 
 export type Verdict = "done" | "skipped" | "out of order";
 export type Evidence = "session" | "run state" | "git";
@@ -21,8 +21,8 @@ export function formatLine(line: Line): string {
   return `${line.text}: ${line.verdict} ${localTime(new Date(line.time))} ${line.record}`;
 }
 
-const parse = (value: string | undefined): number | undefined => {
-  const time = value === undefined ? NaN : Date.parse(value);
+const parse = (value: unknown): number | undefined => {
+  const time = typeof value === "string" ? Date.parse(value) : NaN;
   return Number.isNaN(time) ? undefined : time;
 };
 
@@ -120,11 +120,6 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[]): Node[] {
   return nodes;
 }
 
-const parseTime = (value: unknown): number | undefined => {
-  const time = typeof value === "string" ? Date.parse(value) : NaN;
-  return Number.isNaN(time) ? undefined : time;
-};
-
 /** The step lines of every phase, in the order of `PHASES` and of each block. */
 export function evaluateSteps(input: StepInput): Line[] {
   const closes = PHASES.map(({ name }) => input.phaseLines.find((line) => line.text === `phase ${name}` && line.verdict !== "skipped")?.time);
@@ -140,19 +135,17 @@ export function evaluateSteps(input: StepInput): Line[] {
     const hash = unitCommits[unit]?.[unitCommits[unit]!.length - 1];
     if (hash === undefined) return undefined;
     const shown = spawnSync("git", ["show", "-s", "--format=%aI", hash], { cwd: input.root, encoding: "utf8" });
-    return shown.status === 0 ? parseTime(shown.stdout.trim()) : undefined;
+    return shown.status === 0 ? parse(shown.stdout.trim()) : undefined;
   };
   const savedTime = (unit: number, kind: "red" | "green"): number | undefined => {
     try {
-      return parseTime((JSON.parse(readFileSync(join(input.runFolder, "units", String(unit), `${kind}.json`), "utf8")) as { time?: unknown }).time);
+      return parse((JSON.parse(readFileSync(join(input.runFolder, "units", String(unit), `${kind}.json`), "utf8")) as { time?: unknown }).time);
     } catch {
       return undefined;
     }
   };
   const otherEvidence = (node: Node): { time: number; record: Evidence } | undefined => {
-    const flagAt = node.words.findIndex((word) => word.startsWith("-"));
-    const head = flagAt < 0 ? node.words : node.words.slice(0, flagAt);
-    const flags = flagAt < 0 ? [] : node.words.slice(flagAt);
+    const { head, flags } = split(node.words);
     const found = (time: number | undefined, record: Evidence) => (time === undefined ? undefined : { time, record });
     if (node.unit !== undefined && head[0] === "unit" && head[2] === "<n>" && head.length === 3) {
       if (head[1] === "red" || head[1] === "green") return found(savedTime(node.unit, head[1]), "run state");
@@ -162,7 +155,7 @@ export function evaluateSteps(input: StepInput): Line[] {
       const at = flags.indexOf("--done");
       const phase = at < 0 ? undefined : flags[at + 1];
       const name = PHASES.find((candidate) => candidate.name === phase)?.name;
-      if (name !== undefined && isDone(input.state, name)) return found(parseTime(input.state.phases[name]?.doneAt), "run state");
+      if (name !== undefined && isDone(input.state, name)) return found(parse(input.state.phases[name]?.doneAt), "run state");
     }
     return undefined;
   };
