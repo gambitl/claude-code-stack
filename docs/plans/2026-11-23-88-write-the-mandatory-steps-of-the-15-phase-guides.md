@@ -502,7 +502,8 @@ I checked security and authorization, data model lock-in, scale, operations and 
 
 ## Non-blocking questions
 
-none
+1. For the maintainer, about the ticket that evaluates the conditions (#90) or milestone R2: "The block of `document.md` does not list the decision records or the `WHY:` comments, because they apply only when a run has a big decision, and none of the seven conditions says that. Should #90 or milestone R2 add a condition for it, such as `big-decision`, so that the audit can check that a run recorded its decisions?"
+2. For the maintainer: "The plan file names two private folders of your home in a rule copied from the brief of the run. Older plans on `main` already name them, and the private-names check passes. Do you want to replace the two names with a general phrase?"
 
 ## Pull request
 
