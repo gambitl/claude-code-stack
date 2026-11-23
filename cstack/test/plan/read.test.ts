@@ -546,3 +546,45 @@ describe("the facts and their sources", () => {
     expect(error.message).toContain(`line ${lineOf(text, USER_FACT) + 1}: The word \`none\` cannot sit next to a fact`);
   });
 });
+
+describe("the changes to what the ticket fixes", () => {
+  const base = fixture("version-2");
+  const CHANGE = "- The flag is long, not short. Blocking question: 1";
+  const swap = (from: string, to: string) => {
+    const text = base.replace(from, to);
+    expect(text).not.toBe(base);
+    return text;
+  };
+  const lineOf = (text: string, needle: string) => text.split("\n").findIndex((row) => row.includes(needle)) + 1;
+
+  it("reads each change with the number of its blocking question", () => {
+    const text = swap(CHANGE, `${CHANGE}\n- The name is short. Blocking question: 2   `);
+    const plan = readPlan(text);
+    expect(plan.ticketChanges).toEqual([
+      { line: lineOf(text, "The flag is long"), text: "The flag is long, not short.", question: 1 },
+      { line: lineOf(text, "The name is short"), text: "The name is short.", question: 2 },
+    ]);
+  });
+
+  it("reads the word none as no change", () => {
+    expect(readPlan(swap(CHANGE, "none")).ticketChanges).toEqual([]);
+  });
+
+  it("refuses a change line with no blocking question number", () => {
+    for (const row of ["- The flag is long, not short.", "- The flag is long. Blocking question: x", "The flag is long. Blocking question: 1"]) {
+      const text = swap(CHANGE, row);
+      const error = failureOf(text);
+      expect(error.message).toBe(
+        `line ${lineOf(text, row)}: A change line is \`- <the change> Blocking question: <n>\`, with <n> the number of a blocking question. Write the word \`none\` when the plan changes nothing that the ticket fixes.`,
+      );
+    }
+  });
+
+  it("refuses the word none next to a change", () => {
+    const text = swap(CHANGE, `${CHANGE}\nnone`);
+    const error = failureOf(text);
+    expect(error.message).toBe(
+      `line ${lineOf(text, CHANGE) + 1}: The word \`none\` cannot sit next to a change. Remove it.`,
+    );
+  });
+});

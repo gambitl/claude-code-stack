@@ -134,6 +134,13 @@ export interface PlanFact {
   source: FactSource;
 }
 
+export interface TicketChange {
+  line: number;
+  text: string;
+  /** The number of the blocking question that covers the change. */
+  question: number;
+}
+
 export interface PlanPullRequest {
   title: string;
   body: string;
@@ -145,6 +152,7 @@ export interface PlanRead {
   sections: PlanSection[];
   negativeCriteria: NegativeCriterion[];
   facts: PlanFact[];
+  ticketChanges: TicketChange[];
   units: PlanUnit[];
   blockingQuestions: BlockingQuestion[];
   pullRequest?: PlanPullRequest;
@@ -602,6 +610,22 @@ function readFacts(region: Region, section: PlanSection | undefined): PlanFact[]
   return facts;
 }
 
+function readTicketChanges(region: Region, section: PlanSection | undefined): TicketChange[] {
+  const changes: TicketChange[] = [];
+  for (const { line, text } of listLines(region, section, "a change")) {
+    const parsed = /^- (\S.*) Blocking question: (\d+)$/.exec(text.trimEnd());
+    if (!parsed) {
+      region.problems.push({
+        line,
+        rule: "A change line is `- <the change> Blocking question: <n>`, with <n> the number of a blocking question. Write the word `none` when the plan changes nothing that the ticket fixes.",
+      });
+      continue;
+    }
+    changes.push({ line, text: parsed[1].trim(), question: Number(parsed[2]) });
+  }
+  return changes;
+}
+
 function readQuestions(region: Region, section: PlanSection | undefined): BlockingQuestion[] {
   if (!section || !section.filled) return [];
   const { problems } = region;
@@ -765,6 +789,7 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
   const section = (name: SectionName) => sections.find((candidate) => candidate.name === name);
   const negativeCriteria = readNegativeCriteria(region, section("Negative criteria"));
   const facts = readFacts(region, section("Facts"));
+  const ticketChanges = readTicketChanges(region, section("Changes to what the ticket fixes"));
   const units = readUnits(region, section("Implementation units"), negativeCriteria.length);
   const blockingQuestions = readQuestions(region, section("Blocking questions"));
   const pullRequest = readPullRequest(region, section("Pull request"));
@@ -776,5 +801,5 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
       problems,
     );
   }
-  return { header, headings, sections, negativeCriteria, facts, units, blockingQuestions, pullRequest };
+  return { header, headings, sections, negativeCriteria, facts, ticketChanges, units, blockingQuestions, pullRequest };
 }
