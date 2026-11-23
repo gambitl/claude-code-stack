@@ -295,6 +295,7 @@ I checked security and authorization, data model lock-in, scale and performance,
 ## Non-blocking questions
 
 - Should `cstack next --done ready` refuse too while a unit is not done? It would catch a unit added late before the retrospective, so the reviews and the retrospective would see it. For: the user. Open, not needed for this ticket.
+- When neither the local `main` nor `origin/main` exists, the new line advises `git branch --track main origin/main`, which then fails. Should the advice appear only when `origin/<target>` exists? The text of the advice was fixed by the user's answer to question 1. For: the user. Open, not needed for this ticket.
 
 ## Pull request
 
