@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { readCalls } from "../audit/calls.js";
+import { readConditions } from "../audit/conditions.js";
 import { mainFiles } from "../audit/main-session.js";
 import { evaluatePhases, evaluateSteps, formatLine } from "../audit/evaluate.js";
 import { readSteps, type Step } from "../guide-steps.js";
@@ -10,6 +11,7 @@ import type { Io } from "../io.js";
 import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
 import { findRunFiles } from "../measure/sessions.js";
 import { PHASES } from "../phases.js";
+import { readSettings, SettingsError } from "../settings.js";
 import { PlanFormatError, readPlan, type PlanRead } from "../plan/read.js";
 import { cstackVersion, planFileName, runFolder, readState, RunStateError, type RunState } from "../run-state.js";
 
@@ -46,8 +48,10 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     return fail(3, error.message);
   }
   let plan: PlanRead;
+  let planText: string;
   try {
-    plan = readPlan(readFileSync(planArgument, "utf8"));
+    planText = readFileSync(planArgument, "utf8");
+    plan = readPlan(planText);
   } catch (error) {
     if (!(error instanceof PlanFormatError)) throw error;
     return fail(3, "the plan file is not a valid cstack plan file.");
@@ -87,6 +91,14 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     guideSteps[name] = steps.steps;
   }
 
+  let reviewAgent: string;
+  try {
+    reviewAgent = readSettings(moments.root).values.review.agent;
+  } catch (error) {
+    if (!(error instanceof SettingsError)) throw error;
+    return fail(3, "the settings file of the repository cannot be used.");
+  }
+
   let folders;
   try {
     folders = await worktreeFolders(moments.root, moments.worktrees);
@@ -109,12 +121,15 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     guides: guideSteps,
     units: plan.units,
     calls: read.calls,
+    launches: read.launches,
     mainFiles: main.files,
     state,
     phaseLines,
     runFolder: runFolder(moments.root, planArgument),
     root: moments.root,
     targetBranch: plan.header["Target branch"],
+    conditions: readConditions(planText, plan),
+    reviewAgent,
   });
   const lines = [...phaseLines, ...stepLines];
   for (const line of lines) io.stdout(`${formatLine(line)}\n`);

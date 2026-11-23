@@ -39,6 +39,7 @@ describe("readCalls", () => {
     const result = await readCalls([{ path: file, helper: false }]);
     expect(result).toEqual({
       calls: [{ time: Date.parse("2026-11-23T10:00:00.000Z"), args: ["unit", "red", "2", "--plan", "p.md"], file: 0, helper: false }],
+      launches: [],
       unreadableFiles: 0,
     });
   });
@@ -120,5 +121,103 @@ describe("readCalls", () => {
     const a = write("a.jsonl", [bash("t1", "cstack next")]);
     const { calls } = await readCalls([{ path: a, helper: false }]);
     expect(Object.keys(calls[0]!).sort()).toEqual(["args", "file", "helper", "time"]);
+  });
+});
+
+describe("readCalls launches", () => {
+  const T = "2026-11-23T10:00:00.000Z";
+  function tool(id: string, name: string, input: Record<string, unknown>, timestamp: string | null = T) {
+    const line: Record<string, unknown> = {
+      type: "assistant",
+      message: { content: [{ type: "tool_use", id, name, input }] },
+    };
+    if (timestamp !== null) line.timestamp = timestamp;
+    return line;
+  }
+
+  it("returns a sub-agent launch for an Agent call", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [tool("a1", "Agent", { subagent_type: "resolve-issue:cto-review", prompt: "secret" })]);
+    const { launches } = await readCalls([{ path: file, helper: false }]);
+    expect(launches).toEqual([{ time: Date.parse(T), file: 0, helper: false, kind: "sub-agent", type: "resolve-issue:cto-review" }]);
+  });
+
+  it("returns a sub-agent launch for a Task call", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [tool("a1", "Task", { subagent_type: "general-purpose" })]);
+    const { launches } = await readCalls([{ path: file, helper: true }]);
+    expect(launches).toEqual([{ time: Date.parse(T), file: 0, helper: true, kind: "sub-agent", type: "general-purpose" }]);
+  });
+
+  it("returns no launch for a SendMessage call", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [tool("a1", "SendMessage", { subagent_type: "resolve-issue:cto-review" })]);
+    expect((await readCalls([{ path: file, helper: false }])).launches).toEqual([]);
+  });
+
+  it("returns no launch for an Agent call without subagent_type", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [tool("a1", "Agent", { prompt: "x" })]);
+    expect((await readCalls([{ path: file, helper: false }])).launches).toEqual([]);
+  });
+
+  it("returns no launch for an Agent call whose subagent_type is not a string", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [tool("a1", "Agent", { subagent_type: 7 })]);
+    expect((await readCalls([{ path: file, helper: false }])).launches).toEqual([]);
+  });
+
+  it("returns no launch for an Agent call on a line with no valid timestamp", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [
+      tool("a1", "Agent", { subagent_type: "x" }, null),
+      tool("a2", "Agent", { subagent_type: "x" }, "not a date"),
+    ]);
+    expect((await readCalls([{ path: file, helper: false }])).launches).toEqual([]);
+  });
+
+  it.each(["orca", "orca-dev", "orca-ide"])("returns an Orca worker launch for %s orchestration worker-start", async (program) => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [bash("b1", `${program} orchestration worker-start --agent codex`)]);
+    const { launches, calls } = await readCalls([{ path: file, helper: false }]);
+    expect(launches).toEqual([{ time: Date.parse(T), file: 0, helper: false, kind: "orca worker" }]);
+    expect(calls).toEqual([]);
+  });
+
+  it.each([
+    "echo orca orchestration worker-start",
+    "orca orchestration check",
+    "'orca' orchestration worker-start",
+  ])("returns no launch for %s", async (command) => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [bash("b1", command)]);
+    expect((await readCalls([{ path: file, helper: false }])).launches).toEqual([]);
+  });
+
+  it("returns a launch whose tool call id is in two files once, with the origin of the first file", async () => {
+    const { readCalls } = await load();
+    const a = write("a.jsonl", [tool("a1", "Agent", { subagent_type: "x" })]);
+    const b = write("b.jsonl", [tool("a1", "Agent", { subagent_type: "x" })]);
+    const { launches } = await readCalls([{ path: a, helper: false }, { path: b, helper: true }]);
+    expect(launches).toHaveLength(1);
+    expect(launches[0]).toMatchObject({ file: 0, helper: false });
+  });
+
+  it("gives the same calls as before and one launch for a file with a cstack call and a launch", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [bash("t1", "cstack next"), tool("a1", "Agent", { subagent_type: "x" }, "2026-11-23T10:00:01.000Z")]);
+    const { calls, launches } = await readCalls([{ path: file, helper: false }]);
+    expect(calls).toEqual([{ time: Date.parse(T), args: ["next"], file: 0, helper: false }]);
+    expect(launches).toHaveLength(1);
+  });
+
+  it("sorts launches by time", async () => {
+    const { readCalls } = await load();
+    const file = write("a.jsonl", [
+      tool("a1", "Agent", { subagent_type: "late" }, "2026-11-23T11:00:00.000Z"),
+      tool("a2", "Agent", { subagent_type: "early" }, "2026-11-23T10:00:00.000Z"),
+    ]);
+    const { launches } = await readCalls([{ path: file, helper: false }]);
+    expect(launches.map((l) => (l as { type: string }).type)).toEqual(["early", "late"]);
   });
 });
