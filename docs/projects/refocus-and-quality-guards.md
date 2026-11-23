@@ -237,9 +237,9 @@ This repository is public. No text in it or in its issues names an employer or a
 
 **R1 Measure what escapes.** This milestone builds the audit and finds where the rest of the extra tokens came from, before anything changes. It carries US-1 and US-2. The audit must judge runs 3 and 4 against the steps of the current guides, so it comes before the refocus changes those steps. Both results can change the next milestones. For example, a step that runs 3 and 4 skipped may need one more guard in R3. R1 starts from `main`, which already holds version 0.3.2 with #79 and #80. R1 blocks R2.
 
-**R2 Refocus cstack on resolve-issue.** This milestone removes the orchestration layer and adapts the guides to the flow of section 1. It carries US-3, US-4 and US-5. It needs R1, and it blocks R3.
+**R2 Refocus cstack on resolve-issue.** This milestone removes the orchestration layer and adapts the guides to the flow of section 1. It carries US-3, US-4 and US-5. It needs R1.
 
-**R3 Quality guards.** This milestone adds the three guards. It carries US-6, US-7 and US-8. It runs after R2, because both milestones change the `build` and `plan` guides. It ends with the release that runs 5 and 6 use. It blocks R4.
+**R3 Quality guards.** This milestone adds the three guards. It carries US-6, US-7 and US-8. Its code tickets need only R1, so they can start while R2 runs. Its last ticket changes the `build` and `plan` guides, so that ticket waits for the guide tickets of R2. R3 ends with the release that runs 5 and 6 use. It blocks R4.
 
 **R4 Runs 5 and 6 and decision.** This milestone runs the new version twice, reviews the six branches blind and records the decision. It carries US-9. It needs R1 to R3.
 
