@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/tracker-links
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T09:56:15+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T10:18:17+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -345,6 +345,24 @@ I checked security and isolation between projects (only `#<number>` reaches `gh`
 none
 
 ## Pull request
+
+Title: feat(cli): accept a ticket link in cstack tracker and move a ticket that has one status label
+
+````markdown
+This change lets `cstack tracker` take a ticket key in three forms on GitHub and GitLab, and lets `cstack tracker move` work in a project that has only one status label.
+
+You can now write `'#12'`, the bare number `12`, or the link of an issue of the origin project. A GitLab link may end in `/-/issues/12` or in `/-/work_items/12`. Each form becomes `#12` before it reaches `gh` or `glab`. A link to another project, another host, a merge request or a pull request is refused, and the message names the origin project. Jira and Linear keep their own key form.
+
+A move now needs only the label that it adds. When the label that it would remove does not exist, the move adds the new label and does not fail. When the label to add does not exist, the move stops before any edit and prints the command that creates it. The GitHub move checks both labels with `gh api` first, as the GitLab move already did. I chose this with the maintainer because it keeps one rule for both forges.
+
+The conversion is a pure function in `cstack/src/tracker/keys.ts`. `checkedTracker()` gets an optional fourth parameter that reads the origin remote, and it reads the remote only when the key is a link. I also updated the ticket guide, the README paragraph for `cstack tracker`, and the fixtures README, and raised the version to 0.3.2.
+
+Three judgment calls from the independent review. On GitHub, any HTTP 404 from the label check reads as "label missing", so a repository that `gh` cannot see gives a misleading message. A clone whose origin uses an SSH host alias refuses every link, and the user writes `'#12'`. The test fix commit uses the scope `test(cli)`.
+
+The type check and the full test run pass, with 1505 tests. The plan is in `docs/plans/2026-11-20-80-accept-a-ticket-link-in-cstack-tracker-and-move-a-ticket-that-has-one-status-label.md`.
+
+Fixes #80
+````
 
 ## Documentation
 
