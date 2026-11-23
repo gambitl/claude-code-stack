@@ -11,14 +11,16 @@ const MAX_BUFFER = 256 * 1024 * 1024;
 /** The home folder as given, and its real path when that is another value. */
 function homeForms(home: string | undefined): string[] {
   if (home === undefined) return [];
-  const forms = [home];
+  const given = home.replace(/\/+$/, "");
+  const forms = [given];
   try {
     const real = realpathSync(home);
-    if (real !== home) forms.push(real);
+    if (real !== given) forms.push(real);
   } catch {
     // The folder does not exist, so only the given form is used.
   }
-  return forms;
+  // An empty form and the root folder would match almost any text.
+  return forms.filter((form) => form !== "" && form !== "/");
 }
 
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

@@ -925,4 +925,35 @@ describe("cstack publish refuses the home folder path", () => {
     expect(out.stderr).toContain("~/b");
     clean(env, out.stderr);
   });
+
+  it("does not refuse a line when the home folder is the root folder", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = "/";
+    commitLines(env, "notes.md", ["a / b"]);
+    env.scenario({ "gh pr create": { stdout: "Creating pull request\nhttps://github.com/o/r/pull/7\n" } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+  });
+
+  it("does not refuse a line when the home folder is empty", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = "";
+    commitLines(env, "notes.md", ["a / b"]);
+    env.scenario({ "gh pr create": { stdout: "Creating pull request\nhttps://github.com/o/r/pull/7\n" } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+  });
+
+  it("ignores a final slash of the home folder", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = `${env.home}/`;
+    commitLines(env, "notes.md", [`${env.home}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("~/projects/x");
+    clean(env, out.stderr);
+  });
 });
