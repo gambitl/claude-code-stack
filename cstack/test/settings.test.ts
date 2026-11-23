@@ -144,6 +144,34 @@ describe("readSettings value rules", () => {
     expect(problemPaths(repo({ version: 1, testCommands: { all: "npm test", file: "vitest" } }))).toEqual(["testCommands.file"]);
     expect(problemPaths(repo({ version: 1, testCommands: { all: "npm test", file: "vitest {file} {file}" } }))).toEqual(["testCommands.file"]);
   });
+  it("accepts testCommands.report junit with {report} once in testCommands.file", () => {
+    const s = readSettings(repo({ version: 1, testCommands: { all: "npm test", file: "vitest --outputFile={report} {file}", report: "junit" } }));
+    expect(s.values.testCommands?.report).toBe("junit");
+  });
+  it("refuses a testCommands.report that is not junit", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", file: "vitest --outputFile={report} {file}", report: "xml" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.report", text: 'must be "junit", not "xml"' }]);
+  });
+  it("refuses testCommands.report without testCommands.file", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", report: "junit" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.report", text: "needs testCommands.file, because the report comes from the command for one file" }]);
+  });
+  it("refuses testCommands.report when testCommands.file has no {report}", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", file: "vitest {file}", report: "junit" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.file", text: "must contain the placeholder {report} exactly once because testCommands.report is set, found 0" }]);
+  });
+  it("refuses {report} in testCommands.file without testCommands.report", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", file: "vitest --outputFile={report} {file}" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.file", text: 'must not contain {report} unless testCommands.report is "junit"' }]);
+  });
+  it("refuses {report} twice in testCommands.file", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", file: "vitest --a={report} --b={report} {file}", report: "junit" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.file", text: "must contain the placeholder {report} exactly once because testCommands.report is set, found 2" }]);
+  });
+  it("refuses {report} in testCommands.all", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "vitest --outputFile={report}" } }));
+    expect(e.problems).toEqual([{ path: "testCommands.all", text: "must not contain {report}. Put a command for a report in testCommands.file" }]);
+  });
   it("refuses {file} in testCommands.all and points to testCommands.file", () => {
     const e = refusal(repo({ version: 1, testCommands: { all: "vitest {file}" } }));
     expect(e.problems[0].path).toBe("testCommands.all");
