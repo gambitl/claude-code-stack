@@ -63,7 +63,7 @@ export async function readMoments(planArgument: string): Promise<Moments> {
   if (headerValue(text, "Format") !== undefined) {
     let header;
     try {
-      header = readPlan(text).header;
+      header = readPlan(text, { acceptVersion1: true }).header;
     } catch (error) {
       if (!(error instanceof PlanFormatError)) throw error;
       throw new MomentsError("the plan file is not a valid cstack plan file.");
@@ -78,7 +78,7 @@ export async function readMoments(planArgument: string): Promise<Moments> {
     if (ready && ready.getTime() < approval.getTime()) {
       throw new MomentsError("the ready moment of the plan file comes before its approval moment.");
     }
-    const worktrees = readPlan(text).units.flatMap((unit) => (unit.worktree ? [unit.worktree] : []));
+    const worktrees = readPlan(text, { acceptVersion1: true }).units.flatMap((unit) => (unit.worktree ? [unit.worktree] : []));
     return { root, approval, ready, source: "header", worktrees };
   }
   const path = relative(root, plan).split("\\").join("/");

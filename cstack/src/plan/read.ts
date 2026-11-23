@@ -206,7 +206,7 @@ function scan(lines: string[]): Scanned {
 }
 
 // WHY: ADR-SIC-B (docs/decisions/ADR-SIC-B-run-state.md). An unknown format version is refused, and the message names the cstack version that can read the file.
-function stopOnFormat(lines: string[], firstHeadingLine: number): void {
+function stopOnFormat(lines: string[], firstHeadingLine: number, acceptVersion1: boolean): boolean {
   const region = lines.slice(0, firstHeadingLine - 1);
   const value = (key: string) =>
     region.map((text) => new RegExp(`^${key}:\\s*(.*)$`).exec(text)).find(Boolean)?.[1].trim();
@@ -216,6 +216,7 @@ function stopOnFormat(lines: string[], firstHeadingLine: number): void {
       `This plan file has no Format line. The prose skill wrote it before cstack existed. This cstack reads ${PLAN_FORMAT}.`,
     );
   }
+  if (acceptVersion1 && format === "cstack-plan/1") return true;
   if (format !== PLAN_FORMAT) {
     const writer = /^cstack (\S+)$/.exec(value("Written by") ?? "");
     const head = `This plan file has the format ${format}. This cstack reads ${PLAN_FORMAT}.`;
@@ -232,7 +233,11 @@ function stopOnFormat(lines: string[], firstHeadingLine: number): void {
       : "The file does not name the cstack version that can read it.";
     throw new PlanFormatError(`${head} ${reader}`);
   }
+  return false;
 }
+
+/** The sections that version 2 added. A version 1 plan has none of them. */
+const VERSION_2_SECTIONS: readonly SectionName[] = ["Negative criteria", "Facts", "Changes to what the ticket fixes"];
 
 function checkHeaderValue(key: HeaderKey, value: string): string | undefined {
   if (value === "" || isPlaceholder(value)) {
@@ -530,13 +535,18 @@ function readPullRequest(region: Region, section: PlanSection | undefined): Plan
   return { title, body: lines.slice(open.line, close.line - 1).join("\n") };
 }
 
-export function readPlan(text: string): PlanRead {
+/**
+ * `acceptVersion1` lets `cstack measure` read the header of a `cstack-plan/1` plan.
+ * Under it, the three sections of version 2 are not required.
+ */
+export function readPlan(text: string, options: { acceptVersion1?: boolean } = {}): PlanRead {
   const lines = text.split(/\r?\n/);
   if (lines.at(-1) === "") lines.pop();
   const { headings, comments, problems } = scan(lines);
 
   const firstSection = headings.find((heading) => heading.level === 2);
-  stopOnFormat(lines, firstSection?.line ?? lines.length + 1);
+  const version1 = stopOnFormat(lines, firstSection?.line ?? lines.length + 1, options.acceptVersion1 === true);
+  const sectionNames = version1 ? SECTION_NAMES.filter((name) => !VERSION_2_SECTIONS.includes(name)) : SECTION_NAMES;
 
   // Title and header.
   const title = headings.find((heading) => heading.level === 1);
@@ -582,7 +592,7 @@ export function readPlan(text: string): PlanRead {
   const sections: PlanSection[] = [];
   let expected = 0;
   sectionHeadings.forEach((heading, index) => {
-    const known = SECTION_NAMES.indexOf(heading.text as SectionName);
+    const known = sectionNames.indexOf(heading.text as SectionName);
     if (known === -1) {
       problems.push({
         line: heading.line,
@@ -611,7 +621,7 @@ export function readPlan(text: string): PlanRead {
       bodyLines,
     });
   });
-  for (const name of SECTION_NAMES) {
+  for (const name of sectionNames) {
     if (!sections.some((section) => section.name === name)) {
       problems.push({ line: lines.length, rule: `The section ${name} is missing.` });
     }
