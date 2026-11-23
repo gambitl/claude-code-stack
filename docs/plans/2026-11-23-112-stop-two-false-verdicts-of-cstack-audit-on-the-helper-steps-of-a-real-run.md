@@ -284,6 +284,11 @@ Simplicity reviewer: removed the repeated "exits with 1" sentence from the READM
 
 The fixes are in one commit. Typecheck and the full `npm test` pass (124 files, 1707 tests).
 
+Independent review (`resolve-issue:pr-reviewer`): no bug, security problem or broken convention. It added one test in commit `35b99b0`, which checks that the sentence about unreadable session files prints before the sentence about the missing close of the ticket phase. Typecheck and the full `npm test` pass (124 files, 1708 tests). Judgment calls for the pull request body:
+1. The executor phases still count calls from every session file, as decided. A repeated `cstack helper wait` of the main conversation during the build could count as an implementer's wait.
+2. A call with no `--plan` value still lets a session file count as the main conversation, so a session of another run in the same repository and time window could be counted. The README lists "two runs mixed" as a limit.
+3. The window of a unit built after the build phase ends at the first phase close in phase order, where the plan says the earliest close. Both agree when phases close in order.
+
 ## Briefing
 
 <CTO advisor, moment after-build>
