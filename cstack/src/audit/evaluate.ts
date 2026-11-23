@@ -181,6 +181,8 @@ export function evaluateSteps(input: StepInput): Line[] {
 
   const lines: Line[] = [];
   const results = new Map<string, number | undefined>();
+  // A call serves one line of the audit only.
+  const taken = new Set<Call>();
   PHASES.forEach(({ name }, index) => {
     const earlier = closes.slice(0, index).reverse().find((time) => time !== undefined);
     const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
@@ -194,12 +196,14 @@ export function evaluateSteps(input: StepInput): Line[] {
       const builtTime = node.unit === undefined ? undefined : builtAt.get(node.unit);
       const end = builtTime === undefined ? later : closes.find((time) => time !== undefined && time >= builtTime);
       const inWindow = phaseCalls.filter(
-        (call) => (earlier === undefined || call.time >= earlier) && (end === undefined || call.time <= end) && matchesStep(node.words, call.args, node.unit),
+        (call) => !taken.has(call) && (earlier === undefined || call.time >= earlier) && (end === undefined || call.time <= end) && matchesStep(node.words, call.args, node.unit),
       );
       let line: Line = { text, verdict: "skipped" };
       const chosen = chooseCall(inWindow.map((call) => call.time), floor);
-      if (chosen) line = { text, ...chosen, record: "session" };
-      else if (!planning) {
+      if (chosen) {
+        line = { text, ...chosen, record: "session" };
+        taken.add(inWindow.find((call) => call.time === chosen.time)!);
+      } else if (!planning) {
         const other = otherEvidence(node);
         const picked = other && chooseCall([other.time], floor);
         if (other && picked) line = { text, ...picked, record: other.record };

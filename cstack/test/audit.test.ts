@@ -800,7 +800,30 @@ describe("cstack audit units built after the build phase", () => {
   it("never takes the wait of the main conversation for a unit whose wait was never run", async () => {
     const s = build([...early(), ...unitCalls(3, abqAt, 10, ["wait"]), ...after()]);
     const r = await run(s);
-    expect(waitLines(r.stdout)[2]).toBe(`${WAIT_LINE}: out of order ${localTime(new Date(at(buildAt, 28)))} session`);
+    expect(waitLines(r.stdout)[2]).toBe(`${WAIT_LINE}: skipped`);
+  });
+
+  it("lets the one wait call of the build serve only the wait line of unit 1", async () => {
+    const calls = [...before(), ...unitCalls(1, buildAt, 10, ["wait"]), ...unitCalls(2, buildAt, 20, ["wait"]), ...unitCalls(3, buildAt, 30, ["wait"]), { time: at(buildAt, 40), command: WAIT }, ...after()];
+    const r = await run(build(calls));
+    expect(waitLines(r.stdout)).toEqual([`${WAIT_LINE}: done ${localTime(new Date(at(buildAt, 40)))} session`, `${WAIT_LINE}: skipped`, `${WAIT_LINE}: skipped`]);
+  });
+
+  it("marks the wait line of unit 1 out of order and skips the others when the only wait comes before the commit", async () => {
+    const calls = [...before(), { time: at(buildAt, 5), command: WAIT }, ...unitCalls(1, buildAt, 10, ["wait"]), ...unitCalls(2, buildAt, 20, ["wait"]), ...unitCalls(3, buildAt, 30, ["wait"]), ...after()];
+    const r = await run(build(calls));
+    expect(waitLines(r.stdout)).toEqual([`${WAIT_LINE}: out of order ${localTime(new Date(at(buildAt, 5)))} session`, `${WAIT_LINE}: skipped`, `${WAIT_LINE}: skipped`]);
+  });
+
+  it("skips the wait line of the retro when the main conversation has only its plan wait", async () => {
+    const tagged = taggedCalls();
+    const calls = fullCalls()
+      .map((c) => (c.command === WAIT ? { ...c, time: at(readyAt + 1, 5) } : c))
+      .filter((c, i) => runsIn(tagged[i]!.phase) === "main conversation" && !(c.command === WAIT && tagged[i]!.phase === "retro"));
+    const s = setup({ calls, files: [{ file: "s/subagents/agent-1.jsonl", calls: [...early(), ...unitCalls(3, buildAt, 30), ...after()], sidechain: true }] });
+    const r = await run(s);
+    expect(r.stdout).toContain(`plan: cstack helper wait <helper id>: done ${localTime(new Date(at(readyAt + 1, 5)))} session\n`);
+    expect(r.stdout).toContain("retro: cstack helper wait <helper id>: skipped\n");
   });
 });
 
