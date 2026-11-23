@@ -342,6 +342,15 @@ Not changed, recorded as follow-ups:
 - Overlapping windows can blame a missing launch on the wrong line, for example the briefing line instead of the plan-delta line. The exit code is still 1. The plan rules produce this.
 - The `cstack audit` paragraph of the README is one long block. It was one block before this branch.
 
+### Independent review
+
+The independent reviewer changed nothing. It found no bug, no missing acceptance criterion and no broken convention. Typecheck and the full test run pass (1765 tests). It also built the code and ran the audit on this run, and the advisor, reviewer and independent-review lines showed as done.
+
+Judgment calls for the pull request:
+- The commit "fix: accept a readonly program list in commandsOf" has no scope, while the other code commits have one. History is not rewritten.
+- The `Feeds:` reader drops only the item `none`. A footer such as `Feeds: nothing` would count as one dependent ticket. The plan decided this on purpose.
+- The two follow-ups above (sentence search in the whole plan text, overlapping windows) are recorded for the user.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
