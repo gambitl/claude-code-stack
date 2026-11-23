@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { readCalls } from "../audit/calls.js";
+import { evaluatePhases, formatLine } from "../audit/evaluate.js";
 import { readSteps } from "../guide-steps.js";
 import type { Io } from "../io.js";
 import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
@@ -96,5 +98,10 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     folders.planned,
   );
   if (!found.files.some((file) => !file.helper)) return fail(3, "no session file of this run was found.");
-  return 0;
+  const read = await readCalls(found.files.map((file) => file.path));
+  const lines = evaluatePhases(state, read.calls);
+  for (const line of lines) io.stdout(`${formatLine(line)}\n`);
+  const unreadable = found.unreadableFiles + read.unreadableFiles > 0;
+  if (unreadable) io.stderr("cstack audit: some session files could not be read, so some steps may show as skipped.\n");
+  return unreadable || lines.some((line) => line.verdict !== "done") ? 1 : 0;
 }

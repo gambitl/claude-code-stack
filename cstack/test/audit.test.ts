@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Io } from "../src/io.js";
+import { localTime } from "../src/local-time.js";
 import { PHASES } from "../src/phases.js";
 import { commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
 
@@ -62,10 +63,34 @@ function writeGuides(folder: string, override: Record<string, string> = {}): voi
   for (const [name, text] of Object.entries(override)) writeFileSync(join(folder, "resolve-issue", `${name}.md`), text);
 }
 
+const PLANNING = ["ticket", "dependencies", "code-map", "questions", "plan"];
+const at = (minutes: number, seconds = 0): string => new Date(Date.UTC(2026, 10, 23, 10, 0, 0) + (minutes * 60 + seconds) * 1000).toISOString();
+
+// A full run: phase i closes at minute i+1, and a phase that is not a planning phase starts 30 seconds before.
+function fullPhases(): Record<string, { startedAt?: string; doneAt: string }> {
+  const phases: Record<string, { startedAt?: string; doneAt: string }> = {};
+  PHASES.forEach(({ name }, i) => {
+    phases[name] = PLANNING.includes(name) ? { doneAt: at(i + 1) } : { startedAt: at(i + 1, -30), doneAt: at(i + 1) };
+  });
+  return phases;
+}
+type Call = { time: string; command: string };
+function fullCalls(): Call[] {
+  return PLANNING.map((name) => ({ time: at(PHASES.findIndex((p) => p.name === name) + 1), command: `cstack next --done ${name}` }));
+}
+
 type Setup = { repo: string; home: string; guides: string; plan: string; pkg: string };
 
 // A repository with the plan committed, a run state, a home folder with one session, and guides.
-function setup(options: { writtenBy?: string; state?: string; session?: boolean; plan?: string } = {}): Setup {
+function setup(options: {
+  writtenBy?: string;
+  state?: string;
+  session?: boolean;
+  plan?: string;
+  phases?: Record<string, { startedAt?: string; doneAt?: string }>;
+  calls?: Call[];
+  extraFile?: string;
+} = {}): Setup {
   const repo = makeRepo();
   folders.push(repo);
   const text = options.plan ?? readFileSync(join(fixtures, "audit", "plan.md"), "utf8");
@@ -73,7 +98,7 @@ function setup(options: { writtenBy?: string; state?: string; session?: boolean;
   const common = git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir");
   const stateFile = join(common, "cstack", "runs", "audit", "state.json");
   mkdirSync(dirname(stateFile), { recursive: true });
-  const phases = { ticket: { startedAt: "2026-11-23T10:00:00+00:00", doneAt: "2026-11-23T10:05:00+00:00" } };
+  const phases = options.phases ?? fullPhases();
   writeFileSync(
     stateFile,
     options.state ??
@@ -83,13 +108,14 @@ function setup(options: { writtenBy?: string; state?: string; session?: boolean;
   if (options.session !== false) {
     const folder = join(home, ".claude", "projects", "p");
     mkdirSync(folder, { recursive: true });
-    const line = {
+    const lines = (options.calls ?? fullCalls()).map((call, i) => ({
       type: "assistant",
       cwd: repo,
-      timestamp: "2026-11-23T10:01:00.000Z",
-      message: { content: [{ type: "tool_use", id: "t1", name: "Bash", input: { command: "cstack next" } }] },
-    };
-    writeFileSync(join(folder, "s.jsonl"), `${JSON.stringify(line)}\n`);
+      timestamp: call.time,
+      message: { content: [{ type: "tool_use", id: `t${i}`, name: "Bash", input: { command: call.command } }] },
+    }));
+    writeFileSync(join(folder, "s.jsonl"), lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
+    if (options.extraFile !== undefined) writeFileSync(join(folder, "bad.jsonl"), options.extraFile);
   }
   const guides = tmp("audit-guides-");
   writeGuides(guides);
@@ -203,6 +229,83 @@ describe("cstack audit inputs", () => {
     const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
     expect(r.stderr).toBe("");
     expect(r.code).toBe(0);
+  });
+
+  it("prints every start line and every phase line as done for a full run", async () => {
+    const s = setup();
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+    const expected: string[] = [];
+    PHASES.forEach(({ name }, i) => {
+      const planning = PLANNING.includes(name);
+      if (!planning) expected.push(`phase ${name} started: done ${localTime(new Date(at(i + 1, -30)))} run state`);
+      expected.push(`phase ${name}: done ${localTime(new Date(at(i + 1)))} ${planning ? "session" : "run state"}`);
+    });
+    expect(expected).toHaveLength(25);
+    expect(r.stdout.split("\n").filter((l) => l.startsWith("phase "))).toEqual(expected);
+  });
+
+  it("prints a planning phase as skipped when no session shows its close", async () => {
+    const s = setup({ calls: fullCalls().filter((c) => !c.command.includes("code-map")) });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("phase code-map: skipped\n");
+    expect(r.stdout).toContain("phase questions: done ");
+  });
+
+  it("prints a planning phase as out of order when its call comes before the call of the phase before it", async () => {
+    const calls = fullCalls().map((c) => (c.command.includes("dependencies") ? { ...c, time: at(7) } : c));
+    const s = setup({ calls });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain(`phase code-map: out of order ${localTime(new Date(at(3)))} session\n`);
+  });
+
+  it("prints a start as skipped when the run state has no startedAt", async () => {
+    const phases = fullPhases();
+    delete phases.review!.startedAt;
+    const s = setup({ phases });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("phase review started: skipped\n");
+    expect(r.stdout).toContain("phase review: done ");
+  });
+
+  it("prints retro as skipped when it was done before ready", async () => {
+    const phases = fullPhases();
+    phases.retro!.doneAt = at(1);
+    const s = setup({ phases });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("phase retro: skipped\n");
+  });
+
+  it("prints a phase done before the phase before it as out of order", async () => {
+    const phases = fullPhases();
+    phases.briefing!.doneAt = at(1);
+    const s = setup({ phases });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain(`phase briefing: out of order ${localTime(new Date(at(1)))} run state\n`);
+  });
+
+  it("prints a phase as skipped when the run state says it is done but no call shows it", async () => {
+    const s = setup({ calls: [{ time: at(1), command: "cstack next --done ticket" }] });
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain("phase dependencies: skipped\n");
+  });
+
+  it("still prints every line when a session file cannot be read, with a fixed sentence and no path", async () => {
+    const s = setup();
+    const folder = join(s.home, ".claude", "projects", "p");
+    mkdirSync(join(folder, "dir.jsonl"));
+    const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toBe("cstack audit: some session files could not be read, so some steps may show as skipped.\n");
+    noPath(r.stderr, s);
+    expect(r.stdout.split("\n").filter((l) => l.startsWith("phase "))).toHaveLength(25);
   });
 
   it("refuses a missing guide", async () => {
