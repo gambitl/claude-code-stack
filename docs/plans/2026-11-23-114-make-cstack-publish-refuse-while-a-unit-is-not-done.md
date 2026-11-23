@@ -258,7 +258,39 @@ The independent reviewer changed nothing and found no bug, no security problem a
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+`cstack publish` now refuses, before any fetch or push, while a unit of the plan has no commit with its trailer and no `Blocked` line. It names each such unit with the same sentence as the build check, and it lists it with the other broken rules, with exit code 1. When it cannot read the commits, for example because the local `main` is missing, it refuses too and gives the command that creates the branch. The publish guide and the README say what to do in that case. So it does what the ticket asked. The six new test cases pass, the whole publish test file passes, and the type check passes.
+
+**What you need to do**
+
+Merge the pull request yourself once the checks are green. Nothing else needs a decision from you.
+
+**What to watch**
+
+- The end-to-end test that runs without Orca (`cstack/test/e2e/no-orca.test.ts`) timed out locally, even when run alone. It passed with a longer timeout, and it does not touch publishing. If the check on GitHub fails there, look at the timeout first, not at this change.
+- The plan format ticket (#98) works in `cstack/src/plan/` at the same time. One new test breaks `git log` only through the environment of the process. That works because the function that reads the unit commits ignores the environment the tests pass in. If #98 changes that function, this test must change with it.
+- The new path of the publish guide, which builds a forgotten unit during publishing, has never run for real, because this run uses the installed 0.3.2. The first time it happens, check that the pull request body and the briefing describe the new unit.
+
+#### Details
+
+Unit 1 (commit 26649aa) narrows `buildDone` in `cstack/src/phases.ts` (line 71) to `Pick<PhaseContext, "plan" | "commits">` and calls it from `brokenRules()` in `cstack/src/commands/publish.ts` (lines 82 to 89), right after the `Ready for review at` rule. A `PlanFormatError` from `listUnitCommits()` becomes one more broken rule, and the `git branch --track <target> origin/<target>` advice appears only when `git rev-parse --verify --quiet refs/heads/<target>` fails. Any other error is thrown again. The test helper `makePublishEnv()` (`cstack/test/helpers/publish-env.ts`, lines 121 to 123) now commits units 1 and 2 of the shared fixture, and the fixture itself did not change. The six cases of the new `describe` block in `cstack/test/publish.test.ts` match the six cases of the plan one for one. Unit 2 (commit 66ab586) adds the paragraph under "Exit code 1" of `cstack/guides/resolve-issue/publish.md` and its pointer in line 9, and one sentence to the `cstack publish` paragraph of `README.md`. The block of mandatory steps of the guide did not change, as ADR-RQG-C asks for a refusal path. The build followed the plan, and no earlier answer turned out differently.
+
+All the earlier questions were built as answered. Question 1 (the error of `listUnitCommits()`) is built as answered: one more broken rule, exit code 1, with the creation command when the local branch is missing. Cases 5 and 6 cover both causes. Question 2 (the narrower type of `buildDone`) is built as answered. Its other caller, the check of the executor's done report in `cstack/src/report/reports.ts` (line 86), still passes a whole `PhaseContext`, which the type check accepts. Question 3 (the prose of the guide) is built as answered, including the correction of the pull request body and the briefing, and the extra sections to read. The test case added in the question round, with `origin/main` kept and the local `main` deleted, is case 5. The question about `cstack next --done ready` stays open and non-blocking, as `## Non-blocking questions` records.
+
+The gap that this ticket closes is narrow. The executor's done report at the end of the `ready` phase already runs `buildDone` (`cstack/src/report/reports.ts`, line 86). So the new rule of `cstack publish` catches exactly the case of #89: a unit added after `ready`, during the retrospective or the audit of the main conversation. Implementer reports are saved under `units/<n>/reports` and do not count as executor done reports (`cstack/src/report/reports.ts`, lines 192 and 272), so building a unit during the publish phase does not make the `publishStart` check refuse later.
+
+The end-to-end test `cstack/test/e2e/no-orca.test.ts` is the one check result to watch. The executor notes record that it timed out at five seconds in its Orca chain cases, also when run alone, while the other failing files passed alone. The independent reviewer reran the files that timed out with a longer timeout, and they passed. This file is not in the diff. If the GitHub check fails on it, the first step is to rerun the check or the file alone. If it fails on `main` too, it belongs to another ticket.
+
+The plan format ticket (#98) can break one of the new cases. Case 6 sets `GIT_CONFIG_*` with `vi.stubEnv()` so that only `listUnitCommits()` sees a broken `log.date`. It works because `listUnitCommits()` runs git with `process.env` (`cstack/src/plan/commits.ts`, line 12), while every other git call of `cstack publish` uses `deps.env`. #98 owns `cstack/src/plan/`. If it makes `listUnitCommits()` take an environment, case 6 must pass its broken setting through that environment instead. If #98 renames `PlanUnit.blocked` or the shape of `UnitCommits.units`, the type check of `buildDone` will show it after the branch update. By default, whichever of the two branches merges second fixes the break during its branch update.
+
+The new paragraph of the publish guide has not run yet. This run publishes with the installed `cstack` 0.3.2, which has no unit rule, so the decision of the run to check `cstack plan status` before `cstack publish` still applies here. The paragraph under "Exit code 1" will run for the first time after the release of milestone R3. The steps most likely to be skipped are the correction of the `## Pull request` body and of the "Briefing". The agent has to commit its edits to the plan file before the next `cstack publish`. If it does not, the rule about uncommitted tracked files refuses, so that mistake corrects itself.
+
+One small follow-up stays, and it is not a question. When neither the local `main` nor `origin/main` exists, the new line advises `git branch --track main origin/main`, which then fails. The home folder line in the same message gives the right first step, `git fetch origin main`. The user fixed the advice text in question 1, so it stays, and the correctness review recorded it as a follow-up. `cstack publish` also now needs a local copy of the target branch, where `origin/<target>` alone was enough before. The user decided this in question 1. A run that reached publishing always had a local target branch, because the build check reads the commits the same way.
+
+This ticket keeps one known weakness. `listUnitCommits()` compares with the upstream of the local target branch, or the local branch itself, and it reads them before `cstack publish` fetches. When that base is older than the base of the ticket branch, commits of other tickets with a `Cstack-Unit` trailer can count as done. This can only make the rule too lenient, never refuse a correct plan. The build check and `cstack plan status` share it.
+
+I checked security and authorization, data model lock-in, scale and performance, user-facing edge cases beyond the two error messages above, operations and cost, and reversibility, and found nothing in them for this ticket.
 
 ## Non-blocking questions
 
