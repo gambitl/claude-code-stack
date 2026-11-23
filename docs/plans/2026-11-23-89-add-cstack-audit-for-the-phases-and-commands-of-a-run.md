@@ -183,7 +183,7 @@ The only blocker is #86, which is closed as completed. Its pull request #110 is 
 - In `cstackCommands()`, the words before the program are skipped when they are assignments, such as `CSTACK_ORCA_WORKERS=off`, or one of `!`, `{`, `if`, `then`, `do`, `else`, `elif`, `while`, `until`, `time`, `command`, `exec` and `env`. A redirection word is dropped from the arguments: a word that starts with an optional number and then `>`, `>>`, `<`, `>&`, `<&`, `&>` or `>|`. When the operator is the whole word, the next word is its target and is dropped too. So `echo "cstack next"` and `node cstack/dist/bin.js next` are not calls, a `cstack` command inside `$(...)` is a call, and `cstack unit red $n` keeps the word `$n`. No package is added. (decided in the plan)
 - `cstack/src/audit/match.ts` exports `stepWords(text: string): string[]` and `matchesStep(step: string[], call: string[], unit?: number): boolean`. `stepWords()` splits the text of a step after `cstack ` into words. It removes quotes, and it keeps a placeholder such as `<plan file>` as one word even when it holds a space. A placeholder is a word that matches `^<[^<>]+>(\.\.\.)?$`. (decided in the plan)
 - `matchesStep()` compares the words before the first word that starts with `-`. A fixed word must be equal. A placeholder matches any one word, except `<n>` when a unit is given, which must equal the unit number. A placeholder that ends with `...`, such as `<n>...`, matches one or more words, and with a unit given, the unit number must be one of them. The call must have exactly as many words before its first flag as the step needs. (the user, on 2026-11-23)
-- In `matchesStep()`, a step flag followed by a fixed value, such as `--done build` or `--to "in progress"`, must appear in the call with that value, either as two words or as `--done=build`. A step flag followed by a placeholder, such as `--plan <plan file>`, is optional. A step flag followed by another flag or by nothing must appear in the call. The call may hold any other flag. The match never uses the command list of the installed `cstack`, because milestone R2 removes commands that older runs used. (the user, on 2026-11-23)
+- In `matchesStep()`, a step flag followed by a fixed value, such as `--done build` or `--to "in progress"`, must appear in the call with that value, either as two words or as `--done=build`. A step flag followed by a placeholder, such as `--plan <plan file>`, is optional. There is one exception: in a step that repeats per unit, a flag followed by `<n>`, such as `--unit <n>`, has the unit number as its fixed value, so for unit 2 the call must hold `--unit 2` or `--unit=2`. A step flag followed by another flag or by nothing must appear in the call. The call may hold any other flag. The match never uses the command list of the installed `cstack`, because milestone R2 removes commands that older runs used. (the user, on 2026-11-23; the exception for `<n>` added by the user after the audit of this run, on 2026-11-23)
 - The audit lists, for each guide, the `command` steps whose condition is empty, `each-unit` or `each-unit-with-test`. It leaves out the `helper` steps, the `action` steps and every step with another condition, because #90 evaluates them. `each-unit` repeats the step for every unit of the plan, blocked units included. `each-unit-with-test` repeats it for every unit that has a `Test` line (`test` in `PlanUnit`, `cstack/src/plan/read.ts`, line 92). In a repeated step, the text `<n>` is replaced by the unit number, both for the match and in the output. (the user, on 2026-11-23)
 - The steps listed for one guide form segments in the order of the block. A step that does not repeat is a segment of its own. A run of consecutive repeated steps is one group segment. (decided in the plan)
 - A step that does not repeat must come after the segment before it. When that segment is a single step, that step precedes it. When it is a group, the last step of every unit in that group precedes it. A repeated step of unit `u` must come after the step of unit `u` just before it in the same group. When it is the first step of unit `u` in its group, the segment before the group precedes it, in the same way. (the user, on 2026-11-23; written out in the plan)
@@ -204,6 +204,8 @@ The only blocker is #86, which is closed as completed. Its pull request #110 is 
 - The test guides are written by the test code into a temporary folder with the layout `resolve-issue/<phase>.md`. The guide of `build` is a copy of `cstack/test/fixtures/steps-block/guides/resolve-issue/build.md`. The other 14 guides are written in `cstack/test/audit.test.ts` with the blocks listed under Unit 5. (decided in the plan)
 - Each new test file loads the module it tests with a dynamic `import()` inside each case, through one small helper, as `cstack/test/guide-steps.test.ts` does. A unit that adds an export to an existing module may import it statically. (decided in the plan, from the retrospective of #86)
 - Each refusal of `cstack audit` has its own test case, and each such case also checks that standard error holds no path of the test. (decided in the plan, from the retrospective of #86)
+- The executor builds unit 9 in the `publish` phase, before it runs `cstack publish`. It starts one implementer for unit 9 as the build guide says, waits for it, and checks with `cstack plan status --plan <plan file>` that unit 9 has its commit. Then one correctness reviewer reads the commit of unit 9 alone, the executor writes the result under `## Review log` and commits the plan file. Only then does it run `cstack publish`. (the user, on 2026-11-23, after the audit of this run)
+- This pull request does not fix two false verdicts that the audit of this run showed on the `cstack helper` steps. The plan line `cstack helper wait <helper id>` takes the first wait of the executor when the executor is a sub-agent, and the wait of a unit added after the build phase shows as out of order. Ticket #112 fixes both. (the user, on 2026-11-23, after the audit of this run)
 
 ## Architecture
 
@@ -319,6 +321,17 @@ This unit also holds the privacy cases of the ticket, in `describe("nothing priv
 
 This is its own test case: the calls of a full run, except that the plan `cstack helper wait <helper id>` and the retro `cstack helper wait <helper id>` are moved to a time after the close of the phase before the retro phase starts, for the plan one, and to a time after the close of `publish`, for the retro one. Both lines are done, the plan wait comes after the plan `cstack helper start executor`, and the exit code is 0. Every test that passes today must keep passing.
 
+### Unit 9: Require the unit number in a flag of a repeated step
+
+- Files: `cstack/src/audit/match.ts`, `cstack/test/audit-match.test.ts`
+- Test: `cstack/test/audit-match.test.ts`: with unit 2, `matchesStep()` refuses a call with `--unit 3` and a call without `--unit` for the step `cstack helper start implementer --plan <plan file> --unit <n>`
+- Minimum code: In `matchesStep()` of `cstack/src/audit/match.ts`, when a unit is given and a step flag is followed by `<n>`, the flag becomes required with the unit number as its value, as two words or as `--unit=2`. A flag followed by another placeholder stays optional.
+- Refactor: none.
+- Commit message: fix(cli): require the unit number in a flag of a repeated step in cstack audit
+- Depends on: 8
+
+Each refusal is its own test case under `describe("matchesStep refuses")`, and each one fails before the code. The step words come from `stepWords("helper start implementer --plan <plan file> --unit <n>")`. One call holds `helper start implementer --plan p.md --unit 3`, and the other holds `helper start implementer --plan p.md`. Do not add a case that already passes before the code, such as `--unit 2` for unit 2, because it cannot fail first. Every test that passes today must keep passing.
+
 ## Documentation duties
 
 - README: applies, written to the command list of `README.md` by Unit 5: the count of commands and one bullet for `cstack audit`.
@@ -344,6 +357,11 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 The step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the case when Orca workers are off. The wait runs after the executor closed later phases, so it falls outside the window of Question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. A fix is to end the window of a phase at the next close of a phase that runs in the same place, so plan ends at the close of retro. That changes the rule you accepted, so I did not do it. Do you want this change, in this pull request or in a follow-up ticket?
 - For: the user
 - Answer: yes, in this pull request, with a test where each wait comes after the closes of the executor. The window of a phase ends at the next close of a phase that runs in the same place. The user, in the chat, on 2026-11-23.
+
+### Question 4: A flag with the unit number in a repeated step
+Before the pull request opened, the audit ran on this run with the guides of `main`, which #88 filled. In a step that repeats per unit, `matchesStep()` treats a flag whose value is `<n>` as optional, because `<n>` is a placeholder (`cstack/src/audit/match.ts`, line 76, and `cstack/src/audit/evaluate.ts`, line 99). The step `cstack helper start implementer --plan <plan file> --unit <n>` of `build.md` then matches any implementer start, and the eight unit lines of this run showed the time of the start of unit 1. `## Decisions` says that `<n>` is replaced by the unit number for the match too. Fix it in this pull request with a ninth unit, before publishing?
+- For: the user
+- Answer: yes, in this pull request, with unit 9 built before `cstack publish`. The two other false verdicts that the same audit showed go to ticket #112. The user, in the chat, on 2026-11-23.
 
 ## Review log
 
@@ -405,7 +423,7 @@ Areas checked with nothing more to raise: security and tenant isolation (the aud
 
 ## Non-blocking questions
 
-- For the user or the worker of #88: once the build guide holds a `cstack helper wait <helper id>` step for each implementer, should the plan line of the audit stop taking that wait as its call? The plan line could print a false "done" with the time of the first implementer wait. It is best checked on the first real audit run, and fixed in a follow-up ticket if it shows.
+none
 
 ## Pull request
 
@@ -422,6 +440,7 @@ Each run is judged with the guides of the version that the run used. The option 
 
 - The audit looks for the call of a step only inside a window of its phase. The window starts at the close of the earlier phase. It ends at the next close of a phase that runs in the same place. This way a helper wait that comes after the executor closed later phases is still found, as it is when the executor is a sub-agent.
 - A step takes the first matching call that comes after the steps that must precede it. A placeholder followed by `...`, such as `<n>...`, matches one or more words.
+- In a step that repeats for each unit, a flag whose value is `<n>`, such as `--unit <n>`, must hold the number of that unit.
 - `cstack measure` and the audit share the session selection, now in `findRunFiles()`. The tests of `cstack measure` pass without any change.
 - The output is an interface for the tickets #90 and #91. A later change to its lines, verdicts or exit codes must update both.
 - The audit prints no text from a session and no path. Tests check this.
@@ -433,14 +452,11 @@ The new code is in `cstack/src/audit/` (the shell reader, the call reader, the m
 ## Judgment calls from the reviews
 
 - The shell reader does not see `cstack` behind `timeout`, `npx` or a full path. Such a call shows as skipped, never as done.
-- The real guides have no block of mandatory steps yet. So `cstack audit` without `--guides` exits with 3 until #88 merges. The README says so.
-- No real run has been audited yet, because every test session is written by hand. After #88 merges, run the audit on a real run with `--guides` before #91 relies on it.
+- A guide with no block of mandatory steps makes `cstack audit` exit with 3. Since #88 merged, the guides of `main` all have a block.
 
-## Open questions, not needed for this pull request
+## The audit of this run
 
-This pull request can be merged without their answers.
-
-- For the user or the worker of #88: once the build guide holds a `cstack helper wait <helper id>` step for each implementer, should the plan line of the audit stop taking that wait as its call? The plan line could print a false "done" with the time of the first implementer wait. It is best checked on the first real audit, and fixed in a follow-up ticket if it shows.
+Before this pull request opened, the audit ran once on its own run, with the guides of `main` after #88 merged. It judged the 15 phases and almost every required command correctly. It found one real gap: the executor never ran `cstack unit collect`, which the build guide asks for after each batch. It also showed a bug in this branch, where a flag such as `--unit <n>` did not need the unit number. Unit 9 fixes that bug. It showed two false verdicts on the `cstack helper` steps too, and #112 fixes them.
 
 Fixes #89
 ````
