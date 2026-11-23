@@ -341,11 +341,12 @@ Is this the list of conditions you want, and do the two steps that depend on Cla
 
 ## Executor notes
 
-<executor>
+- The unit 4 implementer reported that `withoutBlock()` called `readSteps()`, so any invalid step stopped a guide from printing. The plan says it only checks that the block closes. I fixed it in a follow-up commit (evidence: `cstack/src/guide-steps.ts`, `withoutBlock()`).
+- `cstack unit green` warned for units 1 and 2 that the test file changed since the red run. The implementers had made weak tests stricter after the break checks.
 
 ## Hand-off log
 
-<executor>
+- 2026-11-23, executor, build phase: moved #86 to "in progress", committed the plan file, built units 1 to 4 one at a time with `CSTACK_ORCA_WORKERS=off` sub-agents, and fixed `withoutBlock()` to match the plan. The full `npm test` passed (1552 tests) before the fix, and the six affected test files passed after it.
 
 ## History
 
