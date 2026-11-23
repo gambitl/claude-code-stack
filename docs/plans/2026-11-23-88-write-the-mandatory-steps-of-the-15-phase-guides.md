@@ -463,6 +463,43 @@ The independent reviewer found no bug and changed nothing. The full suite passes
 
 ## Briefing
 
+### What you should know about what was built
+
+The branch adds a block of mandatory steps at the top of all 15 phase guides, without changing a word of their prose. It also adds a test that fails when a phase guide has no block, makes four test files read a guide the way `cstack guide` prints it, and adds a section to ADR-RQG-C about how a block picks its steps. It does what the ticket asked. I ran the new test, the manifest test, the size test, the ticket-read test and the end-to-end tests again, and all 108 cases pass.
+
+**What you need to do**
+
+**Confirm two choices that the independent reviewer left for you. I recommend keeping both as they are.** First, the block of `document.md` does not list the decision records, although the guide says that an undocumented ticket is not done. That follows the rule you approved: the step applies only when there is a big decision, and none of the seven conditions can say that. Second, line 135 of the plan file names two private folders of your home, copied from the brief. Three older plans on `main` already name both, and the private-names check passes.
+
+**What to watch**
+
+- Once this branch and the one that adds `cstack audit` (#89) are both on `main`, run `cstack audit` once on a real plan, such as this one. The tests of the audit only use made-up guides, so nothing has tried it on these 15 real blocks yet. The audit also refuses any guide without a block, so if #89 merges first, it fails on every plan until this branch merges.
+- No test notices when someone adds a mandatory step to the prose of a guide and forgets its block. Milestone R2 rewrites five guides, and the new section of ADR-RQG-C is the only guard there.
+
+**What changed since the plan**
+
+The block of `build.md` now also waits for the escalated implementer, because the correctness reviewer saw that the guide needs its report.
+
+#### Details
+
+The build matches the plan. All 15 guides in `cstack/guides/resolve-issue/` start with `<!-- mandatory steps` at byte 0, and `git diff main...HEAD -- cstack/guides` removes no line, so the prose is unchanged. The new file `cstack/test/guides/steps-blocks.test.ts` holds the three cases of the plan. `cstack/test/skill-size.test.ts`, `cstack/test/guides/ticket-read.test.ts`, `cstack/test/e2e/chain.ts` and `cstack/test/e2e/resolve-issue.test.ts` read a guide through `withoutBlock()`. The forbidden-word tests still read the raw files, as decided. ADR-RQG-C has the new section "How a block chooses its steps" before "Consequences". On 2026-11-23 I ran `steps-blocks.test.ts`, `manifest.test.ts`, `skill-size.test.ts`, `ticket-read.test.ts` and `test/e2e/`, and the 7 files passed with 108 cases. The review log reports the full suite at 119 files and 1600 tests, with a clean type check. Every commit carries the no-reply address.
+
+The block of `document.md` leaves out the section "Record every big decision" of that guide: the decision records, the `WHY:` comments and their commit. The guide's opening says that an undocumented ticket is not done, so a reader may take these as mandatory. The section applies only when a big decision exists, and none of the seven conditions of `cstack/src/guide-steps.ts` describes that. So the omission follows the accepted rule in `## Decisions` ("A step that the prose makes conditional is left out, unless one of the seven conditions describes its condition"). Adding a condition would change `cstack/src/guide-steps.ts`, which the decisions of this ticket forbid. If nobody decides, the block stays as it is and the pull request mentions the point. A question for later is below.
+
+Line 135 of this plan file names `~/comparison/` and `~/review-candidates/`. Line 140 of the same file says that no text names a path from this machine, the plan file included. The text came word for word from the brief. On `main`, three older plans already name both folders, among them `docs/plans/2026-11-20-79-make-cstack-publish-refuse-the-home-folder-path.md` (line 139). Nineteen plans on `main` name the first one. So removing it here would hide nothing that is not already public. The private-names check and the home-path test pass. The rejected option is to replace the two names with "the private work folders", which costs one line but gains nothing. If nobody decides, the line stays.
+
+I read the branch of #89 at commit `c19fe55` in its worktree. `cstack/test/audit.test.ts` copies the fixture guide of #86 (lines 57, 81 and 173 to 176) and never reads the real guides. `cstack/src/commands/audit.ts` (line 86) exits with 3 when a guide has no block. So until both branches are on `main`, nothing exercises the audit on the 15 real blocks, and if #89 merges first, the audit refuses every plan until #88 merges. Nothing is released before the end of milestone R3, so no user sees that state. The two branches change no file in common, so they will not conflict. I also read `cstack/src/audit/match.ts` on that branch. `stepWords()` removes quotes, so `'<key>'` and `--to "in progress"` match the calls. A `<n>...` placeholder matches one or more words and must include the unit number. A flag with a placeholder value is optional, as the decisions say. So I see no mismatch in the blocks, but only a real run of `cstack audit` on a finished plan proves it.
+
+The guard against drift is weak. `cstack/test/manifest.test.ts` (`scanSteps()`) catches a block that names a missing command or helper. `steps-blocks.test.ts` catches a guide with no block, or a block without the command that closes its phase. Nothing catches a new mandatory step in the prose without a line in the block. Section 4 of the specification sets the rule, and milestone R2 rewrites `build.md`, `plan.md`, `publish.md`, `ready.md` and `retro.md`. The reviewers of those tickets need to read each block next to its guide, with the new section of ADR-RQG-C as the reference.
+
+One thing changed since the plan. The correctness reviewer found that the block of `build.md` had no wait for the escalated implementer, although the prose needs its report. Commit `66df12d` added `command: cstack helper wait <helper id> | each-stuck-unit` after the escalation, and the block text of Unit 2 in this plan follows it. The conventions reviewer asked for the second commit of the plan file at the end of `build.md`. That was not changed, because the user had decided to leave it out.
+
+The earlier questions are all resolved. Blocking questions 1, 2 and 3 were answered by the user as recommended, and the build follows them. The question for the coordinator about how #89 matches the steps got its answer through the coordinator: the audit looks for a step only inside its own phase, takes the first matching call after the steps before it, and reads `<n>...` as one or more words (`## Decisions`, lines 146 to 148). The code of #89 that I read agrees. The note for #90 about the `action` steps and the four reviewers was posted by the coordinator with the user's approval. The three points that I accepted by default before the plan were all built: the short form of `cstack unit red`, `green` and `commit`, the end-to-end checks that read the text without the block, and the new section of ADR-RQG-C.
+
+New question, non-blocking, for the maintainer, about the ticket that evaluates the conditions (#90) or milestone R2, to go in English under the non-blocking questions of the pull request: "The block of `document.md` does not list the decision records or the `WHY:` comments, because they apply only when a run has a big decision, and none of the seven conditions says that. Should #90 or milestone R2 add a condition for it, such as `big-decision`, so that the audit can check that a run recorded its decisions?" The work of #88 is complete whatever the answer.
+
+I checked security and authorization, data model lock-in, scale, operations and cost, user-facing output and reversibility, and found nothing there: the change is text at the top of guides and tests, the printed guides do not change, and a plain revert undoes it.
+
 ## Non-blocking questions
 
 none
