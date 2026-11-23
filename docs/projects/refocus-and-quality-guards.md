@@ -65,7 +65,9 @@ Only the token and time results are published as figures. The other measures are
 - When the quality fails, or when one of the three causes comes back, the guard concerned is reworked before anything else.
 - When the audit finds a skipped step, that step gets a guard or a fix in its guide.
 
-**Why the token measure is at risk.** The average cache read gap between runs 3 and 4 and the baseline was about 6.9 million tokens. The starting context of the Orca workers explains about 4.5 million of it, and this project removes those workers. About 2.4 million tokens remain unexplained, and the guards add work. US-2 looks for that cause before the refocus starts.
+**Why the token measure is at risk.** The average cache read gap between runs 3 and 4 and the baseline was about 6.9 million tokens. #87 (US-2) split it by agent. The larger start of the Orca workers explains about 2.3 million of it, and R2 removes those workers. R2 also removes the extra answers that start, wait for and collect each implementer, which are about 1 million more. About 3.5 million would stay. They come from finer units, from the work that the executor does itself, from its bookkeeping with `cstack next --done`, and from the context that the helpers gather. The guards of R3 add work too. #107 and #108 take up part of what stays.
+
+An earlier version of this page said that the workers explained about 4.5 million tokens. That figure counted the lines of the session files instead of the answers of the model.
 
 ## 3. Personas
 
@@ -216,6 +218,8 @@ As the maintainer, I want two runs of the new version on the same ticket copy, m
 6. An audit of the steps of a run.
 7. An investigation of the extra tokens of runs 3 and 4.
 8. Runs 5 and 6, their blind review and the decision.
+9. A lighter executor, with fewer answers spent on bookkeeping and less reading (#107).
+10. Every unit built by an implementer, including a unit with no test, and an audit that reports a unit that no implementer ran (#108).
 
 **Out of scope**
 
@@ -237,7 +241,7 @@ This repository is public. No text in it or in its issues names an employer or a
 
 **R1 Measure what escapes.** This milestone builds the audit and finds where the rest of the extra tokens came from, before anything changes. It carries US-1 and US-2. The audit must judge runs 3 and 4 against the steps of the current guides, so it comes before the refocus changes those steps. Both results can change the next milestones. For example, a step that runs 3 and 4 skipped may need one more guard in R3. R1 starts from `main`, which already holds version 0.3.2 with #79 and #80. R1 blocks R2.
 
-**R2 Refocus cstack on resolve-issue.** This milestone removes the orchestration layer and adapts the guides to the flow of section 1. It carries US-3, US-4 and US-5. It needs R1.
+**R2 Refocus cstack on resolve-issue.** This milestone removes the orchestration layer and adapts the guides to the flow of section 1. It carries US-3, US-4 and US-5, and the two tickets that #87 added, #107 and #108. It needs R1.
 
 **R3 Quality guards.** This milestone adds the three guards. It carries US-6, US-7 and US-8. Its code tickets need only R1, so they can start while R2 runs. Its last ticket changes the `build` and `plan` guides, so that ticket waits for the guide tickets of R2. R3 ends with the release that runs 5 and 6 use. It blocks R4.
 
@@ -306,6 +310,7 @@ No design surface. This project changes a command-line tool and prose only.
 - **An audit that stops a run.** It was rejected. The guides and the commands already stop a run, and the audit measures what still escapes them.
 - **A new command that lists the ready tickets.** It became an option of `cstack tracker list`, because listing tickets is a tracker read.
 - **Input tokens as a reason to stop.** The token measure keeps the four kinds, but the input tokens alone cannot trigger the stop.
+- **Fewer units per plan.** #87 found that the finer units of runs 3 and 4 cost about 1.2 million cache read tokens per run. The maintainer kept the size of the units, because the blind review does not show that fewer units would be better. Run 3 ranked first and run 4 last, with the same number of units.
 
 ## 11. Glossary
 
