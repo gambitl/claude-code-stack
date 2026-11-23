@@ -1,3 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { matchMention } from "./manifest.js";
+
 export const STEP_KINDS = ["command", "helper", "action"] as const;
 export type StepKind = (typeof STEP_KINDS)[number];
 
@@ -114,4 +118,24 @@ export function withoutBlock(text: string, name: string): BlockFreeResult {
   const closing = text.search(/^-->\r?\n?/m);
   const after = text.slice(closing).replace(/^-->\r?\n?/, "");
   return { ok: true, text: after.replace(/^\r?\n/, "") };
+}
+
+/** The problems of the steps: a command that does not exist, a helper with no prompt, a word that its prompt does not hold. */
+export function stepProblems(steps: Step[], name: string, skillsRoot: string): string[] {
+  const problems: string[] = [];
+  for (const step of steps) {
+    if (step.kind === "command") {
+      const result = matchMention(step.command.slice("cstack ".length));
+      if (!result.ok) problems.push(`${name}, line ${step.line}: the command "${step.command}" does not exist (${result.reason}).`);
+    } else if (step.kind === "helper") {
+      const [skill, helper] = step.helper.split(":") as [string, string];
+      const prompt = join(skillsRoot, skill, "agents", `${helper}.md`);
+      if (!existsSync(prompt)) {
+        problems.push(`${name}, line ${step.line}: the helper "${step.helper}" has no prompt. Expected skills/${skill}/agents/${helper}.md.`);
+      } else if (step.word !== undefined && !new RegExp(`(?<![a-z0-9-])${step.word}(?![a-z0-9-])`).test(readFileSync(prompt, "utf8"))) {
+        problems.push(`${name}, line ${step.line}: the word "${step.word}" is not in the prompt skills/${skill}/agents/${helper}.md.`);
+      }
+    }
+  }
+  return problems;
 }
