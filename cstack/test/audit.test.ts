@@ -651,6 +651,18 @@ describe("cstack audit steps of the main conversation", () => {
     }
     noPath(r.stdout, s);
   });
+
+  it("prints the sentence about unreadable files before the sentence about the missing close of the ticket phase", async () => {
+    const calls = mainCalls().filter((c) => c.command !== "cstack next --done ticket --plan docs/plans/audit.md");
+    const s = setup({ calls });
+    mkdirSync(join(s.home, ".claude", "projects", "p", "dir.jsonl"));
+    const r = await run(s);
+    expect(r.stderr).toBe(
+      "cstack audit: some session files could not be read, so some steps may show as skipped.\n" +
+        "cstack audit: no session file holds the close of the ticket phase, so the steps of the main conversation may show the calls of another agent.\n",
+    );
+    expect(r.code).toBe(1);
+  });
 });
 
 describe("cstack audit units built after the build phase", () => {
