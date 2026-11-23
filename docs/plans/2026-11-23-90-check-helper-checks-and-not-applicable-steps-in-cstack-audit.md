@@ -330,6 +330,17 @@ The block of `build.md` lists `cstack helper start implementer-escalation` and a
 - No `WHY:` or `DECISION:` comment conflicts with the change. ADR-RQG-C is followed, as the Decisions of the plan say.
 - Windows of helper steps overlap like those of command steps, so a launch in the plan phase can serve an earlier step of the same type. The plan rules produce this.
 
+### Reviewers (review phase)
+
+The four reviewers found no bug, no security issue and no broken convention.
+
+Fixed: `commandsOf()` now takes `readonly string[]`, as the plan writes it. A dummy initial value of `planText` in `audit.ts` was removed.
+
+Not changed, recorded as follow-ups:
+- The simplicity reviewer suggests merging the two chaining loops (ticket group and unit group) and the two pick-and-take sequences (command and helper branches) in `evaluate.ts`. This is a cleanup of about 20 lines, and it carries risk for little gain, so it is left for later.
+- The sentence "No new decision since the question round" is searched in the whole plan text, so a plan that only quotes it hides the `plan-delta` step. This follows the decision of the plan.
+- Overlapping windows can blame a missing launch on the wrong line, for example the briefing line instead of the plan-delta line. The exit code is still 1. The plan rules produce this.
+- The `cstack audit` paragraph of the README is one long block. It was one block before this branch.
 
 ## Briefing
 
