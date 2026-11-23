@@ -45,7 +45,7 @@ The blocks will name no `resolve-issue:code-explorer` step and no `resolve-issue
 
 The reader is `readSteps()` in `cstack/src/guide-steps.ts`. It takes the text of a guide and a name for its messages, never a path, so the audit can read a guide from an older commit. It stops at the first problem and says the line of that problem. The same module checks that each command exists and that each helper has a prompt.
 
-`cstack guide` and `cstack next` leave the block out when they print a guide, because the block is for programs and not for the agent that reads the guide. When the block is not valid, they print nothing on standard output and exit with code 3.
+`cstack guide` and `cstack next` leave the block out when they print a guide, because the block is for programs and not for the agent that reads the guide. When the block never closes, they print nothing on standard output and exit with code 3. They do not check the steps, so that a run never gets stuck on a guide that it cannot print.
 
 ## Consequences
 
