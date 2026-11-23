@@ -2,6 +2,8 @@
 // reports of vitest and pytest only use a small part of XML, so one linear pass is enough.
 // WHY: a <!DOCTYPE> is refused, so no entity can be defined or expanded by the report itself.
 
+import { quote } from "./settings.js";
+
 export type CaseOutcome = "passed" | "failed" | "error" | "skipped";
 
 export interface TestCase {
@@ -18,15 +20,9 @@ export class ReportError extends Error {
   }
 }
 
+// WHY: a name is looked up with Object.hasOwn, so "constructor" or "__proto__" is an unknown entity.
 const NAMED: Record<string, string> = { lt: "<", gt: ">", amp: "&", quot: '"', apos: "'" };
 const NAME = /[A-Za-z_:][\w.:-]*/y;
-
-// A value quoted in a message: escaped by JSON.stringify and cut, so a terminal escape cannot get through.
-function quote(v: string): string {
-  let t = JSON.stringify(v);
-  t = t.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
-  return t.length > 60 ? `${t.slice(0, 60)}...` : t;
-}
 
 function allowed(cp: number): boolean {
   return cp === 9 || cp === 10 || cp === 13 || (cp >= 0x20 && cp <= 0xd7ff) || (cp >= 0xe000 && cp <= 0xfffd) || (cp >= 0x10000 && cp <= 0x10ffff);
@@ -42,6 +38,9 @@ export function readJUnitReport(xml: string): TestCase[] {
   const text = xml.charCodeAt(0) === 0xfeff ? xml.slice(1) : xml;
   if (text.trim() === "") throw new ReportError("The report is empty.");
 
+  // WHY: XML forbids these characters, even written raw, and a name with a terminal escape must not reach a caller.
+  const bad = /[^\t\n\r\u0020-\uD7FF\uE000-\uFFFD\u{10000}-\u{10FFFF}]/u.exec(text);
+
   let pos = 0;
   let line = 1;
   let counted = 0;
@@ -55,18 +54,21 @@ export function readJUnitReport(xml: string): TestCase[] {
 
   const decode = (raw: string, p: number): string => {
     if (!raw.includes("&")) return raw;
-    return raw.replace(/&([^;&\s<]*);?/g, (whole, ref: string) => {
-      if (!whole.endsWith(";")) return fail(p, `Bad reference ${quote(whole)}, it has no ";"`);
+    return raw.replace(/&([^;&\s<]*);?/g, (whole, ref: string, offset: number) => {
+      const at = p + offset;
+      if (!whole.endsWith(";")) return fail(at, `Bad reference ${quote(whole)}, it has no ";"`);
       const num = /^#(?:x([0-9A-Fa-f]+)|([0-9]+))$/.exec(ref);
       if (num) {
         const cp = num[1] !== undefined ? parseInt(num[1], 16) : parseInt(num[2], 10);
-        if (!allowed(cp)) return fail(p, `Character reference ${quote(whole)} is not allowed in XML`);
+        if (!allowed(cp)) return fail(at, `Character reference ${quote(whole)} is not allowed in XML`);
         return String.fromCodePoint(cp);
       }
-      const named = NAMED[ref];
-      return named ?? fail(p, `Unknown entity ${quote(whole)}`);
+      const named = Object.hasOwn(NAMED, ref) ? NAMED[ref] : undefined;
+      return named ?? fail(at, `Unknown entity ${quote(whole)}`);
     });
   };
+
+  if (bad) fail(bad.index, `The character ${quote(bad[0])} is not allowed in XML`);
 
   const stack: Open[] = [];
   const cases: TestCase[] = [];
@@ -174,7 +176,7 @@ export function readJUnitReport(xml: string): TestCase[] {
         if (valueEnd === -1) fail(start, `The value of the attribute ${quote(key)} is not closed`);
         const raw = text.slice(valueStart, valueEnd);
         if (raw.includes("<")) fail(start, `The value of the attribute ${quote(key)} holds a "<"`);
-        attrs.set(key, decode(raw, start));
+        attrs.set(key, decode(raw, valueStart));
         pos = valueEnd + 1;
       }
       const el = open(name, attrs, start);

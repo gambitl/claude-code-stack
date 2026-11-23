@@ -134,6 +134,20 @@ describe("readJUnitReport refusals", () => {
     expect(await refusal(wrap('<testcase name="&nbsp;"/>'))).toMatch(/&nbsp;/);
   });
 
+  it("refuses an entity name that is a property of Object", async () => {
+    expect(await refusal(wrap('<testcase name="&constructor;"/>'))).toMatch(/Unknown entity/);
+    expect(await refusal(wrap('<testcase name="&__proto__;"/>'))).toMatch(/Unknown entity/);
+  });
+
+  it("refuses a raw control character in a value", async () => {
+    expect(await refusal(wrap('<testcase name="a\u001b[31mb"/>'))).toMatch(/not allowed/i);
+  });
+
+  it("names the line of a bad entity inside a long text", async () => {
+    const xml = wrap('<testcase name="a"><system-out>one\ntwo\nthree &bogus; four</system-out></testcase>');
+    expect(await refusal(xml)).toMatch(/line 3\b/);
+  });
+
   it("refuses a reference to a code point that XML forbids", async () => {
     expect(await refusal(wrap('<testcase name="a&#0;b"/>'))).toMatch(/not allowed|forbid/i);
   });

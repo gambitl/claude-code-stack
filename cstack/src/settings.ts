@@ -97,7 +97,7 @@ function unknownKeys(obj: Record<string, unknown>, allowed: string[], prefix: st
 }
 
 // A value quoted in a message: escaped by JSON.stringify and cut, so a terminal escape cannot get through.
-function quote(v: unknown): string {
+export function quote(v: unknown): string {
   let t = JSON.stringify(v) ?? String(v);
   t = t.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
   return t.length > 60 ? `${t.slice(0, 60)}...` : t;
