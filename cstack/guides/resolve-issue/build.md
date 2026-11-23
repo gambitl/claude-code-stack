@@ -9,6 +9,7 @@ command: cstack unit green <n> | each-unit-with-test
 command: cstack unit commit <n> | each-unit
 command: cstack helper wait <helper id> | each-unit
 command: cstack helper start implementer-escalation --plan <plan file> --unit <n> | each-stuck-unit
+command: cstack helper wait <helper id> | each-stuck-unit
 command: cstack unit collect <n>... --plan <plan file>
 command: cstack plan status --plan <plan file>
 action: check-the-user-interface | user-interface
