@@ -13,6 +13,7 @@ import { createRun, cstackVersion, readCurrentRun, readState, RunStateError, wri
 import { readSettings } from "../settings.js";
 import { settingsBlock } from "../settings-block.js";
 import { failWith } from "./errors.js";
+import { withoutBlock } from "../guide-steps.js";
 import { readGuide } from "./guide.js";
 
 const USAGE = "Usage: cstack next [--done <phase>] [--phase <phase>] [--plan <file>] [--new]\n";
@@ -42,9 +43,14 @@ function printGuide(io: Io, packageRoot: string, file: string | undefined, name:
     io.stderr(guide.message);
     return 1;
   }
+  const body = withoutBlock(guide.text, `guides/${SKILL}/${name}.md`);
+  if (!body.ok) {
+    io.stderr(`cstack: ${body.message}\n`);
+    return 3;
+  }
   io.stdout(runLine(file, name));
   io.stdout(block);
-  io.stdout(guide.text);
+  io.stdout(body.text);
   return 0;
 }
 

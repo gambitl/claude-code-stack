@@ -1,4 +1,5 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { next } from "../src/commands/next.js";
@@ -36,6 +37,40 @@ describe("cstack next", () => {
     expect(result.stdout).toContain("Run: none yet. Phase 1 of 15: ticket, in the main conversation.");
     expect(markers(result.stdout)).toEqual(["marker-ticket"]);
     expect(existsSync(join(dir, ".git", "cstack"))).toBe(false);
+  });
+
+  it("prints the guide without its block of mandatory steps", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cstack-next-"));
+    try {
+      mkdirSync(join(root, "guides", "resolve-issue"), { recursive: true });
+      writeFileSync(join(root, "guides", "resolve-issue", "ticket.md"), "<!-- mandatory steps\ncommand: cstack next\n-->\n\nGuide of ticket. marker-ticket\n");
+      const dir = makeRepo();
+      const { out, io } = collect();
+      const code = await next([], io, { cwd: dir, packageRoot: root, now: NOW });
+      expect(code).toBe(0);
+      expect(out.stdout).toContain("Run: none yet.");
+      expect(out.stdout).toContain("Guide of ticket. marker-ticket\n");
+      expect(out.stdout).not.toContain("mandatory steps");
+      expect(out.stdout).not.toContain("command: cstack next");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("exits with 3 and names the guide when its block never closes", async () => {
+    const root = mkdtempSync(join(tmpdir(), "cstack-next-"));
+    try {
+      mkdirSync(join(root, "guides", "resolve-issue"), { recursive: true });
+      writeFileSync(join(root, "guides", "resolve-issue", "ticket.md"), "<!-- mandatory steps\ncommand: cstack next\n");
+      const dir = makeRepo();
+      const { out, io } = collect();
+      const code = await next([], io, { cwd: dir, packageRoot: root, now: NOW });
+      expect(code).toBe(3);
+      expect(out.stdout).toBe("");
+      expect(out.stderr).toContain("guides/resolve-issue/ticket.md");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("starts at build for an approved plan and records startedAt", async () => {

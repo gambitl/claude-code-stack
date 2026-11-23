@@ -103,3 +103,15 @@ export function readSteps(text: string, name: string): StepsResult {
     throw error;
   }
 }
+
+export type BlockFreeResult = { ok: true; text: string } | { ok: false; message: string };
+
+/** The guide text without its block of mandatory steps and the empty line after the block. */
+export function withoutBlock(text: string, name: string): BlockFreeResult {
+  const checked = readSteps(text, name);
+  if (!checked.ok) return checked;
+  if (!text.startsWith(`${OPENING}\n`) && !text.startsWith(`${OPENING}\r\n`)) return { ok: true, text };
+  const closing = text.search(/^-->\r?\n?/m);
+  const after = text.slice(closing).replace(/^-->\r?\n?/, "");
+  return { ok: true, text: after.replace(/^\r?\n/, "") };
+}

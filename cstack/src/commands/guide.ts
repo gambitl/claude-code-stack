@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { withoutBlock } from "../guide-steps.js";
 import type { Io } from "../io.js";
 
 const USAGE = "Usage: cstack guide <phase> [--skill <name>]\n";
@@ -70,6 +71,11 @@ export function guide(args: string[], io: Io, options: { packageRoot: string }):
     io.stderr(result.message);
     return 1;
   }
-  io.stdout(result.text);
+  const body = withoutBlock(result.text, `guides/${skill}/${phase}.md`);
+  if (!body.ok) {
+    io.stderr(`cstack: ${body.message}\n`);
+    return 3;
+  }
+  io.stdout(body.text);
   return 0;
 }
