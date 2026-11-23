@@ -298,6 +298,8 @@ Conventions review: no finding. The only note was that the test suite is red bet
 
 Simplicity review: six suggestions, none applied. Replacing the two label checks by one edit call, and keeping the original origin error, would go against decisions the user approved in questions 1 and 3. The version bump is unit 6 of the plan. The change of the ticket guide text is given word for word in the decisions.
 
+Independent review: no bug, no security problem and no broken convention. It changed nothing. The type check and the full `npm test` pass. It raised three judgment calls for the pull request. First, on GitHub any HTTP 404 from the label check reads as "label missing", so a repository that `gh` cannot see gives a misleading message. Second, a clone whose origin uses an SSH host alias refuses every link, so the user writes `'#12'`. Third, the test fix commit uses the scope `test(cli)`, which differs from an older commit.
+
 ## Briefing
 
 ## Non-blocking questions
