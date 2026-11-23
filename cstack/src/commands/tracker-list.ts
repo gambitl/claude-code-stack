@@ -50,9 +50,7 @@ function keepReady(tickets: Ticket[], warn: (message: string) => void): Ticket[]
       const left = `left out ${ticket.key}, because`;
       if (state.reason === "unknown-state") warn(`${left} its state is unknown.`);
       else if (state.reason === "unknown-blockers") warn(`${left} its blockers are unknown.`);
-      else if (ticket.blockers !== "unknown") {
-        for (const b of ticket.blockers) if (b.stateKind === "unknown") warn(`${left} the state of its blocker ${b.key} is unknown.`);
-      }
+      else if (ticket.blockers !== "unknown") for (const b of ticket.blockers) if (b.stateKind === "unknown") warn(`${left} the state of its blocker ${b.key} is unknown.`);
     }
     return state.kind === "ready";
   });
