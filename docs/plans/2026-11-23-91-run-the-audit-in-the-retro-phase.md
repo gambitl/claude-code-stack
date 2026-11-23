@@ -382,7 +382,7 @@ This needed one change to the audit itself. While the retro phase runs, the retr
 
 ## Tests
 
-The typecheck passes. The test files that this branch touches pass, and so does the manifest test. The full `npm test` hit the five-second vitest timeout in unrelated files on a busy machine. Those files passed when run alone with a longer timeout.
+The typecheck passes. The test files that this branch touches pass, and so does the manifest test. The last full `npm test` passed 1,807 of 1,809 cases. The two failures were the five-second vitest timeout, in `cstack/test/helper/fallback.test.ts` and `cstack/test/helper/worktree-line.test.ts`, while the load average of the machine was above 30. This branch does not touch those files, and both pass when run alone.
 
 ## Judgment calls from the reviews
 
