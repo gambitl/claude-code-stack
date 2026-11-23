@@ -409,7 +409,7 @@ describe("cstack measure", () => {
         [
           "2026-03-01T10:00:00+01:00",
           "2026-03-01T12:00:00+01:00",
-          PLAN_V1.replace("Format: cstack-plan/1", "Format: ZQ7-SECRET-FORMAT"),
+          PLAN_V1.replace("Format: cstack-plan/2", "Format: ZQ7-SECRET-FORMAT"),
           "the plan file is not a valid cstack plan file.",
         ],
         // The plan reader checks the shape of a time only, so an hour of 25 reaches the measure.

@@ -100,7 +100,7 @@ describe("cstack next", () => {
 
   it("exits with 3 on an unknown plan format", async () => {
     const dir = makeRepo();
-    commitPlan(dir, fixture("format-2.md"), "docs/plans/x.md");
+    commitPlan(dir, fixture("format-3.md"), "docs/plans/x.md");
     const result = await run(dir, "--plan", "docs/plans/x.md");
     expect(result.code).toBe(3);
     expect(result.stderr).toContain("9.0.0");

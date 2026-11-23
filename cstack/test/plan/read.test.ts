@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
   HEADER_KEYS,
   PLAN_FORMAT,
@@ -22,28 +22,91 @@ const failure = (name: string): PlanFormatError => {
   throw new Error("the plan file was accepted");
 };
 
+const failureOf = (text: string): PlanFormatError => {
+  try {
+    readPlan(text);
+  } catch (error) {
+    expect(error).toBeInstanceOf(PlanFormatError);
+    return error as PlanFormatError;
+  }
+  throw new Error("the plan file was accepted");
+};
+
 describe("the format version", () => {
-  it("refuses another format version and names the cstack that can read it", () => {
-    const error = failure("format-2");
+  it("refuses a version 1 plan and names the version that wrote it, with the two steps to go back", () => {
+    const error = failure("version-1");
     expect(error.exitCode).toBe(3);
-    expect(error.message).toContain("cstack-plan/1");
-    expect(error.message).toContain("cstack 9.0.0");
+    expect(error.message).toBe(
+      "This plan file has the format cstack-plan/1. This cstack reads cstack-plan/2. cstack 0.3.1 can read it. To finish this run, install that release, then run `cstack skills install` again.",
+    );
+  });
+
+  it("refuses a version 1 plan that was never registered and names cstack 0.3.2", () => {
+    const text = fixture("version-1").replace(/^Written by: .*$/m, "Written by: not yet");
+    const error = failureOf(text);
+    expect(error.exitCode).toBe(3);
+    expect(error.message).toBe(
+      "This plan file has the format cstack-plan/1. This cstack reads cstack-plan/2. cstack 0.3.2 is the last version that reads cstack-plan/1. To finish this run, install that release, then run `cstack skills install` again.",
+    );
+  });
+
+  it("refuses another unknown version and names the cstack that can read it", () => {
+    const error = failure("format-3");
+    expect(error.exitCode).toBe(3);
+    expect(error.message).toBe(
+      "This plan file has the format cstack-plan/3. This cstack reads cstack-plan/2. cstack 9.0.0 can read it.",
+    );
+  });
+
+  it("never names cstack 0.3.2 for another unknown version that was never registered", () => {
+    const text = fixture("format-3").replace(/^Written by: .*$/m, "Written by: not yet");
+    const error = failureOf(text);
+    expect(error.exitCode).toBe(3);
+    expect(error.message).toBe(
+      "This plan file has the format cstack-plan/3. This cstack reads cstack-plan/2. The file does not name the cstack version that can read it.",
+    );
+    expect(error.message).not.toContain("0.3.2");
   });
 
   it("refuses a file with no Format line and points to the prose skill", () => {
     const error = failure("no-format");
     expect(error.exitCode).toBe(3);
     expect(error.message).toContain("prose skill");
-    expect(error.message).toContain("cstack-plan/1");
+    expect(error.message).toContain("cstack-plan/2");
   });
 
   it("exports the format name", () => {
-    expect(PLAN_FORMAT).toBe("cstack-plan/1");
+    expect(PLAN_FORMAT).toBe("cstack-plan/2");
   });
 });
 
+describe("the sections of version 2", () => {
+  it("reads the version 2 example", () => {
+    const plan = readPlan(fixture("version-2"));
+    expect(plan.sections.map((section) => section.name)).toEqual([...SECTION_NAMES]);
+    for (const name of ["Negative criteria", "Facts", "Changes to what the ticket fixes"]) {
+      expect(plan.sections.find((section) => section.name === name)?.filled).toBe(true);
+    }
+    expect(plan.units.map((unit) => unit.test?.file)).toEqual(["test/a1.test.ts", undefined, "test/a3.test.ts"]);
+  });
+
+  it.each(["Negative criteria", "Facts", "Changes to what the ticket fixes"])(
+    "refuses a version 2 plan that has no section %s",
+    (name) => {
+      const text = fixture("version-2").replace(new RegExp(`^## ${name}$`, "m"), "## Notes");
+      const found = failureOf(text).problems;
+      expect(found).toContainEqual(
+        expect.objectContaining({ rule: `The section ${name} is missing.` }),
+      );
+    },
+  );
+});
+
 describe("a valid plan file", () => {
-  const plan = readPlan(fixture("ticket-with-code-block"));
+  let plan: ReturnType<typeof readPlan>;
+  beforeAll(() => {
+    plan = readPlan(fixture("ticket-with-code-block"));
+  });
 
   it("reads the header values", () => {
     expect(plan.header["Target branch"]).toBe("main");
@@ -125,14 +188,17 @@ describe("a broken plan file", () => {
 });
 
 describe("the units, the questions and the pull request", () => {
-  const approved = readPlan(fixture("approved"));
+  let approved: ReturnType<typeof readPlan>;
+  beforeAll(() => {
+    approved = readPlan(fixture("approved"));
+  });
 
   it("reads the units with their files, tests and dependencies", () => {
     expect(approved.units.map((unit) => unit.number)).toEqual([1, 2, 3]);
     expect(approved.units[0]).toMatchObject({
       number: 1,
       name: "Thing 1",
-      line: 37,
+      line: 45,
       files: ["src/a1.ts", "test/a1.test.ts"],
       test: { file: "test/a1.test.ts", case: "the case 1 fails" },
       commitMessage: "feat(cli): add a1",
@@ -168,7 +234,7 @@ describe("the units, the questions and the pull request", () => {
     }
     expect(error).toBeInstanceOf(PlanFormatError);
     expect((error as PlanFormatError).problems).toContainEqual(
-      expect.objectContaining({ line: 62, rule: expect.stringContaining("Blocked") }),
+      expect.objectContaining({ line: 70, rule: expect.stringContaining("Blocked") }),
     );
   });
 
@@ -177,7 +243,7 @@ describe("the units, the questions and the pull request", () => {
       {
         number: 1,
         title: "Which flag",
-        line: 71,
+        line: 79,
         text: "Should the flag be long?",
         for: "the maintainer",
         answer: "Yes, long. The maintainer, 2026-11-18.",
@@ -204,20 +270,20 @@ describe("the units, the questions and the pull request", () => {
   });
 
   it.each([
-    ["unit-no-test", 39, "Test"],
-    ["unit-test-not-in-files", 39, "Files"],
-    ["path-dotdot", 38, ".."],
-    ["path-dotgit", 38, ".git"],
-    ["path-absolute", 38, "/"],
-    ["path-dash", 38, "-"],
-    ["path-semicolon", 38, "path"],
-    ["path-dollar", 38, "path"],
-    ["path-space", 38, "path"],
-    ["unit-gap", 45, "Unit 2"],
-    ["depends-missing", 43, "Unit 4"],
-    ["question-no-answer", 71, "Answer"],
-    ["question-none-with-question", 71, "none"],
-    ["pr-no-block", 85, "four"],
+    ["unit-no-test", 47, "Test"],
+    ["unit-test-not-in-files", 47, "Files"],
+    ["path-dotdot", 46, ".."],
+    ["path-dotgit", 46, ".git"],
+    ["path-absolute", 46, "/"],
+    ["path-dash", 46, "-"],
+    ["path-semicolon", 46, "path"],
+    ["path-dollar", 46, "path"],
+    ["path-space", 46, "path"],
+    ["unit-gap", 53, "Unit 2"],
+    ["depends-missing", 51, "Unit 4"],
+    ["question-no-answer", 79, "Answer"],
+    ["question-none-with-question", 79, "none"],
+    ["pr-no-block", 97, "four"],
   ])("flags %s at line %i", (name, line, word) => {
     const found = failure(name).problems;
     expect(found).toContainEqual(

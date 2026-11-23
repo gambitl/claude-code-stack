@@ -1,5 +1,5 @@
 # Plan: #2 — A plan with units
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: cstack 0.1.0
 Date: 2026-11-18
 Ticket: #2
@@ -16,6 +16,10 @@ Ready for review at: 2026-11-18T18:00:00+01:00
 
 The ticket text.
 
+## Negative criteria
+
+none
+
 ## Dependencies
 
 Text of dependencies.
@@ -23,6 +27,10 @@ Text of dependencies.
 ## Code mapping
 
 Text of code mapping.
+
+## Facts
+
+none
 
 ## Decisions
 
@@ -67,6 +75,10 @@ A free note.
 Text of duties.
 
 ## Blocking questions
+
+none
+
+## Changes to what the ticket fixes
 
 none
 

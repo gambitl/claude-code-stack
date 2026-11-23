@@ -1,6 +1,6 @@
 # Plan: <ticket id> — <ticket title>
 
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: not yet
 Date: <YYYY-MM-DD>
 Ticket: <link>
@@ -25,6 +25,10 @@ Ready for review at: not yet
 
 <the parent project's decisions block and the ADRs it names, with links>
 
+## Negative criteria
+
+<the negative criteria of the ticket, numbered from 1, or "none">
+
 ## Dependencies
 
 <"clear", or the open blockers and the user's decision>
@@ -32,6 +36,10 @@ Ready for review at: not yet
 ## Code mapping
 
 <phase code-map>
+
+## Facts
+
+<the facts the plan relies on, each with its source, or "none">
 
 ## Decisions
 
@@ -71,6 +79,10 @@ Each unit commit carries the trailer "Cstack-Unit: <n>" in the final paragraph o
 Write "- Answer: open" until someone answers. Number the questions from 1 with no gap. -->
 
 <"none", or the questions>
+
+## Changes to what the ticket fixes
+
+<each change to what the ticket fixes, with its blocking question, or "none">
 
 ## Review log
 

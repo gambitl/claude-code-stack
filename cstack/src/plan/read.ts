@@ -1,4 +1,7 @@
-export const PLAN_FORMAT = "cstack-plan/1";
+export const PLAN_FORMAT = "cstack-plan/2";
+
+/** The last cstack release that reads `cstack-plan/1`. */
+export const LAST_VERSION_1_READER = "0.3.2";
 
 export const HEADER_KEYS = [
   "Format",
@@ -17,13 +20,16 @@ export const HEADER_KEYS = [
 
 export const SECTION_NAMES = [
   "Ticket",
+  "Negative criteria",
   "Dependencies",
   "Code mapping",
+  "Facts",
   "Decisions",
   "Architecture",
   "Implementation units",
   "Documentation duties",
   "Blocking questions",
+  "Changes to what the ticket fixes",
   "Review log",
   "Briefing",
   "Non-blocking questions",
@@ -212,12 +218,19 @@ function stopOnFormat(lines: string[], firstHeadingLine: number): void {
   }
   if (format !== PLAN_FORMAT) {
     const writer = /^cstack (\S+)$/.exec(value("Written by") ?? "");
+    const head = `This plan file has the format ${format}. This cstack reads ${PLAN_FORMAT}.`;
+    if (format === "cstack-plan/1") {
+      const reader = writer
+        ? `cstack ${writer[1]} can read it.`
+        : `cstack ${LAST_VERSION_1_READER} is the last version that reads cstack-plan/1.`;
+      throw new PlanFormatError(
+        `${head} ${reader} To finish this run, install that release, then run \`cstack skills install\` again.`,
+      );
+    }
     const reader = writer
       ? `cstack ${writer[1]} can read it.`
       : "The file does not name the cstack version that can read it.";
-    throw new PlanFormatError(
-      `This plan file has the format ${format}. This cstack reads ${PLAN_FORMAT}. ${reader}`,
-    );
+    throw new PlanFormatError(`${head} ${reader}`);
   }
 }
 

@@ -327,7 +327,7 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     // A plan file of another format is refused, and the current run stays as it was.
     const current = join(git("rev-parse", "--path-format=absolute", "--git-dir"), "cstack", "current-run");
     const before = readFileSync(current, "utf8");
-    writeFileSync(join(project, "docs", "plans", "format2.md"), read(FIXTURES, "plan.md").replace("Format: cstack-plan/1", "Format: cstack-plan/2"));
+    writeFileSync(join(project, "docs", "plans", "format2.md"), read(FIXTURES, "plan.md").replace("Format: cstack-plan/2", "Format: cstack-plan/1"));
     const other = run(["next", "--plan", "docs/plans/format2.md"]);
     rmSync(join(project, "docs", "plans", "format2.md"));
     expect(other.code).toBe(3);

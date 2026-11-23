@@ -1,5 +1,5 @@
 # Plan: #4 — Add square and cube
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: not yet
 Date: 2026-11-19
 Ticket: #4
@@ -16,6 +16,10 @@ Ready for review at: not yet
 
 Add the functions square and cube to the tiny math library.
 
+## Negative criteria
+
+none
+
 ## Dependencies
 
 None.
@@ -23,6 +27,10 @@ None.
 ## Code mapping
 
 Each function has its own source file and its own test file.
+
+## Facts
+
+none
 
 ## Decisions
 
@@ -55,6 +63,10 @@ The functions are independent. Each one is exported by name.
 None.
 
 ## Blocking questions
+
+none
+
+## Changes to what the ticket fixes
 
 none
 
