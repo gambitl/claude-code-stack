@@ -308,7 +308,9 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- A comment on ticket #79 at https://github.com/gambitl/claude-code-stack/issues/79, posted with `cstack tracker comment`.
+- The `cstack publish` paragraph of `README.md`, written by unit 4.
+- No dependent ticket, no decision record and no other page, as the "Documentation duties" say.
 
 ## Executor notes
 
