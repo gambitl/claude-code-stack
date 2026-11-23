@@ -342,7 +342,39 @@ For the maintainer: "Should a follow-up ticket teach the publish guide (`cstack/
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): make cstack publish refuse the path of the home folder
+
+````markdown
+`cstack publish` now stops before the push when the push would make the path of your home folder public. This repository is public, and a path like that holds the user name of the machine.
+
+The rule lives in `cstack/src/publish/home-folder.ts`, and `brokenRules()` in `cstack/src/commands/publish.ts` calls it. It reads each commit of the push one at a time. So a path that one commit adds and a later commit removes is still caught. It looks at the lines each commit adds, at each commit message, and at the pull request title and body. The refusal names the place and writes the home folder as `~`, so the user name is never printed.
+
+The rule matches the real home folder of the machine, and also its real path when the home folder is a symbolic link. A longer name such as `someone2` does not match, and neither does an empty home folder or `/`. A commit that `refs/remotes/origin/<branch>` already has is left out, because its path is already public and `cstack` never forces a push. There is no flag to skip the rule. After a false positive, you push by hand once, and `cstack publish` then goes on.
+
+`runProgram()` in `cstack/src/publish/program.ts` gets an optional `maxBuffer`, because a large patch can pass the default limit of 1 MiB. `makePublishEnv()` in the test helper now gives every publish test a fake home folder, so no test depends on the machine. The `README.md` paragraph of `cstack publish` has one new sentence.
+
+The tests failed first for each rule. The review found two cases where the rule would have let a push through, and both are fixed with a test. One was a file with a NUL byte late in its text. The other was the git setting `diff.interHunkContext`. The independent review also fixed a refusal that joined two lines of a commit message.
+
+Judgment calls to know about:
+
+- The rule runs before `cstack publish` fetches the target branch. A stale local copy of `origin/<target>` can make it read commits that are already public. That is safe, but it can confuse.
+- The shown path can still hold the user name when it appears again after the home folder, as in `~/projects/someone-app`.
+- The match is case-sensitive, so `/users/name` is not caught on a case-insensitive disk.
+- Binary files and merge commits show no added lines in git, so they are not read.
+- A file marked `-diff` in `.gitattributes` is read as binary. In a single-branch clone, a push by hand does not update `refs/remotes/origin/<branch>`, so it would not clear a refusal there.
+- When the `git log` output passes 256 MiB, the refusal ends with an empty reason.
+- The helper `plain()` now exists in both `publish.ts` and `home-folder.ts`.
+
+The plan file is `docs/plans/2026-11-20-79-make-cstack-publish-refuse-the-home-folder-path.md`.
+
+## Open questions, not needed for this pull request
+
+You can merge this pull request without answering them.
+
+For the maintainer: should a follow-up ticket teach the publish guide (`cstack/guides/resolve-issue/publish.md`, section "Exit code 1") what to do when `cstack publish` refuses a home folder path? The proposal is to rewrite the commit before the first push when the path is real, and to stop with a needs-decision report, never editing a line, when the path looks like a false positive.
+
+Fixes #79
+````
 
 ## Documentation
 
