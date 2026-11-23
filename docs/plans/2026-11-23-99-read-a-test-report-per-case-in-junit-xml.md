@@ -292,13 +292,17 @@ none
 
 ## Executor notes
 
-<executor, before its report>
+- Unit 1: the implementer's first version of the last refusal test did not test the escape and the cut, so it changed the test after the red run and `cstack unit green` printed a warning.
+- Unit 1: one deliberate break of the code made a test loop forever, and the implementer had to kill a vitest process.
+- Unit 3: the reader is loaded with a dynamic `import()` inside `runTests()`, because the interrupt tests start a child that imports `test-run.ts` as source.
+- Unit 2: the plan gave no wording for the refusal messages, so the implementer chose its own.
 
 ## Hand-off log
 
 ### 2026-11-23, executor run 1 (build)
 
 - Moved ticket #99 to "in progress" with `cstack tracker move`.
+- Built units 1 to 4 one at a time with sub-agent implementers (commits aece231, 7ceccea, 75f2b00, cc218b9).
 
 ## History
 
