@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/junit-per-case
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T20:53:10+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T21:40:45+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -346,7 +346,45 @@ For: the developer who takes #100. It was posted as a comment on #100. Nothing w
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request>
+Title: feat(cli): read a test report per case in JUnit XML
+
+````markdown
+## What this adds
+
+`cstack` can now read the result of each test case, instead of only the exit code of the whole test command. A repository turns it on in `.cstack/settings.json` with `"report": "junit"` inside `testCommands`, and it writes the placeholder `{report}` once in the `file` command. The command then writes a JUnit XML report there. Both vitest and pytest can write one.
+
+When the caller asks for the report, `runTests()` returns one more field, `report`. It holds the list of cases, each with its name, class or file, and an outcome: passed, failed, error or skipped. If there is no list, it holds the reason: the report is missing, it is malformed (with the line), or the run timed out. `runTests()` never throws because of a report. Without the request, it returns exactly what it returned before.
+
+The README has a new section, `## A test report per case`, with one example for vitest and one for pytest.
+
+## Key decisions
+
+- The key `testCommands.report` is new, so that an older `cstack` refuses the settings file instead of running a command with a literal `{report}` path. This follows the rule of ADR-SIC-D.
+- `{report}` becomes `"$2"` in the script, never a real path. `cstack unit green` compares its script with the one that the red run saved, so a path that changes on every run would make it refuse every unit.
+- The report is written in the temporary folder that `runTests()` already makes for each run, and deleted with it. An old report can never be read as the current one.
+- The reader is hand-written, in `cstack/src/junit-report.ts`, with no new dependency. It refuses a `<!DOCTYPE>`, an unknown entity and raw control characters.
+- `{report}` is refused in `testCommands.all`, as the ticket says.
+
+## Files
+
+`cstack/src/junit-report.ts` (new), `cstack/src/settings.ts`, `cstack/src/test-run.ts`, their tests, two hand-written fixtures under `cstack/test/fixtures/junit/`, and `README.md`. The plan file is `docs/plans/2026-11-23-99-read-a-test-report-per-case-in-junit-xml.md`.
+
+## Risk and judgment calls
+
+- `cstack unit red` and `cstack unit green` do not ask for the report yet. Ticket #100 wires them. No repository can use the key before the release, and that release ships #100 too.
+- The reader loads the whole report into memory with no size limit. The report comes from the repository's own test command, so the risk is small.
+- `runTests()` loads the reader with a dynamic `import()`, because some tests start a child process on the TypeScript source. A comment in the code says why.
+- Four reviewers and an independent reviewer read the branch. Fixes made: the entity lookup no longer accepts `&constructor;`, a raw control character is refused, a bad reference names its line, and `quote()` is shared. Follow-ups left in the plan: a size limit, a refusal of a repeated attribute, and a few small tidy-ups.
+- A full `npm test` run on a busy machine can show five-second timeouts in unrelated files. A quiet run had no failure.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without an answer to this question.
+
+For the developer who takes #100: "In #99, `runTests()` loads the JUnit reader with a dynamic `import("./junit-report.js")`. This is because some tests start a child process that imports `cstack/src/test-run.ts` as TypeScript source, where a `.js` import has no file. If a test of #100 starts such a child and asks for the report, the import fails with `ERR_MODULE_NOT_FOUND`, and `runTests()` throws instead of returning a problem. Will #100 keep those child-process tests without a report, or change how they load the source so that a static import works?"
+
+Fixes #99
+````
 
 ## Documentation
 
@@ -362,6 +400,7 @@ For: the developer who takes #100. It was posted as a comment on #100. Nothing w
 - Unit 1: the implementer's first version of the last refusal test did not test the escape and the cut, so it changed the test after the red run and `cstack unit green` printed a warning.
 - Unit 1: one deliberate break of the code made a test loop forever, and the implementer had to kill a vitest process.
 - Unit 3: the reader is loaded with a dynamic `import()` inside `runTests()`, because the interrupt tests start a child that imports `test-run.ts` as source.
+- The briefing phase posted the non-blocking question for #100 as a comment, although the after-build guide says to put such a question only in the plan and the pull request body.
 - Full `npm test` run during the review had 13 timeout failures in unrelated files while the machine was busy. A rerun had zero failures.
 - Unit 2: the plan gave no wording for the refusal messages, so the implementer chose its own.
 
@@ -370,6 +409,7 @@ For: the developer who takes #100. It was posted as a comment on #100. Nothing w
 ### 2026-11-23, executor run 1 (build)
 
 - Moved ticket #99 to "in progress" with `cstack tracker move`.
+- Reviewed, fixed four review findings, ran the independent review, documented in #99, #100 and #101, wrote the briefing and drafted the pull request.
 - Built units 1 to 4 one at a time with sub-agent implementers (commits aece231, 7ceccea, 75f2b00, cc218b9).
 
 ## History
