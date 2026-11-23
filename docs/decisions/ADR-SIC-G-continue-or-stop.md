@@ -24,7 +24,9 @@ This record gives the token and time results, as the specification allows. For e
 
 Each new run uses more tokens than the baseline average, for each of the four kinds. The Opus tokens are about the same in both versions. Most of the extra tokens are Sonnet tokens, and Sonnet is the model of the executor and the implementers.
 
-The cause is visible in the session files. In the baseline runs, the executor and the implementers are sub-agents inside one Claude Code session. A sub-agent starts with about 46,000 to 51,000 tokens of context. In the new runs, they are Orca workers, and each worker is a full Claude Code session. A worker starts with about 60,000 to 66,000 tokens of context, and it reads that context again at every call. Over the Sonnet calls of one new run, this alone adds about 4.5 million cache read tokens.
+The cause is visible in the session files. In the baseline runs, the executor and the implementers are sub-agents inside one Claude Code session. A sub-agent starts with about 46,000 to 51,000 tokens of context. In the new runs, they are Orca workers, and each worker is a full Claude Code session. A worker starts with about 60,000 to 66,000 tokens of context, and it reads that context again at every call. Over the Sonnet calls of one new run, this alone adds about 2.3 million cache read tokens.
+
+**Correction on 2026-11-23.** An earlier version of this record said about 4.5 million tokens here. That estimate counted the lines of the session files, but Claude Code writes one answer of the model on several lines. Counted once per answer, as `cstack measure` counts, the figure is about 2.3 million. #87 gives the whole split of the gap.
 
 The instructions that a run loads at its start had to shrink to less than a fifth. The prose skill loads `SKILL.md` and `writing.md`, which hold 7,259 words at the tag `prose-skills-final`. A fifth is 1,451 words. The new version loads its `SKILL.md` and the guide of its first phase, which hold 1,444 words. So this part is met, by a small margin.
 
@@ -76,6 +78,8 @@ The project continues, with two changes of direction.
 ## Why the decision does not follow the measures
 
 The measures alone would say stop: the new version costs more and takes longer. They also show where the extra cost comes from. It comes from the full Orca sessions that version 0.3.1 adds inside each ticket, not from the commands that check the steps. The first change removes those sessions. On quality, the new version tied with the baseline, and it made the best branch. The causes of its weakest branch are known, and the second change addresses each one.
+
+**Correction on 2026-11-23.** #87 split the extra cache read tokens by agent. The full Orca sessions, and the commands that start them and wait for them, explain about half of the gap. The other half comes from finer units, from the work that the executor does itself, from its bookkeeping with `cstack next --done`, and from the context that the helpers gather. The decision to continue stands. #107 and #108 take up part of that other half.
 
 ## Limits of the comparison
 
