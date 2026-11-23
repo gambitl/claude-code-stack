@@ -280,6 +280,11 @@ Conventions reviewer: two README findings, both fixed. The sentence on unknown s
 Simplicity reviewer: two cheap findings, both fixed. The value type of parseTrackerArgs is now named once, and the nested if in keepReady is gone.
 Follow-ups: none. Full test run after the fixes: typecheck clean, 1730 tests pass.
 
+Independent review: no change, no bug, no security problem. Typecheck clean and 1730 tests pass. Judgment calls for the pull request body:
+- The review fix commit changes code and the README together, so it is one mixed commit. It carries no Cstack-Unit line. Splitting it would rewrite history, so it stays.
+- A ticket with both a known open blocker and a blocker of unknown state gets only the unknown-blocker warning. The plan chose this format.
+- The test file defines two small helpers twice, in two describe blocks. One test title says "three lines" but expects four, and the in review test ends with an assertion on unrelated tickets. These are style points that are left as they are.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
