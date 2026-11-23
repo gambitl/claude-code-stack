@@ -71,6 +71,7 @@ export async function refuseWithoutClient(
     },
     name,
     options.warn,
+    () => originRepo(options.run, options.root),
   );
   if ("move" in write) await tracker.moveState(write.move.key, write.move.stateName);
   else await tracker.addComment(write.comment.key, write.comment.path);
@@ -86,7 +87,7 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
   const readOrigin = () => (origin ??= originRepo(run, root));
   if (options.fromFile && reads) {
     const fileName = await resolveTrackerName(options);
-    return checkedTracker(claudeFileTracker(options.fromFile, fileName, warn), fileName, warn);
+    return checkedTracker(claudeFileTracker(options.fromFile, fileName, warn), fileName, warn, readOrigin);
   }
   const name = options.tracker ?? trackerFromRemote(`https://${(await readOrigin()).host}/`);
   if (name === "jira" || name === "linear") {
@@ -107,8 +108,8 @@ export async function openTracker(capability: Capability, options: OpenTrackerOp
 
   const { host } = await readOrigin();
   const client = await createClientChooser({ tracker: name, orcaAvailable: false, runner: run, host })(capability);
-  if (client === "gh") return checkedTracker(githubGhTracker(run, root, warn), name, warn);
-  if (client === "glab") return checkedTracker(gitlabGlabTracker(run, root, warn), name, warn);
+  if (client === "gh") return checkedTracker(githubGhTracker(run, root, warn), name, warn, readOrigin);
+  if (client === "glab") return checkedTracker(gitlabGlabTracker(run, root, warn), name, warn, readOrigin);
   const forge = name === "github" ? "gh" : "glab";
   throw new NoClientError(
     reads
