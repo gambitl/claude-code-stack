@@ -921,6 +921,19 @@ describe("cstack publish refuses the home folder path", () => {
     clean(env, out.stderr);
   });
 
+  it("stops the shown path at the end of its line", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "plain.md"), "nothing here\n");
+    git(env.repo, "add", "plain.md");
+    git(env.repo, "commit", "-m", `fix: move ${env.home}/x`, "-m", "next paragraph");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain(": `~/x`\n");
+    expect(out.stderr).not.toContain("next");
+    clean(env, out.stderr);
+  });
+
   it("leaves out the commits that the remote branch already has", async () => {
     const env = makePublishEnv();
     commitLines(env, "a.md", [`${env.home}/projects/a`]);

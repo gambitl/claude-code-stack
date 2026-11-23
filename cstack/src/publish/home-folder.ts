@@ -37,7 +37,8 @@ function matcher(forms: string[]): (text: string) => string | undefined {
     const first = [...text.matchAll(find)][0];
     if (first === undefined) return undefined;
     const rest = text.slice(first.index);
-    const end = rest.search(/[ \t"'`<>]/);
+    // A commit message or a pull request body has several lines, and only the line of the match is shown.
+    const end = rest.search(/[ \t\r\n"'`<>]/);
     const path = end === -1 ? rest : rest.slice(0, end);
     const short = plain(path.replace(replace, "~"));
     return short.length > MAX_PATH ? `${short.slice(0, MAX_PATH)}…` : short;
