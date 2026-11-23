@@ -239,3 +239,66 @@ describe("cstack tracker list --ready with each tracker", () => {
     expect(result.calls).toEqual([]);
   });
 });
+
+describe("cstack tracker list --ready warnings", () => {
+  const fromFile = (tickets: unknown[]) => {
+    const file = join(mkdtempSync(join(tmpdir(), "cstack-")), "t.json");
+    writeFileSync(file, JSON.stringify({ format: "cstack-tracker/1", tracker: "github", group: { milestone: "m" }, tickets }));
+    return file;
+  };
+  const ticket = (key: string, stateKind: string, blockers: unknown = []) => ({
+    key, title: "T", body: "B", url: `https://github.com/user/repo/issues/${key.slice(1)}`, stateName: "s", stateKind, blockers,
+  });
+  const listFile = (tickets: unknown[], ready = true) =>
+    run(["--milestone", "m", "--from-file", fromFile(tickets), ...(ready ? ["--ready"] : [])], () => undefined);
+  const unknownState = ticket("#2", "unknown");
+  const unknownBlockers = ticket("#3", "todo", "unknown");
+  const twoUnknown = ticket("#4", "todo", [{ key: "#7", stateKind: "unknown" }, { key: "#8", stateKind: "finished" }, { key: "#9", stateKind: "unknown" }]);
+
+  it("says on standard error that a ticket with an unknown state is left out", async () => {
+    const result = await listFile([ticket("#1", "todo"), unknownState]);
+    expect(result.code).toBe(0);
+    expect(result.out.stderr).toBe("cstack: left out #2, because its state is unknown.\n");
+  });
+
+  it("says that a ticket with unknown blockers is left out", async () => {
+    const result = await listFile([unknownBlockers]);
+    expect(result.code).toBe(0);
+    expect(result.out.stderr).toBe("cstack: left out #3, because its blockers are unknown.\n");
+  });
+
+  it("says one line for each blocker whose state is unknown, in order", async () => {
+    const result = await listFile([twoUnknown]);
+    expect(result.code).toBe(0);
+    expect(result.out.stderr).toBe(
+      "cstack: left out #4, because the state of its blocker #7 is unknown.\ncstack: left out #4, because the state of its blocker #9 is unknown.\n",
+    );
+  });
+
+  it("gives no line for finished, started or knowingly blocked tickets", async () => {
+    const result = await listFile([
+      ticket("#1", "finished"), ticket("#5", "in-progress"), ticket("#6", "todo", [{ key: "#10", stateKind: "todo" }]), unknownState,
+    ]);
+    expect(result.out.stderr).toBe("cstack: left out #2, because its state is unknown.\n");
+  });
+
+  it("prints no warning without --ready, and the three lines with it", async () => {
+    const tickets = [unknownState, unknownBlockers, twoUnknown];
+    expect((await listFile(tickets, false)).out.stderr).toBe("");
+    expect((await listFile(tickets)).out.stderr.split("\n").filter((l) => l !== "")).toEqual([
+      "cstack: left out #2, because its state is unknown.",
+      "cstack: left out #3, because its blockers are unknown.",
+      "cstack: left out #4, because the state of its blocker #7 is unknown.",
+      "cstack: left out #4, because the state of its blocker #9 is unknown.",
+    ]);
+  });
+
+  it("gives the warning of the GitHub adapter first, then the line of --ready", async () => {
+    const issues = [ghIssue(2, { blockedBy: blockedBy("https://github.com/someone/other/issues/7", 7) })];
+    const result = await run(["--milestone", "m", "--ready"], ghTracker(issues));
+    expect(result.code).toBe(0);
+    const lines = result.out.stderr.split("\n").filter((l) => l !== "");
+    expect(lines.length).toBeGreaterThan(1);
+    expect(lines[lines.length - 1]).toBe("cstack: left out #2, because its blockers are unknown.");
+  });
+});
