@@ -332,7 +332,7 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 ### Question 3: The wait of the plan and retro phases when the executor is a sub-agent
 the step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the case when Orca workers are off. The wait runs after the executor closed later phases, so it falls outside the window of Question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. A fix is to end the window of a phase at the next close of a phase that runs in the same place, so plan ends at the close of retro. That changes the rule you accepted, so I did not do it. Do you want this change, in this pull request or in a follow-up ticket?
 - For: the user
-- Answer: not yet.
+- Answer: open
 
 ## Review log
 
