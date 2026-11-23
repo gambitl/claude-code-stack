@@ -273,7 +273,14 @@ The copy of the ticket under `## Ticket` holds two example paths that `cstack/te
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes. The changed symbols are used only by `cstack/test/publish.test.ts`, by the helper `cstack/test/helpers/publish-env.ts` (also used by `cstack/test/e2e/resolve-issue.test.ts`, which keeps working), and by the callers of `runProgram()`, which are not affected because `maxBuffer` is optional. The files that usually change with these are all in the diff. No `WHY:` or `DECISION:` comment conflicts with the change.
+
+Findings and fixes.
+- Security, fixed: a NUL byte in a pushed file, placed after byte 8000, shifted the reading of the `git log` output, so later commits were never checked. The rule now splits the output on a random separator, and a new test covers it.
+- Correctness, fixed: the git setting `diff.interHunkContext` added context lines that the patch reader did not count. The command now passes `--inter-hunk-context=0`, the reader also counts context lines, and a new test covers it.
+- Conventions, fixed: the local function `escape` shadowed a global one, so it is now `escapeRegex`.
+- Simplicity, not done: `matcher()` and `hideHome()` build the same expression twice. The gain is about three lines, so I left it.
+- Follow-ups, not done: a file marked `-diff` in `.gitattributes` is read as binary, which is the accepted gap. A single-branch clone does not update `refs/remotes/origin/<branch>`, so pushing by hand would not clear a refusal there.
 
 ## Briefing
 

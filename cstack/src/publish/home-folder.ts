@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import { realpathSync } from "node:fs";
 import type { ProgramResult } from "./program.js";
 import { redact } from "./remote.js";
@@ -23,15 +24,15 @@ function homeForms(home: string | undefined): string[] {
   return forms.filter((form) => form !== "" && form !== "/");
 }
 
-const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 // Control characters could move the cursor or hide text in a terminal.
 const plain = (text: string) => text.replace(/[\u0000-\u001f\u007f-\u009f]/g, "");
 
 /** Builds the function that shows the home folder path of a text, or undefined when the text holds none. */
 function matcher(forms: string[]): (text: string) => string | undefined {
   const sorted = [...forms].sort((a, b) => b.length - a.length);
-  const find = new RegExp(`(?:${sorted.map(escape).join("|")})(?=/|$|[^A-Za-z0-9_.-]|\\.(?![A-Za-z0-9_-]))`, "g");
-  const replace = new RegExp(sorted.map(escape).join("|"), "g");
+  const find = new RegExp(`(?:${sorted.map(escapeRegex).join("|")})(?=/|$|[^A-Za-z0-9_.-]|\\.(?![A-Za-z0-9_-]))`, "g");
+  const replace = new RegExp(sorted.map(escapeRegex).join("|"), "g");
   return (text) => {
     const first = [...text.matchAll(find)][0];
     if (first === undefined) return undefined;
@@ -45,7 +46,7 @@ function matcher(forms: string[]): (text: string) => string | undefined {
 
 /** Replaces every form of the home folder by `~` and removes control characters. */
 const hideHome = (forms: string[], text: string) =>
-  plain(text.replace(new RegExp([...forms].sort((a, b) => b.length - a.length).map(escape).join("|"), "g"), "~"));
+  plain(text.replace(new RegExp([...forms].sort((a, b) => b.length - a.length).map(escapeRegex).join("|"), "g"), "~"));
 
 interface Place {
   where: string;
@@ -72,6 +73,11 @@ function addedLines(patch: string): { file: string; line: number; text: string }
       const body = lines[++i];
       if (body.startsWith("\\")) continue;
       if (body.startsWith("-")) removed--;
+      else if (body.startsWith(" ")) {
+        removed--;
+        added--;
+        line++;
+      }
       else if (body.startsWith("+")) {
         added--;
         if (file !== undefined) found.push({ file, line, text: body.slice(1) });
@@ -95,10 +101,12 @@ export function homeFolderProblems(git: Git, home: string | undefined, target: s
       `cstack cannot tell which commits the push would send, because neither \`origin/${target}\` nor \`${target}\` exists. Run \`git fetch origin ${target}\`, then run \`cstack publish\` again.`,
     ];
   }
+  // A random separator cannot appear in a patch, unlike a NUL byte, which git prints for a file that only holds a NUL late.
+  const separator = `cstack-${randomBytes(16).toString("hex")}`;
   const log = git(
     [
       "-c", "core.quotePath=off", "log", "-p", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames",
-      "--no-show-signature", "--src-prefix=a/", "--dst-prefix=b/", "--format=%x00%h%x00%B%x00",
+      "--no-show-signature", "--src-prefix=a/", "--dst-prefix=b/", "--inter-hunk-context=0", `--format=${separator}%h${separator}%B${separator}`,
       "--end-of-options", "HEAD", `^${ref}`, ...(branch !== "" && verify(`refs/remotes/origin/${branch}`) ? [`^refs/remotes/origin/${branch}`] : []), "--",
     ],
     MAX_BUFFER,
@@ -108,7 +116,7 @@ export function homeFolderProblems(git: Git, home: string | undefined, target: s
     const reason = hideHome(forms, redact(log.stderr.split("\n")[0]));
     return [`cstack could not read the commits of the push to look for a path in your home folder: ${reason}.`];
   }
-  const parts = log.stdout.split("\0");
+  const parts = log.stdout.split(separator);
   const commits: { id: string; message: string; patch: string }[] = [];
   for (let i = 1; i + 2 < parts.length; i += 3) commits.push({ id: parts[i], message: parts[i + 1], patch: parts[i + 2] });
   const places: Place[] = [];

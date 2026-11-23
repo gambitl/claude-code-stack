@@ -870,6 +870,43 @@ describe("cstack publish refuses the home folder path", () => {
     expect(env.pushes()).toEqual([]);
   });
 
+  it("still reads an older commit when a later commit adds a file with a NUL byte after byte 8000", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "leak.md"), `${env.home}/projects/x\n`);
+    git(env.repo, "add", "leak.md");
+    git(env.repo, "commit", "-m", "docs: add the leak");
+    writeFileSync(join(env.repo, "late-nul.txt"), `${"a".repeat(9000)}\0b\n`);
+    git(env.repo, "add", "late-nul.txt");
+    git(env.repo, "commit", "-m", "chore: add a file with a late NUL byte");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`leak.md` line 1");
+    clean(env, out.stderr);
+  });
+
+  it("reads the right lines when git is set to join hunks with context", async () => {
+    const env = makePublishEnv();
+    Object.assign(env.deps.env!, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "diff.interHunkContext", GIT_CONFIG_VALUE_0: "5" });
+    const ten = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`);
+    writeFileSync(join(env.repo, "a.txt"), `${ten.join("\n")}\n`);
+    writeFileSync(join(env.repo, "b.txt"), "one\ntwo\nthree\nfour\nfive\n");
+    git(env.repo, "add", "a.txt", "b.txt");
+    git(env.repo, "commit", "-m", "docs: add two files");
+    ten[1] = "changed 2";
+    ten[5] = "changed 6";
+    writeFileSync(join(env.repo, "a.txt"), `${ten.join("\n")}\n`);
+    const nine = ["1", "2", "3", "4", "5", "6", "7", "8", `${env.home}/projects/x`];
+    writeFileSync(join(env.repo, "b.txt"), `${nine.join("\n")}\n`);
+    git(env.repo, "add", "a.txt", "b.txt");
+    git(env.repo, "commit", "-m", "docs: change two files");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`b.txt` line 9");
+    clean(env, out.stderr);
+  });
+
   it("refuses a commit message that holds the home folder", async () => {
     const env = makePublishEnv();
     writeFileSync(join(env.repo, "plain.md"), "nothing here\n");
