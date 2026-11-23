@@ -349,7 +349,9 @@ New questions: none. I checked security and the public text rule (the outputs an
 
 ## Non-blocking questions
 
-<phase plan: the non-blocking questions of the question round that stay open. Phase after-build-questions: the questions raised by the reviews or the briefing that do not stop the pull request. Each one word for word, with who it is for, or "none". They go into the pull request body under "Open questions, not needed for this pull request", after the user has seen them.>
+- For the maintainer: should the release notes at the end of milestone R3 say that a user who upgrades `cstack` must run `cstack skills install` again? Without it, the guide asks for a `## Steps` section that the installed retrospective template does not have yet. The guide is clear enough for the agent to add the section, so nothing stops this pull request.
+
+The wording fix of the retro guide, which the briefing asked the user to confirm, is already applied in the commit "fix(skill): say that retro and publish are left out at this point". It changes no decision. The skipped `cstack unit collect <n>...` line of the build phase goes to the retrospective as an item, not to a question.
 
 ## Pull request
 
