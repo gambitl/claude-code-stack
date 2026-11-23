@@ -1,4 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { readPlan } from "../src/plan/read.js";
@@ -760,5 +761,249 @@ describe("cstack publish on GitLab", () => {
     const { code } = await run(env);
     expect(code).toBe(4);
     expect(env.pushes()).toEqual([]);
+  });
+});
+
+describe("cstack publish refuses the home folder path", () => {
+  /** Writes a file with the given lines and commits it. Returns the short id of the commit. */
+  const commitLines = (env: PublishEnv, file: string, lines: string[]) => {
+    writeFileSync(join(env.repo, file), `${lines.join("\n")}\n`);
+    git(env.repo, "add", file);
+    git(env.repo, "commit", "-m", `chore: add ${file}`);
+    return git(env.repo, "log", "-1", "--format=%h");
+  };
+  const clean = (env: PublishEnv, stderr: string) => {
+    expect(stderr).not.toContain("someone");
+    expect(stderr).not.toContain(env.home);
+  };
+
+  it("refuses a commit that adds a line with the home folder, and names the file, the line and the commit", async () => {
+    const env = makePublishEnv();
+    const id = commitLines(env, "notes.md", ["first", `see ${env.home}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`notes.md` line 2");
+    expect(out.stderr).toContain(id);
+    expect(out.stderr).toContain("~/projects/x");
+    clean(env, out.stderr);
+  });
+
+  it("matches only a real home folder path, not a longer name", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "notes.md", [
+      "/home/user/app",
+      `${env.home}2/x`,
+      `${env.home}.old/x`,
+      `${env.home}/projects/x`,
+      `see ${env.home}.`,
+      `cd ${env.home}`,
+    ]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`notes.md` line 4");
+    expect(out.stderr).toContain("`notes.md` line 5");
+    expect(out.stderr).toContain("`notes.md` line 6");
+    expect(out.stderr).not.toMatch(/line [123],/);
+    clean(env, out.stderr);
+  });
+
+  it("still names a commit whose line a later commit removes", async () => {
+    const env = makePublishEnv();
+    const id = commitLines(env, "notes.md", [`${env.home}/projects/x`]);
+    commitLines(env, "notes.md", ["gone"]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain(`added by commit ${id}`);
+    expect(env.pushes()).toEqual([]);
+    clean(env, out.stderr);
+  });
+
+  it("ignores a line that the target branch already had", async () => {
+    const env = makePublishEnv();
+    git(env.repo, "checkout", "main");
+    commitLines(env, "old.md", [`${env.home}/projects/old`]);
+    git(env.repo, "push", "origin", "main");
+    git(env.repo, "checkout", "gambitl/units");
+    git(env.repo, "rebase", "main");
+    commitLines(env, "new.md", [`${env.home}/projects/new`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`new.md`");
+    expect(out.stderr).not.toContain("old.md");
+    expect(env.pushes().filter((l) => l.startsWith("refs/heads/gambitl/units"))).toEqual([]);
+    clean(env, out.stderr);
+  });
+
+  it("finds the real path of a home folder that is a symbolic link", async () => {
+    const env = makePublishEnv();
+    const real = realpathSync(mkdtempSync(join(tmpdir(), "cstack-real-")));
+    const link = join(env.home, "..", "link-home");
+    symlinkSync(real, link);
+    env.deps.env!.HOME = link;
+    commitLines(env, "notes.md", [`${real}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`notes.md` line 1");
+    expect(out.stderr).toContain("~/projects/x");
+    expect(out.stderr).not.toContain(real);
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("refuses when there is no target ref to compare with", async () => {
+    const env = makePublishEnv();
+    git(env.repo, "update-ref", "-d", "refs/remotes/origin/main");
+    git(env.repo, "branch", "-D", "main");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("origin/main");
+    expect(out.stderr).toContain("git fetch origin main");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("refuses when git log fails", async () => {
+    const env = makePublishEnv();
+    Object.assign(env.deps.env!, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "log.date", GIT_CONFIG_VALUE_0: "bogus" });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("cstack could not read the commits of the push");
+    expect(env.pushes()).toEqual([]);
+  });
+
+  it("still reads an older commit when a later commit adds a file with a NUL byte after byte 8000", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "leak.md"), `${env.home}/projects/x\n`);
+    git(env.repo, "add", "leak.md");
+    git(env.repo, "commit", "-m", "docs: add the leak");
+    writeFileSync(join(env.repo, "late-nul.txt"), `${"a".repeat(9000)}\0b\n`);
+    git(env.repo, "add", "late-nul.txt");
+    git(env.repo, "commit", "-m", "chore: add a file with a late NUL byte");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`leak.md` line 1");
+    clean(env, out.stderr);
+  });
+
+  it("reads the right lines when git is set to join hunks with context", async () => {
+    const env = makePublishEnv();
+    Object.assign(env.deps.env!, { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: "diff.interHunkContext", GIT_CONFIG_VALUE_0: "5" });
+    const ten = Array.from({ length: 10 }, (_, i) => `line ${i + 1}`);
+    writeFileSync(join(env.repo, "a.txt"), `${ten.join("\n")}\n`);
+    writeFileSync(join(env.repo, "b.txt"), "one\ntwo\nthree\nfour\nfive\n");
+    git(env.repo, "add", "a.txt", "b.txt");
+    git(env.repo, "commit", "-m", "docs: add two files");
+    ten[1] = "changed 2";
+    ten[5] = "changed 6";
+    writeFileSync(join(env.repo, "a.txt"), `${ten.join("\n")}\n`);
+    const nine = ["1", "2", "3", "4", "5", "6", "7", "8", `${env.home}/projects/x`];
+    writeFileSync(join(env.repo, "b.txt"), `${nine.join("\n")}\n`);
+    git(env.repo, "add", "a.txt", "b.txt");
+    git(env.repo, "commit", "-m", "docs: change two files");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("`b.txt` line 9");
+    clean(env, out.stderr);
+  });
+
+  it("refuses a commit message that holds the home folder", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "plain.md"), "nothing here\n");
+    git(env.repo, "add", "plain.md");
+    git(env.repo, "commit", "-m", `fix: move ${env.home}/x`);
+    const id = git(env.repo, "log", "-1", "--format=%h");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain(`the message of commit ${id}`);
+    expect(out.stderr).toContain("~/x");
+    clean(env, out.stderr);
+  });
+
+  it("stops the shown path at the end of its line", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "plain.md"), "nothing here\n");
+    git(env.repo, "add", "plain.md");
+    git(env.repo, "commit", "-m", `fix: move ${env.home}/x`, "-m", "next paragraph");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain(": `~/x`\n");
+    expect(out.stderr).not.toContain("next");
+    clean(env, out.stderr);
+  });
+
+  it("leaves out the commits that the remote branch already has", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "a.md", [`${env.home}/projects/a`]);
+    git(env.repo, "push", "origin", "gambitl/units");
+    commitLines(env, "b.md", [`${env.home}/projects/b`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`b.md`");
+    expect(out.stderr).not.toContain("a.md");
+    clean(env, out.stderr);
+  });
+
+  it("lists at most 20 places", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "many.md", Array.from({ length: 22 }, () => `${env.home}/x`));
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr.match(/`many\.md` line/g)).toHaveLength(20);
+    expect(out.stderr).toContain("and 2 more places");
+    clean(env, out.stderr);
+  });
+
+  it("refuses a pull request title that holds the home folder", async () => {
+    const env = makePublishEnv({ plan: (t, home) => t.replace("feat(cli): read the plan file", `feat(cli): read ${home}/t`) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("the pull request title");
+    expect(out.stderr).toContain("~/t");
+    clean(env, out.stderr);
+  });
+
+  it("refuses a pull request body that holds the home folder", async () => {
+    const env = makePublishEnv({ plan: (t, home) => t.replace("It reads the plan.", `It reads \`${home}/b\`.`) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("the pull request body");
+    expect(out.stderr).toContain("~/b");
+    clean(env, out.stderr);
+  });
+
+  it("does not refuse a line when the home folder is the root folder", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = "/";
+    commitLines(env, "notes.md", ["a / b"]);
+    env.scenario({ "gh pr create": { stdout: "Creating pull request\nhttps://github.com/o/r/pull/7\n" } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+  });
+
+  it("does not refuse a line when the home folder is empty", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = "";
+    commitLines(env, "notes.md", ["a / b"]);
+    env.scenario({ "gh pr create": { stdout: "Creating pull request\nhttps://github.com/o/r/pull/7\n" } });
+    const { code } = await run(env, ["--grace", "0"]);
+    expect(code).toBe(0);
+    expect(env.pushes()).toHaveLength(1);
+  });
+
+  it("ignores a final slash of the home folder", async () => {
+    const env = makePublishEnv();
+    env.deps.env!.HOME = `${env.home}/`;
+    commitLines(env, "notes.md", [`${env.home}/projects/x`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("~/projects/x");
+    clean(env, out.stderr);
   });
 });

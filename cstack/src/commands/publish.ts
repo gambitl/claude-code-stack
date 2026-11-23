@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
@@ -18,6 +19,7 @@ import {
   readGitlabChecks,
 } from "../publish/forge.js";
 import { readPublishRecord, readTestMarker, removeTestMarker, writePublishRecord, writeTestMarker } from "../publish/record.js";
+import { homeFolderProblems } from "../publish/home-folder.js";
 import { runProgram } from "../publish/program.js";
 import { redact } from "../publish/remote.js";
 import { runFolder, type PublishRecord } from "../run-state.js";
@@ -60,7 +62,7 @@ function readNumber(value: string | undefined, fallback: number, min: number, fl
 
 /** Every broken rule that stops the command before any push. The list is empty when the plan can be published. */
 function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] {
-  const git = (args: string[]) => runProgram("git", args, { cwd: root, env: deps.env });
+  const git = (args: string[], maxBuffer?: number) => runProgram("git", args, { cwd: root, env: deps.env, maxBuffer });
   const problems: string[] = [];
   const branch = plan.header.Branch;
   const target = plan.header["Target branch"];
@@ -104,6 +106,9 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
     }
   }
   if (branch === target) problems.push(`The Branch line and the Target branch line name the same branch, ${branch}.`);
+
+  const home = deps.env ? deps.env.HOME : homedir();
+  problems.push(...homeFolderProblems(git, home, target, plan.pullRequest));
   return problems;
 }
 
