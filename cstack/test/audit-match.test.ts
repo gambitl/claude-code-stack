@@ -68,4 +68,13 @@ describe("matchesStep refuses", () => {
     expect(matchesStep(w("cstack unit red <n>"), ["unit", "red", "1", "2"])).toBe(false);
     expect(matchesStep(w("cstack unit red <n>"), ["unit", "red"])).toBe(false);
   });
+  const repeated = 'cstack helper start implementer --plan <plan file> --unit <n>';
+  it("a flag with the number of another unit", () => {
+    expect(
+      matchesStep(w(repeated), ["helper", "start", "implementer", "--plan", "p.md", "--unit", "3"], 2),
+    ).toBe(false);
+  });
+  it("a call without the flag that holds the unit number", () => {
+    expect(matchesStep(w(repeated), ["helper", "start", "implementer", "--plan", "p.md"], 2)).toBe(false);
+  });
 });

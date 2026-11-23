@@ -83,6 +83,10 @@ export function matchesStep(step: string[], call: string[], unit?: number): bool
     const next = s.flags[i + 1];
     const value = next !== undefined && !next.startsWith("-") ? next : undefined;
     if (value !== undefined) i++;
+    if (value === "<n>" && unit !== undefined) {
+      if (!hasFlag(c.flags, flag, String(unit))) return false;
+      continue;
+    }
     if (value !== undefined && PLACEHOLDER.test(value)) continue;
     if (!hasFlag(c.flags, flag, value)) return false;
   }
