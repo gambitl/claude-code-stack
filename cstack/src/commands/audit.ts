@@ -134,6 +134,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
   });
   const open = PHASES.findIndex(({ name }) => !isDone(state, name));
   const leftOut = open === -1 ? [] : PHASES.slice(open).map(({ name }) => name);
+  // WHY: ADR-RQG-C, section "How the audit treats the phases that are not over". The filter runs after the evaluation, so the time windows stay as they are.
   const belongsTo = (text: string, name: string): boolean =>
     text === `phase ${name}` || text === `phase ${name} started` || text.startsWith(`${name}: `);
   const lines = [...phaseLines, ...stepLines].filter((line) => !leftOut.some((name) => belongsTo(line.text, name)));
