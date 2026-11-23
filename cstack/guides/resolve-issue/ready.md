@@ -1,3 +1,11 @@
+<!-- mandatory steps
+action: draft-pull-request
+action: write-executor-notes
+command: cstack next --done ready --plan <plan file>
+action: commit-plan-file
+command: cstack helper done done --helper <helper id> --plan <plan file>
+-->
+
 # Ready for review
 
 In this phase you draft the pull request and close the build. You can start it only when no blocking question is open. The settings that `cstack next` printed above this guide apply. They win over any default here.

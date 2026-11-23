@@ -1,3 +1,8 @@
+<!-- mandatory steps
+action: write-code-mapping
+command: cstack next --done code-map
+-->
+
 # Map the code
 
 You use this guide in the `code-map` phase. It uses the sections "Where things are today" and "Scope" of the plan file.

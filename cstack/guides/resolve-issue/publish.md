@@ -1,3 +1,9 @@
+<!-- mandatory steps
+command: cstack publish --plan <plan file>
+command: cstack next --done publish --plan <plan file>
+command: cstack helper done published --helper <helper id> --plan <plan file>
+-->
+
 # Publish
 
 In this phase you push the branch once, open the pull request, and wait for the checks. The settings that `cstack next` printed above this guide apply. They win over any default here. Only `cstack publish` pushes. Read only these sections of the plan file: its header, "Blocking questions", "Pull request", "Documentation" and "Executor notes".

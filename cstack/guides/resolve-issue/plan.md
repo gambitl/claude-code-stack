@@ -1,3 +1,15 @@
+<!-- mandatory steps
+action: write-architecture
+helper: resolve-issue:cto-review plan-delta | new-structural-decision
+action: write-decisions
+action: write-implementation-units
+action: write-documentation-duties
+action: approval-gate
+command: cstack next --done plan
+command: cstack helper start executor --plan <plan file>
+command: cstack helper wait <helper id>
+-->
+
 # Phase `plan`: write the plan and get it approved
 
 You use this guide in the `plan` phase. It starts only when every blocking question has an answer.

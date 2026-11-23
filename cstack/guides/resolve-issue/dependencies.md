@@ -1,3 +1,8 @@
+<!-- mandatory steps
+action: write-dependencies
+command: cstack next --done dependencies
+-->
+
 # Phase `dependencies`: check what blocks the ticket
 
 This phase reads the blockers of the ticket. It writes the result under `## Dependencies` in the plan file.

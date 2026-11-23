@@ -1,3 +1,10 @@
+<!-- mandatory steps
+command: cstack tracker comment '<key>' --body-file <file> --tracker <name>
+command: cstack tracker comment '<key>' --body-file <file> --tracker <name> | each-dependent-ticket
+action: write-documentation-places
+command: cstack next --done document --plan <plan file>
+-->
+
 # Document
 
 In this phase you write down what happened, in the ticket, in the dependent tickets and in the documentation tool. An undocumented ticket is not done. The settings that `cstack next` printed above this guide apply. They win over any default here. Write every text as the writing guide asks, in the `recordsLanguage` setting.

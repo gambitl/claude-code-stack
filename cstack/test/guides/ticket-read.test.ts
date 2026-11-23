@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { withoutBlock } from "../../src/guide-steps.js";
 import { claudeFileTracker } from "../../src/tracker/claude-file.js";
 
-const guide = readFileSync(fileURLToPath(new URL("../../guides/resolve-issue/ticket.md", import.meta.url)), "utf8");
+const rawGuide = readFileSync(fileURLToPath(new URL("../../guides/resolve-issue/ticket.md", import.meta.url)), "utf8");
+// The prose of the guide, as `cstack guide` prints it, without its block of mandatory steps.
+const prose = withoutBlock(rawGuide, "guides/resolve-issue/ticket.md");
+if (!prose.ok) throw new Error(prose.message);
+const guide = prose.text;
 const examplePath = fileURLToPath(new URL("../../skills/resolve-issue/templates/tracker-file.json", import.meta.url));
 
 describe("the ticket guide reads the ticket with cstack tracker read", () => {

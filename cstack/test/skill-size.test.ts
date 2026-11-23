@@ -2,6 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { withoutBlock } from "../src/guide-steps.js";
 import { PHASES } from "../src/phases.js";
 
 // Counts words like `wc -w`: split on ASCII whitespace only.
@@ -13,7 +14,10 @@ const repo = new URL("../../", import.meta.url).pathname;
 
 // The entry skill and the first guide must stay under a fifth of the frozen prose skill.
 function checkSize(entrySkill: string, firstGuide: string, frozen: string[]): string[] {
-  const sum = words(entrySkill) + words(firstGuide);
+  // The guide is counted as `cstack guide` prints it, without its block of mandatory steps.
+  const prose = withoutBlock(readFileSync(firstGuide, "utf8"), firstGuide);
+  if (!prose.ok) throw new Error(prose.message);
+  const sum = words(entrySkill) + countWords(prose.text);
   const limit = frozen.reduce((total, file) => total + words(file), 0);
   return sum * 5 >= limit
     ? [`The entry skill and the first guide hold ${sum} words. The limit is under ${limit / 5} words (a fifth of ${limit}).`]

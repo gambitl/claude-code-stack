@@ -1,3 +1,8 @@
+<!-- mandatory steps
+action: write-non-blocking-questions
+command: cstack next --done after-build-questions --plan <plan file>
+-->
+
 # Questions after the build
 
 In this phase you sort the questions that the build raised and nobody has answered. The settings that `cstack next` printed above this guide apply. They win over any default here.

@@ -1,3 +1,11 @@
+<!-- mandatory steps
+action: write-retrospective
+action: commit-retrospective
+command: cstack next --done retro --plan <plan file>
+command: cstack helper start executor --plan <plan file>
+command: cstack helper wait <helper id>
+-->
+
 # Retrospective
 
 This phase runs in the main conversation, not in the executor. The settings that `cstack next` printed above this guide apply. They win over any default here. You write down what this run learned, as evidence and nothing else. You never edit a skill, an agent prompt or the conventions file here. The `digest-retros` skill does that later, with the user's approval.
