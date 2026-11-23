@@ -319,7 +319,15 @@ Is this the list of conditions you want, and do the two steps that depend on Cla
 
 ## Review log
 
-<phase review>
+Impact notes. The new exports `readSteps`, `withoutBlock` and `stepProblems` have callers only in `cstack/src/commands/guide.ts`, `cstack/src/commands/next.ts` and the tests. `readGuide()` and `printGuide()` changed in one place each, and their other callers and tests (`cstack/test/guide.test.ts`, `cstack/test/next.test.ts`) pass. No other file mentions the new names. The usual companions of `guide.ts`, `next.ts` and `manifest.ts` are their tests, `cstack/test/cli.test.ts`, `cstack/test/manifest-implemented.test.ts` and `README.md`. All of them pass or were updated. The full `npm test` passed with 1552 tests before the last fix, and six affected test files pass after it. No `WHY:` or `DECISION:` comment in the changed files conflicts with the change, and `next.ts` still reads the settings before it writes any state.
+
+Correctness review: one important finding. `readSteps()` did not refuse a second opening line after a valid block, which the plan requires and which `cstack guide` would then print as text. Fixed with a new test that failed first.
+
+Security review: nothing found. A helper's skill and name are kebab-case before any path is built, and the pattern built from a word is safe.
+
+Conventions review: nothing at or above the reporting bar. Follow-up, not fixed: when `cstack next --done <phase>` hits a guide whose block never closes, the phase is already marked done, so a retry prints "already done". The ADR already sets exit code 3 for that case.
+
+Simplicity review: small cuts only (an unused `StepKind` export, one shared "never closes" message, two chained replaces). Not done, because they are optional and the plan asks for the exported types. Follow-up for the maintainer.
 
 ## Briefing
 
