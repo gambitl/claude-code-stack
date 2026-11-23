@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/publish-units-done
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T20:53:06+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T21:54:35+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -301,7 +301,49 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): refuse to publish while a unit of the plan has no commit and no Blocked line
+
+````markdown
+## What this changes
+
+`cstack publish` now refuses, before any push, while a unit of the plan has no commit with its `Cstack-Unit` trailer and no `- Blocked:` line. In the run of #89, a question after the build added a unit, and the pull request opened without it. The build phase already had this check, but a unit added later escaped it.
+
+The refusal reuses `buildDone` from `cstack/src/phases.ts`, so it prints the same sentence as the build phase, one line for each unit. It is listed with the other broken rules and uses exit code 1. Nothing is fetched, tested or pushed, and no forge client runs.
+
+## Decisions
+
+- `buildDone` now takes `Pick<PhaseContext, "plan" | "commits">`. Its body and message did not change. The user agreed to this signature change.
+- When `listUnitCommits()` cannot read the commits, the command lists that as one more broken rule instead of failing with exit code 3. When the local target branch is missing, the line also gives `git branch --track main origin/main`. The user agreed to this.
+- The publish guide says what to do on this refusal: build the unit, review its new commits, correct the pull request body and the briefing, add the notes, and publish again. Its block of mandatory steps does not change, because a refusal is not the normal path (ADR-RQG-C).
+- `cstack next --done ready` is not changed in this pull request.
+
+## Files
+
+- `cstack/src/commands/publish.ts` and `cstack/src/phases.ts` for the rule.
+- `cstack/test/publish.test.ts` has six new cases. `cstack/test/helpers/publish-env.ts` now commits units 1 and 2 of its plan fixture. Unit 3 stays blocked with no commit.
+- `cstack/guides/resolve-issue/publish.md` and `README.md` for the prose.
+- The plan file is `docs/plans/2026-11-23-114-make-cstack-publish-refuse-while-a-unit-is-not-done.md`.
+
+## Judgment calls of the independent review
+
+- `cstack publish` now needs a local copy of the target branch, such as `main`. Before, `origin/main` alone was enough.
+- The test where `git log` fails works only because `listUnitCommits()` ignores the environment of the tests. If a later change makes it use that environment, this test must change too.
+
+The review found no bug. Follow-up: when neither `main` nor `origin/main` exists, the advice to run `git branch --track` fails, while the home folder rule gives the right first step.
+
+## Tests
+
+The typecheck and `cstack/test/publish.test.ts` pass. The full test run showed only timeouts of five seconds on a busy machine, and those files pass when run alone. The exception is `cstack/test/e2e/no-orca.test.ts`, which still timed out in its Orca cases locally and does not touch publishing.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- Should `cstack next --done ready` refuse too while a unit is not done? It would catch a late unit before the reviews and the retrospective. For: the user.
+- Should the advice to run `git branch --track` appear only when `origin/<target>` exists? For: the user.
+
+Fixes #114
+````
 
 ## Documentation
 
@@ -316,7 +358,7 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 ## Hand-off log
 
-- 2026-11-23, executor run of the build phase: moved #114 to "in progress" with `cstack tracker move`, committed the plan file, and built unit 1 (commit 26649aa) and unit 2 (commit 66ab586), one implementer after the other, with `CSTACK_ORCA_WORKERS=off` and no child worktree. Typecheck passes. The run goes on to the next phases.
+- 2026-11-23, executor run of the build phase: moved #114 to "in progress" with `cstack tracker move`, committed the plan file, and built unit 1 (commit 26649aa) and unit 2 (commit 66ab586), one implementer after the other, with `CSTACK_ORCA_WORKERS=off` and no child worktree. Then ran the reviews, the independent review, the documentation, the briefing and the draft of the pull request. Typecheck passes. Report returned: done.
 
 ## History
 
