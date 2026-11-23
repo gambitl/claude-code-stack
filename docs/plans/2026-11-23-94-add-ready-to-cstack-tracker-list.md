@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/tracker-list-ready
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T17:53:18+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T18:07:01+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -329,7 +329,39 @@ none
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): add --ready to cstack tracker list
+
+````markdown
+## What this changes
+
+`cstack tracker list` has a new option, `--ready`. With it, the command prints only the tickets that can start now. A ticket can start when it is open, nobody works on it, and all its blockers are finished. The output keeps the same format, and the command makes no extra call to the tracker.
+
+When `--ready` leaves out a ticket because something is unknown, it prints one line on standard error and still exits with 0. The lines say that the state of the ticket is unknown, that its blockers are unknown, or that the state of one blocker is unknown. A ticket with several unknown blockers gets one line for each of them.
+
+## Key decisions
+
+The option uses the same ready rule as `cstack wave`, so both commands agree. The user agreed to two choices. First, the type of the shared option parser `parseTrackerArgs()` now also accepts an option without a value, and its runtime code did not change. Second, the warning lines exist, because without them an empty list on a Jira project without footers would have no explanation. The option does not check whether a ticket already has a worktree, because Orca answers that with `orca reference find`.
+
+## Files touched
+
+- `cstack/src/commands/tracker-list.ts` holds the option and the filter.
+- `cstack/src/commands/tracker-common.ts` has the wider parser type.
+- `cstack/src/manifest.ts` has the new usage line and flag.
+- `cstack/test/tracker/tracker-list-ready.test.ts` is new, with 20 cases for the four trackers and the file input.
+- `README.md` describes the option.
+
+## Judgment calls from the independent review
+
+- One review fix commit changes code and the README together, so it has no unit trailer. Splitting it would rewrite history, so it stays.
+- A ticket with a known open blocker and also a blocker of unknown state gets only the unknown-blocker warning. The plan chose this format.
+- The test file defines two small helpers twice, and two test titles are a little loose. These are style points that stay as they are.
+
+## Checks
+
+The type check passes and all 1730 tests pass. The plan file is `docs/plans/2026-11-23-94-add-ready-to-cstack-tracker-list.md`.
+
+Fixes #94
+````
 
 ## Documentation
 
@@ -340,11 +372,12 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- I ran `cstack helper wait` for the unit 1 helper before its sub-agent had returned. It exited with 1 and said the helper ended without an accepted report. I waited for the sub-agent notice and ran the wait again, and then it worked.
 
 ## Hand-off log
 
 - 2026-11-23, executor run (build): moved '#94' to "in progress" with cstack tracker move. The work stays on the branch gambitl/tracker-list-ready.
+- 2026-11-23, executor run (build to ready): built units 1 to 3, reviewed with four reviewers and fixed their findings, ran the independent review, documented #94 and #104, and drafted the pull request. Report: done.
 
 ## History
 
