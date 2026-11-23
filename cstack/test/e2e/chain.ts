@@ -7,6 +7,7 @@ import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { expect } from "vitest";
+import { withoutBlock } from "../../src/guide-steps.js";
 import type { Runner } from "../../src/orca/run.js";
 
 const CSTACK = join(import.meta.dirname, "..", "..");
@@ -181,7 +182,12 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
     }
     return `cstack ${words.join(" ")}`;
   };
-  const check = (source: string, args: string[]) => expect(source, `no text names "${written(args)}"`).toContain(written(args));
+  const check = (source: string, args: string[]) => {
+    // A command that only the block of mandatory steps names does not count.
+    const prose = withoutBlock(source, "the text that names the command");
+    if (!prose.ok) throw new Error(prose.message);
+    expect(prose.text, `no text names "${written(args)}"`).toContain(written(args));
+  };
 
   const calls = (program: string): Call[] =>
     (existsSync(join(fakeDir, "calls.log")) ? readFileSync(join(fakeDir, "calls.log"), "utf8") : "")

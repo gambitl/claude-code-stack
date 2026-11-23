@@ -5,6 +5,7 @@ import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, re
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { withoutBlock } from "../../src/guide-steps.js";
 import { readPlan } from "../../src/plan/read.js";
 import { writeFakePrograms } from "../helpers/publish-env.js";
 
@@ -21,6 +22,12 @@ const PHASE_COUNT = 15;
 const EXTRA_FLAGS = [["--grace", "0"]];
 
 const read = (...parts: string[]) => readFileSync(join(...parts), "utf8");
+/** The text without its block of mandatory steps. An agent prompt has no block, so it comes back unchanged. */
+function prose(text: string, name: string): string {
+  const result = withoutBlock(text, name);
+  if (!result.ok) throw new Error(result.message);
+  return result.text;
+}
 const SKILL = read(CSTACK, "skills", "resolve-issue", "SKILL.md");
 const IMPLEMENTER = read(CSTACK, "skills", "resolve-issue", "agents", "implementer.md");
 const EXECUTOR = read(CSTACK, "skills", "resolve-issue", "agents", "executor.md");
@@ -85,7 +92,7 @@ function written(args: string[]): string {
 
 /** Runs a cstack command after checking that the text it comes from names it. */
 function follow(source: string, args: string[], input?: string): Result {
-  expect(source, `no text names "${written(args)}"`).toContain(written(args));
+  expect(prose(source, "the text that names the command"), `no text names "${written(args)}"`).toContain(written(args));
   const result = run(args, input);
   if (args[0] === "next" && result.code === 0 && /^Run: /.test(result.stdout)) lastGuide = result.stdout;
   return result;
@@ -97,14 +104,14 @@ const guideNames = () => readdirSync(GUIDES).map((f) => f.slice(0, -3));
 function expectGuide(result: Result, name: string): void {
   expect(result.stderr).toBe("");
   expect(result.code).toBe(0);
-  const guide = read(GUIDES, `${name}.md`);
+  const guide = prose(read(GUIDES, `${name}.md`), `${name}.md`);
   expect(result.stdout.endsWith(guide)).toBe(true);
   const head = result.stdout.slice(0, -guide.length);
   expect(head).toMatch(
     new RegExp(`^Run: .*\\. Phase \\d+ of ${PHASE_COUNT}: ${name}, in the (main conversation|executor)\\.\\nSettings of this repository \\(\\.cstack/settings\\.json\\):\\n(- .*\\n)+\\n$`),
   );
   for (const other of guideNames().filter((n) => n !== name)) {
-    expect(result.stdout, `the guide ${other} must not be printed`).not.toContain(read(GUIDES, `${other}.md`));
+    expect(result.stdout, `the guide ${other} must not be printed`).not.toContain(prose(read(GUIDES, `${other}.md`), `${other}.md`));
   }
 }
 
