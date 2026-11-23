@@ -301,7 +301,10 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #94: posted. It gives the new usage line, says the output format does not change, and gives the three warning lines. https://github.com/gambitl/claude-code-stack/issues/94
+- Comment on the release ticket #104: posted, with the usage line and the three warning lines for the 0.4.0 release notes. https://github.com/gambitl/claude-code-stack/issues/104
+- README: the paragraph on the cstack tracker commands in README.md describes --ready (committed on the branch).
+- Architecture decision record: none, as the plan says. Specification page: none, as the plan says.
 
 ## Executor notes
 
