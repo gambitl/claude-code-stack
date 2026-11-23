@@ -273,7 +273,12 @@ With `--ready`, a ticket whose own state is unknown, or whose blockers are unkno
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: the changed symbols are parseTrackerArgs (type only, used by tracker read, move, comment and list), trackerList, the manifest entry of cstack tracker list, and the README bullet on cstack tracker. Callers and tests found: cstack/test/tracker/*, manifest.test.ts, cli.test.ts and manifest-implemented.test.ts. All pass. The usual companions of the changed files are manifest.ts, manifest.test.ts, cli.ts and README.md. cli.ts needs no change, because it reads the manifest. The manifest field `ticket: [25, 26]` names the tickets that built the command, so it stays.
+
+Correctness reviewer: no finding. Security reviewer: no finding. Keys in the warnings are validated by checkedTracker() before they are printed.
+Conventions reviewer: two README findings, both fixed. The sentence on unknown states was wrong (one line per unknown blocker, not one line per ticket) and too long, and the word "workspace" was not explained, so the text now says "worktree" and tells the reader to run orca reference find.
+Simplicity reviewer: two cheap findings, both fixed. The value type of parseTrackerArgs is now named once, and the nested if in keepReady is gone.
+Follow-ups: none. Full test run after the fixes: typecheck clean, 1730 tests pass.
 
 ## Briefing
 
