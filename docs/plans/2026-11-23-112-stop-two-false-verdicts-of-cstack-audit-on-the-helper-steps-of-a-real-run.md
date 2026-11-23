@@ -335,7 +335,42 @@ none
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request>
+Title: fix(cli): stop two false verdicts of cstack audit on the helper steps of a real run
+
+````markdown
+## What this changes
+
+`cstack audit` gave two wrong verdicts on the `cstack helper` steps of a real run. This pull request fixes both.
+
+The first wrong verdict was about the plan step `cstack helper wait <helper id>`. When the executor runs as a sub-agent, it makes its own `cstack helper wait` calls much earlier. The audit counted them as the wait of the main conversation. Now the steps of the phases that run in the main conversation count only the calls of the session files of the main conversation. The audit finds those files from the call `cstack next --done ticket --plan <plan file>`. It also counts a second main session file, for example after a resume. It ignores helper transcripts and the session of an executor that runs as a worker.
+
+When no session file holds the close of the ticket phase, the audit prints every line and then a sentence on standard error. It exits with 1. The manifest and the README describe this new case.
+
+The second wrong verdict was about a unit that a blocking question added after the build phase closed. The audit now works out when each unit was built, from its `cstack unit commit` call, then from `units/<n>/red.json`, then from git. It looks for the steps of such a unit until the close of the phase that built it. That unit also no longer sets the floor of the steps after its group, such as `cstack unit collect`.
+
+## Key decisions
+
+- Each call keeps the index of its session file and a flag that says whether the file is a helper transcript. A call never holds a path.
+- The steps of the executor phases keep counting the calls of every file, so an executor that runs as a worker still shows its steps as done.
+- The format of the lines and the exit codes do not change, except the new exit code 1 above. Nothing under `cstack/src/measure/` changed.
+
+## Files touched
+
+`cstack/src/audit/calls.ts`, `cstack/src/audit/evaluate.ts`, the new `cstack/src/audit/main-session.ts`, `cstack/src/commands/audit.ts`, `cstack/src/manifest.ts`, `README.md` and the tests `cstack/test/audit.test.ts`, `cstack/test/audit-calls.test.ts` and `cstack/test/audit-main-session.test.ts`. The plan is `docs/plans/2026-11-23-112-stop-two-false-verdicts-of-cstack-audit-on-the-helper-steps-of-a-real-run.md`.
+
+## How it was checked
+
+All fixtures are built by hand. The typecheck and the full test run pass (124 files, 1708 tests). Each new case failed first. A review of the branch found no bug. The independent review added one test, which checks that the sentence about unreadable files prints before the new sentence.
+
+## Judgment calls from the review
+
+- A repeated `cstack helper wait` of the main conversation during the build could still count as the wait of an implementer.
+- A call with no `--plan` value can still make the session of another run in the same repository and time window count as the main conversation. The README already lists mixed runs as a limit.
+- The window of a unit built late ends at the first phase close in phase order, not the earliest in time. The two agree when phases close in order.
+- Unit 5 was already built by unit 4. A second attempt wrote a different test, where every unit is late, and fixed a real gap that it exposed.
+
+Fixes #112
+````
 
 ## Documentation
 
@@ -357,6 +392,7 @@ none
 ## Hand-off log
 
 - 2026-11-23, executor, build phase: moved #112 to "in progress" with `cstack tracker move`. Committed the plan file. Ran `npm ci` in `cstack/`. Built units 1 to 6 one at a time with sub-agents. Unit 5 was escalated once. All units have a commit with their `Cstack-Unit` trailer.
+- 2026-11-23, executor, review to ready: ran four reviewers and fixed their findings, ran the independent review, found the branch up to date with `main`, posted comments on #112, #90 and #92, got the briefing, found no open question after the build, and drafted the pull request.
 
 ## History
 
