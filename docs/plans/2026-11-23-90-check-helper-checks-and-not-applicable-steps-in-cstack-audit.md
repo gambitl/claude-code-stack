@@ -346,11 +346,12 @@ The block of `build.md` lists `cstack helper start implementer-escalation` and a
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The implementer of unit 7 returned without a `cstack helper done` report, so `cstack helper wait` exited with 1. Its commit 9f85765 was there and the plan showed the unit as done, so I saved a stuck report and did not escalate.
+- Windows of helper steps overlap like those of command steps (seen in the report of unit 5). A launch in the plan phase can serve the earlier `before-plan` step of the same type. The plan rules produce this, so I changed nothing.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-23, executor, build phase: moved the ticket to "in progress", committed the plan file, installed the packages, and built units 1 to 7 one at a time with sub-agent implementers. Full typecheck and tests pass (1765 tests). Unit 7 needed a stuck report because its helper sent no report.
 
 ## History
 
