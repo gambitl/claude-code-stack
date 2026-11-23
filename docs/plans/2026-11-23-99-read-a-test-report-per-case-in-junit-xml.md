@@ -285,6 +285,15 @@ When the caller asks for the report, I recommend that `runTests()` adds one fiel
 - Simplicity and conventions: `quote()` was copied. Fixed by exporting the one of `cstack/src/settings.ts`.
 - Not done, as follow-ups: hoist the repeated `Object.hasOwn(o, "report")` in the settings block; a size limit and a single open for the report file; a refusal of a repeated attribute; a sentence in the README that says which command reads the problem field; a static import in the `usesReport()` tests; a comment on `{report}` next to the `{file}` comment in `settings.ts`.
 
+### Independent review
+
+The independent reviewer changed no code and found no bug, security problem, missing acceptance criterion or broken convention. Judgment calls for the pull request:
+
+1. `cstack unit red` and `cstack unit green` do not pass the report request yet. #100 wires them, and the release ships both. The release must not leave #100 out.
+2. The reader loads the whole report into memory with no size limit. The report comes from the user's own test command, so the risk is small.
+3. `readReport()` loads the reader with a dynamic `import()`, and a code comment says why. A static import would be simpler if #100 changes how tests start child processes.
+4. Full `npm test` runs on a busy machine show five-second timeouts in unrelated files (`test/helper/fallback.test.ts`, `test/helper/worktree-line.test.ts`). A run of the whole suite on a quiet machine had zero failures.
+
 ## Briefing
 
 <CTO advisor, moment after-build>
@@ -308,6 +317,7 @@ none
 - Unit 1: the implementer's first version of the last refusal test did not test the escape and the cut, so it changed the test after the red run and `cstack unit green` printed a warning.
 - Unit 1: one deliberate break of the code made a test loop forever, and the implementer had to kill a vitest process.
 - Unit 3: the reader is loaded with a dynamic `import()` inside `runTests()`, because the interrupt tests start a child that imports `test-run.ts` as source.
+- Full `npm test` run during the review had 13 timeout failures in unrelated files while the machine was busy. A rerun had zero failures.
 - Unit 2: the plan gave no wording for the refusal messages, so the implementer chose its own.
 
 ## Hand-off log
