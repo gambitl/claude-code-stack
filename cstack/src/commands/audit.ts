@@ -101,7 +101,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     folders.planned,
   );
   if (!found.files.some((file) => !file.helper)) return fail(3, "no session file of this run was found.");
-  const read = await readCalls(found.files.map((file) => file.path));
+  const read = await readCalls(found.files);
   const phaseLines = evaluatePhases(state, read.calls);
   const stepLines = evaluateSteps({
     guides: guideSteps,
