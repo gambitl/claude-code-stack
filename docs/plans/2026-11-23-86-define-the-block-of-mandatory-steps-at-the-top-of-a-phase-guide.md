@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/mandatory-steps-block
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T12:23:48+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-23T12:44:31+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -435,10 +435,12 @@ Fixes #86
 
 - The unit 4 implementer reported that `withoutBlock()` called `readSteps()`, so any invalid step stopped a guide from printing. The plan says it only checks that the block closes. I fixed it in a follow-up commit (evidence: `cstack/src/guide-steps.ts`, `withoutBlock()`).
 - `cstack unit green` warned for units 1 and 2 that the test file changed since the red run. The implementers had made weak tests stricter after the break checks.
+- My first fix commit used `git commit -a` and mixed code and documentation files under a `Cstack-Unit` trailer, so `cstack plan status` refused it. I split it into three commits (evidence: `cstack plan status`).
 
 ## Hand-off log
 
 - 2026-11-23, executor, build phase: moved #86 to "in progress", committed the plan file, built units 1 to 4 one at a time with `CSTACK_ORCA_WORKERS=off` sub-agents, and fixed `withoutBlock()` to match the plan. The full `npm test` passed (1552 tests) before the fix, and the six affected test files passed after it.
+- 2026-11-23, executor, later phases: ran the review and the independent review, rebased on `main` (two documentation files moved, no conflict), wrote the comments on #86, #88 and #89, the briefing, the questions after the build and the pull request draft, and closed `ready`.
 
 ## History
 
