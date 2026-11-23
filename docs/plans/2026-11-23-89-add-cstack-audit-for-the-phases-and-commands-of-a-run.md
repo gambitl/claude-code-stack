@@ -391,6 +391,10 @@ The reviewer changed only the README: an `out of order` line also shows its time
 
 Unit 8 (commit 2524ae1) ends the window of a phase at the next close of a phase that runs in the same place. One correctness reviewer read this commit alone and found nothing at confidence 80 or above. The full suite (1632 tests) and the type check pass. The reviewer noted an older point, not caused by this commit. In the real `build.md`, the executor runs `cstack helper wait <helper id>` for each implementer. When #88 adds that step to the block of the build guide, the plan line `cstack helper wait <helper id>` could take the first implementer wait as its call and print a false "done". It is recorded as a non-blocking question.
 
+### Review of unit 9 (after the pull request opened)
+
+Unit 9 (commit `a1283ca`) requires the unit number in a flag such as `--unit <n>` of a repeated step. One correctness reviewer read this commit alone and found nothing at confidence 80 or above. It also broke the rule of the case "a call without the flag that holds the unit number" on purpose, saw exactly that case fail, and restored the file. The full suite (1682 tests after the rebase on `main`) and the type check pass. The audit of this run, run again with the guides of `main`, now gives each unit its own implementer start. The starts of units 8 and 9, which were built after the build phase closed, show as skipped, which is the limit that #112 fixes.
+
 ## Briefing
 
 ### What you should know about what was built
@@ -482,6 +486,8 @@ Fixes #89
 
 - 2026-11-23, executor run 1: moved ticket #89 to "in progress" with cstack tracker move. Built units 1 to 7 one at a time with sub-agents, reviewed the branch with four reviewers and the independent reviewer, wrote the three ticket comments, and got the briefing. The advisor made the question about `cstack helper wait` blocking, so the run returned a needs-decision report before the pull request.
 - 2026-11-23, executor run 2: applied the answers to questions 1 to 3, added unit 8 for question 3, built it with a sub-agent, and ran one correctness review on its commit. The full suite and the type check pass. The briefing is corrected and one non-blocking question is recorded.
+- 2026-11-23, executor run 3: ran the `publish` phase and opened pull request #113, with green checks. It did not build unit 9, although a line of `## Decisions` asked for it before `cstack publish`, and `cstack publish` did not refuse a plan where unit 9 had no commit.
+- 2026-11-23, after the pull request opened: with the user's approval, the main conversation started one implementer for unit 9 through `cstack helper start implementer --unit 9`, had one correctness reviewer read its commit, and pushed the fix to the branch of #113 with a plain `git push`.
 
 ## History
 
