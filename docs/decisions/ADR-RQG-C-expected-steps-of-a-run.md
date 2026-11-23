@@ -53,19 +53,19 @@ This section was added when ticket #88 wrote the real blocks. It adds to the rec
 
 A block lists every `cstack` command that the prose of its guide requires. It also lists every named helper that the prose requires.
 
-A block adds one `action` step for each other deed that leaves a trace. A deed leaves a trace in three cases. It writes something, such as a plan section, a file or a commit. It runs a check that the guide requires, such as the tests or the fetch of the target branch. Or it stops and waits for the answer of the user.
+A block adds one `action` step for each other deed that someone can check later. A deed can be checked later in three cases. It writes something, such as a plan section, a file or a commit. It runs a check that the guide requires, such as the tests or the fetch of the target branch. Or it stops and waits for the answer of the user.
 
 Reading, searching and looking at the history are not steps. They leave nothing behind, and how much to read is a judgment. Telling the user something without waiting for an answer is not a step either. A note that records another step belongs to that step.
 
-A block describes a run that reaches the end of its phase on the normal path. On that path, each command succeeds, no unit is stuck and the user approves. A step that belongs to another path is left out. Examples are another exit code, a refusal, a stop and an open blocker.
+A block describes a run that reaches the end of its phase on the normal path. On that path, each command succeeds, no unit is stuck and the user approves. A step that belongs to another path is left out. For example, a command that exits with another code, a command that refuses, a stop, and an open blocker all belong to other paths.
 
-A step that the prose makes conditional is left out. The one exception is a step whose condition is one of the seven above. So a block never lists a step for a condition that the format cannot say.
+A step that the prose makes conditional is left out. The one exception is a step whose condition is one of the seven conditions listed in the Decision section above. So a block never lists a step for a condition that the format cannot say.
 
 A block writes each command as the prose of its guide writes it, with the same placeholders. It lists the steps in the order in which a run does them.
 
-When two guides name the same step for the same moment, the step goes only into the block of the guide that the run follows at that moment. For example, the start and the wait of the executor of the publish phase go into the block of the retro guide, and not into the block of the plan guide.
+When two guides name the same step at the same point of a run, the step goes only into the block of the guide that the run follows at that point. For example, the start and the wait of the helper that runs the publish phase go into the block of the retro guide, and not into the block of the plan guide.
 
-The `cstack helper start` commands stand for the executor and the implementers until milestone R2. A sub-agent starts only when that command exits with code 6, and with Orca the helper is a worker instead. So the blocks list the commands and no `helper:` step for these helpers. Milestone R2 replaces the commands with `helper:` steps.
+The `cstack helper start` commands stand for the executor and the implementers until milestone R2 of the epic that ticket #88 belongs to. A sub-agent starts only when that command exits with code 6, and with Orca the helper is a worker instead. So the blocks list the commands and no `helper:` step for these helpers. Milestone R2 replaces the commands with `helper:` steps.
 
 The block of the build guide lists `cstack unit red`, `cstack unit green` and `cstack unit commit` in their short form, with `<n>` and without the extra flags. The audit checks exactly these three commands for each unit.
 
