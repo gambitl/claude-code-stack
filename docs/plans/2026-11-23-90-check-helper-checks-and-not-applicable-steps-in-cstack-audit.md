@@ -323,7 +323,13 @@ The block of `build.md` lists `cstack helper start implementer-escalation` and a
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes (review phase)
+
+- `readCalls()`, `evaluateSteps()`, `cstackCommands()` and the new `commandsOf()` are used only inside `cstack/src/audit/`, `cstack/src/commands/audit.ts` and the tests `audit.test.ts`, `audit-calls.test.ts` and `audit-shell.test.ts`. No other command depends on them.
+- The files that usually change with `evaluate.ts` and `commands/audit.ts` are `cstack/test/audit.test.ts`, `README.md` and `cstack/src/manifest.ts`. All three are changed in this branch.
+- No `WHY:` or `DECISION:` comment conflicts with the change. ADR-RQG-C is followed, as the Decisions of the plan say.
+- Windows of helper steps overlap like those of command steps, so a launch in the plan phase can serve an earlier step of the same type. The plan rules produce this.
+
 
 ## Briefing
 
