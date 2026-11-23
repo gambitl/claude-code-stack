@@ -278,6 +278,22 @@ The retro phase runs `cstack audit` before the retro phase and the publish phase
 
 ## Review log
 
+### Impact notes (phase review)
+
+- `cstack/src/commands/audit.ts`: the filter is new and local to `audit()`. Callers of `evaluatePhases()` and `evaluateSteps()` are unchanged. `cstack/test/audit.test.ts` is the test file, and the usual companions are `cstack/src/manifest.ts` and `README.md`, which this branch changed too.
+- `cstack/src/manifest.ts`: only the texts of exit codes 0 and 1 of the audit entry changed. `cstack/test/manifest.test.ts` and `cstack/test/cli.test.ts` read this file and are not changed.
+- `cstack/guides/resolve-issue/retro.md`: the block holds a new first step. `cstack/test/manifest.test.ts` and `cstack/test/guides/steps-blocks.test.ts` check blocks and mentions.
+- The retrospective template is named only by `cstack/test/pack.test.ts` and `cstack/test/skills-package.test.ts`, and both are unaffected.
+- A usual companion left for the document phase: `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, as the plan's documentation duties say.
+- No `WHY:` or `DECISION:` comment in the changed files conflicts with the change. The call `readPlan(planText)` is unchanged, as the coordinator asked.
+
+### Findings of the four reviewers (phase review)
+
+- Correctness: no bug. Three wording points, all fixed in one commit. The retro guide now says "the phases that are not over yet" and names retro and publish only for a finished run. The guide now asks to copy a standard error sentence in inline code, because a sentence such as the version mismatch holds a placeholder that GitHub would hide. The README sentence about a missing ticket close now says the audit prints the lines of the phases that are over.
+- Security: no finding. No path, session content, home folder or private name can leave through the output, the tests or the fixtures. The private-names check exits with 0.
+- Conventions: one finding, that the filter reads the printed text of a line to find its phase, and that a `phase` field on `Line` would be sturdier. Judgment call: not done. The plan decides to filter by text and forbids changing `cstack/src/audit/evaluate.ts`, where six of the last ten commits are fixes. The text shapes are covered by tests for the phase, start, step and helper lines.
+- Simplicity: one finding, to drop the empty-output sentence and the copy of standard error sentences from the guide. Judgment call: not done. Both are decisions of the plan taken in the question round.
+
 <phase review findings and fixes; phase independent-review: fixes and judgment calls>
 
 ## Briefing
