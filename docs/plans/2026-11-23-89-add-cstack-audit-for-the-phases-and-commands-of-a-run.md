@@ -308,6 +308,17 @@ Each of these is its own test case. A full run prints every phase line and every
 
 This unit also holds the privacy cases of the ticket, in `describe("nothing private leaves the command")`, as `cstack/test/measure.test.ts` does at line 477. The session lines of a full run hold a marker text in the commands, in the text of answers and in a tool result. One case checks that standard output and standard error never hold the marker, that every line of standard output matches one of the allowed patterns, and that the output holds at least one command line, so that the case fails before this unit. The allowed patterns are the start line, the phase line and the command line of `## Decisions`, where the step text is one of the step texts of the test guides with `<n>` replaced by a number. A second case checks that the output holds neither the repository folder, the home folder nor the guide folder.
 
+### Unit 8: End the window of a phase at the next close of a phase that runs in the same place
+
+- Files: `cstack/src/audit/evaluate.ts`, `cstack/test/audit.test.ts`
+- Test: `cstack/test/audit.test.ts`: a run where the executor is a sub-agent, so that `cstack helper wait <helper id>` of the plan phase and of the retro phase come after the closes of the executor phases, prints both lines as done
+- Minimum code: In `evaluateSteps()` of `cstack/src/audit/evaluate.ts`, the end of the window of a phase (`later`) becomes the close of the next phase whose `runsIn` in `cstack/src/phases.ts` equals the `runsIn` of this phase. The start of the window (`earlier`) does not change. A phase with no such closed phase has no end. This answers Question 3.
+- Refactor: none.
+- Commit message: fix(cli): end the window of a phase at the next close of a phase that runs in the same place
+- Depends on: 7
+
+This is its own test case: the calls of a full run, except that the plan `cstack helper wait <helper id>` and the retro `cstack helper wait <helper id>` are moved to a time after the close of the phase before the retro phase starts, for the plan one, and to a time after the close of `publish`, for the retro one. Both lines are done, the plan wait comes after the plan `cstack helper start executor`, and the exit code is 0. Every test that passes today must keep passing.
+
 ## Documentation duties
 
 - README: applies, written to the command list of `README.md` by Unit 5: the count of commands and one bullet for `cstack audit`.
