@@ -287,6 +287,7 @@ command: cstack unit green <n> | each-unit-with-test
 command: cstack unit commit <n> | each-unit
 command: cstack helper wait <helper id> | each-unit
 command: cstack helper start implementer-escalation --plan <plan file> --unit <n> | each-stuck-unit
+command: cstack helper wait <helper id> | each-stuck-unit
 command: cstack unit collect <n>... --plan <plan file>
 command: cstack plan status --plan <plan file>
 action: check-the-user-interface | user-interface
@@ -447,6 +448,15 @@ Three test files read a raw guide where they mean the text that the agent reads,
 - No `WHY:` or `DECISION:` comment sits in the changed files. The branch follows ADR-RQG-C, and Unit 3 adds a section to it without changing a decision.
 - Tests that exercise the change: `cstack/test/guides/steps-blocks.test.ts`, `cstack/test/manifest.test.ts`, `cstack/test/skill-size.test.ts`, `cstack/test/guides/ticket-read.test.ts`, `cstack/test/e2e/`.
 
+### Findings of the four reviewers
+
+- Correctness: the block of `build.md` had no wait for the escalated implementer, although the prose needs its report. Fixed: the block now lists `cstack helper wait <helper id> | each-stuck-unit` after the escalation. The plan text of Unit 2 follows it. It also noted that the plan file names two home folders of the maintainer in a rule line. That text comes from the brief of the run and stays, because other plans in the repository carry it and the home path test passes.
+- Security: nothing found. The private names check exits with 0 and every commit has the no-reply address.
+- Conventions: the new ADR section used internal words and unclear phrases. Fixed in a documentation commit. The reviewer also asked for the second commit of the plan file at the end of `build.md`. Not changed: the user decided to leave it out (see `## Decisions`, the line about `build.md` and the first commit of the plan file).
+- Simplicity: nothing to remove.
+
+Tests after the fixes: the impact-note tests pass, and the full suite passed before the fixes (119 files, 1600 tests).
+
 ## Briefing
 
 ## Non-blocking questions
@@ -542,7 +552,7 @@ The draft blocks below follow the recommended answers. Each block sits at line 1
 - `code-map.md`: `action: write-code-mapping`, `command: cstack next --done code-map`.
 - `questions.md`: `action: write-open-questions`, `action: write-blocking-questions`, `helper: resolve-issue:cto-review before-plan`, `action: question-round`, `command: cstack next --done questions`.
 - `plan.md`: `action: write-architecture`, `helper: resolve-issue:cto-review plan-delta | new-structural-decision`, `action: write-decisions`, `action: write-implementation-units`, `action: write-documentation-duties`, `action: approval-gate`, `command: cstack next --done plan`, `command: cstack helper start executor --plan <plan file>`, `command: cstack helper wait <helper id>`.
-- `build.md`: `command: cstack tracker move '<key>' --to "in progress" --tracker <name>`, `action: check-out-branch`, `action: commit-plan-file`, `command: cstack unit order --plan <plan file>`, `command: cstack helper start implementer --plan <plan file> --unit <n> | each-unit`, `command: cstack unit red <n> | each-unit-with-test`, `command: cstack unit green <n> | each-unit-with-test`, `command: cstack unit commit <n> | each-unit`, `command: cstack helper wait <helper id> | each-unit`, `command: cstack helper start implementer-escalation --plan <plan file> --unit <n> | each-stuck-unit`, `command: cstack unit collect <n>... --plan <plan file>`, `command: cstack plan status --plan <plan file>`, `action: check-the-user-interface | user-interface`, `command: cstack next --done build --plan <plan file>`.
+- `build.md`: `command: cstack tracker move '<key>' --to "in progress" --tracker <name>`, `action: check-out-branch`, `action: commit-plan-file`, `command: cstack unit order --plan <plan file>`, `command: cstack helper start implementer --plan <plan file> --unit <n> | each-unit`, `command: cstack unit red <n> | each-unit-with-test`, `command: cstack unit green <n> | each-unit-with-test`, `command: cstack unit commit <n> | each-unit`, `command: cstack helper wait <helper id> | each-unit`, `command: cstack helper start implementer-escalation --plan <plan file> --unit <n> | each-stuck-unit`, `command: cstack helper wait <helper id> | each-stuck-unit`, `command: cstack unit collect <n>... --plan <plan file>`, `command: cstack plan status --plan <plan file>`, `action: check-the-user-interface | user-interface`, `command: cstack next --done build --plan <plan file>`.
 - `review.md`: `action: write-impact-notes`, `helper: resolve-issue:code-reviewer-deep correctness`, `helper: resolve-issue:code-reviewer-deep security`, `helper: resolve-issue:code-reviewer conventions`, `helper: resolve-issue:code-reviewer-simplicity`, `action: write-review-findings`, `action: run-test-commands`, `command: cstack next --done review --plan <plan file>`.
 - `independent-review.md`: `action: check-the-settings-file`, `helper: resolve-issue:pr-reviewer`, `command: cstack next --done independent-review --plan <plan file>`.
 - `update-branch.md`: `action: fetch-the-target-branch`, `command: cstack next --done update-branch --plan <plan file>`.
