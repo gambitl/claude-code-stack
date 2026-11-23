@@ -310,6 +310,12 @@ none
 
 ## Documentation
 
+- A comment on ticket #80 (https://github.com/gambitl/claude-code-stack/issues/80), posted with `cstack tracker comment`.
+- `README.md`, the `cstack tracker` paragraph, written by unit 5.
+- `cstack/guides/resolve-issue/ticket.md`, written by unit 5.
+- `cstack/test/fixtures/gh/2.101.0/README.md`, written by unit 3.
+- No decision record and no dependent ticket comment, as the documentation duties say.
+
 ## Executor notes
 
 - `cstack helper start implementer` for unit 3 started a worker for units 3, 4, 5 and 6 in a loop whose output I piped to `grep`, and the loop exited with 1. I started unit 3 a second time, so two workers reported for it. Both reports succeeded and no file was damaged.
