@@ -331,7 +331,11 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+- The refactor moved the session scan of `measureSessions` into `findRunFiles` and the worktree list into `worktreeFolders`. Only `cstack/src/commands/measure.ts`, `cstack/src/commands/audit.ts` and `cstack/src/audit/calls.ts` call them. The older plans in docs/plans only mention them in text.
+- The measure tests exercise the changed code and must keep passing. The count of commands in `manifest.ts` and `README.md` and the tests `manifest.test.ts`, `cli.test.ts` and `manifest-implemented.test.ts` were updated for the new command.
+- No `WHY:` or `DECISION:` comment conflicts with the change.
 
 ## Briefing
 
