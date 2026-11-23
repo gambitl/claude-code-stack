@@ -451,3 +451,98 @@ describe("Windows line endings", () => {
     expect(readPlan(text.replace(/\n/g, "\r\n"))).toEqual(readPlan(text));
   });
 });
+
+describe("the facts and their sources", () => {
+  const base = fixture("version-2");
+  const FILE_FACT = '- The reader is in one file. Source: `src/plan/read.ts`, line 1: "export const PLAN_FORMAT"';
+  const USER_FACT = "- The maintainer chose a long flag. Source: the user, on 2026-11-18";
+  const swap = (from: string, to: string) => {
+    const text = base.replace(from, to);
+    expect(text).not.toBe(base);
+    return text;
+  };
+  const lineOf = (text: string, needle: string) => text.split("\n").findIndex((row) => row.includes(needle)) + 1;
+  const refused = (replacement: string, message: string) => {
+    const text = swap(FILE_FACT, replacement);
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, replacement)}: `);
+    expect(error.message).toContain(message);
+  };
+
+  it("reads a fact with a file source, its line and its quoted text", () => {
+    const plan = readPlan(base);
+    expect(plan.facts[0]).toEqual({
+      line: lineOf(base, "The reader is in one file."),
+      text: "The reader is in one file.",
+      source: { kind: "file", path: "src/plan/read.ts", line: 1, quote: "export const PLAN_FORMAT" },
+    });
+  });
+
+  it("reads a fact with a user source and its date", () => {
+    const plan = readPlan(base);
+    expect(plan.facts[1]).toEqual({
+      line: lineOf(base, "The maintainer chose"),
+      text: "The maintainer chose a long flag.",
+      source: { kind: "user", date: "2026-11-18" },
+    });
+    expect(plan.facts).toHaveLength(2);
+  });
+
+  it("reads the word none as no fact", () => {
+    const plan = readPlan(swap(`${FILE_FACT}\n${USER_FACT}`, "none"));
+    expect(plan.facts).toEqual([]);
+  });
+
+  it("reads a quoted text that holds Source: and double quotes", () => {
+    const text = swap(FILE_FACT, '- The reader says Source: here. Source: `src/plan/read.ts`, line 5: "a \\"x\\" Source: `a.ts`, line 2: \\"y\\" end"');
+    const plan = readPlan(text);
+    expect(plan.facts[0]).toEqual({
+      line: lineOf(text, "The reader says"),
+      text: "The reader says Source: here.",
+      source: { kind: "file", path: "src/plan/read.ts", line: 5, quote: 'a \\"x\\" Source: `a.ts`, line 2: \\"y\\" end' },
+    });
+  });
+
+  it("ignores spaces at the end of a fact line", () => {
+    expect(readPlan(swap(USER_FACT, `${USER_FACT}   `)).facts[1].source).toEqual({ kind: "user", date: "2026-11-18" });
+  });
+
+  it("refuses a fact line with no source", () => {
+    refused("- The reader is in one file.", "has no ` Source: `");
+  });
+
+  it("refuses a file source with no quoted text", () => {
+    refused("- The reader is in one file. Source: `src/plan/read.ts`, line 1", "quoted text");
+    refused('- The reader is in one file. Source: `src/plan/read.ts`, line 1: ""', "quoted text");
+  });
+
+  it("refuses a source line number of 0", () => {
+    refused('- The reader is in one file. Source: `src/plan/read.ts`, line 0: "x"', "from 1");
+  });
+
+  it("refuses a user source with no date", () => {
+    refused("- The maintainer chose a long flag. Source: the user", "the user, on <YYYY-MM-DD>");
+  });
+
+  it("refuses a user date that is not YYYY-MM-DD", () => {
+    refused("- The maintainer chose a long flag. Source: the user, on 18/11/2026", "YYYY-MM-DD");
+  });
+
+  it("refuses an absolute source path", () => {
+    refused('- The reader is in one file. Source: `/src/plan/read.ts`, line 1: "x"', "starts with /");
+  });
+
+  it("refuses a source path with a .. part", () => {
+    refused('- The reader is in one file. Source: `../src/read.ts`, line 1: "x"', ".. part");
+  });
+
+  it("refuses a fact line that does not start with - ", () => {
+    refused('The reader is in one file. Source: `a.ts`, line 1: "x"', "- <the fact> Source:");
+  });
+
+  it("refuses the word none next to a fact", () => {
+    const text = swap(USER_FACT, `${USER_FACT}\nnone`);
+    const error = failureOf(text);
+    expect(error.message).toContain(`line ${lineOf(text, USER_FACT) + 1}: The word \`none\` cannot sit next to a fact`);
+  });
+});

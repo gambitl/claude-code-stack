@@ -124,6 +124,16 @@ export interface NegativeCriterion {
   text: string;
 }
 
+export type FactSource =
+  | { kind: "file"; path: string; line: number; quote: string }
+  | { kind: "user"; date: string };
+
+export interface PlanFact {
+  line: number;
+  text: string;
+  source: FactSource;
+}
+
 export interface PlanPullRequest {
   title: string;
   body: string;
@@ -134,6 +144,7 @@ export interface PlanRead {
   headings: PlanHeading[];
   sections: PlanSection[];
   negativeCriteria: NegativeCriterion[];
+  facts: PlanFact[];
   units: PlanUnit[];
   blockingQuestions: BlockingQuestion[];
   pullRequest?: PlanPullRequest;
@@ -516,17 +527,22 @@ function readUnits(region: Region, section: PlanSection | undefined, criteriaCou
   return units;
 }
 
-function readNegativeCriteria(region: Region, section: PlanSection | undefined): NegativeCriterion[] {
+// The content lines of a section that holds a list, or the word `none`. The word `none` alone gives no line.
+function listLines(region: Region, section: PlanSection | undefined, noun: string) {
   if (!section || !section.filled) return [];
-  const { problems } = region;
   const content = contentLines(region, section.first + 1, section.last);
   if (content.length === 1 && content[0].text.trim() === "none") return [];
+  return content.filter(({ line, text }) => {
+    if (text.trim() !== "none") return true;
+    region.problems.push({ line, rule: `The word \`none\` cannot sit next to ${noun}. Remove it.` });
+    return false;
+  });
+}
+
+function readNegativeCriteria(region: Region, section: PlanSection | undefined): NegativeCriterion[] {
+  const { problems } = region;
   const criteria: NegativeCriterion[] = [];
-  for (const { line, text } of content) {
-    if (text.trim() === "none") {
-      problems.push({ line, rule: "The word `none` cannot sit next to a negative criterion. Remove it." });
-      continue;
-    }
+  for (const { line, text } of listLines(region, section, "a negative criterion")) {
     const parsed = /^(\d+)\. (\S.*)$/.exec(text);
     if (!parsed) {
       problems.push({ line, rule: "A negative criterion line is `<k>. <criterion>`, with <k> a number from 1. Write the word `none` when the ticket has none." });
@@ -539,6 +555,51 @@ function readNegativeCriteria(region: Region, section: PlanSection | undefined):
     criteria.push({ number, line, text: parsed[2].trim() });
   }
   return criteria;
+}
+
+// The rest of a fact line after ` Source: `: a whole valid source, or the reason it is not one.
+function readSource(rest: string): FactSource | string {
+  if (rest.startsWith("the user")) {
+    const user = /^the user, on (.+)$/.exec(rest);
+    if (!user) return "A user source is `Source: the user, on <YYYY-MM-DD>`.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(user[1])) return `The date \`${user[1]}\` of a user source is not in the form YYYY-MM-DD.`;
+    return { kind: "user", date: user[1] };
+  }
+  const file = /^`([^`]*)`, line (\d+): "(.+)"$/.exec(rest);
+  if (!file) {
+    return 'A file source is `Source: `<path>`, line <n>: "<the quoted text>"`. The quoted text is not empty and ends the line.';
+  }
+  const line = Number(file[2]);
+  if (line < 1) return "The line number of a file source is a number from 1.";
+  const problem = pathProblem(file[1]);
+  if (problem) return problem;
+  return { kind: "file", path: file[1], line, quote: file[3] };
+}
+
+function readFacts(region: Region, section: PlanSection | undefined): PlanFact[] {
+  const facts: PlanFact[] = [];
+  const SOURCE = " Source: ";
+  for (const { line, text } of listLines(region, section, "a fact")) {
+    const row = text.trimEnd();
+    const form = "A fact line is `- <the fact> Source: <the source>`.";
+    if (!row.startsWith("- ")) {
+      region.problems.push({ line, rule: form });
+      continue;
+    }
+    // The source starts at the first ` Source: ` whose rest is a whole valid source.
+    let firstReason: string | undefined;
+    let found: PlanFact | undefined;
+    for (let at = row.indexOf(SOURCE); at !== -1 && !found; at = row.indexOf(SOURCE, at + 1)) {
+      const factText = row.slice(2, at).trim();
+      const source = readSource(row.slice(at + SOURCE.length));
+      if (typeof source === "string") firstReason ??= source;
+      else if (factText === "") firstReason ??= "The fact text is empty.";
+      else found = { line, text: factText, source };
+    }
+    if (found) facts.push(found);
+    else region.problems.push({ line, rule: firstReason ?? `The fact has no \` Source: \`. ${form}` });
+  }
+  return facts;
 }
 
 function readQuestions(region: Region, section: PlanSection | undefined): BlockingQuestion[] {
@@ -703,6 +764,7 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
   const region: Region = { lines, headings, comments, problems };
   const section = (name: SectionName) => sections.find((candidate) => candidate.name === name);
   const negativeCriteria = readNegativeCriteria(region, section("Negative criteria"));
+  const facts = readFacts(region, section("Facts"));
   const units = readUnits(region, section("Implementation units"), negativeCriteria.length);
   const blockingQuestions = readQuestions(region, section("Blocking questions"));
   const pullRequest = readPullRequest(region, section("Pull request"));
@@ -714,5 +776,5 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
       problems,
     );
   }
-  return { header, headings, sections, negativeCriteria, units, blockingQuestions, pullRequest };
+  return { header, headings, sections, negativeCriteria, facts, units, blockingQuestions, pullRequest };
 }
