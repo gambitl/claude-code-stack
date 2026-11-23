@@ -384,6 +384,7 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 - Should the block of `document.md` get a condition such as `big-decision`, so that the audit can check that a run recorded its big decisions in a decision record and in `WHY:` comments? It would change the list of conditions in `cstack/src/guide-steps.ts`, the block of `document.md` and ADR-RQG-C, so it needs a ticket of its own. For: the maintainer.
 - Should the condition `new-structural-decision` also accept the sentence "No new decision since the question round" written in another records language? Today the audit looks for the English sentence, so a run whose `recordsLanguage` is not English always expects a second launch of the CTO advisor after the plan draft. A fix would change ADR-RQG-C. For: the maintainer.
+- On the run of #90, the document phase posted the three dependent-ticket comments in one shell `for` loop, and `cstack audit` counted one call, so two of the three dependent-ticket lines printed as skipped. Should the document guide ask for one `cstack tracker comment` call per ticket, without a loop, or should the README only list this as a limit of the audit? For: the maintainer.
 
 ## Pull request
 
