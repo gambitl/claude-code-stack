@@ -1,10 +1,8 @@
 import { homedir } from "node:os";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
-import { git, MomentsError, readMoments } from "../measure/moments.js";
+import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
 import { measureSessions, type Totals } from "../measure/sessions.js";
-import { parseWorktreeList } from "../wave/worktrees.js";
 
 export const MEASURE_USAGE = "Usage: cstack measure <plan file> [--home <folder>]";
 
@@ -43,16 +41,15 @@ export async function measure(args: string[], io: Io): Promise<number> {
     io.stderr(`cstack measure: ${error.message}\n`);
     return 1;
   }
-  let listed: string[];
+  let folders;
   try {
-    listed = parseWorktreeList(await git(moments.root, ["worktree", "list", "--porcelain"])).map((entry) => entry.path);
+    folders = await worktreeFolders(moments.root, moments.worktrees);
   } catch {
     io.stderr("cstack measure: git cannot list the worktrees of the repository.\n");
     return 1;
   }
-  const worktrees = moments.worktrees.map((path) => (path.startsWith("~/") ? join(homedir(), path.slice(2)) : path));
   const end = moments.ready ?? new Date();
-  const result = await measureSessions(parsed.values.home ?? homedir(), moments.root, moments.approval, end, listed, worktrees);
+  const result = await measureSessions(parsed.values.home ?? homedir(), moments.root, moments.approval, end, folders.listed, folders.planned);
   const lines = [
     `main sessions: ${result.mainSessions}`,
     `helper transcripts: ${result.helperTranscripts}`,

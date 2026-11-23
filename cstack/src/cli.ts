@@ -6,6 +6,7 @@ import { helperDone } from "./commands/helper-done.js";
 import { helperStart } from "./commands/helper-start.js";
 import { helperWait } from "./commands/helper-wait.js";
 import { guide } from "./commands/guide.js";
+import { audit } from "./commands/audit.js";
 import { measure } from "./commands/measure.js";
 import { next } from "./commands/next.js";
 import { publish } from "./commands/publish.js";
@@ -58,6 +59,7 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   doctor: (args, io) => (args.length > 0 ? fail(io, "doctor takes no argument") : doctor(io)),
   guide: (args, io) => guide(args, io, { packageRoot }),
   measure: (args, io) => measure(args, io),
+  audit: (args, io) => audit(args, io, { packageRoot }),
   next: (args, io) => next(args, io, { cwd: process.cwd(), packageRoot }),
   skills: (args, io) => skills(args, io, { home: homedir(), packageRoot }),
   plan: (args, io) =>

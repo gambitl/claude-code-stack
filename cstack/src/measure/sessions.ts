@@ -33,7 +33,7 @@ async function resolveLoose(path: string): Promise<string> {
   }
 }
 
-async function readLines(
+export async function readLines(
   file: string,
   onLine: (value: Record<string, unknown>) => void,
 ): Promise<number> {
@@ -63,25 +63,21 @@ async function listDir(path: string, onError: () => void): Promise<string[] | un
   }
 }
 
-export async function measureSessions(
+export type RunFiles = { files: { path: string; helper: boolean }[]; unreadableFiles: number };
+
+// Finds the main sessions and the helper transcripts that belong to the run, in the order of the scan.
+export async function findRunFiles(
   home: string,
   root: string,
   windowStart: Date,
   windowEnd: Date,
   listed: string[],
   planned: string[],
-): Promise<Result> {
-  const result: Result = {
-    mainSessions: 0,
-    helperTranscripts: 0,
-    totals: empty(),
-    perModel: new Map(),
-    skippedLines: 0,
-    unreadableFiles: 0,
-  };
+): Promise<RunFiles> {
+  const found: RunFiles = { files: [], unreadableFiles: 0 };
   const projects = join(home, ".claude", "projects");
   const unreadable = () => {
-    result.unreadableFiles++;
+    found.unreadableFiles++;
   };
   const holds = (folder: string, path: string): boolean => path === folder || path.startsWith(folder + sep);
   // The paths of the plan count as written and resolved. A removed folder is resolved through its parent.
@@ -95,6 +91,62 @@ export async function measureSessions(
     return [...plannedPaths].some((folder) => holds(folder, path));
   };
   const inside = async (cwd: string): Promise<boolean> => counts(cwd) || counts(await resolveLoose(cwd));
+
+  const entries = await readdir(projects, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
+    if (error.code !== "ENOENT") unreadable();
+    return [];
+  });
+  for (const folder of entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)) {
+    const names = await listDir(join(projects, folder), unreadable);
+    for (const name of (names ?? []).filter((entry) => entry.endsWith(".jsonl"))) {
+      const file = join(projects, folder, name);
+      const cwds = new Set<string>();
+      let first = Infinity;
+      let last = -Infinity;
+      try {
+        await readLines(file, (line) => {
+          if (typeof line.cwd === "string") cwds.add(line.cwd);
+          const time = typeof line.timestamp === "string" ? Date.parse(line.timestamp) : NaN;
+          if (!Number.isNaN(time)) {
+            first = Math.min(first, time);
+            last = Math.max(last, time);
+          }
+        });
+      } catch {
+        unreadable();
+        continue;
+      }
+      if (first > windowEnd.getTime() || last < windowStart.getTime()) continue;
+      let counted = false;
+      for (const cwd of cwds) if (await inside(cwd)) counted = true;
+      if (!counted) continue;
+      found.files.push({ path: file, helper: false });
+      const helpers = join(projects, folder, name.slice(0, -".jsonl".length), "subagents");
+      for (const helper of (await listDir(helpers, unreadable)) ?? []) {
+        if (helper.endsWith(".jsonl")) found.files.push({ path: join(helpers, helper), helper: true });
+      }
+    }
+  }
+  return found;
+}
+
+export async function measureSessions(
+  home: string,
+  root: string,
+  windowStart: Date,
+  windowEnd: Date,
+  listed: string[],
+  planned: string[],
+): Promise<Result> {
+  const found = await findRunFiles(home, root, windowStart, windowEnd, listed, planned);
+  const result: Result = {
+    mainSessions: 0,
+    helperTranscripts: 0,
+    totals: empty(),
+    perModel: new Map(),
+    skippedLines: 0,
+    unreadableFiles: found.unreadableFiles,
+  };
   // One answer is written on several lines with the same id. Only output_tokens grows, so keep the largest.
   // A line without an id gets a key of its own, so it is always counted.
   const answers = new Map<string, { model: string; totals: Totals }>();
@@ -128,48 +180,11 @@ export async function measureSessions(
     }
   }
 
-  async function scan(): Promise<void> {
-    const entries = await readdir(projects, { withFileTypes: true }).catch((error: NodeJS.ErrnoException) => {
-      if (error.code !== "ENOENT") unreadable();
-      return [];
-    });
-    for (const folder of entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name)) {
-      const names = await listDir(join(projects, folder), unreadable);
-      for (const name of (names ?? []).filter((entry) => entry.endsWith(".jsonl"))) {
-        const file = join(projects, folder, name);
-        const cwds = new Set<string>();
-        let first = Infinity;
-        let last = -Infinity;
-        try {
-          await readLines(file, (line) => {
-            if (typeof line.cwd === "string") cwds.add(line.cwd);
-            const time = typeof line.timestamp === "string" ? Date.parse(line.timestamp) : NaN;
-            if (!Number.isNaN(time)) {
-              first = Math.min(first, time);
-              last = Math.max(last, time);
-            }
-          });
-        } catch {
-          unreadable();
-          continue;
-        }
-        if (first > windowEnd.getTime() || last < windowStart.getTime()) continue;
-        let counts = false;
-        for (const cwd of cwds) if (await inside(cwd)) counts = true;
-        if (!counts) continue;
-        result.mainSessions++;
-        await addFile(file);
-        const helpers = join(projects, folder, name.slice(0, -".jsonl".length), "subagents");
-        for (const helper of (await listDir(helpers, unreadable)) ?? []) {
-          if (!helper.endsWith(".jsonl")) continue;
-          result.helperTranscripts++;
-          await addFile(join(helpers, helper));
-        }
-      }
-    }
+  for (const file of found.files) {
+    if (file.helper) result.helperTranscripts++;
+    else result.mainSessions++;
+    await addFile(file.path);
   }
-
-  await scan();
   for (const answer of answers.values()) {
     let bucket = result.perModel.get(answer.model);
     if (!bucket) result.perModel.set(answer.model, (bucket = empty()));
