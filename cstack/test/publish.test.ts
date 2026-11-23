@@ -94,6 +94,86 @@ describe("cstack publish refusals before any push", () => {
   });
 });
 
+const MISSING = (n: number) => `- Unit ${n} has no commit with its trailer and no Blocked line.`;
+const unitText = (n: number) =>
+  `### Unit ${n}: Thing ${n}\n- Files: \`src/a${n}.ts\`, \`test/a${n}.test.ts\`\n- Test: \`test/a${n}.test.ts\`: the case ${n} fails\n- Minimum code: Write a${n}.\n- Refactor: None.\n- Commit message: \`feat(cli): add a${n}\`\n- Depends on: none\n\n`;
+const withUnits = (...numbers: number[]) => (t: string) =>
+  t.replace("## Documentation duties", `${numbers.map(unitText).join("")}## Documentation duties`);
+const CANNOT_TELL = "cstack cannot tell which units have a commit:";
+
+describe("cstack publish refuses while a unit is not done", () => {
+  it("refuses a unit with no commit and no Blocked line, and names it", async () => {
+    const env = makePublishEnv({ plan: withUnits(4) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain(MISSING(4));
+    refused(env);
+  });
+
+  it("names every such unit, in the order of the plan", async () => {
+    const env = makePublishEnv({ plan: withUnits(4, 5) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain(MISSING(4));
+    expect(out.stderr).toContain(MISSING(5));
+    expect(out.stderr.indexOf(MISSING(4))).toBeLessThan(out.stderr.indexOf(MISSING(5)));
+    refused(env);
+  });
+
+  it("never names a blocked unit", async () => {
+    const env = makePublishEnv({ plan: withUnits(4) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain(MISSING(4));
+    expect(out.stderr).not.toContain("Unit 3 ");
+  });
+
+  it("lists the unit rule after the Status rule and before the uncommitted files rule", async () => {
+    const env = makePublishEnv({
+      plan: (t) => withUnits(4)(t.replace("Status: ready for review", "Status: review")),
+    });
+    writeFileSync(join(env.repo, "README.md"), "changed\n");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr.startsWith("cstack publish: nothing was pushed, because 3 rule(s) are broken.")).toBe(true);
+    const status = out.stderr.indexOf("Status is `review`");
+    const unit = out.stderr.indexOf(MISSING(4));
+    const readme = out.stderr.indexOf("README.md");
+    expect(status).toBeGreaterThan(-1);
+    expect(unit).toBeGreaterThan(status);
+    expect(readme).toBeGreaterThan(unit);
+    refused(env);
+  });
+
+  it("tells how to create the local target branch when it does not exist", async () => {
+    const env = makePublishEnv();
+    git(env.repo, "branch", "-D", "main");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr.split("\n")).toContain(
+      `- ${CANNOT_TELL} The target branch "main" does not exist. Run \`git branch --track main origin/main\`, then run \`cstack publish\` again.`,
+    );
+    refused(env);
+  });
+
+  it("reports a git log failure without the advice about the target branch", async () => {
+    const env = makePublishEnv();
+    vi.stubEnv("GIT_CONFIG_COUNT", "1");
+    vi.stubEnv("GIT_CONFIG_KEY_0", "log.date");
+    vi.stubEnv("GIT_CONFIG_VALUE_0", "bogus");
+    let result;
+    try {
+      result = await run(env);
+    } finally {
+      vi.unstubAllEnvs();
+    }
+    expect(result.code).toBe(1);
+    expect(result.out.stderr).toContain(`- ${CANNOT_TELL} git log failed:`);
+    expect(result.out.stderr).not.toContain("git branch --track");
+    refused(env);
+  });
+});
+
 describe("cstack publish input errors", () => {
   it("gives 3 for a broken settings file", async () => {
     const env = makePublishEnv();

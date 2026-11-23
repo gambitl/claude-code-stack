@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { commitPlan, git, makeRepo } from "./plan-repo.js";
+import { commitFiles, commitPlan, git, makeRepo } from "./plan-repo.js";
 
 const FIXTURE = join(import.meta.dirname, "..", "fixtures", "plans", "ready-for-review.md");
 
@@ -118,6 +118,9 @@ export function makePublishEnv(options: { plan?: (text: string, home: string) =>
 
   git(repo, "checkout", "-b", BRANCH);
   commitPlan(repo, options.plan ? options.plan(readFileSync(FIXTURE, "utf8"), home) : readFileSync(FIXTURE, "utf8"), PLAN_PATH);
+  // Units 1 and 2 of the fixture are done. Unit 3 stays blocked with no commit, so a blocked unit never stops the push.
+  commitFiles(repo, ["src/a1.ts"], 1);
+  commitFiles(repo, ["docs/x.md"], 2);
 
   writeFakePrograms(fakes);
   const clock = { value: Date.parse("2026-11-19T12:00:00Z") };
