@@ -294,11 +294,15 @@ none
 
 ## Executor notes
 
-<executor, before its report>
+- The implementer of unit 2 wrote source code before it saved the red run, so `cstack unit red` refused. It moved the file aside, saved the red run, and put the file back.
+- The implementer of unit 5 reported stuck, because unit 4 had already built the behaviour of unit 5 and its test case passed. The escalation wrote a different test, which exposed a real gap, and fixed it with `if (next.length > 0) tail = next;`.
+- Departure in unit 5: the test is not the one of the Test line. It is a case where every unit is late, and a `cstack unit collect` call comes before `cstack unit order`.
+- The implementer of unit 6 did not read the code of units 1 to 5. I compared its README text with `cstack/src/commands/audit.ts` and found no mismatch.
+- `cstack helper wait` exited with 1 once, because I ran it before the sub-agent of unit 1 had returned. I waited with a loop on `cstack plan status` instead.
 
 ## Hand-off log
 
-<one entry per executor run>
+- 2026-11-23, executor, build phase: moved #112 to "in progress" with `cstack tracker move`. Committed the plan file. Ran `npm ci` in `cstack/`. Built units 1 to 6 one at a time with sub-agents. Unit 5 was escalated once. All units have a commit with their `Cstack-Unit` trailer.
 
 ## History
 
