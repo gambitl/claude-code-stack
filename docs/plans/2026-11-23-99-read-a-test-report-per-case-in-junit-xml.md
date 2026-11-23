@@ -270,7 +270,20 @@ When the caller asks for the report, I recommend that `runTests()` adds one fiel
 
 ## Review log
 
-<phase review>
+### Impact notes
+
+- `testScript()` and `runTests()` keep their signatures. The callers `unit-red.ts`, `unit-green.ts`, `publish.ts` and `unit-test-command.ts` pass no report option, so they behave as before.
+- `TestCommands` gains an optional field. `cstack next` prints `testCommands` as JSON, so the new key shows there with no change.
+- Usual companions of `settings.ts` are its test file (changed), `json-position.ts`, `settings-block.ts` and `next-settings.test.ts`. None of them reads the new key. Usual companion of `test-run.ts` is its test file (changed).
+- No recorded decision conflicts: ADR-SIC-D says a new key keeps version 1, and the settings still say version 1.
+
+### Reviewer findings and fixes
+
+- Correctness: an error inside a text or an attribute named the wrong line. Fixed, with a test case.
+- Security: the entity lookup accepted `&constructor;` and `&__proto__;`. Fixed with `Object.hasOwn`, with a test case.
+- Security: a raw control character passed into a case name. The reader now refuses it, with a test case. Note for #100: names are still untrusted text, and C1 characters and bidi overrides are allowed by XML, so #100 must escape them with `quote()` before it prints them.
+- Simplicity and conventions: `quote()` was copied. Fixed by exporting the one of `cstack/src/settings.ts`.
+- Not done, as follow-ups: hoist the repeated `Object.hasOwn(o, "report")` in the settings block; a size limit and a single open for the report file; a refusal of a repeated attribute; a sentence in the README that says which command reads the problem field; a static import in the `usesReport()` tests; a comment on `{report}` next to the `{file}` comment in `settings.ts`.
 
 ## Briefing
 
