@@ -329,6 +329,11 @@ The worker of #88 found three steps that the drafted matching rule would judge w
 - For: the user
 - Answer: yes, as recommended, with the three parts above. The user, in the chat, on 2026-11-23.
 
+### Question 3: The wait of the plan and retro phases when the executor is a sub-agent
+the step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the case when Orca workers are off. The wait runs after the executor closed later phases, so it falls outside the window of Question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. A fix is to end the window of a phase at the next close of a phase that runs in the same place, so plan ends at the close of retro. That changes the rule you accepted, so I did not do it. Do you want this change, in this pull request or in a follow-up ticket?
+- For: the user
+- Answer: not yet.
+
 ## Review log
 
 ### Impact notes
@@ -355,11 +360,42 @@ The reviewer changed only the README: an `out of order` line also shows its time
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The pull request will not open until you answer the question about the step `cstack helper wait`, which comes right after this briefing. I treat it as a question that changes the work, not one that can wait, and I recommend fixing it in this pull request.
+
+`cstack audit <plan file>` now exists. It reads the sessions, the run state and git, and prints one line per phase and per required command: "done", "skipped" or "out of order". The 75 tests of the audit pass on my side, the independent review saw the full suite and the type check pass, and the tests of `cstack measure` pass without any change. On the test guides, it does what the ticket asks. On a real run where the executor runs as a sub-agent, two lines come out wrong, hence the question.
+
+**What to watch**
+
+- Sub-agents are the mode the epic chose for its helpers. Without the fix, every real run exits with 1 and two false alerts. The ticket that runs the audit in the retro phase (#91) would see them every time.
+- No real run has been audited yet, because every test session is written by hand. As soon as the ticket that writes the blocks of the guides (#88) merges, run the audit on this run, with `--guides` filled from `main`, before #91 relies on it. A call written as `timeout 600 cstack ...`, `npx cstack` or with a full path is not recognised and shows as "skipped", so look there first if a false alert appears.
+- For runs 3 to 6, always pass `--guides`. The version stays 0.3.2 until the end of R3, so the version check cannot see that the guides changed between two runs.
+
+**What changed since the plan**
+
+- The window rule decided in question 2 does not hold when the executor runs as a sub-agent. That is the subject of the question.
+- The reviews only fixed the README and removed duplicated code. Everything else follows the plan.
+
+#### Details
+
+**The wait step of the plan and retro phases (blocking, cannot be tested: the user has to decide).** The reviewer's finding is real; I traced it against the code and the guides. `evaluateSteps()` (`cstack/src/audit/evaluate.ts`, lines 165 to 175) limits the calls of a phase to the window from the close of the nearest earlier closed phase to the close of the nearest later closed phase. The installed `plan.md` (lines 51 to 55) tells the main conversation to run `cstack helper wait <helper id>` only after the executor sub-agent has returned. By then the executor has closed `build` through `ready`, so the wait falls after the close of `build`, outside the window of `plan`, and `plan: cstack helper wait <helper id>` prints "skipped". In the retro phase, the window runs from the close of `ready` to the close of `publish`. The wait of the plan phase falls inside it, but before the floor (the retro `helper start`), while the retro's own wait comes after the executor closed `publish`, so outside the window. The line prints "out of order". The test fixture of the full run in `cstack/test/audit.test.ts` places the plan wait before the close of `build`, which matches an Orca worker whose first wait starts at once, not a sub-agent. ADR-RQG-A, which the epic chose, makes sub-agents the normal way to run helpers, and `CSTACK_ORCA_WORKERS=off` gives the same today. So every real run would exit with 1 with two false verdicts, which defeats AC1 as soon as #88 writes these steps into the real guides, and #91 would inherit the noise. I relabel the question that the executor recorded as non-blocking: its answer changes what this pull request builds, so it is blocking, and only the user can change a rule they accepted. The recommended fix is the one the executor proposed: end the window of a phase's steps at the close of the next phase whose `runsIn` is the same (`cstack/src/phases.ts`, line 95). I checked it by hand on both phases. The window of `plan` then ends at the close of `retro`, so the plan wait is found and comes after the plan `helper start`. The window of `retro` has no end, so its own wait is found after its own `helper start`, while the earlier plan wait stays before the floor and is not chosen. The executor phases keep the same windows, except `ready`, whose window now ends at the close of `publish`, which is harmless for its two steps. The change is a few lines in the computation of `later` and one test case where the plan wait comes after the close of `ready`. The rejected option is a follow-up ticket: the audit would ship with a known false alert on the mode that the epic chose, and #91 would build on it. If nobody decides, the pull request does not open. The question, word for word, for the user: "The step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the mode that the epic chose (ADR-RQG-A) and the mode of `CSTACK_ORCA_WORKERS=off`. The wait runs after the executor closed later phases, so it falls outside the window of question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1 on every such run. The fix ends the window of a phase at the next close of a phase that runs in the same place, so the window of plan ends at the close of retro, and the window of retro has no end. It is a few lines in `cstack/src/audit/evaluate.ts` and one test. Do you agree to change the rule you accepted in question 2 this way, in this pull request?"
+
+**What was built.** Seven units, in the order of the plan. Unit 1 split `findRunFiles()` and `worktreeFolders()` out of `cstack measure` (`cstack/src/measure/sessions.ts`, `cstack/src/measure/moments.ts`), and the tests of `cstack measure` pass with no change to them, as the plan required. Units 2 to 4 added the shell splitter, the call reader and the matcher under `cstack/src/audit/`. Units 5 to 7 added the command, its refusals, the phase lines and the command lines. I ran the four audit test files on the branch: 75 tests pass. The independent review reports that the full suite and the type check pass. `listUnitCommits()` lists commits newest first, so `evaluate.ts` line 135 takes the oldest commit of a unit, as the plan decided.
+
+**The first real audit.** Every session line in the tests is written by hand, as the ticket requires, and the real guides have no block yet, so nothing has checked the audit against a real run. The steps that #88 writes, such as `cstack unit collect <n>...` and `cstack plan status` after every batch, are covered only by the matcher tests and the window and floor rules. The independent reviewer found that the shell reader does not see `cstack` behind `timeout`, `npx` or a full path, and that `2&>/dev/null` loses the `2`. Each of these gives a false "skipped", never a false "done". The recommendation is to run `cstack audit` on the run of #89 once #88 merges, with `--guides` filled by `git archive origin/main:cstack/guides | tar -x -C <folder>`, and to treat any surprise there before #91 depends on the output. Without `--guides`, the installed 0.3.2 guides have no block, so the audit exits with 3, as the README says.
+
+**The version check.** As said before the plan, `writtenBy` stays "0.3.2" for every run of R1 to R3, because the version does not change before the end of R3, while the guides change at every milestone. The check in `cstack/src/commands/audit.ts` (lines 70 to 73) therefore catches only an upgrade across releases. For the comparison runs 3 to 6, `--guides` must always be given; nothing in the code enforces it.
+
+**Earlier questions, how they were resolved.** Question 1 (where the guides come from) became `--guides <folder>` with the version refusal, as built in `cstack/src/commands/audit.ts`. Question 2 (window, first call after the floor, `<n>...`) was built as decided; its window part is the subject of the new question above. The points of the block before the plan were all built: the refusal of a guide with no block (line 85), the refusal when no main session is found (line 103), several commands per tool call with the same time counted in order, the separate start line of each phase that is not a planning phase, and exit code 3 for an unusable plan. The tested facts held: the `api-request-blob` lines are ignored because only `assistant` lines are read, and helper transcripts of the second level are found by `findRunFiles()`. The question for the worker of #88 about fixed-value flags was passed on through the coordinator, as decided on 2026-11-23 (line 167 of this file records #88's command steps).
+
+**The output format is now an interface.** The comments on #90 and #91 say so. A later change to the line format, the verdicts or the exit codes must update #91 and `digest-retros` together.
+
+Areas checked with nothing more to raise: security and tenant isolation (the audit only reads local files and runs `git`, and its privacy tests check that no session text or path is printed), data model lock-in (no stored format is added), scale (one read-only pass over the session folders, as `cstack measure` already does), operations and cost (no new dependency or service), reversibility (a new command that nothing else calls yet), and rollback (reverting the branch restores `cstack measure` as it was, since its tests did not change).
 
 ## Non-blocking questions
 
-For the user: the step `cstack helper wait <helper id>` of the plan and retro phases is judged wrongly when the executor runs as a sub-agent, which is the case when Orca workers are off. The wait runs after the executor closed later phases, so it falls outside the window of Question 2. The audit then prints `skipped` for plan and `out of order` for retro, and exits with 1. A fix is to end the window of a phase at the next close of a phase that runs in the same place, so plan ends at the close of retro. That changes the rule you accepted, so I did not do it. Do you want this change, in this pull request or in a follow-up ticket?
+none
 
 ## Pull request
 
@@ -377,13 +413,15 @@ For the user: the step `cstack helper wait <helper id>` of the plan and retro ph
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- I piped the output of `cstack helper wait` into `head` once, for unit 5, although the brief forbids it. The output was short and nothing was lost.
+- The first `cstack helper wait` for unit 1 exited with 1 because I ran it before the sub-agent had returned. I waited for the sub-agent and ran it again.
+- Four implementers (units 3, 4, 5 and 7) wrote source code before `cstack unit red`, so cstack refused. Each one moved the file aside and restored it. The unit prompt does not say that the test must be saved before the source.
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
-- 2026-11-23, executor run 1: moved ticket #89 to "in progress" with cstack tracker move.
+- 2026-11-23, executor run 1: moved ticket #89 to "in progress" with cstack tracker move. Built units 1 to 7 one at a time with sub-agents, reviewed the branch with four reviewers and the independent reviewer, wrote the three ticket comments, and got the briefing. The advisor made the question about `cstack helper wait` blocking, so the run returned a needs-decision report before the pull request.
 
 ## History
 
