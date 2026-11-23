@@ -69,6 +69,8 @@ export type StepInput = {
   guides: Record<string, Step[]>;
   units: PlanUnit[];
   calls: Call[];
+  /** The indexes of the session files of the main conversation. */
+  mainFiles: Set<number>;
   state: RunState;
   /** The lines of `evaluatePhases()`. */
   phaseLines: Line[];
@@ -166,11 +168,12 @@ export function evaluateSteps(input: StepInput): Line[] {
     const earlier = closes.slice(0, index).reverse().find((time) => time !== undefined);
     const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
     const planning = PLANNING_PHASES.includes(name);
+    const phaseCalls = PHASES[index]!.runsIn === "main conversation" ? input.calls.filter((call) => input.mainFiles.has(call.file)) : input.calls;
     for (const node of nodesOf(name, input.guides[name] ?? [], input.units)) {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
       const floor = floors.length === 0 ? undefined : Math.max(...floors);
       const text = `${name}: ${node.text}`;
-      const inWindow = input.calls.filter(
+      const inWindow = phaseCalls.filter(
         (call) => (earlier === undefined || call.time >= earlier) && (later === undefined || call.time <= later) && matchesStep(node.words, call.args, node.unit),
       );
       let line: Line = { text, verdict: "skipped" };

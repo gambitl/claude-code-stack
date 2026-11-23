@@ -112,21 +112,25 @@ function stepTexts(name: string): { text: string; unit?: number }[] {
   flush();
   return out;
 }
-// One call for every step: the calls of a phase come in the last minute before its close, and the ones after `cstack next --done` just after it.
-function fullCalls(): Call[] {
-  const calls: Call[] = [];
+// One call for every step, with the phase it belongs to: the calls of a phase come in the last minute before its close, and the ones after `cstack next --done` just after it.
+function taggedCalls(): (Call & { phase: string })[] {
+  const calls: (Call & { phase: string })[] = [];
   PHASES.forEach(({ name }, i) => {
     let after = false;
     stepTexts(name).forEach((step, k) => {
       const done = step.text.startsWith("cstack next --done");
       if (done) after = true;
       calls.push({
+        phase: name,
         time: done ? at(i + 1) : after ? at(i + 1, 5 + k * 2) : at(i, 5 + k * 2),
-        command: step.text.replace(/<[^<>]+>/g, "x"),
+        command: step.text.replace(/<plan file>/g, "docs/plans/audit.md").replace(/<[^<>]+>/g, "x"),
       });
     });
   });
   return calls;
+}
+function fullCalls(): Call[] {
+  return taggedCalls().map(({ time, command }) => ({ time, command }));
 }
 const buildAt = PHASES.findIndex((p) => p.name === "build");
 const retroAt = PHASES.findIndex((p) => p.name === "retro");
@@ -143,6 +147,8 @@ function setup(options: {
   phases?: Record<string, { startedAt?: string; doneAt?: string }>;
   calls?: Call[];
   extraFile?: string;
+  // More session files of the project folder, for example a helper transcript under `s/subagents/`.
+  files?: { file: string; calls: Call[]; sidechain?: boolean }[];
 } = {}): Setup {
   const repo = makeRepo();
   folders.push(repo);
@@ -169,6 +175,17 @@ function setup(options: {
     }));
     writeFileSync(join(folder, "s.jsonl"), lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
     if (options.extraFile !== undefined) writeFileSync(join(folder, "bad.jsonl"), options.extraFile);
+    for (const extra of options.files ?? []) {
+      mkdirSync(dirname(join(folder, extra.file)), { recursive: true });
+      const text = extra.calls.map((call, i) => ({
+        type: "assistant",
+        cwd: repo,
+        ...(extra.sidechain ? { isSidechain: true } : {}),
+        timestamp: call.time,
+        message: { content: [{ type: "tool_use", id: `${extra.file}#${i}`, name: "Bash", input: { command: call.command } }] },
+      }));
+      writeFileSync(join(folder, extra.file), text.map((l) => `${JSON.stringify(l)}\n`).join(""));
+    }
   }
   const guides = tmp("audit-guides-");
   writeGuides(guides);
@@ -497,8 +514,8 @@ describe("cstack audit command steps", () => {
     const r = await run(s);
     expect(r.code).toBe(0);
     expect(r.stdout).toContain(`build: cstack next --done build --plan <plan file>: done ${localTime(new Date(at(buildAt + 1)))} session\n`);
-    const early = [...without(fullCalls(), "cstack next --done build --plan x"), { time: at(buildAt, 1), command: "cstack next --done build" }];
-    const only = setup({ calls: early.filter((c) => c.command !== "cstack next --done build --plan x") });
+    const early = [...without(fullCalls(), "cstack next --done build --plan docs/plans/audit.md"), { time: at(buildAt, 1), command: "cstack next --done build" }];
+    const only = setup({ calls: early.filter((c) => c.command !== "cstack next --done build --plan docs/plans/audit.md") });
     const r2 = await run(only);
     expect(r2.stdout).toContain(`build: cstack next --done build --plan <plan file>: out of order ${localTime(new Date(at(buildAt, 1)))} session\n`);
   });
@@ -540,6 +557,99 @@ describe("cstack audit command steps", () => {
     }
     const r = await run(s);
     expect(r.stdout).toContain(`build: cstack unit commit 1: done ${localTime(new Date(at(buildAt, 40)))} git\n`);
+  });
+});
+
+describe("cstack audit steps of the main conversation", () => {
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const readyAt = PHASES.findIndex((p) => p.name === "ready");
+  const publishAt = PHASES.findIndex((p) => p.name === "publish");
+  const planAt = PHASES.findIndex((p) => p.name === "plan");
+  const WAIT = "cstack helper wait x";
+  const wait = (time: string): Call => ({ time, command: WAIT });
+  const planWait = (time: string) => `plan: cstack helper wait <helper id>: done ${localTime(new Date(time))} session\n`;
+  const retroWait = (time: string) => `retro: cstack helper wait <helper id>: done ${localTime(new Date(time))} session\n`;
+  // The calls of the main conversation, with its two waits after the close of ready and after the close of publish.
+  const mainCalls = (): Call[] => {
+    let seen = 0;
+    return fullCalls().map((c) => (c.command === WAIT ? wait(seen++ === 0 ? at(readyAt + 1, 5) : at(publishAt + 1, 5)) : c));
+  };
+  const runsIn = (phase: string) => PHASES.find((p) => p.name === phase)!.runsIn;
+
+  it("shows the wait of the main session when the executor is a sub-agent that waited for its implementers", async () => {
+    const helper = [wait(at(buildAt, 20)), wait(at(buildAt, 25)), wait(at(buildAt, 30))];
+    const s = setup({ calls: mainCalls(), files: [{ file: "s/subagents/agent-1.jsonl", calls: helper, sidechain: true }] });
+    const r = await run(s);
+    expect(r.stdout).toContain(planWait(at(readyAt + 1, 5)));
+    expect(r.stdout).toContain(retroWait(at(publishAt + 1, 5)));
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+  });
+
+  it("keeps the executor phases done and the plan wait of the first main session when the executor is an Orca worker", async () => {
+    const tagged = taggedCalls();
+    const retimed = mainCalls();
+    const main = retimed.filter((_, i) => runsIn(tagged[i]!.phase) === "main conversation");
+    const worker = tagged.filter((t) => runsIn(t.phase) === "executor").map(({ time, command }) => ({ time, command }));
+    const s = setup({ calls: main, files: [{ file: "worker.jsonl", calls: [...worker, wait(at(buildAt, 50))] }] });
+    const r = await run(s);
+    const executorLines = r.stdout.split("\n").filter((l) => PHASES.some((p) => p.runsIn === "executor" && l.startsWith(`${p.name}: `)));
+    expect(executorLines.length).toBeGreaterThan(5);
+    expect(executorLines.every((l) => / done /.test(l))).toBe(true);
+    expect(r.stdout).toContain(planWait(at(readyAt + 1, 5)));
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+  });
+
+  it("shows the waits of the second main session when the main conversation resumed there", async () => {
+    const tagged = taggedCalls();
+    const early = ["ticket", "dependencies", "code-map", "questions"];
+    const first = tagged.filter((t) => early.includes(t.phase)).map(({ time, command }) => ({ time, command }));
+    const second = mainCalls().filter((c) => !first.some((f) => f.time === c.time && f.command === c.command));
+    const helper = [wait(at(buildAt, 20)), wait(at(publishAt + 1, 2))];
+    const s = setup({
+      calls: first,
+      files: [
+        { file: "s2.jsonl", calls: second },
+        { file: "s/subagents/agent-1.jsonl", calls: helper, sidechain: true },
+      ],
+    });
+    const r = await run(s);
+    expect(r.stdout).toContain(planWait(at(readyAt + 1, 5)));
+    expect(r.stdout).toContain(retroWait(at(publishAt + 1, 5)));
+    expect(r.code).toBe(0);
+  });
+
+  it("does not take a wait of a main session that belongs to another plan", async () => {
+    const other = [
+      { time: at(planAt, 1), command: "cstack next --done ticket --plan docs/plans/other.md" },
+      { time: at(planAt + 1, 4), command: "cstack helper start executor --plan docs/plans/other.md" },
+      wait(at(planAt + 1, 8)),
+    ];
+    const s = setup({ calls: mainCalls(), files: [{ file: "other.jsonl", calls: other }] });
+    const r = await run(s);
+    const own = mainCalls().find((c) => c.command === WAIT)!;
+    expect(r.stdout).toContain(planWait(own.time));
+    expect(r.stderr).toBe("");
+    expect(r.code).toBe(0);
+  });
+
+  it("falls back to every file that is not a helper transcript when no session holds the close of the ticket phase", async () => {
+    const calls = mainCalls().filter((c) => c.command !== "cstack next --done ticket --plan docs/plans/audit.md");
+    const helper = [wait(at(planAt, 1))];
+    const s = setup({ calls, files: [{ file: "s/subagents/agent-1.jsonl", calls: helper, sidechain: true }] });
+    const r = await run(s);
+    const own = calls.find((c) => c.command === WAIT)!;
+    expect(r.stdout).toContain(planWait(own.time));
+    expect(r.stderr).toBe(
+      "cstack audit: no session file holds the close of the ticket phase, so the steps of the main conversation may show the calls of another agent.\n",
+    );
+    expect(r.code).toBe(1);
+    noPath(r.stderr, s);
+    for (const line of r.stdout.split("\n").filter((l) => l !== "")) {
+      expect(/^(phase [a-z-]+( started)?|[a-z-]+: .+): (done \S+ (session|run state|git)|skipped|out of order \S+ (session|run state|git))$/.test(line), line).toBe(true);
+    }
+    noPath(r.stdout, s);
   });
 });
 
