@@ -82,6 +82,8 @@ function addedLines(patch: string): { file: string; line: number; text: string }
 
 /** Gives the refusals for a push that would make a path of the home folder public. The list is empty when the push is fine. */
 export function homeFolderProblems(git: Git, home: string | undefined, target: string): string[] {
+  // brokenRules() refuses a checked-out branch that differs from the plan, so HEAD names the branch.
+  const branch = git(["symbolic-ref", "--short", "-q", "HEAD"]).stdout.trim();
   const forms = homeForms(home);
   if (forms.length === 0) return [];
   const verify = (ref: string) => git(["rev-parse", "--verify", "-q", "--end-of-options", `${ref}^{commit}`]).ok;
@@ -95,7 +97,7 @@ export function homeFolderProblems(git: Git, home: string | undefined, target: s
     [
       "-c", "core.quotePath=off", "log", "-p", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "--no-renames",
       "--no-show-signature", "--src-prefix=a/", "--dst-prefix=b/", "--format=%x00%h%x00%B%x00",
-      "--end-of-options", "HEAD", `^${ref}`, "--",
+      "--end-of-options", "HEAD", `^${ref}`, ...(branch !== "" && verify(`refs/remotes/origin/${branch}`) ? [`^refs/remotes/origin/${branch}`] : []), "--",
     ],
     MAX_BUFFER,
   );
@@ -105,10 +107,12 @@ export function homeFolderProblems(git: Git, home: string | undefined, target: s
     return [`cstack could not read the commits of the push to look for a path in your home folder: ${reason}.`];
   }
   const parts = log.stdout.split("\0");
-  const commits: { id: string; patch: string }[] = [];
-  for (let i = 1; i + 2 < parts.length; i += 3) commits.push({ id: parts[i], patch: parts[i + 2] });
+  const commits: { id: string; message: string; patch: string }[] = [];
+  for (let i = 1; i + 2 < parts.length; i += 3) commits.push({ id: parts[i], message: parts[i + 1], patch: parts[i + 2] });
   const places: Place[] = [];
-  for (const { id, patch } of commits.reverse()) {
+  for (const { id, message, patch } of commits.reverse()) {
+    const inMessage = show(message);
+    if (inMessage !== undefined) places.push({ where: `the message of commit ${id}`, shown: inMessage });
     for (const added of addedLines(patch)) {
       const shown = show(added.text);
       if (shown !== undefined) places.push({ where: `\`${plain(added.file)}\` line ${added.line}, added by commit ${id}`, shown });

@@ -870,6 +870,32 @@ describe("cstack publish refuses the home folder path", () => {
     expect(env.pushes()).toEqual([]);
   });
 
+  it("refuses a commit message that holds the home folder", async () => {
+    const env = makePublishEnv();
+    writeFileSync(join(env.repo, "plain.md"), "nothing here\n");
+    git(env.repo, "add", "plain.md");
+    git(env.repo, "commit", "-m", `fix: move ${env.home}/x`);
+    const id = git(env.repo, "log", "-1", "--format=%h");
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain(`the message of commit ${id}`);
+    expect(out.stderr).toContain("~/x");
+    clean(env, out.stderr);
+  });
+
+  it("leaves out the commits that the remote branch already has", async () => {
+    const env = makePublishEnv();
+    commitLines(env, "a.md", [`${env.home}/projects/a`]);
+    git(env.repo, "push", "origin", "gambitl/units");
+    commitLines(env, "b.md", [`${env.home}/projects/b`]);
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(out.stderr).toContain("`b.md`");
+    expect(out.stderr).not.toContain("a.md");
+    clean(env, out.stderr);
+  });
+
   it("lists at most 20 places", async () => {
     const env = makePublishEnv();
     commitLines(env, "many.md", Array.from({ length: 22 }, () => `${env.home}/x`));
