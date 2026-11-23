@@ -295,7 +295,7 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- The implementers of units 3 and 4 did not break the rule on purpose after the red run, as the negative-test decision asks. They relied on the saved red run, where the rule did not exist yet. Units 1 and 2 did the break.
 
 ## Hand-off log
 
