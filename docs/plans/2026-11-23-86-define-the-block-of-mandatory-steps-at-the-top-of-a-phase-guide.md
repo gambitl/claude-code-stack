@@ -378,7 +378,49 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): define the block of mandatory steps at the top of a phase guide
+
+````markdown
+## What this adds
+
+A phase guide can now start with a block of mandatory steps. The block is an HTML comment, so GitHub shows nothing. Code can read it. The coming `cstack audit` will use it to know which steps a run did or skipped.
+
+The block opens on line 1 with `<!-- mandatory steps`. Each next line is one step, written `<kind>: <text>`, with an optional ` | <condition>`. A line with only `-->` closes it. A step is a `command`, a `helper` or an `action`. There are seven conditions, such as `each-unit` and `user-interface`. ADR-RQG-C records the format and the reasons.
+
+This pull request writes no block in a real guide. Ticket #88 does that.
+
+## What changed
+
+- `cstack/src/guide-steps.ts` is new. `readSteps()` returns the ordered steps and refuses a bad block with a message that names the guide and the line. `withoutBlock()` removes the block. `stepProblems()` checks that each command exists, that each helper has a prompt, and that its extra word is in that prompt.
+- `cstack guide` and `cstack next` print a guide without its block. They exit with 3 when the block never closes. The manifest and the README say so.
+- A new CI check fails when a block names a missing command, a helper without a prompt, or a word that the prompt does not hold. It passes on the real guides.
+- A fixture guide for #89 and #90 is in `cstack/test/fixtures/steps-block/`. The broken fixture of the CI check is in `cstack/test/fixtures/steps-check/`.
+- ADR-RQG-C is in `docs/decisions/`, and section 9 of the specification links to it.
+
+The blocks will name no code explorer and no code architect. The independent review has no condition. The version did not change.
+
+## Judgment calls and follow-ups
+
+- The exit code 3 text of `cstack next` in the manifest still speaks only of the plan, the settings and the run state. A block that never closes now also gives 3. The plan kept that text.
+- `readSteps()` sees no block when line 1 has spaces or a byte-order mark before the opening, and says nothing. #88 should keep this in mind.
+- A step written with `|` and no spaces around it is accepted, and its condition is lost.
+- `cstack next --done` marks the phase done before it prints the next guide. If that guide's block never closes, a retry prints "already done". CI already refuses such a block in shipped guides.
+- A few small simplicity cuts remain in `guide-steps.ts`, such as one shared "never closes" message.
+
+The review found one real bug, a second opening line after a valid block, and it is fixed with a test.
+
+The plan file is `docs/plans/2026-11-23-86-define-the-block-of-mandatory-steps-at-the-top-of-a-phase-guide.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- At milestone R4, which guides does the audit use to judge runs 3 and 4: the guides as they are at the end of milestone R1, or the result of US-1 AC10? For: the maintainer.
+- When #88 writes the blocks, should it also add a CI test that fails when a phase guide of `resolve-issue` has no block of mandatory steps? For: the maintainer, to ask on #88.
+- Should `cstack next --done <phase>` stop marking the phase done when the next guide's block never closes, or is a follow-up note enough? For: the maintainer.
+
+Fixes #86
+````
 
 ## Documentation
 
