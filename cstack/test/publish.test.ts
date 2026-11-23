@@ -905,4 +905,24 @@ describe("cstack publish refuses the home folder path", () => {
     expect(out.stderr).toContain("and 2 more places");
     clean(env, out.stderr);
   });
+
+  it("refuses a pull request title that holds the home folder", async () => {
+    const env = makePublishEnv({ plan: (t, home) => t.replace("feat(cli): read the plan file", `feat(cli): read ${home}/t`) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("the pull request title");
+    expect(out.stderr).toContain("~/t");
+    clean(env, out.stderr);
+  });
+
+  it("refuses a pull request body that holds the home folder", async () => {
+    const env = makePublishEnv({ plan: (t, home) => t.replace("It reads the plan.", `It reads \`${home}/b\`.`) });
+    const { code, out } = await run(env);
+    expect(code).toBe(1);
+    expect(env.pushes()).toEqual([]);
+    expect(out.stderr).toContain("the pull request body");
+    expect(out.stderr).toContain("~/b");
+    clean(env, out.stderr);
+  });
 });

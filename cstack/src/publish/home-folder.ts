@@ -81,7 +81,7 @@ function addedLines(patch: string): { file: string; line: number; text: string }
 }
 
 /** Gives the refusals for a push that would make a path of the home folder public. The list is empty when the push is fine. */
-export function homeFolderProblems(git: Git, home: string | undefined, target: string): string[] {
+export function homeFolderProblems(git: Git, home: string | undefined, target: string, pullRequest?: { title: string; body: string }): string[] {
   // brokenRules() refuses a checked-out branch that differs from the plan, so HEAD names the branch.
   const branch = git(["symbolic-ref", "--short", "-q", "HEAD"]).stdout.trim();
   const forms = homeForms(home);
@@ -116,6 +116,12 @@ export function homeFolderProblems(git: Git, home: string | undefined, target: s
     for (const added of addedLines(patch)) {
       const shown = show(added.text);
       if (shown !== undefined) places.push({ where: `\`${plain(added.file)}\` line ${added.line}, added by commit ${id}`, shown });
+    }
+  }
+  if (pullRequest) {
+    for (const [where, text] of [["the pull request title", pullRequest.title], ["the pull request body", pullRequest.body]]) {
+      const shown = show(text);
+      if (shown !== undefined) places.push({ where, shown });
     }
   }
   if (places.length === 0) return [];

@@ -108,7 +108,7 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
   if (branch === target) problems.push(`The Branch line and the Target branch line name the same branch, ${branch}.`);
 
   const home = deps.env ? deps.env.HOME : homedir();
-  problems.push(...homeFolderProblems(git, home, target));
+  problems.push(...homeFolderProblems(git, home, target, plan.pullRequest));
   return problems;
 }
 
