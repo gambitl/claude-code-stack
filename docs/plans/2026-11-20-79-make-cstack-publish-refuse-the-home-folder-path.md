@@ -313,10 +313,12 @@ none
 ## Executor notes
 
 - The implementers of units 3 and 4 did not break the rule on purpose after the red run, as the negative-test decision asks. They relied on the saved red run, where the rule did not exist yet. Units 1 and 2 did the break.
+- While I resolved the README conflict in the rebase, a `sed` range deleted the tracker paragraph of the other side. I saw it in `git diff origin/main -- README.md` and restored the paragraph in its own commit.
+- `cstack helper start` ran the implementers as sub-agents because Orca was not running, so no child worktree was used and `cstack unit collect` skipped every unit.
 
 ## Hand-off log
 
-- 2026-11-23, executor run 1: moved ticket #79 to "in progress" with `cstack tracker`, and committed the plan file on the branch `gambitl/publish-home-path`.
+- 2026-11-23, executor run 1: moved ticket #79 to "in progress" with `cstack tracker`, and committed the plan file on the branch `gambitl/publish-home-path`. Built units 1 to 4, reviewed, ran the independent review, and rebased the branch onto `main` (one README conflict).
 
 ## History
 
