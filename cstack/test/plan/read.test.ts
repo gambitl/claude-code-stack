@@ -571,7 +571,7 @@ describe("the changes to what the ticket fixes", () => {
   });
 
   it("refuses a change line with no blocking question number", () => {
-    for (const row of ["- The flag is long, not short.", "- The flag is long. Blocking question: x", "The flag is long. Blocking question: 1"]) {
+    for (const row of ["- The flag is long, not short.", "- The flag is long. Blocking question: x", "- The flag is long. Blocking question: 0", "The flag is long. Blocking question: 1"]) {
       const text = swap(CHANGE, row);
       const error = failureOf(text);
       expect(error.message).toBe(

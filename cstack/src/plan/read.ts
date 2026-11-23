@@ -613,7 +613,7 @@ function readFacts(region: Region, section: PlanSection | undefined): PlanFact[]
 function readTicketChanges(region: Region, section: PlanSection | undefined): TicketChange[] {
   const changes: TicketChange[] = [];
   for (const { line, text } of listLines(region, section, "a change")) {
-    const parsed = /^- (\S.*) Blocking question: (\d+)$/.exec(text.trimEnd());
+    const parsed = /^- (\S.*) Blocking question: ([1-9]\d*)$/.exec(text.trimEnd());
     if (!parsed) {
       region.problems.push({
         line,
