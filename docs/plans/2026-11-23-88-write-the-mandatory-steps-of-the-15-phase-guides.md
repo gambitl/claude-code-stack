@@ -439,6 +439,14 @@ Three test files read a raw guide where they mean the text that the agent reads,
 
 ## Review log
 
+### Impact notes
+
+- The branch changes no symbol of the source code. It adds a block at line 1 of the 15 guides, one new test file, and changes how four test files read a guide. Their readers are `cstack guide`, `cstack next` and `readSteps()`, which already skip or read the block.
+- Outside dependents that read the raw guides: `cstack/test/manifest.test.ts` (`scanSteps()`, passes with the blocks), `settings-applied.test.ts`, `prompts.test.ts` and `brief-rules.test.ts` (forbidden words, still read the raw file on purpose), and `cstack/test/guide.test.ts`. The full suite passes: 119 files, 1600 tests, and the type check is clean.
+- Usual companions: `README.md`, `cstack/src/manifest.ts` and `cstack/test/manifest.test.ts` are left untouched on purpose, because #89 changes them in this wave. `cstack/src/guide-steps.ts` is untouched, as decided.
+- No `WHY:` or `DECISION:` comment sits in the changed files. The branch follows ADR-RQG-C, and Unit 3 adds a section to it without changing a decision.
+- Tests that exercise the change: `cstack/test/guides/steps-blocks.test.ts`, `cstack/test/manifest.test.ts`, `cstack/test/skill-size.test.ts`, `cstack/test/guides/ticket-read.test.ts`, `cstack/test/e2e/`.
+
 ## Briefing
 
 ## Non-blocking questions
