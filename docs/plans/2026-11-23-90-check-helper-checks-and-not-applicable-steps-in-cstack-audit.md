@@ -390,7 +390,45 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): check helper checks and skip steps that do not apply in cstack audit
+
+````markdown
+## What this does
+
+`cstack audit` now checks the helper steps of each phase, as well as the phases and the commands. For every sub-agent that a guide asks for, such as the CTO advisor or the four code reviewers, the audit prints one line. The line says "done" only when the run really launched a sub-agent of that type. A plan section never counts as proof.
+
+The audit also stops printing steps that do not apply to the run. A step with a false condition is left out. A step for each dependent ticket is printed once for each ticket in the `Feeds:` line. One call or one launch now serves only one line, so one wait cannot prove several units.
+
+## Key decisions
+
+- Only a launch of the right sub-agent type proves a helper step. A message sent to a running sub-agent does not count, because the guides ask for a fresh launch.
+- When `review.agent` is not `claude`, an Orca worker launch also proves the independent review. The audit reads the settings file for this. It exits with 3 and prints a fixed sentence when that file cannot be used.
+- The review phase prints four reviewer lines, because the guide lists four. The code map phase has no helper line, because ADR-RQG-C keeps the code explorer out of the blocks.
+- Steps of the `action` kind are never printed. Steps for a stuck unit and for a negative criterion count as false for now, until the data exists.
+- Four existing audit tests changed on purpose, as the plan says. The new rules are written in a new section of ADR-RQG-C.
+
+## Files touched
+
+The code is in `cstack/src/audit/` (`calls.ts`, `conditions.ts`, `evaluate.ts`, `shell.ts`) and `cstack/src/commands/audit.ts`. The `cstack audit` entry of `cstack/src/manifest.ts` and the `cstack audit` paragraph of `README.md` changed too. The tests are in `cstack/test/`. The plan is `docs/plans/2026-11-23-90-check-helper-checks-and-not-applicable-steps-in-cstack-audit.md`.
+
+## Judgment calls and follow-ups
+
+- The independent reviewer found no bug. One fix commit makes `commandsOf()` take a read-only list, as the plan wrote it. That commit has no scope in its title, unlike the others. History is not rewritten.
+- The `Feeds:` reader drops only the item `none`, so a footer such as `Feeds: nothing` would count as one ticket.
+- A plan that only quotes the sentence "No new decision since the question round" hides the plan-delta step. The audit searches the whole plan text.
+- Overlapping phase windows can blame a missing launch on a neighbouring line. The exit code is still 1 in that case.
+- The simplicity reviewer suggests merging two loops and two pick-and-take sequences in `evaluate.ts`. It is about 20 lines, so it is left for later.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- Should the block of `document.md` get a condition such as `big-decision`, so that the audit can check that a run recorded its big decisions in a decision record and in `WHY:` comments? It would change `cstack/src/guide-steps.ts`, the block of `document.md` and ADR-RQG-C, so it needs a ticket of its own. For: the maintainer.
+- Should the condition `new-structural-decision` also accept the sentence "No new decision since the question round" in another records language? Today the audit looks for the English sentence. For: the maintainer.
+- On the run of #90, the document phase posted the three dependent-ticket comments in one shell `for` loop, and `cstack audit` counted one call, so two of the three dependent-ticket lines printed as skipped. Should the document guide ask for one `cstack tracker comment` call per ticket, without a loop, or should the README only list this as a limit of the audit? For: the maintainer.
+
+Fixes #90
+````
 
 ## Documentation
 
@@ -403,10 +441,11 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 - The implementer of unit 7 returned without a `cstack helper done` report, so `cstack helper wait` exited with 1. Its commit 9f85765 was there and the plan showed the unit as done, so I saved a stuck report and did not escalate.
 - Windows of helper steps overlap like those of command steps (seen in the report of unit 5). A launch in the plan phase can serve the earlier `before-plan` step of the same type. The plan rules produce this, so I changed nothing.
+- One of my own shell commands hung for two minutes because of a stray `cat` that waited on standard input. I stopped it and ran the steps again. Nothing was lost.
 
 ## Hand-off log
 
-- 2026-11-23, executor, build phase: moved the ticket to "in progress", committed the plan file, installed the packages, and built units 1 to 7 one at a time with sub-agent implementers. Full typecheck and tests pass (1765 tests). Unit 7 needed a stuck report because its helper sent no report.
+- 2026-11-23, executor, build phase: moved the ticket to "in progress", committed the plan file, installed the packages, and built units 1 to 7 one at a time with sub-agent implementers. Full typecheck and tests pass (1765 tests). Unit 7 needed a stuck report because its helper sent no report. Then the review, independent review, document, briefing and question phases ran, and the pull request is drafted.
 
 ## History
 
