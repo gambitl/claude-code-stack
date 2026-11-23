@@ -52,7 +52,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
   let planText: string;
   try {
     planText = readFileSync(planArgument, "utf8");
-    plan = readPlan(planText);
+    plan = readPlan(planText, { acceptVersion1: true });
   } catch (error) {
     if (!(error instanceof PlanFormatError)) throw error;
     return fail(3, "the plan file is not a valid cstack plan file.");
