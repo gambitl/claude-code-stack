@@ -95,7 +95,7 @@ export interface PlanUnit {
   name: string;
   line: number;
   files: string[];
-  test?: { file: string; case: string };
+  test?: { file: string; cases: string[] };
   noTest?: string;
   minimumCode: string;
   refactor: string;
@@ -319,6 +319,7 @@ const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|
 function readUnit(region: Region, number: number, heading: PlanHeading, last: number): PlanUnit {
   const { problems } = region;
   const values: Record<string, { line: number; text: string }> = {};
+  const tests: { line: number; text: string }[] = [];
   let slot = -1;
   let current: string | undefined;
   for (let line = heading.line + 1; line <= last; line++) {
@@ -328,7 +329,8 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
     if (field) {
       const label = field[1];
       const index = UNIT_FIELDS.findIndex((names) => (names as readonly string[]).includes(label));
-      if (index <= slot) {
+      const nextTest = label === "Test" && current === "Test";
+      if (index <= slot && !nextTest) {
         problems.push({ line, rule: `The line \`- ${label}:\` is repeated or out of order. The unit lines come in a fixed order.` });
         continue;
       }
@@ -343,6 +345,7 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       slot = index;
       current = label;
       values[label] = { line, text: (field[2] ?? "").trim() };
+      if (label === "Test") tests.push(values[label]);
       continue;
     }
     if (slot >= 5) continue; // After Depends on, free notes and optional lines follow.
@@ -392,17 +395,23 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       }
     }
   }
-  if (values["Test"]) {
-    const { line, text } = values["Test"];
+  for (const { line, text } of tests) {
     const parsed = /^`([^`]+)`: (.+)$/.exec(text);
     if (!parsed) {
       problems.push({ line, rule: "`- Test:` holds `<test file>`: <failing case>, with the file in backticks." });
-    } else {
-      unit.test = { file: parsed[1], case: parsed[2] };
-      if (!unit.files.includes(parsed[1])) {
-        problems.push({ line, rule: `The test file \`${parsed[1]}\` is missing from \`- Files:\`.` });
-      }
+      continue;
     }
+    const [, file, name] = parsed;
+    if (unit.test === undefined) {
+      unit.test = { file, cases: [name] };
+      if (!unit.files.includes(file)) {
+        problems.push({ line, rule: `The test file \`${file}\` is missing from \`- Files:\`.` });
+      }
+    } else if (file !== unit.test.file) {
+      problems.push({ line, rule: `All the \`- Test:\` lines of a unit name the same test file, \`${unit.test.file}\`. This one names \`${file}\`.` });
+    } else if (unit.test.cases.includes(name)) {
+      problems.push({ line, rule: `The case "${name}" is named twice in this unit. Name each case once.` });
+    } else unit.test.cases.push(name);
   }
   if (values["No test"]) unit.noTest = values["No test"].text;
   if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;

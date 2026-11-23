@@ -47,6 +47,8 @@ Text of architecture.
 ### Unit 1: Thing 1
 - Files: `src/a1.ts`, `test/a1.test.ts`
 - Test: `test/a1.test.ts`: the case 1 fails
+- Test: `test/a1.test.ts`: the case 1b fails
+  and it fails for a second reason
 - Minimum code: Write a1.
 - Refactor: None.
 - Commit message: `feat(cli): add a1`

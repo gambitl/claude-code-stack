@@ -200,7 +200,7 @@ describe("the units, the questions and the pull request", () => {
       name: "Thing 1",
       line: 45,
       files: ["src/a1.ts", "test/a1.test.ts"],
-      test: { file: "test/a1.test.ts", case: "the case 1 fails" },
+      test: { file: "test/a1.test.ts", cases: ["the case 1 fails"] },
       commitMessage: "feat(cli): add a1",
       dependsOn: [],
     });
@@ -289,6 +289,52 @@ describe("the units, the questions and the pull request", () => {
     expect(found).toContainEqual(
       expect.objectContaining({ line, rule: expect.stringContaining(word) }),
     );
+  });
+});
+
+describe("the Test lines of a unit", () => {
+  const withUnit1 = (from: string, to: string) => {
+    const text = fixture("version-2").replace(from, to);
+    expect(text).not.toBe(fixture("version-2"));
+    return text;
+  };
+
+  it("reads every Test line of a unit as one case of the same test file", () => {
+    const plan = readPlan(fixture("version-2"));
+    expect(plan.units[0].test).toEqual({
+      file: "test/a1.test.ts",
+      cases: ["the case 1 fails", "the case 1b fails and it fails for a second reason"],
+    });
+  });
+
+  it("reads a unit with one Test line as a list of one case", () => {
+    const plan = readPlan(fixture("version-2"));
+    expect(plan.units[2].test).toEqual({ file: "test/a3.test.ts", cases: ["the case 3 fails"] });
+  });
+
+  it("continues the case of a Test line on a line that starts with two spaces", () => {
+    const text = withUnit1(
+      "- Test: `test/a3.test.ts`: the case 3 fails\n",
+      "- Test: `test/a3.test.ts`: the case 3 fails\n  and goes on\n",
+    );
+    expect(readPlan(text).units[2].test?.cases).toEqual(["the case 3 fails and goes on"]);
+  });
+
+  it("refuses a Test line that names another test file than the first one", () => {
+    const text = withUnit1(
+      "- Test: `test/a1.test.ts`: the case 1b fails",
+      "- Test: `test/other.test.ts`: the case 1b fails",
+    );
+    const error = failureOf(text);
+    expect(error.message).toContain("line 50");
+    expect(error.message).toContain("same test file");
+  });
+
+  it("refuses the same case named twice in one unit", () => {
+    const text = withUnit1("the case 1b fails\n  and it fails for a second reason", "the case 1 fails");
+    const error = failureOf(text);
+    expect(error.message).toContain("line 50");
+    expect(error.message).toContain("twice");
   });
 });
 
