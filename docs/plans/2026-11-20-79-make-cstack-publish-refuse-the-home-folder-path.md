@@ -336,7 +336,7 @@ I checked security, data model lock-in, scale, operations and cost, and reversib
 
 ## Non-blocking questions
 
-none
+For the maintainer: "Should a follow-up ticket teach the publish guide (`cstack/guides/resolve-issue/publish.md`, section "Exit code 1") what to do when `cstack publish` refuses a home folder path? The proposal is to rewrite the commit before the first push when the path is real, and to stop with a needs-decision report, never editing a line, when the path looks like a false positive."
 
 ## Pull request
 
