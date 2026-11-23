@@ -1,7 +1,7 @@
 // The whole resolve-issue skill, run as Claude would run it: every command is the built cstack in a child process,
 // the remote is a bare repository and gh is a fake. Nothing here needs Claude, the network or the real home folder.
 import { execFileSync, spawnSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -66,7 +66,11 @@ function git(...args: string[]): string {
   return execFileSync("git", args, { cwd: project, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 }
 
+// Every call of the run with its time, so that the audit finds them in a session file, as it finds the calls of Claude.
+const calls: { time: string; args: string[] }[] = [];
+
 function run(args: string[], input?: string): Result {
+  calls.push({ time: new Date().toISOString(), args });
   const r = spawnSync(process.execPath, [bin, ...args], { cwd: project, env, input, encoding: "utf8", timeout: 60_000 });
   return { code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 }
@@ -78,6 +82,8 @@ function written(args: string[]): string {
     const at = words.findIndex((w, i) => w === extra[0] && words[i + 1] === extra[1]);
     if (at >= 0) words.splice(at, extra.length);
   }
+  const homeAt = words.indexOf("--home");
+  if (words[0] === "audit" && homeAt >= 0) words.splice(homeAt, 2);
   words = words.map((w) => (w === PLAN ? "<plan file>" : w));
   if (words[0] === "helper" && words[1] === "wait") words[2] = "<helper id>";
   const helperAt = words.indexOf("--helper");
@@ -96,6 +102,26 @@ function follow(source: string, args: string[], input?: string): Result {
   const result = run(args, input);
   if (args[0] === "next" && result.code === 0 && /^Run: /.test(result.stdout)) lastGuide = result.stdout;
   return result;
+}
+
+/** One word of a shell command, quoted when it holds a space or a quote, so that it is read back as one word. */
+const quoted = (word: string) => (/^[\w/.=:,@%+-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`);
+
+/** Writes the calls so far as the session file of a Claude run, in a folder of its own, and returns the home folder that holds it. */
+function writeSession(): string {
+  const auditHome = join(temp, "audit-home");
+  const folder = join(auditHome, ".claude", "projects", "e2e-project");
+  mkdirSync(folder, { recursive: true });
+  const lines = calls.map(({ time, args }, index) =>
+    JSON.stringify({
+      type: "assistant",
+      cwd: project,
+      timestamp: time,
+      message: { content: [{ type: "tool_use", id: `call-${index}`, name: "Bash", input: { command: ["cstack", ...args].map(quoted).join(" ") } }] },
+    }),
+  );
+  writeFileSync(join(folder, "session.jsonl"), lines.join("\n") + "\n");
+  return auditHome;
 }
 
 const guideNames = () => readdirSync(GUIDES).map((f) => f.slice(0, -3));
@@ -410,10 +436,39 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
 
   it("writes the retrospective, then refuses to publish while a blocking question is open (US-6, US-12)", () => {
     expectGuide(follow(read(GUIDES, "plan.md"), ["next"]), "retro");
+    // The retro guide runs the audit first. The session file sits in a folder of its own, never in the home folder of the run.
+    const auditHome = writeSession();
+    const audited = follow(lastGuide, ["audit", PLAN, "--home", auditHome]);
+    // The printed lines come first. Without them, a refusal that prints nothing would pass the check for paths.
+    const printed = audited.stdout.split("\n").filter(Boolean);
+    expect(printed.some((l) => l.startsWith("phase ticket: done "))).toBe(true);
+    const LINE = /^(phase [a-z-]+( started)?|[a-z-]+: .+): (done|skipped|out of order)( .+)?$/;
+    for (const line of printed) {
+      expect(line).toMatch(LINE);
+      if (!/: skipped$/.test(line)) expect(line, "a line that is not skipped needs a time and a record").toMatch(/: (done|out of order) \S+ \S+/);
+    }
+    for (const line of printed) expect(line).not.toMatch(/^(phase retro|retro: |phase publish|publish: )/);
+    const sentences = audited.stderr.split("\n").filter(Boolean);
+    expect(sentences).toContain("cstack audit: these phases are not over yet, so their lines are left out: retro, publish.");
+    for (const sentence of sentences) expect(sentence.startsWith("cstack audit: ")).toBe(true);
+    const paths = [temp, realpathSync(temp), project, realpathSync(project), join(auditHome, ".claude", "projects", "e2e-project"), auditHome, home];
+    for (const path of paths) {
+      expect(audited.stdout).not.toContain(path);
+      expect(audited.stderr).not.toContain(path);
+    }
+
+    // The guide asks for the printed lines in the code block of ## Steps, and the sentences of standard error under it.
     mkdirSync(join(project, "docs", "retros"), { recursive: true });
-    cpSync(join(FIXTURES, "retro.md"), join(project, "docs", "retros", "2026-11-19-1.md"));
-    git("add", "docs/retros/2026-11-19-1.md");
+    const retroPath = "docs/retros/2026-11-19-1.md";
+    const template = read(FIXTURES, "retro.md");
+    const block = /```text\n[^\n]*\n```/;
+    expect(template).toMatch(block);
+    writeFileSync(join(project, retroPath), template.replace(block, () => "```text\n" + printed.join("\n") + "\n```\n\n" + sentences.join("\n")));
+    git("add", retroPath);
     git("commit", "-m", "docs: add the retrospective");
+    const committed = git("show", `HEAD:${retroPath}`);
+    expect(committed).toContain("```text\n" + printed.join("\n") + "\n```");
+    for (const path of paths) expect(committed).not.toContain(path);
 
     const retro = follow(lastGuide, ["next", "--done", "retro", "--plan", PLAN]);
     expect(retro.code, retro.stderr).toBe(0);
