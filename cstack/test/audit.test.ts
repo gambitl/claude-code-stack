@@ -503,6 +503,22 @@ describe("cstack audit command steps", () => {
     expect(r2.stdout).toContain(`build: cstack next --done build --plan <plan file>: out of order ${localTime(new Date(at(buildAt, 1)))} session\n`);
   });
 
+  it("counts a helper wait that comes after the closes of the phases that the executor runs", async () => {
+    const readyAt = PHASES.findIndex((p) => p.name === "ready");
+    const publishAt = PHASES.findIndex((p) => p.name === "publish");
+    const planAt = PHASES.findIndex((p) => p.name === "plan");
+    const calls = fullCalls().map((c) => {
+      if (c.command !== "cstack helper wait x") return c;
+      return { ...c, time: new Date(c.time) < new Date(at(planAt + 2)) ? at(readyAt + 1, 5) : at(publishAt + 1, 5) };
+    });
+    const s = setup({ calls });
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+    expect(r.stdout).toContain(`plan: cstack helper wait <helper id>: done ${localTime(new Date(at(readyAt + 1, 5)))} session\n`);
+    expect(r.stdout).toContain(`retro: cstack helper wait <helper id>: done ${localTime(new Date(at(publishAt + 1, 5)))} session\n`);
+    expect(r.code).toBe(0);
+  });
+
   it("uses the saved failing run of a unit when no call shows it", async () => {
     const s = setup({ calls: without(fullCalls(), "cstack unit red 1") });
     const common = git(s.repo, "rev-parse", "--path-format=absolute", "--git-common-dir");

@@ -164,7 +164,7 @@ export function evaluateSteps(input: StepInput): Line[] {
   const results = new Map<string, number | undefined>();
   PHASES.forEach(({ name }, index) => {
     const earlier = closes.slice(0, index).reverse().find((time) => time !== undefined);
-    const later = closes.slice(index + 1).find((time) => time !== undefined);
+    const later = closes.slice(index + 1).find((time, offset) => time !== undefined && PHASES[index + 1 + offset]!.runsIn === PHASES[index]!.runsIn);
     const planning = PLANNING_PHASES.includes(name);
     for (const node of nodesOf(name, input.guides[name] ?? [], input.units)) {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
