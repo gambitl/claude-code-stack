@@ -1,6 +1,6 @@
 # Refocus and quality guards
 
-Epic: to be linked once the epic issue exists.
+Epic: https://github.com/gambitl/claude-code-stack/issues/84
 
 ## 1. Context and problem
 
