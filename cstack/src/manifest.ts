@@ -226,9 +226,9 @@ export const COMMANDS: CommandEntry[] = [
     built: true,
   },
   {
-    usage: "cstack tracker list (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>]",
+    usage: "cstack tracker list (--milestone <name> | --epic <key>) [--ready] [--tracker <name>] [--from-file <path>]",
     summary: "Print the tickets of a group with their states and blockers.",
-    flags: ["--milestone", "--epic", "--tracker", "--from-file"],
+    flags: ["--milestone", "--epic", "--ready", "--tracker", "--from-file"],
     exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
     file: "tracker-list.ts",
     ticket: [25, 26],

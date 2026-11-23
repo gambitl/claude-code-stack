@@ -28,14 +28,16 @@ export function usageError(io: Io, word: string, problem: string, hint = ""): nu
   return EXIT.usage;
 }
 
+type TrackerValues<T extends Record<string, { type: "string" | "boolean" }>> = { [K in keyof T]?: T[K]["type"] extends "boolean" ? boolean : string };
+
 /** Reads the command line. A wrong line gives a message for a usage error, not an exception. */
-export function parseTrackerArgs<T extends Record<string, { type: "string" }>>(
+export function parseTrackerArgs<T extends Record<string, { type: "string" | "boolean" }>>(
   args: string[],
   options: T,
-): { values: { [K in keyof T]?: string }; positionals: string[] } | { problem: string } {
+): { values: TrackerValues<T>; positionals: string[] } | { problem: string } {
   try {
     const { values, positionals } = parseArgs({ args, options, strict: true, allowPositionals: true });
-    return { values: values as { [K in keyof T]?: string }, positionals };
+    return { values: values as TrackerValues<T>, positionals };
   } catch (error) {
     return { problem: error instanceof Error ? error.message : String(error) };
   }

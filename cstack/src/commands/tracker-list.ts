@@ -1,7 +1,8 @@
 import type { Io } from "../io.js";
 import { EXIT } from "../manifest.js";
 import { openTracker, resolveTrackerName } from "../tracker/open.js";
-import type { Group } from "../tracker/types.js";
+import { readyState } from "../tracker/ready.js";
+import type { Group, Ticket } from "../tracker/types.js";
 import { KEY_HINT, type TrackerDeps, failTracker, findRoot, parseTrackerArgs, trackerName, usageError, warnTo } from "./tracker-common.js";
 
 /** `cstack tracker list`: prints the tickets of a milestone or an epic in the format of the file from Claude. */
@@ -11,6 +12,7 @@ export async function trackerList(args: string[], io: Io, deps: TrackerDeps): Pr
     epic: { type: "string" },
     tracker: { type: "string" },
     "from-file": { type: "string" },
+    ready: { type: "boolean" },
   });
   if ("problem" in parsed) return usageError(io, "list", parsed.problem);
   if (parsed.positionals.length > 0) return usageError(io, "list", `unexpected argument "${parsed.positionals[0]}".`, KEY_HINT);
@@ -31,10 +33,25 @@ export async function trackerList(args: string[], io: Io, deps: TrackerDeps): Pr
       env: deps.env,
       warn: warnTo(io),
     });
-    const tickets = await opened.listGroup(group);
+    const listed = await opened.listGroup(group);
+    const tickets = parsed.values.ready ? keepReady(listed, warnTo(io)) : listed;
     io.stdout(`${JSON.stringify({ format: "cstack-tracker/1", tracker: name, group, tickets }, null, 2)}\n`);
     return EXIT.ok;
   } catch (error) {
     return failTracker(error, io);
   }
+}
+
+/** Keeps the ready tickets. A ticket left out because something is unknown gets a warning for each unknown thing, in list order. */
+function keepReady(tickets: Ticket[], warn: (message: string) => void): Ticket[] {
+  return tickets.filter((ticket) => {
+    const state = readyState(ticket, false);
+    if (state.kind === "blocked") {
+      const left = `left out ${ticket.key}, because`;
+      if (state.reason === "unknown-state") warn(`${left} its state is unknown.`);
+      else if (state.reason === "unknown-blockers") warn(`${left} its blockers are unknown.`);
+      else if (ticket.blockers !== "unknown") for (const b of ticket.blockers) if (b.stateKind === "unknown") warn(`${left} the state of its blocker ${b.key} is unknown.`);
+    }
+    return state.kind === "ready";
+  });
 }
