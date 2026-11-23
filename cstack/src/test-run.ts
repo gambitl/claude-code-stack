@@ -1,7 +1,8 @@
 import { spawn } from "node:child_process";
-import { closeSync, fstatSync, mkdtempSync, openSync, readSync, rmSync } from "node:fs";
+import { closeSync, fstatSync, lstatSync, mkdtempSync, openSync, readFileSync, readSync, rmSync } from "node:fs";
 import { constants, tmpdir } from "node:os";
 import { join } from "node:path";
+import type { TestCase } from "./junit-report.js";
 import type { TestCommands } from "./settings.js";
 
 /** The time a test run may take before cstack stops it: ten minutes. */
@@ -9,6 +10,11 @@ export const DEFAULT_TEST_TIMEOUT_MS = 600_000;
 
 /** The most output bytes that a run keeps: the last megabyte. */
 export const MAX_OUTPUT_BYTES = 1_048_576;
+
+/** The cases of the report of a run, or the reason why there are none. */
+export type ReportResult =
+  | { cases: TestCase[] }
+  | { problem: "missing" | "malformed" | "timed-out"; message: string };
 
 /** The result of one test run. */
 export type TestRun = {
@@ -24,7 +30,14 @@ export type TestRun = {
    * the kept part starts just after the first line break inside that last megabyte.
    */
   output: string;
+  /** Present only when the caller asked for the report. */
+  report?: ReportResult;
 };
+
+/** True when the run must write a report: a test file, a `file` command and `report: "junit"`. */
+export function usesReport(commands: TestCommands, testFile?: string): boolean {
+  return testFile !== undefined && commands.file !== undefined && commands.report === "junit";
+}
 
 /**
  * Returns the script that runs the tests. With a test file and a `file` command,
@@ -33,7 +46,7 @@ export type TestRun = {
  */
 export function testScript(commands: TestCommands, testFile?: string): string {
   if (commands.file !== undefined && testFile !== undefined) {
-    return commands.file.replace("{file}", () => '"$1"');
+    return commands.file.replace("{file}", () => '"$1"').replace("{report}", () => '"$2"');
   }
   return commands.all;
 }
@@ -70,6 +83,27 @@ function readTail(fd: number): string {
   return buffer.subarray(newline === -1 ? length : newline + 1).toString("utf8");
 }
 
+// Reads the report before its folder is deleted. It never throws because of the report.
+async function readReport(path: string, timedOut: boolean): Promise<ReportResult> {
+  if (timedOut) return { problem: "timed-out", message: "The run reached its timeout, so no report was read." };
+  let xml: string;
+  try {
+    if (!lstatSync(path).isFile()) throw new Error("not a regular file");
+    xml = readFileSync(path, "utf8");
+  } catch {
+    return { problem: "missing", message: "The test command wrote no report file." };
+  }
+  // WHY: loaded only when a report is asked, so the child processes of the tests that import
+  // this file as TypeScript source, where a ".js" import has no file, still start.
+  const { ReportError, readJUnitReport } = await import("./junit-report.js");
+  try {
+    return { cases: readJUnitReport(xml) };
+  } catch (error) {
+    if (error instanceof ReportError) return { problem: "malformed", message: error.message };
+    throw error;
+  }
+}
+
 /**
  * Runs the script with `/bin/sh -c` from `root`. The test file, when given, is the
  * first argument of the script (`$1`). The run stops at the timeout.
@@ -79,14 +113,20 @@ export async function runTests(
   script: string,
   testFile: string | undefined,
   timeoutMs: number = DEFAULT_TEST_TIMEOUT_MS,
+  options: { report?: boolean } = {},
 ): Promise<TestRun> {
+  // WHY: the report path is always the second argument, so the test file must be the first.
+  if (options.report === true && testFile === undefined) {
+    throw new Error("A test report needs a test file, which is the first argument of the script.");
+  }
   // WHY: one file for both streams keeps their order, and a stray child of the
   // shell cannot keep a file open the way it keeps a pipe open.
   const dir = mkdtempSync(join(tmpdir(), "cstack-test-run-"));
+  const reportPath = join(dir, "report.xml");
   const fd = openSync(join(dir, "output.log"), "w+");
   try {
     // WHY: the script gets the path as "$1", so the path is never parsed as shell text.
-    const args = ["-c", script, "cstack", ...(testFile === undefined ? [] : [testFile])];
+    const args = ["-c", script, "cstack", ...(testFile === undefined ? [] : [testFile]), ...(options.report === true ? [reportPath] : [])];
     // WHY: a shell that leads its own process group lets us kill its children too.
     const child = spawn("/bin/sh", args, { cwd: root, detached: true, stdio: ["ignore", fd, fd] });
     let timedOut = false;
@@ -120,7 +160,9 @@ export async function runTests(
     const exitCode = timedOut
       ? undefined
       : (code ?? 128 + (signal === null ? 0 : (constants.signals[signal] ?? 0)));
-    return { script, exitCode, timedOut, output: readTail(fd) };
+    const run: TestRun = { script, exitCode, timedOut, output: readTail(fd) };
+    if (options.report === true) run.report = await readReport(reportPath, timedOut);
+    return run;
   } finally {
     closeSync(fd);
     rmSync(dir, { recursive: true, force: true });
