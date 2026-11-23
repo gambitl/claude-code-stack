@@ -282,6 +282,16 @@ Findings and fixes.
 - Simplicity, not done: `matcher()` and `hideHome()` build the same expression twice. The gain is about three lines, so I left it.
 - Follow-ups, not done: a file marked `-diff` in `.gitattributes` is read as binary, which is the accepted gap. A single-branch clone does not update `refs/remotes/origin/<branch>`, so pushing by hand would not clear a refusal there.
 
+
+Independent review. The reviewer found one bug and fixed it in commit `cc0d3a3`. The path shown in a refusal did not stop at the end of a line, so a path at the end of the first line of a commit message ran into the next line. The path now ends at a line break, and a new test covers it. The full suite passed after the fix, and every acceptance criterion has a test.
+
+Judgment calls for the pull request body.
+- The rule runs before `cstack publish` fetches the target branch. A stale local copy of `origin/<target>` can make the rule read commits that are already public. That is safe, but it can confuse.
+- The shown path can still hold the user name when it appears again after the home folder, as in `~/projects/someone-app`.
+- The match is case-sensitive, so `/users/name` is not caught on a case-insensitive disk.
+- When the `git log` output passes 256 MiB, the refusal ends with an empty reason.
+- The helper `plain()` now exists in both `publish.ts` and `home-folder.ts`.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
