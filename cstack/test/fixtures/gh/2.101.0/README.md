@@ -30,3 +30,5 @@ Here `<fields>` means `number,title,body,url,state,stateReason,labels,blockedBy`
 - `issue-comment.ok.txt` is the standard output of `gh issue comment 5 --repo <repo> --body-file <file>` with the text `Recording comment.`. The exit code was 0.
 
 `gh auth status` is not recorded, because its answer holds the account name. The tests need only its exit code.
+
+The file `api-label.found.json` is the standard output of `gh api --hostname github.com repos/<repo>/labels/in%20progress`, with exit code 0. The file `api-label.not-found.txt` is the standard error of the same command for a label that does not exist, with exit code 1. Both were recorded on 2026-11-20 with read-only calls on the public repository of this project, not on the sandbox. The placeholder pass wrote the numeric id as `1`.

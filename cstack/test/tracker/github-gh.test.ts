@@ -130,27 +130,59 @@ describe("githubGhTracker.listGroup with an epic", () => {
 });
 
 describe("githubGhTracker.moveState and addComment", () => {
-  const edit = (add: string, remove: string) => `issue edit 12 --repo ${REPO} --add-label ${add} --remove-label ${remove}`;
+  const edit = (add: string, remove?: string) => `issue edit 12 --repo ${REPO} --add-label ${add}${remove ? ` --remove-label ${remove}` : ""}`;
+  const labelCall = (name: string) => `api --hostname github.com repos/example-owner/example-repo/labels/${encodeURIComponent(name)}`;
+  const found: RunResult = ok("api-label.found.json");
+  const notFound: RunResult = { kind: "failed", exitCode: 1, stderr: fixture("api-label.not-found.txt") };
+  const bothLabels = { [labelCall("in progress")]: found, [labelCall("in review")]: found };
   const done: RunResult = { kind: "ok", stdout: "" };
 
   it("moves with two labels, in both directions", async () => {
-    const a = fake({ [edit("in progress", "in review")]: done });
+    const a = fake({ ...bothLabels, [edit("in progress", "in review")]: done });
     await a.tracker.moveState("#12", "in progress");
-    expect(a.calls).toEqual([["issue", "edit", "12", "--repo", REPO, "--add-label", "in progress", "--remove-label", "in review"]]);
-    const b = fake({ [edit("in review", "in progress")]: done });
+    expect(a.calls.at(-1)).toEqual(["issue", "edit", "12", "--repo", REPO, "--add-label", "in progress", "--remove-label", "in review"]);
+    const b = fake({ ...bothLabels, [edit("in review", "in progress")]: done });
     await b.tracker.moveState("#12", "in review");
-    expect(b.calls[0].slice(5)).toEqual(["--add-label", "in review", "--remove-label", "in progress"]);
+    expect(b.calls.at(-1)?.slice(5)).toEqual(["--add-label", "in review", "--remove-label", "in progress"]);
   });
 
-  it("refuses a missing label with exit 1 and the command that creates it", async () => {
+  it("adds the label alone when the label to remove does not exist", async () => {
     const { tracker, calls } = fake({
+      [labelCall("in progress")]: found,
+      [labelCall("in review")]: notFound,
+      [edit("in progress")]: done,
+    });
+    await expect(tracker.moveState("#12", "in progress")).resolves.toBeUndefined();
+    expect(calls.filter((a) => a[0] === "issue")).toEqual([["issue", "edit", "12", "--repo", REPO, "--add-label", "in progress"]]);
+  });
+
+  it("refuses a missing label to add with exit 1 and the command that creates it, before any edit", async () => {
+    const { tracker, calls } = fake({
+      [labelCall("in progress")]: notFound,
+      [labelCall("in review")]: found,
+    });
+    await expect(tracker.moveState("#12", "in progress")).rejects.toMatchObject({
+      exitCode: 1,
+      message: `The label "in progress" does not exist in ${REPO}. cstack never creates a label. Run this command, then move the ticket again: gh label create "in progress" --repo ${REPO}`,
+    });
+    expect(calls.some((a) => a[0] === "issue")).toBe(false);
+  });
+
+  it("still refuses a label that gh reports as missing after the edit", async () => {
+    const { tracker } = fake({
+      ...bothLabels,
       [edit("in progress", "in review")]: { kind: "failed", exitCode: 1, stderr: fixture("issue-edit.missing-label.txt") },
     });
     await expect(tracker.moveState("#12", "in progress")).rejects.toMatchObject({
       exitCode: 1,
       message: expect.stringContaining(`gh label create "in review" --repo ${REPO}`),
     });
-    expect(calls).toHaveLength(1);
+  });
+
+  it("maps exit code 4 of the label check to exit 4 and runs no edit", async () => {
+    const { tracker, calls } = fake({ [labelCall("in progress")]: { kind: "failed", exitCode: 4, stderr: "" } });
+    await expect(tracker.moveState("#12", "in progress")).rejects.toMatchObject({ exitCode: 4 });
+    expect(calls.some((a) => a[0] === "issue")).toBe(false);
   });
 
   it("refuses another state name before any call", async () => {
@@ -161,8 +193,8 @@ describe("githubGhTracker.moveState and addComment", () => {
 
   it("maps exit code 4 and a timeout on a move", async () => {
     const key = edit("in progress", "in review");
-    await expect(fake({ [key]: { kind: "failed", exitCode: 4, stderr: "" } }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({ exitCode: 4 });
-    await expect(fake({ [key]: { kind: "timeout" } as RunResult }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({
+    await expect(fake({ ...bothLabels, [key]: { kind: "failed", exitCode: 4, stderr: "" } }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({ exitCode: 4 });
+    await expect(fake({ ...bothLabels, [key]: { kind: "timeout" } as RunResult }).tracker.moveState("#12", "in progress")).rejects.toMatchObject({
       name: "WriteShapeError",
       exitCode: 5,
     });
