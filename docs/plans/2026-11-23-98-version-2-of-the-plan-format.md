@@ -367,7 +367,16 @@ Findings of the four reviewers, and what was done.
 - Security: nothing at 80 or above. The fact paths go through `pathProblem()`, and the new patterns run fast on long lines.
 - Conventions: nothing at 80 or above. Follow-ups: ADR-SIC-B line 29 has no pointer to ADR-RQG-B. The refusal message of a Test line in `read.ts` (line 446) still says `<failing case>`. The name `stopOnFormat` now also returns a boolean.
 - Simplicity: follow-ups only. `stopOnFormat` could throw once, `readSource` could use one regex per source form, and `seen.add` could move into the last branch. None was done, because the first two would change exact messages.
-- Follow-up: the message for a Negative criterion line in a unit whose Test line is malformed says that the unit has a `- No test:` line, which may mislead.
+- Follow-up of the phase review, fixed by the independent review: the message for a Negative criterion line in a unit whose Test line is malformed said that the unit had a `- No test:` line. It now says that the unit has no `- Test:` line in its fixed form (6889919).
+
+### Phase independent-review
+
+The independent reviewer found no other bug and ran the full suite: 1835 tests and the type check pass. Judgment calls for the pull request body:
+- ADR-SIC-B (line 29) still says that a plan starts with `Format: cstack-plan/1`, with no link to ADR-RQG-B. The scope leaves that file out, and a one-line pointer could be added.
+- The refusal message of a malformed Test line in `read.ts` still says `<failing case>`, while the template says `<the case>`.
+- `cstack/package.json` still says 0.3.2, the same number as the constant for the last version that reads version 1. The release at the end of milestone R3 raises the version.
+- A placeholder line next to real lines in a new section is refused as a malformed line. This follows the recorded rule.
+- The new sections are not in the done report checks, and no guide fills them yet. Later tickets cover both.
 
 ## Briefing
 
