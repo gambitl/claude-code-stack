@@ -1555,3 +1555,64 @@ describe("cstack audit, the check of the whole test file", () => {
     expect(lines((await run(closed)).stdout)).toHaveLength(1);
   });
 });
+
+describe("cstack audit, an implementer launch with no transcript", () => {
+  const SENTENCE = "cstack audit: some implementer launches have no sub-agent transcript with a meta file, so the units they built may show as skipped.\n";
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const notOver = (): Record<string, { startedAt?: string; doneAt?: string }> => {
+    const phases = fullPhases() as Record<string, { startedAt?: string; doneAt?: string }>;
+    delete phases.build!.doneAt;
+    for (const { name } of PHASES.slice(buildAt + 1)) delete phases[name];
+    return phases;
+  };
+  // A launch of the escalation type in the window of the build phase, with no transcript.
+  const lone = (type: string): Call => ({ time: at(buildAt, 9), command: "", launch: type });
+
+  it("prints the sentence after every other sentence when a launch has no transcript", async () => {
+    const s = setup({ implementerTranscripts: false });
+    mkdirSync(join(s.home, ".claude", "projects", "p", "dir.jsonl"));
+    const r = await run(s);
+    expect(r.stderr).toBe("cstack audit: some session files could not be read, so some steps may show as skipped.\n" + SENTENCE);
+    expect(r.stderr.endsWith("\n")).toBe(true);
+  });
+
+  it("prints the sentence after the sentence about the phases that are not over", async () => {
+    const phases = fullPhases() as Record<string, { startedAt?: string; doneAt?: string }>;
+    delete phases.publish!.doneAt;
+    const s = setup({ implementerTranscripts: false, phases });
+    const r = await run(s);
+    expect(r.stderr).toBe(NOT_OVER("publish") + SENTENCE);
+  });
+
+  it("prints the sentence for a launch of the escalation type with no transcript", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:implementer-escalation")] });
+    const r = await run(s);
+    expect(r.stderr).toBe(SENTENCE);
+  });
+
+  it("prints no sentence when every implementer launch has its transcript", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+  });
+
+  it("prints no sentence for a launch of another type with no transcript", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:executor")] });
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+  });
+
+  it("prints no sentence while the build phase is not over", async () => {
+    const s = setup({ implementerTranscripts: false, phases: notOver() });
+    const r = await run(s);
+    expect(r.stderr).not.toContain("implementer launches");
+  });
+
+  it("still exits with 0 when the sentence is printed and every printed line is done", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:implementer-escalation")] });
+    const r = await run(s);
+    expect(r.stderr).toBe(SENTENCE);
+    expect(r.stdout.split("\n").filter((l) => l !== "").every((l) => /: done /.test(l))).toBe(true);
+    expect(r.code).toBe(0);
+  });
+});
