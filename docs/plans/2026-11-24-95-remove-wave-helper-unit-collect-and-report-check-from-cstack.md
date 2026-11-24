@@ -391,13 +391,13 @@ Reviewer findings (executor, 2026-11-24):
 - Correctness: no bug found. The reviewer ran the type check and the full suite, and both passed. Minor note: the file-name assertion of `saveReport` went away with a deleted test. I left it as it is.
 - Security: no finding. The branch only deletes code that started other programs.
 - Conventions: no finding. Authors and committers use the no-reply address, and the public text rule holds. Minor note: `checkReport` still says "role executor" in one message, and tests may match those words, so I left it.
-- Simplicity: I fixed two findings in commit 45c4646, the `--child-worktree` filter in `written()` and the comment about waves in `chain.ts`. I did not shrink the fake `bin/orca` script or drop an `export`, because the gain is small. `hasWorktree`, `readAt` and `watchIntervalMinutes` stay on purpose, as the Decisions say.
+- Simplicity: I fixed two findings in commit 1fd8946, the `--child-worktree` filter in `written()` and the comment about waves in `chain.ts`. I did not shrink the fake `bin/orca` script or drop an `export`, because the gain is small. `hasWorktree`, `readAt` and `watchIntervalMinutes` stay on purpose, as the plan says.
 
-Independent review (executor, 2026-11-24): the reviewer found no bug, security problem or broken convention, and checked every acceptance criterion. It made one cleanup commit, 444c417, that removes an unused import in `chain.ts` and an unused list in `manifest.test.ts`. The full suite and the type check passed. Judgment calls for the pull request body:
+Independent review (executor, 2026-11-24): the reviewer found no bug, security problem or broken convention, and checked every acceptance criterion. It made one cleanup commit, de25cd3, that removes an unused import in `chain.ts` and an unused list in `manifest.test.ts`. The full suite and the type check passed. Judgment calls for the pull request body:
 
-- The refusal of a done report with an unfinished unit is proved through `checkReport`, the function that `report submit` calls, and not through the command itself. Decision 71 accepts this.
+- The refusal of a done report with an unfinished unit is proved through `checkReport`, the function that `report submit` calls, and not through the command itself. The plan accepts this.
 - One deleted test was the only check of the file name that `saveReport` writes. That function did not change, so only that coverage is gone.
-- `checkReport` still says "for the role executor" in its message about an unknown kind. Decision 70 keeps those exact words on purpose.
+- `checkReport` still says "for the role executor" in its message about an unknown kind. The plan keeps those exact words on purpose.
 
 ## Briefing
 
@@ -433,7 +433,7 @@ The lost coverage of `saveReport()` comes from the deletion of the case "saves u
 
 The earlier questions are all resolved as the user approved them. The message after `--done publish` has the exact approved words, and `cstack/test/next.test.ts` checks them. `cstack unit collect` and `cstack report check` answer with the usage of their group and exit with 2, and `cstack wave` and `cstack helper` answer as unknown commands, which five new cases of `cstack/test/cli.test.ts` check. Each case calls the removed command with `--cstack-unknown-flag`, as accepted by default. `watchIntervalMinutes` stays in `cstack/src/settings.ts` and in the template, and the comment on #97 was posted with the gap described above. `cstack/src/plan/unit-line.ts` and its test are gone, and line 71 of `cstack/skills/resolve-issue/templates/plan.md` has the exact approved words. `cstack/test/e2e/no-orca.test.ts` keeps only its tracker cases, with a trimmed `chain.ts` and a fake `bin/orca` that answers only `--version`, `status --json` and `agent-context --json`. `cstack unit order` keeps its output, and only its summary changed.
 
-The review log names commits 45c4646 and 444c417 and "Decision 70" and "Decision 71". The rebase changed those hashes to 1fd8946 and de25cd3, and the decisions of this plan file have no numbers. The pull request body should name the commits by their current hashes and the decisions by what they say. No new question arose after the build, and the open non-blocking question about `hasWorktree` and `readAt` is already listed below. All commits use the no-reply address.
+The review log used to name commits and decisions by numbers that no longer exist. It now names the commits by their current hashes, 1fd8946 and de25cd3, and the decisions by what they say. No new question arose after the build, and the open non-blocking question about `hasWorktree` and `readAt` is already listed below. All commits use the no-reply address.
 
 I checked security and authorization, data model lock-in, scale and performance, UX edge cases, and operations and cost, and found nothing that this ticket touches.
 
