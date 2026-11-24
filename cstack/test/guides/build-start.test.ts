@@ -31,4 +31,15 @@ describe("the Start section of the build guide", () => {
     expect(line).not.toContain("cstack wave");
     expect(line).toMatch(/^Branch:\s*<.*>/);
   });
+
+  it("keeps another branch only when it is not the default branch either", () => {
+    const sentence = start.split(/(?<=[.!?])\s+/).find((s) => s.includes("git rev-list --count <target branch>..HEAD"));
+    expect(sentence, "no sentence of the Start section names git rev-list").toBeDefined();
+    expect(sentence).toContain("neither the target branch nor the default branch");
+  });
+
+  it("has a Branch line in the plan template that leaves out the default branch", () => {
+    const line = template.split("\n").find((l) => l.startsWith("Branch:"))!;
+    expect(line).toContain("neither the target branch nor the default branch");
+  });
 });

@@ -23,7 +23,7 @@ In this phase you start the work and build every unit of the plan. The settings 
    - If cstack refuses the state name, it prints the names that the tracker accepts. Run the command again with one of those names.
    - If cstack exits with 1 because a label is missing, it prints the command that creates the label. You never create a label. Write in the "Hand-off log" that the ticket could not be moved, and copy the printed command there. Then go on.
    - If cstack exits with exit code `4`, no client can reach the tracker. Move the ticket with your own connection to the tracker instead. Write in the "Hand-off log" that you did it that way.
-2. Check out the branch of the plan file. When you are on the branch that the `Branch` line names, keep it. When you are on another branch that is not the target branch, and `git rev-list --count <target branch>..HEAD` prints 0, keep that branch too, and write its name on the `Branch` line. Otherwise check out the branch that the `Branch` line names, and create it first when it does not exist. Never work on the default branch.
+2. Check out the branch of the plan file. When you are on the branch that the `Branch` line names, keep it. When you are on another branch that is neither the target branch nor the default branch, and `git rev-list --count <target branch>..HEAD` prints 0, keep that branch too, and write its name on the `Branch` line. Otherwise check out the branch that the `Branch` line names, and create it first when it does not exist. Never work on the default branch.
 3. Commit the plan file as the first commit of the branch, unless it is already committed.
 
 ## Build the units
