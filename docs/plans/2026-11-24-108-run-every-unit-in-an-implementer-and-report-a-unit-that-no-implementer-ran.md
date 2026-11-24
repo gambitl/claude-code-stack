@@ -266,6 +266,13 @@ The ticket says that the implementer of a unit with no test commits "when the un
 
 ## Review log
 
+Impact notes: the changed symbols are in cstack/src/audit/calls.ts, evaluate.ts and commands/audit.ts. Their usual companions (the audit tests, README.md, ADR-RQG-C) all changed with them. No other file in the repository uses the changed symbols.
+
+Correctness reviewer: no finding. It ran cstack audit on this run and all six implementer lines were done. It noted a separate older issue: "cstack unit commit 3" printed as out of order, which this branch does not touch.
+Security reviewer: no finding.
+Conventions reviewer: the two implementer type names were written twice (audit.ts and evaluate.ts). Fixed with one exported constant.
+Simplicity reviewer: same duplicate, fixed. Its second point (narrow the type of the launch map in calls.ts to drop one re-check) is a follow-up of about one line and was not done.
+
 ## Briefing
 
 ## Non-blocking questions
