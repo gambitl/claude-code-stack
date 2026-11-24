@@ -137,14 +137,6 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 16,
     built: true,
   }),
-  planCommand({
-    usage: "cstack report check [--plan <file>]",
-    summary: "Print the oldest accepted report that was not shown yet.",
-    exitCodes: { 0: OK, 1: "There is no accepted report to show.", 2: USAGE, 3: INVALID },
-    file: "report-check.ts",
-    ticket: 16,
-    built: true,
-  }),
   {
     ...planCommand({
       usage: "cstack unit order [--json]",

@@ -62,7 +62,7 @@ export async function reportSubmit(
   try {
     const located = locatePlan(options.cwd, planFlag);
     const where = { root: located.root, planFile: located.relative };
-    const reasons = checkReport({ role: "executor", kind, text }, where);
+    const reasons = checkReport({ kind, text }, where);
     if (reasons.length > 0) {
       io.stderr(`${reasons.join("\n")}\n`);
       return 1;

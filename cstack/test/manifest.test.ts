@@ -144,8 +144,8 @@ describe("the flags that are not built yet", () => {
 });
 
 describe("the command list", () => {
-  it("holds nineteen built commands and none that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(19);
+  it("holds eighteen built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(18);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 

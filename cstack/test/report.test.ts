@@ -3,16 +3,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { beforeAll, describe, expect, it } from "vitest";
-import { reportCheck } from "../src/commands/report-check.js";
 import { readStdin, reportSubmit } from "../src/commands/report-submit.js";
 import {
   checkReport,
   lastAcceptedDoneReportAt,
-  latestStuckReportPath,
-  latestUnitReport,
   saveReport,
-  saveUnitReport,
-  takeOldestUnreadReport,
 } from "../src/report/reports.js";
 import { runFolder } from "../src/run-state.js";
 import { collect, commitFiles, commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
@@ -48,7 +43,7 @@ function setup(options: { text?: string; units?: number[] } = {}) {
   return { dir, where: { root: dir, planFile: PLAN } };
 }
 
-const done = { role: "executor", kind: "done", text: "" } as const;
+const done = { kind: "done", text: "" } as const;
 const joined = (reasons: string[]) => reasons.join("\n");
 
 describe("checkReport, executor done", () => {
@@ -125,22 +120,22 @@ describe("checkReport, executor done", () => {
 describe("checkReport, other kinds", () => {
   it("refuses the kind complete and lists the allowed kinds", () => {
     const { where } = setup();
-    const reason = joined(checkReport({ role: "executor", kind: "complete", text: "" }, where));
+    const reason = joined(checkReport({ kind: "complete", text: "" }, where));
     for (const kind of ["done", "needs-decision", "failed", "published"]) expect(reason).toContain(kind);
   });
 
   it("refuses needs-decision and failed with a blank text", () => {
     const { where } = setup();
     for (const kind of ["needs-decision", "failed"]) {
-      expect(checkReport({ role: "executor", kind, text: "" }, where)).not.toEqual([]);
-      expect(checkReport({ role: "executor", kind, text: " \n " }, where)).not.toEqual([]);
-      expect(checkReport({ role: "executor", kind, text: "Why." }, where)).toEqual([]);
+      expect(checkReport({ kind, text: "" }, where)).not.toEqual([]);
+      expect(checkReport({ kind, text: " \n " }, where)).not.toEqual([]);
+      expect(checkReport({ kind, text: "Why." }, where)).toEqual([]);
     }
   });
 
   it("checks published against publish.json and HEAD", () => {
     const { dir, where } = setup();
-    const published = { role: "executor", kind: "published", text: "" } as const;
+    const published = { kind: "published", text: "" } as const;
     expect(checkReport(published, where)).not.toEqual([]);
     const head = git(dir, "rev-parse", "HEAD");
     const file = join(runFolder(dir, PLAN), "publish.json");
@@ -156,77 +151,20 @@ describe("checkReport, other kinds", () => {
   });
 });
 
-describe("checkReport, implementer", () => {
-  it("refuses done without a commit, and accepts it with the commit and a saved failing run", () => {
-    const { dir, where } = setup({ units: [] });
-    const report = (unit: number, kind = "done") => ({ role: "implementer" as const, kind, text: "", unit });
-    expect(joined(checkReport(report(2), where))).toContain("Unit 2");
-    commitFiles(dir, ["src/u2.ts"], 2);
-    expect(checkReport(report(2), where)).toEqual([]);
-    commitFiles(dir, ["src/u1.ts"], 1);
-    expect(joined(checkReport(report(1), where))).toContain("red.json");
-    const red = join(runFolder(dir, PLAN), "units", "1", "red.json");
-    mkdirSync(join(runFolder(dir, PLAN), "units", "1"), { recursive: true });
-    writeFileSync(red, "{}");
-    expect(joined(checkReport(report(1), where))).toContain("passing run");
-    writeFileSync(join(runFolder(dir, PLAN), "units", "1", "green.json"), "{}");
-    expect(checkReport(report(1), where)).toEqual([]);
-  });
-
-  it("refuses needs-decision, an empty stuck, a missing unit and an unknown unit", () => {
-    const { where } = setup();
-    expect(checkReport({ role: "implementer", kind: "needs-decision", text: "x", unit: 2 }, where)).not.toEqual([]);
-    expect(checkReport({ role: "implementer", kind: "stuck", text: "  ", unit: 2 }, where)).not.toEqual([]);
-    expect(checkReport({ role: "implementer", kind: "stuck", text: "why", unit: 2 }, where)).toEqual([]);
-    expect(checkReport({ role: "implementer", kind: "done", text: "" }, where)).not.toEqual([]);
-    expect(checkReport({ role: "implementer-escalation", kind: "done", text: "", unit: 99 }, where)).not.toEqual([]);
-  });
-});
-
 describe("saving and reading reports", () => {
   const at = new Date("2026-11-18T10:15:30.123Z");
-
-  it("saves unit reports apart from the run reports and finds the latest of a helper", () => {
-    const { dir, where } = setup();
-    const first = saveUnitReport(where, 3, { kind: "stuck", text: "a", helper: "h1" }, new Date("2026-11-18T10:00:00Z"));
-    expect(first).toContain(join("units", "3", "reports"));
-    expect(first).toContain("-stuck.json");
-    saveUnitReport(where, 3, { kind: "done", text: "b", helper: "h1" }, new Date("2026-11-18T11:00:00Z"));
-    saveUnitReport(where, 3, { kind: "done", text: "c", helper: "h2" }, new Date("2026-11-18T12:00:00Z"));
-    expect(latestUnitReport(where, 3, "h1")).toMatchObject({ kind: "done", text: "b", helper: "h1" });
-    expect(latestUnitReport(where, 3, "nobody")).toBeUndefined();
-    expect(latestUnitReport(where, 4, "h1")).toBeUndefined();
-    expect(latestStuckReportPath(where, 3)).toBe(first);
-    expect(latestStuckReportPath(where, 4)).toBeUndefined();
-    expect(takeOldestUnreadReport(where)).toBeUndefined();
-    expect(existsSync(join(runFolder(dir, PLAN), "reports"))).toBe(false);
-  });
-
-  it("saves, then takes a report once and sets readAt", () => {
-    const { dir, where } = setup();
-    const path = saveReport(where, { kind: "done", text: "Hello $(x)" }, at);
-    expect(path).toContain("2026-11-18T10-15-30.123Z-done.json");
-    const taken = takeOldestUnreadReport(where);
-    expect(taken).toMatchObject({ kind: "done", text: "Hello $(x)", time: at.toISOString() });
-    expect(JSON.parse(readFileSync(path, "utf8")).readAt).toBeTruthy();
-    expect(takeOldestUnreadReport(where)).toBeUndefined();
-    expect(dir).toBeTruthy();
-  });
-
-  it("returns two reports oldest first", () => {
-    const { where } = setup();
-    saveReport(where, { kind: "failed", text: "later" }, new Date("2026-11-18T11:00:00Z"));
-    saveReport(where, { kind: "done", text: "earlier" }, new Date("2026-11-18T10:00:00Z"));
-    expect(takeOldestUnreadReport(where)?.text).toBe("earlier");
-    expect(takeOldestUnreadReport(where)?.text).toBe("later");
-  });
 
   it("never replaces a report saved at the same time", () => {
     const { dir, where } = setup();
     saveReport(where, { kind: "done", text: "a" }, at);
     saveReport(where, { kind: "done", text: "b" }, at);
     expect(readdirSync(join(runFolder(dir, PLAN), "reports")).filter((n) => n.endsWith(".json"))).toHaveLength(2);
-    expect([takeOldestUnreadReport(where)?.text, takeOldestUnreadReport(where)?.text].sort()).toEqual(["a", "b"]);
+    const folder = join(runFolder(dir, PLAN), "reports");
+    const texts = readdirSync(folder)
+      .filter((n) => n.endsWith(".json"))
+      .map((n) => JSON.parse(readFileSync(join(folder, n), "utf8")).text)
+      .sort();
+    expect(texts).toEqual(["a", "b"]);
   });
 
   it("returns the time of the latest done report", () => {
@@ -239,15 +177,10 @@ describe("saving and reading reports", () => {
   });
 });
 
-describe("cstack report submit and report check", () => {
+describe("cstack report submit", () => {
   const submit = async (kind: string, dir: string, input: Buffer | undefined, extra: string[] = []) => {
     const { out, io } = collect();
     const code = await reportSubmit([kind, "--plan", PLAN, ...extra], io, { cwd: dir, readInput: async () => input });
-    return { code, ...out };
-  };
-  const check = async (dir: string) => {
-    const { out, io } = collect();
-    const code = await reportCheck(["--plan", PLAN], io, { cwd: dir });
     return { code, ...out };
   };
 
@@ -300,34 +233,21 @@ describe("cstack report submit and report check", () => {
     expect(await reportSubmit(["--plan", PLAN], io, { cwd: dir, readInput: async () => Buffer.from("") })).toBe(2);
   });
 
-  it("accepts a report, saves it, and report check shows it once", async () => {
+  it("accepts a report and saves it", async () => {
     const { dir } = setup();
     const r = await submit("done", dir, Buffer.from("all good\n"));
     expect(r.code).toBe(0);
     expect(r.stdout.trim().split("\n")).toHaveLength(1);
     expect(readdirSync(join(runFolder(dir, PLAN), "reports"))).toHaveLength(1);
-    const first = await check(dir);
-    expect(first.code).toBe(0);
-    expect(first.stdout).toBe("done\nall good\n");
-    const second = await check(dir);
-    expect(second.code).toBe(1);
-    expect(second.stderr).toContain("Launch the executor again");
   });
 
-  it("shows two accepted reports oldest first", async () => {
-    const { dir } = setup();
-    await submit("failed", dir, Buffer.from("first"));
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    await submit("needs-decision", dir, Buffer.from("second"));
-    expect((await check(dir)).stdout).toBe("failed\nfirst");
-    expect((await check(dir)).stdout).toBe("needs-decision\nsecond");
-  });
-
-  it("saves and prints shell text byte for byte and runs nothing", async () => {
+  it("saves shell text byte for byte and runs nothing", async () => {
     const { dir } = setup();
     const text = "$(touch pwned) `touch pwned` ; rm -rf ~\n";
     expect((await submit("done", dir, Buffer.from(text))).code).toBe(0);
-    expect((await check(dir)).stdout).toBe(`done\n${text}`);
+    const folder = join(runFolder(dir, PLAN), "reports");
+    const [name] = readdirSync(folder);
+    expect(JSON.parse(readFileSync(join(folder, name), "utf8")).text).toBe(text);
     expect(existsSync(join(dir, "pwned"))).toBe(false);
     expect(existsSync(join(process.cwd(), "pwned"))).toBe(false);
   });

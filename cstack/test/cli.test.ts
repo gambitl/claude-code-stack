@@ -112,6 +112,14 @@ describe("run", () => {
     expect(out.stderr).toBe("cstack: usage: cstack unit <order|commit|red|green>\n");
   });
 
+  it("answers cstack report check with the usage of the report group", async () => {
+    const { out, io } = collect();
+    const code = await run(["report", "check", "--cstack-unknown-flag"], io);
+    expect(code).toBe(2);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toBe("cstack: usage: cstack report <submit>\n");
+  });
+
   it("lets a crash inside a command reach the caller instead of printing the usage", async () => {
     const io: Io = {
       stdout: () => {
@@ -300,7 +308,7 @@ describe("the plan and report groups", () => {
   it("returns 2 and lists the second words of the group when the second word is missing or unknown", async () => {
     for (const [args, words] of [
       [["plan"], "status|section"],
-      [["report", "nope"], "submit|check"],
+      [["report", "nope"], "submit"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io)).toBe(2);

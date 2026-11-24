@@ -5,24 +5,13 @@ import { join } from "node:path";
 import { buildDone, noOpenQuestion, ticketCopied, type PhaseContext } from "../phases.js";
 import { listUnitCommits } from "../plan/commits.js";
 import { DONE_REPORT_SECTIONS, readPlan, type PlanRead } from "../plan/read.js";
-import { RunStateError, runFolder, writeFileAtomic, type PublishRecord, type SavedReport } from "../run-state.js";
-
-export type Role = "executor" | "implementer" | "implementer-escalation";
+import { RunStateError, runFolder, type PublishRecord, type SavedReport } from "../run-state.js";
 
 export const EXECUTOR_KINDS = ["done", "needs-decision", "failed", "published"] as const;
-export const IMPLEMENTER_KINDS = ["done", "stuck"] as const;
-
-export const KINDS_BY_ROLE: Record<Role, readonly string[]> = {
-  executor: EXECUTOR_KINDS,
-  implementer: IMPLEMENTER_KINDS,
-  "implementer-escalation": IMPLEMENTER_KINDS,
-};
 
 export interface Report {
-  role: Role;
   kind: string;
   text: string;
-  unit?: number;
 }
 
 /** `root` is the repository root. `planFile` is the plan path from that root. */
@@ -104,43 +93,16 @@ function checkExecutor(report: Report, where: Where, plan: PlanRead): string[] {
   return reasons;
 }
 
-function checkImplementer(report: Report, where: Where, plan: PlanRead): string[] {
-  const unit = plan.units.find((u) => u.number === report.unit);
-  if (report.unit === undefined || !unit) {
-    return [`The report needs the number of a unit of the plan, and ${report.unit ?? "no unit"} is not one.`];
-  }
-  if (report.kind === "stuck") return report.text.trim() ? [] : ["A stuck report needs a text that is not empty."];
-  const reasons: string[] = [];
-  const commits = listUnitCommits(where.root, plan.header["Target branch"]);
-  if (!commits.units[unit.number]?.length) reasons.push(`Unit ${unit.number} has no commit with Cstack-Unit: ${unit.number}.`);
-  if (unit.test) {
-    const red = join(runFolder(where.root, where.planFile), "units", String(unit.number), "red.json");
-    try {
-      readFileSync(red);
-    } catch {
-      reasons.push(`Unit ${unit.number} has a Test line, and its failing run (${red}) is not saved.`);
-    }
-    const green = join(runFolder(where.root, where.planFile), "units", String(unit.number), "green.json");
-    try {
-      readFileSync(green);
-    } catch {
-      reasons.push(`Unit ${unit.number} has a Test line, and its passing run (${green}) is not saved.`);
-    }
-  }
-  return reasons;
-}
-
 /**
  * Returns every reason to refuse a report. An empty list means it is accepted.
  * It throws PlanFormatError or RunStateError (exit code 3) when the plan or the run cannot be read.
  */
 export function checkReport(report: Report, where: Where): string[] {
-  const allowed = KINDS_BY_ROLE[report.role];
-  if (!allowed.includes(report.kind)) {
-    return [`The kind ${report.kind} is not allowed for the role ${report.role}. Allowed kinds: ${allowed.join(", ")}.`];
+  if (!(EXECUTOR_KINDS as readonly string[]).includes(report.kind)) {
+    return [`The kind ${report.kind} is not allowed for the role executor. Allowed kinds: ${EXECUTOR_KINDS.join(", ")}.`];
   }
   const plan = readPlan(readFileSync(join(where.root, where.planFile), "utf8"));
-  return report.role === "executor" ? checkExecutor(report, where, plan) : checkImplementer(report, where, plan);
+  return checkExecutor(report, where, plan);
 }
 
 const reportsFolder = (where: Where) => join(runFolder(where.root, where.planFile), "reports");
@@ -179,64 +141,6 @@ export function saveReport(where: Where, report: { kind: SavedReport["kind"]; te
   return saveInFolder(reportsFolder(where), { kind: report.kind, text: report.text }, now);
 }
 
-export interface UnitReport {
-  kind: "done" | "stuck";
-  text: string;
-  helper: string;
-  time: string;
-}
-
-const unitReportsFolder = (where: Where, unit: number) =>
-  join(runFolder(where.root, where.planFile), "units", String(unit), "reports");
-
-/** Writes `units/<n>/reports/<time>-<kind>.json`. It never replaces a report that exists. Returns the path. */
-export function saveUnitReport(
-  where: Where,
-  unit: number,
-  report: { kind: UnitReport["kind"]; text: string; helper: string },
-  now = new Date(),
-): string {
-  return saveInFolder(unitReportsFolder(where, unit), report, now);
-}
-
-function readUnitReports(where: Where, unit: number): { path: string; report: UnitReport }[] {
-  const folder = unitReportsFolder(where, unit);
-  let names: string[];
-  try {
-    names = readdirSync(folder).filter((name) => name.endsWith(".json"));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-  return names.map((name) => {
-    const path = join(folder, name);
-    try {
-      return { path, report: JSON.parse(readFileSync(path, "utf8")) as UnitReport };
-    } catch {
-      throw new RunStateError(`The report file ${path} is not valid JSON.`);
-    }
-  });
-}
-
-const byTime = (a: { path: string; report: UnitReport }, b: { path: string; report: UnitReport }) =>
-  Date.parse(a.report.time) - Date.parse(b.report.time) || (a.path < b.path ? -1 : 1);
-
-/** The latest report of a helper for a unit, or nothing. */
-export function latestUnitReport(where: Where, unit: number, helper: string): UnitReport | undefined {
-  return readUnitReports(where, unit)
-    .filter(({ report }) => report.helper === helper)
-    .sort(byTime)
-    .at(-1)?.report;
-}
-
-/** The path of the latest stuck report of a unit, or nothing. */
-export function latestStuckReportPath(where: Where, unit: number): string | undefined {
-  return readUnitReports(where, unit)
-    .filter(({ report }) => report.kind === "stuck")
-    .sort(byTime)
-    .at(-1)?.path;
-}
-
 function readReports(where: Where): { path: string; report: SavedReport }[] {
   const folder = reportsFolder(where);
   let names: string[];
@@ -254,18 +158,6 @@ function readReports(where: Where): { path: string; report: SavedReport }[] {
       throw new RunStateError(`The report file ${path} is not valid JSON.`);
     }
   });
-}
-
-/** Returns the oldest report that was not shown yet, and marks it as shown. Returns nothing when there is none. */
-export function takeOldestUnreadReport(where: Where): SavedReport | undefined {
-  const unread = readReports(where)
-    .filter(({ report }) => !report.readAt)
-    .sort((a, b) => Date.parse(a.report.time) - Date.parse(b.report.time) || (a.path < b.path ? -1 : 1));
-  const oldest = unread[0];
-  if (!oldest) return undefined;
-  const shown = { ...oldest.report, readAt: new Date().toISOString() };
-  writeFileAtomic(oldest.path, `${JSON.stringify(shown, null, 2)}\n`);
-  return shown;
 }
 
 /** The time of the latest saved done report, or nothing. */

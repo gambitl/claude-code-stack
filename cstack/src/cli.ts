@@ -9,7 +9,6 @@ import { next } from "./commands/next.js";
 import { publish } from "./commands/publish.js";
 import { planSection } from "./commands/plan-section.js";
 import { planStatus } from "./commands/plan-status.js";
-import { reportCheck } from "./commands/report-check.js";
 import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { trackerComment } from "./commands/tracker-comment.js";
@@ -66,7 +65,6 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
   report: (args, io) =>
     dispatchSubcommand("report", args, io, {
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
-      check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
     }),
   tracker: (args, io) => {
     const deps = { cwd: process.cwd(), run: createRunner(60000), env: process.env };
