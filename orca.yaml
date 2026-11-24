@@ -1,0 +1,6 @@
+# Orca runs this setup script in each new workspace of this repository.
+# The section "Set up a new workspace" of README.md explains it.
+scripts:
+  setup: |
+    cd cstack && npm ci
+setupAgentStartupPolicy: wait-for-setup

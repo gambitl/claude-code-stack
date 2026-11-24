@@ -9,7 +9,8 @@ import { join } from "node:path";
  * `git rev-parse --show-toplevel`. The reader never runs a command, git included.
  *
  * Version rule: the format stays at version 1 when a later ticket adds a key.
- * It moves to version 2 only when a key is renamed, removed or changes meaning.
+ * It also stays at version 1 when a key that no command reads any more leaves, because the reader refuses that key with a message of its own.
+ * It moves to version 2 only when a key is renamed or changes meaning. ADR-SIC-D records this rule.
  *
  * Test commands are code of the repository, like a script in its package.json,
  * because the team writes and commits them. The ticket that runs them (#17) runs
@@ -40,9 +41,7 @@ export type SettingValues = {
   forbiddenTools: string[];
   commitAttribution: string[];
   testCommands: TestCommands | undefined;
-  setupCommand: string | undefined;
   review: Review;
-  watchIntervalMinutes: number;
 };
 
 export type SettingKey = keyof SettingValues;
@@ -60,11 +59,16 @@ export const DEFAULTS: SettingValues = {
   forbiddenTools: [],
   commitAttribution: [],
   testCommands: undefined,
-  setupCommand: undefined,
   // "opus" copies the header of skills/resolve-issue/agents/pr-reviewer.md (line 4).
   // The ticket that launches the review (#22) passes a model only when the source of `review` is "file".
   review: { agent: "claude", model: "opus" },
-  watchIntervalMinutes: 5,
+};
+
+// Keys that left the format. Only the top level of the file refuses them with these texts.
+const REMOVED_KEYS: Record<string, string> = {
+  setupCommand:
+    "was removed from cstack. Remove this key. To set up a new workspace with Orca, declare the command as scripts.setup in orca.yaml at the root of the repository.",
+  watchIntervalMinutes: "was removed from cstack with cstack wave. Remove this key.",
 };
 
 const TOP_KEYS = ["version", ...Object.keys(DEFAULTS)];
@@ -85,9 +89,17 @@ function allDefaults(found: boolean): Settings {
   return { found, values, sources };
 }
 
-function unknownKeys(obj: Record<string, unknown>, allowed: string[], prefix: string, out: Problem[]): void {
+function unknownKeys(
+  obj: Record<string, unknown>,
+  allowed: string[],
+  prefix: string,
+  out: Problem[],
+  removed: Record<string, string> = {},
+): void {
   for (const key of Object.keys(obj)) {
-    if (!allowed.includes(key)) {
+    if (Object.hasOwn(removed, key)) {
+      out.push({ path: prefix + key, text: removed[key] });
+    } else if (!allowed.includes(key)) {
       out.push({
         path: prefix + (/^[A-Za-z0-9_$-]{1,60}$/.test(key) ? key : quote(key)),
         text: `unknown key. Allowed keys here: ${allowed.join(", ")}. ${HINT}`,
@@ -103,18 +115,17 @@ export function quote(v: unknown): string {
   return t.length > 60 ? `${t.slice(0, 60)}...` : t;
 }
 
-// isFile is null for a command that has no {file} rule, such as setupCommand.
-function checkTestCommand(v: unknown, path: string, isFile: boolean | null, forbidden: string[], out: Problem[]): boolean {
+function checkTestCommand(v: unknown, path: string, isFile: boolean, forbidden: string[], out: Problem[]): boolean {
   if (typeof v !== "string" || v.trim() === "" || /\p{Cc}/u.test(v)) {
     out.push({ path, text: `must be a non-empty one-line command with no control character, not ${quote(v)}` });
     return false;
   }
   const count = v.split("{file}").length - 1;
-  if (isFile === true && count !== 1) {
+  if (isFile && count !== 1) {
     out.push({ path, text: `must contain the placeholder {file} exactly once, found ${count}` });
     return false;
   }
-  if (isFile === false && count > 0) {
+  if (!isFile && count > 0) {
     out.push({ path, text: "must not contain {file}. Put a command for one file in testCommands.file" });
     return false;
   }
@@ -211,7 +222,7 @@ export function readSettings(root: string): Settings {
   }
 
   const problems: Problem[] = [];
-  unknownKeys(data, TOP_KEYS, "", problems);
+  unknownKeys(data, TOP_KEYS, "", problems, REMOVED_KEYS);
   if (data.version !== 1) {
     problems.push({ path: "version", text: "is required and must be the number 1. This cstack reads settings version 1." });
   }
@@ -292,9 +303,6 @@ export function readSettings(root: string): Settings {
       if (ok && typeof o.all === "string") set("testCommands", { ...o });
     }
   }
-  if (Object.hasOwn(data, "setupCommand")) {
-    if (checkTestCommand(data.setupCommand, "setupCommand", null, forbidden, problems)) set("setupCommand", data.setupCommand);
-  }
   if (Object.hasOwn(data, "review")) {
     const o = checkObjectKeys(data.review, "review", REVIEW_KEYS, REVIEW_KEYS, problems);
     if (o) {
@@ -309,11 +317,6 @@ export function readSettings(root: string): Settings {
       }
       if (ok && typeof o.agent === "string" && typeof o.model === "string") set("review", { agent: o.agent, model: o.model });
     }
-  }
-  if (Object.hasOwn(data, "watchIntervalMinutes")) {
-    const v = data.watchIntervalMinutes;
-    if (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= 1440) set("watchIntervalMinutes", v);
-    else problems.push({ path: "watchIntervalMinutes", text: `must be a whole number from 1 to 1440, not ${quote(v)}` });
   }
 
   if (problems.length > 0) throw new SettingsError(problems);
