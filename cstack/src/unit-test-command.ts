@@ -5,6 +5,7 @@ import { join, relative, isAbsolute, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { failWith } from "./commands/errors.js";
 import type { Io } from "./io.js";
+import type { TestCase } from "./junit-report.js";
 import { locatePlan } from "./plan/locate.js";
 import { readPlan, type PlanUnit } from "./plan/read.js";
 import { runFolder } from "./run-state.js";
@@ -124,6 +125,35 @@ export function prepareUnitTest(
   } catch (error) {
     return failWith(error, io, prefix);
   }
+}
+
+/** Writes a case name for a message: JSON-escaped, C1 control characters escaped, never cut. */
+export function caseName(name: string): string {
+  return JSON.stringify(name).replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/** A named case that does not have the outcome the run needs. */
+export interface CaseProblem {
+  name: string;
+  /** "wrong" is the opposite outcome: passed in a red run, failed or error in a green run. */
+  kind: "wrong" | "missing" | "skipped";
+}
+
+/**
+ * Compares the cases that a unit names with the cases of a report, in the order of the plan.
+ * A named case matches every report case with exactly its name. With want "fail", each match must be failed or error.
+ * With want "pass", each match must be passed. A wrong outcome is reported before a skipped one.
+ */
+export function checkNamedCases(named: string[], cases: TestCase[], want: "fail" | "pass"): CaseProblem[] {
+  const problems: CaseProblem[] = [];
+  for (const name of named) {
+    const matches = cases.filter((c) => c.name === name);
+    const good = (c: TestCase) => (want === "pass" ? c.outcome === "passed" : c.outcome === "failed" || c.outcome === "error");
+    if (matches.length === 0) problems.push({ name, kind: "missing" });
+    else if (matches.some((c) => c.outcome !== "skipped" && !good(c))) problems.push({ name, kind: "wrong" });
+    else if (matches.some((c) => c.outcome === "skipped")) problems.push({ name, kind: "skipped" });
+  }
+  return problems;
 }
 
 /** Returns the commit of `HEAD`, or undefined when git cannot give it. Git runs without a shell. */

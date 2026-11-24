@@ -1,10 +1,26 @@
 import { rmSync } from "node:fs";
 import { join } from "node:path";
+import type { CaseOutcome } from "./junit-report.js";
 import { writeFileAtomic, type SavedTestRun } from "./run-state.js";
+
+/** Why a run checked the whole test file instead of each case. The messages and notes use these words only. */
+export const FALLBACK_REASONS = {
+  "no-report": "the settings declare no per-case report",
+  missing: "the test command wrote no report file",
+  malformed: "the report file is not a JUnit report that cstack can read",
+} as const;
+
+export type Fallback = keyof typeof FALLBACK_REASONS;
 
 /** A saved run of a unit's test, with the hash of the test file at the time of the run. */
 export interface SavedUnitRun extends SavedTestRun {
   testFileSha256: string;
+  /** How the cases were checked. Older files lack it. A later field is one more optional key here. */
+  caseCheck?: "cases" | "file";
+  /** With caseCheck "file": why the whole file was checked. */
+  fallback?: Fallback;
+  /** With caseCheck "cases": every case of the report in report order. It never holds a failure message. */
+  cases?: Array<{ name: string; outcome: CaseOutcome }>;
 }
 
 /** A failing run. startedAt is the moment `cstack unit red` read the status of the unit's files, as an ISO 8601 time. */

@@ -155,7 +155,7 @@ export const COMMANDS: CommandEntry[] = [
     flags: ["--timeout"],
     exitCodes: {
       0: OK,
-      1: "The test passes, the unit has no test, its test file cannot be used, or a file of the unit that is not a test changed before the run.",
+      1: "The test passes, a case that the unit names does not fail, the unit has no test, its test file cannot be used, or a file of the unit that is not a test changed before the run.",
       2: USAGE,
       3: INVALID,
       5: "The test command cannot start, runs past the timeout, or git cannot read the status of the unit's files.",

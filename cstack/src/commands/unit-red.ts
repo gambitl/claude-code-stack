@@ -1,8 +1,8 @@
 import type { Io } from "../io.js";
-import { runTests, testScript } from "../test-run.js";
-import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { runTests, testScript, usesReport } from "../test-run.js";
+import { caseName, checkNamedCases, fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { saveFailingRun } from "../unit-test-runs.js";
+import { saveFailingRun, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitRed(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -34,7 +34,9 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     return 5;
   }
   const testFileSha256 = fileSha256(root, testFile);
-  const run = await runTests(root, testScript(commands, testFile), testFile, timeoutMs);
+  const run = await runTests(root, testScript(commands, testFile), testFile, timeoutMs, {
+    report: usesReport(commands, testFile),
+  });
   printTestOutput(io, run.output);
 
   if (run.timedOut) {
@@ -44,6 +46,29 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
   if (run.exitCode === 126 || run.exitCode === 127) {
     io.stderr(`${prefix}The test command could not start (exit code ${run.exitCode}). Nothing is saved.\n`);
     return 5;
+  }
+  const report = run.report;
+  const caseRun: Pick<SavedUnitRun, "caseCheck" | "fallback" | "cases"> =
+    report === undefined
+      ? { caseCheck: "file", fallback: "no-report" }
+      : "cases" in report
+        ? { caseCheck: "cases", cases: report.cases.map((c) => ({ name: c.name, outcome: c.outcome })) }
+        : { caseCheck: "file", fallback: report.problem === "malformed" ? "malformed" : "missing" };
+  if (report !== undefined && "cases" in report) {
+    const problems = checkNamedCases(unit.test!.cases, report.cases, "fail");
+    if (problems.length > 0) {
+      const text = {
+        wrong: "passed.",
+        missing: "is not in the test report.",
+        skipped: "was skipped, so it never ran. A failing beforeAll hook is a common cause.",
+      };
+      io.stderr(
+        `${prefix}These cases that unit ${unit.number} names do not fail before the code exists:\n` +
+          problems.map((p) => `  ${caseName(p.name)} ${text[p.kind]}\n`).join("") +
+          'Each case that the plan names must fail before the code exists. Write each case name exactly as the test report names it. For vitest, that is the titles of the describe blocks and the title of the test, joined by " > ". Nothing is saved.\n',
+      );
+      return 1;
+    }
   }
   if (run.exitCode === 0) {
     io.stderr(
@@ -55,7 +80,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     saveFailingRun(
       runDir,
       unit.number,
-      { time: new Date().toISOString(), startedAt, command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256 },
+      { time: new Date().toISOString(), startedAt, command: run.script, exitCode: run.exitCode!, commit, testFile, testFileSha256, ...caseRun },
       run.output,
     );
   } catch (error) {

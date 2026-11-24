@@ -625,3 +625,108 @@ describe("cstack unit green, code older than the latest failing run", () => {
     expect(r.stderr).toContain("what changed in the test and why");
   });
 });
+
+describe("cstack unit red with a per-case report", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  type Outcome = "passed" | "failed" | "error" | "skipped";
+  function reportXml(cases: Array<[string, Outcome]>): string {
+    const body = cases
+      .map(([name, outcome]) => {
+        const inner =
+          outcome === "failed" ? '<failure message="x"/>' : outcome === "error" ? '<error message="x"/>' : outcome === "skipped" ? "<skipped/>" : "";
+        return `<testcase name="${escapeXml(name)}">${inner}</testcase>`;
+      })
+      .join("");
+    return `<testsuites><testsuite name="s">${body}</testsuite></testsuites>\n`;
+  }
+
+  function reportRepo(names: string[], cases: Array<[string, Outcome]>, exit = 1) {
+    const dir = setup(
+      [names.map((n) => `- Test: \`test/a.test.ts\`: ${n}`).join("\n")],
+      REPORT_SETTINGS,
+    );
+    writeFileSync(join(dir, "test/report.xml"), reportXml(cases));
+    writeFileSync(join(dir, "test/a.test.ts"), `cp test/report.xml "$1"\nexit ${exit}\n`);
+    return dir;
+  }
+
+  it("refuses a unit whose named case passed, even though the file fails, and names the case", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "passed"], ["case two", "failed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cstack unit red: These cases that unit 1 names do not fail before the code exists:\n");
+    expect(r.stderr).toContain('  "case one" passed.\n');
+    expect(r.stderr).not.toContain('"case two"');
+    expect(r.stderr).toContain(
+      'Each case that the plan names must fail before the code exists. Write each case name exactly as the test report names it. For vitest, that is the titles of the describe blocks and the title of the test, joined by " > ". Nothing is saved.\n',
+    );
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("accepts a unit when both named cases fail, and saves each case of the report in red.json", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "failed"], ["case two", "error"], ["old case", "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    const saved = readRed(dir);
+    expect(saved.caseCheck).toBe("cases");
+    expect(saved.fallback).toBeUndefined();
+    expect(saved.cases).toEqual([
+      { name: "case one", outcome: "failed" },
+      { name: "case two", outcome: "error" },
+      { name: "old case", outcome: "passed" },
+    ]);
+  });
+
+  it("refuses a unit whose named case is missing from the report, and names the case", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "failed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case two" is not in the test report.\n');
+    expect(r.stderr).not.toContain('"case one"');
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("refuses a unit whose named case was skipped, and says that it never ran", async () => {
+    const dir = reportRepo(["case one"], [["case one", "skipped"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case one" was skipped, so it never ran. A failing beforeAll hook is a common cause.\n');
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("counts a named case with the outcome error as a failure", async () => {
+    const dir = reportRepo(["case one"], [["case one", "error"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir).cases).toEqual([{ name: "case one", outcome: "error" }]);
+  });
+
+  it("refuses a named case when one of two report cases with its name passed", async () => {
+    const dir = reportRepo(["case one"], [["case one", "failed"], ["case one", "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case one" passed.\n');
+  });
+
+  it("prints a case name longer than 60 characters whole", async () => {
+    const long = "cstack unit red > refuses a unit when a named case passed before the code exists at all";
+    expect(long.length).toBeGreaterThan(60);
+    const dir = reportRepo([long], [[long, "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain(`  "${long}" passed.\n`);
+  });
+
+  it("keeps the check of the whole test file without a report setting, and records it", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    const saved = readRed(dir);
+    expect(saved.caseCheck).toBe("file");
+    expect(saved.fallback).toBe("no-report");
+    expect(saved.cases).toBeUndefined();
+  });
+});
