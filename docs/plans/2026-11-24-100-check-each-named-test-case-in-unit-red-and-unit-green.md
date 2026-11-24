@@ -384,10 +384,10 @@ Reviewer findings and fixes (phase review):
 - Security: no finding. Low-confidence notes, not fixed: `caseName` does not escape bidirectional control characters, and `readSavedRun` does not check the type of `cases` in a hand-edited `red.json`. Both are cosmetic or still refuse.
 - Conventions: no finding. Minor: `caseName` lives in `unit-test-command.ts` and `unit-test-runs.ts` imports it, and `audit.ts` calls `runFolder` twice. Left as they are.
 - Simplicity: the shared report code and message texts of the two commands moved into two helpers in `unit-test-runs.ts`, and `buildNote` uses `noteStart` everywhere. Fixed.
-- Found by running the tests: the end-to-end audit check rejected the new audit lines about the whole test file. The test now exempts those lines, because they carry no verdict. The full `npm run typecheck && npm test` passes (132 files, 1986 tests).
+- Found by running the tests: two tests of `cstack/test/e2e/resolve-issue.test.ts` fail, because the audit now prints lines about the whole test file ("build: unit N: the whole test file was checked in the ...") and the test accepts only step lines. A first commit exempted those lines in the test, but decisions 127 and 213 say to ask the coordinator of the wave before changing an end-to-end test, because #93 changes them. That commit was reverted. The proposed fix is to let the test skip lines that start with "build: unit N: the whole test file was checked in the ". Without it, only those two end-to-end tests fail (1984 of 1986 pass).
 - Note: the first fix commit does not compile alone, because it imports a helper that the next commit adds. The branch tip is fine.
 
-Independent review (phase independent-review): pending.
+Independent review (phase independent-review): the reviewer fixed one README sentence (`c1c633c`): the warning covers only unnamed cases whose title is not already in the test file at `HEAD`. Judgment calls left open: (1) when copying notes fails, collect only warns and then removes the child worktree, so the notes are lost for good; keeping the worktree would be safer. (2) An older note stays in the ticket plan when the child's run removed it. (3) The review fix commits use `fix:` without a scope. The rebase could reword them. (4) The change to `cstack/src/unit/collect.ts` lies outside the files of decision 128. (5) The `cstack unit collect` paragraph of the README does not mention the copy of notes. (6) Without a per-file test command, the fallback message says "the whole test file" although the whole suite ran.
 
 ## Briefing
 
