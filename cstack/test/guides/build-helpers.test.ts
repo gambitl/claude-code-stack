@@ -39,6 +39,12 @@ describe("the build sections of the build guide", () => {
     );
   });
 
+  it("opens the fenced block of the stuck report with more backticks than the report holds", () => {
+    expect(units).toContain(
+      "Open that fenced block with more backticks than the longest run of backticks inside the report, so that the report cannot close the block early.",
+    );
+  });
+
   it("returns a needs-decision report at once when a blocked unit left uncommitted changes", () => {
     const line = sentences.find((s) => s.includes("uncommitted changes") && s.includes("needs-decision report at once"));
     expect(line, "no sentence holds both uncommitted changes and needs-decision report at once").toBeDefined();
