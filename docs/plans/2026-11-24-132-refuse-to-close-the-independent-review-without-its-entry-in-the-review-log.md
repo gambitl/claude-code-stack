@@ -307,7 +307,45 @@ none
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): refuse to close the independent review without its entry in the Review log
+
+````markdown
+## What this changes
+
+`cstack next --done independent-review` now refuses to close the phase while the "Review log" of the plan has no line that starts with `Independent review:`. Since #107, the executor may close a phase in the same answer as its last edit. When that edit failed, the close still ran. The review phase was already protected by a check, and now the independent review is too.
+
+The refusal reads: `Review log has no line that starts with "Independent review:". Add that line to the Review log, followed by the findings of the independent review or by the word none.`
+
+## Key decisions
+
+- The plan reader needed to show the lines of a section to the check. So `PlanSection` in `cstack/src/plan/read.ts` has a new field, `contentLines`. It holds lines that `readPlan` already computed. The plan format does not change.
+- The line must start at its first character, with this exact case. Older forms such as `Independent review (phase 8):` are refused once, and the message says what to write.
+- The guide `independent-review.md` says that `none` means the reviewer changed nothing and raised no judgment call. Otherwise the entry lists each fix with its commit, and each judgment call. The block of mandatory steps has a new step, `write-independent-review-entry`, and the close sentence is unchanged.
+- The two fixtures that close the independent review got the line `Independent review: none`.
+
+## Files touched
+
+- `cstack/src/phases.ts`: the check `independentReviewLogged` and its use in the independent-review phase.
+- `cstack/src/plan/read.ts`: the field `contentLines`.
+- `cstack/guides/resolve-issue/independent-review.md`: the fixed first line and the new step.
+- Tests: `cstack/test/phases.test.ts` (six new cases), `cstack/test/plan/read.test.ts`, `cstack/test/guides/independent-review-entry.test.ts`, and the two fixtures.
+
+## How it was tested
+
+Each new test case failed first. To prove the refusal, the check was made to return no refusal on purpose. Cases 1, 4, 5 and 6 of `cstack/test/phases.test.ts` then failed, and the code was restored. `npm run typecheck` and the full `npm test` pass.
+
+## Judgment calls of the independent review
+
+The independent reviewer changed nothing. Three points need no fix.
+
+- A bare `Independent review:` line with nothing after it also closes the phase. The check proves that the entry was started, and it does not test what the entry says. The decisions of the plan accept this.
+- A line inside a code block in the "Review log" would also pass. This is harmless.
+- The plan template still has a placeholder that does not mention the fixed first line. The plan keeps the template unchanged on purpose. A later ticket could add it.
+
+The plan file is `docs/plans/2026-11-24-132-refuse-to-close-the-independent-review-without-its-entry-in-the-review-log.md`.
+
+Fixes #132
+````
 
 ## Documentation
 
@@ -324,7 +362,7 @@ Unit 3 adds no refusal, so it has no deliberate break.
 
 ## Hand-off log
 
-2026-11-24, executor, build phase: moved #132 to "in progress", built units 1, 2 and 3 one at a time with sub-agents (commits 1a2eb5b, c97f21a, 53c90f6), then went on to the next phases.
+2026-11-24, executor, build phase: moved #132 to "in progress", built units 1, 2 and 3 one at a time with sub-agents (commits 1a2eb5b, c97f21a, 53c90f6), then went on to the next phases and drafted the pull request. Report: done.
 
 ## History
 
