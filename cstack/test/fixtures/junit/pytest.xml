@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">
+  <testsuite name="pytest" errors="1" failures="1" skipped="1" tests="4">
+    <testcase classname="tests.test_cart.TestCart" name="test_adds_item" file="tests/test_cart.py" time="0.001"/>
+    <testcase classname="tests.test_cart.TestCart" name="test_removes_item" time="0.002">
+      <failure message="assert 1 == 2&#10; +  where 1 = len([])">def test_removes_item(): assert 1 == 2</failure>
+    </testcase>
+    <testcase classname="tests.test_cart.TestCart" name="test_total" time="0.000">
+      <error message="failed on setup with &quot;fixture 'db' not found&quot;">setup error</error>
+    </testcase>
+    <testcase classname="tests.test_cart.TestCart" name="test_later" time="0.000">
+      <skipped type="pytest.skip" message="not ready yet">tests/test_cart.py:30: not ready yet</skipped>
+    </testcase>
+  </testsuite>
+</testsuites>

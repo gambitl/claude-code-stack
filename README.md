@@ -72,6 +72,40 @@ The rule only covers `cstack` commands. If no client can reach your tracker, Cla
 - `cstack wave (--milestone <name> | --epic <key>)` lists the tickets of a wave, and starts a worktree for each ready ticket after you answer yes. It starts nothing when there is no terminal or when you answer anything else. Add `--tracker <name>` to choose the tracker, or `--from-file <path>` to read the tickets from a file.
   Add `--watch` to keep the command running in a terminal. It reads the wave again every `watchIntervalMinutes` minutes, which is five by default. It sends a macOS notification and asks you before it starts a ticket that became ready. Press Control-C to stop it. macOS shows the notification only when you allow notifications for Script Editor, in System Settings, then Notifications.
 
+## A test report per case
+
+By default, `cstack` knows only whether a test command passed or failed. A test report per case tells `cstack` the result of each test case. A test case is one test, such as one `it(...)` in vitest or one test function in pytest. The report uses the JUnit XML format, which both vitest and pytest can write.
+
+You turn the option on in the `testCommands` of `.cstack/settings.json`. First, you write the placeholder `{report}` once in `testCommands.file`. Then you add the key `"report": "junit"`. The value `"junit"` is the only one that `cstack` accepts.
+
+Here is an example for vitest. It keeps the usual console output and also writes the report.
+
+```json
+{
+  "testCommands": {
+    "file": "npx vitest run --reporter=default --reporter=junit --outputFile.junit={report} {file}",
+    "report": "junit"
+  }
+}
+```
+
+Here is an example for pytest.
+
+```json
+{
+  "testCommands": {
+    "file": "pytest --junitxml={report} {file}",
+    "report": "junit"
+  }
+}
+```
+
+For each run, `cstack` replaces `{report}` with a path in a temporary folder of that run. It deletes the folder when the run ends, so a report from an old run is never read as the current one. If the report is missing, or if it is not valid JUnit XML, the run still keeps its exit code and its output. The problem is reported next to them.
+
+`cstack` refuses the settings file in these cases. The `report` value is not `"junit"`. The `report` key exists without `file`. The `report` key exists, but `file` has no `{report}`. The `file` command has `{report}`, but there is no `report` key. The `{report}` placeholder appears more than once in `file`. The placeholder appears in `all`.
+
+A repository can use this option only after the release that ships it. An older `cstack` refuses the key `testCommands.report`, because it does not know that key.
+
 ## Measure a run
 
 `cstack measure <plan file>` tells you how many tokens and how much time one run of the `resolve-issue` skill used. A token is the unit in which Claude counts the text it reads and writes. The command reads the session records that Claude Code keeps on your computer, and it prints numbers only.

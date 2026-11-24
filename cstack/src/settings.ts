@@ -31,7 +31,7 @@ export class SettingsError extends Error {
   }
 }
 
-export type TestCommands = { all: string; file?: string };
+export type TestCommands = { all: string; file?: string; report?: "junit" };
 export type Review = { agent: string; model: string };
 
 export type SettingValues = {
@@ -69,7 +69,7 @@ export const DEFAULTS: SettingValues = {
 
 const TOP_KEYS = ["version", ...Object.keys(DEFAULTS)];
 const REVIEW_KEYS = ["agent", "model"];
-const TEST_KEYS = ["all", "file"];
+const TEST_KEYS = ["all", "file", "report"];
 
 const HINT = "If this key comes from a newer cstack, update cstack.";
 
@@ -97,7 +97,7 @@ function unknownKeys(obj: Record<string, unknown>, allowed: string[], prefix: st
 }
 
 // A value quoted in a message: escaped by JSON.stringify and cut, so a terminal escape cannot get through.
-function quote(v: unknown): string {
+export function quote(v: unknown): string {
   let t = JSON.stringify(v) ?? String(v);
   t = t.replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
   return t.length > 60 ? `${t.slice(0, 60)}...` : t;
@@ -265,8 +265,29 @@ export function readSettings(root: string): Settings {
     const o = checkObjectKeys(data.testCommands, "testCommands", TEST_KEYS, ["all"], problems);
     if (o) {
       let ok = true;
-      for (const key of TEST_KEYS) {
+      for (const key of ["all", "file"]) {
         if (Object.hasOwn(o, key) && !checkTestCommand(o[key], `testCommands.${key}`, key === "file", forbidden, problems)) ok = false;
+      }
+      if (Object.hasOwn(o, "report") && o.report !== "junit") {
+        problems.push({ path: "testCommands.report", text: `must be "junit", not ${quote(o.report)}` });
+        ok = false;
+      }
+      if (ok) {
+        const count = (v: unknown) => (typeof v === "string" ? v.split("{report}").length - 1 : 0);
+        if (count(o.all) > 0) {
+          problems.push({ path: "testCommands.all", text: "must not contain {report}. Put a command for a report in testCommands.file" });
+          ok = false;
+        }
+        if (Object.hasOwn(o, "report") && !Object.hasOwn(o, "file")) {
+          problems.push({ path: "testCommands.report", text: "needs testCommands.file, because the report comes from the command for one file" });
+          ok = false;
+        } else if (Object.hasOwn(o, "report") && count(o.file) !== 1) {
+          problems.push({ path: "testCommands.file", text: `must contain the placeholder {report} exactly once because testCommands.report is set, found ${count(o.file)}` });
+          ok = false;
+        } else if (!Object.hasOwn(o, "report") && count(o.file) > 0) {
+          problems.push({ path: "testCommands.file", text: 'must not contain {report} unless testCommands.report is "junit"' });
+          ok = false;
+        }
       }
       if (ok && typeof o.all === "string") set("testCommands", { ...o });
     }

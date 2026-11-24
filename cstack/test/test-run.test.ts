@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, realpathSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   DEFAULT_TEST_TIMEOUT_MS,
   MAX_OUTPUT_BYTES,
@@ -32,8 +33,38 @@ describe("testScript", () => {
     }
   });
 
+  it("replaces {report} with \"$2\" and {file} with \"$1\", and never writes a real path", () => {
+    const withReport = { all: "npm test", file: "pytest --junitxml={report} {file}", report: "junit" as const };
+    expect(testScript(withReport, "test/a b.py")).toBe('pytest --junitxml="$2" "$1"');
+    expect(testScript(withReport, "test/a b.py")).not.toContain("a b.py");
+  });
+
   it("has a default timeout of ten minutes", () => {
     expect(DEFAULT_TEST_TIMEOUT_MS).toBe(600_000);
+  });
+});
+
+describe("usesReport", () => {
+  const commands = { all: "npm test", file: "pytest --junitxml={report} {file}", report: "junit" as const };
+  const call = async (c: typeof commands | { all: string; file?: string; report?: "junit" }, f?: string) => {
+    const mod = (await import("../src/test-run.js")) as { usesReport: (c: unknown, f?: string) => boolean };
+    return mod.usesReport(c, f);
+  };
+
+  it("is true with a test file, a file command and report junit", async () => {
+    expect(await call(commands, "test/a.py")).toBe(true);
+  });
+
+  it("is false without the test file", async () => {
+    expect(await call(commands)).toBe(false);
+  });
+
+  it("is false without the file command", async () => {
+    expect(await call({ all: "npm test", report: "junit" }, "test/a.py")).toBe(false);
+  });
+
+  it("is false without the report key", async () => {
+    expect(await call({ all: "npm test", file: "pytest {file}" }, "test/a.py")).toBe(false);
   });
 });
 
@@ -133,5 +164,76 @@ describe("runTests", () => {
       await runTests(dir(), "true", undefined);
       expect([process.listenerCount("SIGINT"), process.listenerCount("SIGTERM")]).toEqual(before);
     });
+  });
+});
+
+describe("runTests with a report", () => {
+  const dir = () => realpathSync(mkdtempSync(join(tmpdir(), "run-report-")));
+  const fixture = join(dirname(fileURLToPath(import.meta.url)), "fixtures", "junit", "pytest.xml");
+  const ask = { report: true };
+
+  it("returns the four cases of the report that the script wrote", async () => {
+    const run = await runTests(dir(), 'cp "$1" "$2"', fixture, undefined, ask);
+    expect(run.exitCode).toBe(0);
+    const report = run.report as { cases: { name: string; outcome: string }[] };
+    expect(report.cases.map((c) => [c.name, c.outcome])).toEqual([
+      ["test_adds_item", "passed"],
+      ["test_removes_item", "failed"],
+      ["test_total", "error"],
+      ["test_later", "skipped"],
+    ]);
+  });
+
+  it("passes report.xml in a fresh folder as the second argument, and deletes the folder", async () => {
+    const root = dir();
+    const script = 'printf "%s\\n" "$2" > path; cp "$1" "$2"';
+    await runTests(root, script, fixture, undefined, ask);
+    const first = readFileSync(join(root, "path"), "utf8").trim();
+    await runTests(root, script, fixture, undefined, ask);
+    const second = readFileSync(join(root, "path"), "utf8").trim();
+    expect(first.endsWith("/report.xml")).toBe(true);
+    expect(dirname(first)).not.toBe(dirname(second));
+    expect(existsSync(dirname(first))).toBe(false);
+    expect(existsSync(dirname(second))).toBe(false);
+  });
+
+  it("gives the problem missing when the script writes no report", async () => {
+    const run = await runTests(dir(), "true", fixture, undefined, ask);
+    expect(run.report).toMatchObject({ problem: "missing" });
+    expect((run.report as { message: string }).message).not.toBe("");
+  });
+
+  it("gives the problem malformed, with the message of the reader, for a broken report", async () => {
+    const run = await runTests(dir(), 'printf "<testsuites>\\n<testsuite>\\n" > "$2"', fixture, undefined, ask);
+    const { readJUnitReport } = await import("../src/junit-report.js");
+    let expected = "";
+    try {
+      readJUnitReport("<testsuites>\n<testsuite>\n");
+    } catch (error) {
+      expected = (error as Error).message;
+    }
+    expect(expected).not.toBe("");
+    expect(run.exitCode).toBe(0);
+    expect(run.report).toEqual({ problem: "malformed", message: expected });
+  });
+
+  it("gives the problem timed-out when the run reaches its timeout", async () => {
+    const run = await runTests(dir(), "sleep 30", fixture, 300, ask);
+    expect(run.timedOut).toBe(true);
+    expect(run.report).toMatchObject({ problem: "timed-out" });
+  });
+
+  it("throws before the shell starts when the report is asked without a test file", async () => {
+    const root = dir();
+    await expect(runTests(root, "touch started", undefined, undefined, ask)).rejects.toThrow(/test file/);
+    expect(existsSync(join(root, "started"))).toBe(false);
+  });
+
+  it("without the request, has no report field and gives the script one argument", async () => {
+    const root = dir();
+    const run = await runTests(root, 'printf "%s\\n" "$#"', fixture);
+    expect(run.output).toBe("1\n");
+    expect("report" in run).toBe(false);
+    expect("report" in (await runTests(root, "true", fixture, undefined, { report: false }))).toBe(false);
   });
 });
