@@ -380,7 +380,40 @@ The independent reviewer found no other bug and ran the full suite: 1835 tests a
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The branch raises the plan format to version 2, as the ticket asks. `readPlan()` reads the three new sections, several `- Test:` lines per unit and the `- Negative criterion <k>:` lines. Every command refuses a version 1 plan with exit code 3, except `cstack measure` and `cstack audit`. The plan template, ADR-RQG-B and section 9 of the specification are up to date. I ran the type check and the four test files involved again, and their 125 cases pass. The independent review had run the full suite (1835 tests).
+
+**What you need to do.**
+
+**Confirm that I correct one wrong sentence in the specification and in the reminder on the release ticket (#104).** Both say that installing the previous release brings back its skills too. That is wrong: the README (line 31) says that you then run `cstack skills install` again. The refusal message and ADR-RQG-B already give both steps. But #104 will write the release notes from its comment, and a blocked user would follow the wrong instruction. I recommend correcting both before the pull request opens, because this branch already edits that paragraph of the specification.
+
+**What to watch.**
+
+- The format is strict on three details that the guides of #103 must tell the agents. A placeholder line `<...>` left next to real lines is refused. Nothing may follow the source, so a final period after the date or after the closing quote gets the line refused. A fact and a criterion fit on one line. The comment left on #103 does not say this, and I propose adding these three sentences to it.
+- The test of `cstack audit` on a version 1 plan stops early, because the plan has no run state. I checked that the command reads the plan nowhere else, and that the 26 version 1 plans of `docs/plans/` all read with the option. The real proof will be the new audit of runs 3 and 4.
+
+**What changed since the plan.**
+
+- The implementer of unit 6 did not break two refusals one by one ("no source" and "user source with no date"). Their tests check the exact message, so I accept this gap.
+
+#### Details
+
+The build matches the ticket. Scope items 1 to 8 are all done in units 1 to 9, with the commits listed by `git log origin/main..HEAD`. The acceptance criteria hold. `cstack/test/plan/read.test.ts` reads `cstack/test/fixtures/plans/version-2.md` with facts, changes, negative criteria and units with several cases. A version 1 plan is refused with the two exact messages of the decisions. A malformed fact line is refused at its line. A unit that names an unknown criterion is refused. I ran `npm run typecheck` and `npx vitest run test/plan/read.test.ts test/template.test.ts test/measure.test.ts test/audit-version-1.test.ts` in `cstack/` on 2026-11-24, and 125 cases passed. The independent review ran the full `npm test` (1835 tests) and the type check. The branch sits on the current `origin/main` (merge base `4344244`), which already holds the merged work of #91, #99 and #114. So the one-line change of `cstack/src/commands/audit.ts` (line 55 now) already sits on top of #91, and no other ticket of the wave can conflict with it.
+
+The wrong sentence about going back to an older release is pre-existing. Open question 4 of `docs/projects/refocus-and-quality-guards.md` (line 292) says "Installing the previous release brings back the previous `cstack` and its skills together." Unit 9 appended two sentences to that same paragraph and kept it. The reminder posted on #104 (https://github.com/gambitl/claude-code-stack/issues/104#issuecomment-7123636637) repeats it: "A user who forgets can install the previous release, which brings back the previous cstack and its skills together." `README.md`, line 31, says: "To go back to an older release, install it the same way. Then run `cstack skills install` again." The answer to question 3 (2026-11-23) corrected exactly this point, and the refusal message in `cstack/src/plan/read.ts` (`stopOnFormat()`) and ADR-RQG-B (line 30) follow the correction. #104's body (line 68) already asks the notes to say that users run `cstack skills install` after the upgrade, so the risk is a copy of the wrong sentence about the downgrade, which is the exact path of a user blocked by this ticket's refusal. I recommend replacing the sentence in the specification with "To go back, install the previous release, then run `cstack skills install` again." and editing the comment on #104 the same way. The fix is one sentence in a section that is in the scope of this ticket. I rejected leaving it to #104, because #104 takes its text from that comment and from the specification. If nobody decides, the specification and the #104 comment keep contradicting the README and the refusal message.
+
+The strict details of the line forms follow the recorded decisions, but no text that a plan writer reads says them yet. A placeholder next to real lines is refused as a malformed line (`listLines()` keeps every content line, and the independent review noted it). The pattern of a change line ends with `Blocking question: ([1-9]\d*)$`. The pattern of a user source is `^the user, on (.+)$`, and its date then goes through a strict `YYYY-MM-DD` test. The pattern of a file source ends with `"(.+)"$`. So any final punctuation gets the line refused. Spaces at the end are ignored, as decided. A fact, a criterion and a change have no continuation line, unlike unit lines. The comment left on #103 lists the data shapes and the assumptions, but none of these three traps. Agents end sentences with a period by habit, and many lines of this very plan cite ranges of lines, so the first plans written by the guides of #103 would hit these refusals. Each refusal names its line, so the cost is a retry, not a wrong result. I recommend adding three sentences to the comment on #103: remove the placeholder line when you fill a section; write nothing after the date or after the closing quote; quote one line and keep each fact, criterion and change on one line. This is non-blocking for this ticket.
+
+The audit of a version 1 plan was tested only up to the run state. `cstack/test/audit-version-1.test.ts` expects exit code 3 with "this plan file has no run state, so cstack next never ran it." I read `cstack/src/commands/audit.ts` (lines 44 to 140): after line 55, the plan is passed as data to `evaluateSteps()` and `readConditions()`, and no other call of `readPlan()` happens. `readMoments()` in `cstack/src/measure/moments.ts` passes the option in both calls (lines 66 and 81). Every other caller of `readPlan()` in `cstack/src/` stays strict (12 calls, listed with `grep -rn "readPlan(" cstack/src`). I also compiled `cstack/src/plan/read.ts` into the scratchpad and read every plan of `docs/plans/` except this run's own plan with `{ acceptVersion1: true }`. The 26 plans that have a `Format:` line all read with no problem, including units whose Test line holds prose. The 17 older plans with no `Format:` line are refused as before, which is unchanged behaviour. A version 1 Test line that lists several cases in prose reads as one case, which is harmless for the audit because it only checks that `unit.test` exists (`cstack/src/audit/evaluate.ts`). Also, the audit asks for `--guides <folder>` when the run was written by another `cstack` version, so the new audit of runs 3 and 4 needs the guides of 0.3.2. That is existing behaviour of #89.
+
+Unit 6 did not follow the coordinator's rule that each refusal is proved by breaking it (Executor notes). The two cases, "refuses a fact line with no source" and "refuses a user source with no date" (`cstack/test/plan/read.test.ts`, lines 522 and 535), check message fragments that only one branch of `readFacts()` and `readSource()` produces ("has no ` Source: `" and "the user, on <YYYY-MM-DD>"). So a test cannot pass through another refusal. I accept the gap without a new run.
+
+Resolution of the earlier questions. Question 1, the line forms, was answered yes on 2026-11-23, and the code matches every form, including the rule that a case is written as the JUnit report names it (template and ADR-RQG-B). Question 2 was answered yes, and only `cstack/src/measure/moments.ts` and `cstack/src/commands/audit.ts` pass `acceptVersion1`. Question 3 was answered yes with the two corrections, and the messages match the decisions word for word. The question for the coordinator about #99 is closed by the merge of #99: `cstack/src/junit-report.ts` returns `TestCase.name` as the decoded JUnit name, and the default vitest reporter is used, so the rule "exactly as the JUnit report names it" holds for #100. The two non-blocking questions about the coverage of every criterion and the audit condition `each-negative-criterion` stay open, as listed under Non-blocking questions. ADR-SIC-B was left as it is, as decided. The reviewers suggested a one-line pointer to ADR-RQG-B there, which is a judgment call for the pull request body.
+
+The version constant `LAST_VERSION_1_READER = "0.3.2"` is safe because #104 raises the version to 0.4.0 (its body, scope item 1), and the reminder on #104 says that the new version must be higher than 0.3.2. No new question came up after the build.
+
+I checked security (fact paths go through `pathProblem()`, nothing is run or opened), scale (each new pattern is linear on a line, and the ` Source: ` scan is bounded by the line length), operations and cost, and the lock-in of the format (the forms stay cheap to change until 0.4.0 ships, because no released `cstack` writes version 2 before that), and found nothing more in them.
 
 ## Non-blocking questions
 
@@ -401,6 +434,8 @@ The independent reviewer found no other bug and ran the full suite: 1835 tests a
 - Comment on #98: https://github.com/gambitl/claude-code-stack/issues/98
 - Comments with the exact line forms on #100, #101, #102 and #103: https://github.com/gambitl/claude-code-stack/issues/100, https://github.com/gambitl/claude-code-stack/issues/101, https://github.com/gambitl/claude-code-stack/issues/102 and https://github.com/gambitl/claude-code-stack/issues/103
 - Reminder on #104 about finishing runs before the upgrade: https://github.com/gambitl/claude-code-stack/issues/104
+- Correction on #104: going back to an older release also needs `cstack skills install`. The same sentence is corrected in section 9 of the specification (commit "docs: say that going back to a release needs cstack skills install"). The advisor asked for this correction in its briefing, and it was made after the briefing.
+- Second comment on #103 with three strict details of the line forms: https://github.com/gambitl/claude-code-stack/issues/103
 
 ## Executor notes
 
@@ -413,6 +448,7 @@ The independent reviewer found no other bug and ran the full suite: 1835 tests a
 
 - 2026-11-23: The executor moved #98 to "in progress" with `cstack tracker move`, and started the build.
 - 2026-11-24: The executor built units 1 to 9 one at a time with sub-agents, ran the four reviewers, and fixed two findings (50d7743, f6a7b2c).
+- 2026-11-24: The independent review fixed one more message (6889919). The executor rebased the branch on `origin/main` with no conflict, and the full suite passed (130 files, 1912 tests). It wrote the documentation, ran the CTO advisor, and made the two corrections that the briefing asked for.
 
 ## History
 
