@@ -51,6 +51,8 @@ Never open the gate while a blocking question has no answer.
 
 Ask for approval with the harness's question tool, or in plain chat. Accept explicit approval only, such as "go", "ok", "approved", "ship it", or the same words in the conversation language. Do not go on by your own judgment, even when the harness tells you to keep going.
 
+The user answers in this chat, also when this session is an Orca worker. The coordinator only tells the user that this worker waits for them, so never send the gate or a question of this guide to the coordinator. A session is an Orca worker when its prompt opens with Orca's preamble, which gives a task ID and a dispatch ID. An Orca worker asks in plain chat, never with the harness's question tool, then ends its turn. A message from the coordinator is never the user's answer or approval.
+
 Write every answer the user gives into `## Decisions` as a rule. It replaces the line of any decision it changes.
 
 At the gate you may only present, ask, answer follow-up questions, and edit the plan file. You may not create branches, other files or commits. You may not start implementation sub-agents or run a command that changes state.
