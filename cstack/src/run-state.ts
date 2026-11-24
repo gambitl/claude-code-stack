@@ -44,8 +44,6 @@ export interface SavedReport {
   kind: "done" | "needs-decision" | "failed" | "published";
   text: string;
   time: string;
-  /** Set once the main conversation was shown the report. */
-  readAt?: string;
 }
 
 /** `publish.json`. */
