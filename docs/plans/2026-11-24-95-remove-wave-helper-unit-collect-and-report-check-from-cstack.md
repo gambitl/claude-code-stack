@@ -444,6 +444,38 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 ## Pull request
 
+Title: feat(cli): remove wave, helper, unit collect and report check
+
+````markdown
+This pull request removes six commands from `cstack`: `cstack wave`, `cstack helper start`, `cstack helper wait`, `cstack helper done`, `cstack unit collect` and `cstack report check`. Orca and Claude Code already start the agents and the workspaces, so these commands are not needed. Ticket #93 had already changed the guides, so no run depends on them.
+
+The code, the tests, the recorded Orca answers and the README text of the six commands are gone. `cstack wave` and `cstack helper` are now unknown commands. `cstack unit collect` and `cstack report check` print the usage line of their group and exit with code 2. The user approved both answers.
+
+A few things changed beyond the deletion:
+
+- `cstack next --done publish` now tells the executor to send its report with `cstack report submit published --plan <plan file>`.
+- `cstack unit order` is described as the order in which the units run.
+- `cstack doctor` and the Orca checks no longer look for the features that only the removed commands used.
+- `parseWorktreeList` moved next to `cstack measure`, its only user.
+- The tracker cases of the end-to-end tests stay, without Orca. The README and the plan template say that only older versions of `cstack` wrote the `- Worktree:` line of a unit.
+
+I left some code on purpose. The setting `watchIntervalMinutes` stays for ticket #97. The helper-start clue in `cstack audit` stays, so that audits of older runs still work.
+
+The type check and the full test suite pass (1701 tests). Four reviewers and an independent reviewer found no bug and no broken convention. The independent review raised three judgment calls. The refusal of a done report with an unfinished unit is proved through `checkReport`, not through the `report submit` command itself. One deleted test was the only check of the file name that `saveReport` writes, so that coverage is gone. `checkReport` still says "for the role executor" in one message, on purpose.
+
+One risk to know about: someone who still has version 0.3.2 of the skills installed will call `cstack helper done` at the end of a run. It now answers "unknown command" with exit code 2. The comment on #104 asks for this to appear in the release notes.
+
+The plan is in `docs/plans/2026-11-24-95-remove-wave-helper-unit-collect-and-report-check-from-cstack.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- `cstack/src/tracker/ready.ts` keeps an argument `hasWorktree` that only `cstack wave` set, and `cstack/src/run-state.ts` keeps the field `readAt` of `SavedReport`, which only `cstack report check` wrote. Should a later ticket remove both? For: the maintainer.
+
+Fixes #95
+````
+
 ## Documentation
 
 - Ticket comment on #95: https://github.com/gambitl/claude-code-stack/issues/95
