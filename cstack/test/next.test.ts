@@ -294,6 +294,19 @@ describe("cstack next", () => {
       expect(readState(dir, PLAN)?.phases.questions?.doneAt).toBeDefined();
     });
 
+    it("--done of each executor phase records the close and prints the next guide in the same call", async () => {
+      const dir = makeRepo();
+      commitPlan(dir, readyPlan(), PLAN);
+      startRun(dir, ["ticket", "dependencies", "code-map", "questions", "plan", "build"]);
+      const order = ["review", "independent-review", "update-branch", "document", "briefing", "after-build-questions", "ready"];
+      for (let i = 0; i < order.length - 1; i++) {
+        const result = await run(dir, "--done", order[i]!, "--plan", PLAN);
+        expect(result.code).toBe(0);
+        expect(readState(dir, PLAN)?.phases[order[i]!]?.doneAt).toBeDefined();
+        expect(markers(result.stdout)).toEqual([`marker-${order[i + 1]}`]);
+      }
+    });
+
     it("--done ready writes Status and the time and keeps every other byte", async () => {
       const dir = makeRepo();
       const crlf = readyPlan().replace(/\n/g, "\r\n");
