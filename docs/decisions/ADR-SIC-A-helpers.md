@@ -1,6 +1,6 @@
 # ADR-SIC-A: How the helpers run
 
-Status: accepted, 2026-11-19. Partly changed by [ADR-SIC-G](ADR-SIC-G-continue-or-stop.md) on 2026-11-20: inside a ticket, the helpers run as sub-agents again, and an Orca worker is used only for units that run in parallel.
+Status: replaced by [ADR-RQG-A](ADR-RQG-A-helpers-and-units-inside-a-ticket.md) on 2026-11-24. It was accepted on 2026-11-19, and [ADR-SIC-G](ADR-SIC-G-continue-or-stop.md) changed it in part on 2026-11-20.
 Ticket: https://github.com/gambitl/claude-code-stack/issues/27
 
 ## Context
