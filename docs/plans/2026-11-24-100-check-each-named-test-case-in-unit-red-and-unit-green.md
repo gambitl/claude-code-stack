@@ -409,7 +409,12 @@ Independent review (phase independent-review): the reviewer fixed one README sen
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #100: https://github.com/gambitl/claude-code-stack/issues/100
+- Comment on #103 (guides and prompts): https://github.com/gambitl/claude-code-stack/issues/103
+- Comment on #101 (saved run format): https://github.com/gambitl/claude-code-stack/issues/101
+- `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, new section "How the audit reports the check of the whole test file" (written in unit 6).
+- `README.md`, paragraphs of `cstack unit red`, `cstack unit green` and `cstack audit` (written in unit 6).
+- `WHY:` comment naming ADR-RQG-C in `cstack/src/audit/whole-file.ts` (written in unit 5).
 
 ## Executor notes
 
