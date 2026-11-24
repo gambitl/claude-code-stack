@@ -277,9 +277,18 @@ none
 
 ## Executor notes
 
+- Unit 1 refusals broken: a broken or missing meta file counted as unreadable (failed the no-meta-file, invalid-JSON and unreadable-file cases); a non-string toolUseId accepted (failed the non-string case, after a test fix because the first version survived); a launch with no transcript linked to the last transcript (failed the three links-no-launch cases); the tool call id ignored (failed the two-launches case).
+- Unit 5 refusals broken: the added build.md sentences removed (failed the step 3 case); the last plan.md sentence removed (failed the Tests bullet case).
+- Unit 2 refusals broken: any launch type proves the line (4 failed); no transcript proves the line (3 failed); a transcript naming other units proves it (5 failed); one launch serves many lines (3 failed); escalation type removed (escalation case failed); meta description printed (9 failed).
+- Unit 3 stumbled: unit 2 already accepts the escalation implementer, so all 109 cases passed at `cstack unit red 3`, which refuses to save a passing run (stuck report saved). The implementer broke the escalation type filter and the each-stuck-unit condition, and the new case failed both times. I did not escalate and marked the unit Blocked. The test diff is kept outside the repository.
+- Unit 4 refusals broken: build-phase gate (failed the not-over case); type filter and transcript check (failed the another-type and every-launch-has-transcript cases); exit code tied to the sentence (failed the exit 0 case); sentence order (failed the two order cases). Three no-sentence cases cannot fail first, because they check an absence.
+- Unit 6 was not started: it depends on blocked unit 3. A unit with only documentation has no refusal.
+- Unit 3 `Blocked` line first went before `Depends on`, and `cstack helper start` exited 3 until I moved it after it.
+
 ## Hand-off log
 
 - 2026-11-24, executor run 1: moved #108 to "in progress" with cstack tracker move. Started the build on the branch gambitl/audit-unit-implementer.
+- 2026-11-24, executor run 1, later: units 1, 5, 2 and 4 built and committed. Unit 3 is blocked (already built by unit 2). Unit 6 waits on unit 3. Stopped with a needs-decision report.
 
 ## History
 
