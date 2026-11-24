@@ -414,6 +414,18 @@ describe("the negative criteria and the units that cover them", () => {
     expect(error.message).toContain("Unit 2 has a `- No test:` line, so it cannot name a negative criterion");
   });
 
+  it("refuses a Negative criterion line in a unit whose Test line is not in its form, and never says the unit has no test", () => {
+    const text = swap(
+      "- Test: `test/a1.test.ts`: the case 1 fails\n- Test: `test/a1.test.ts`: the case 1b fails\n  and it fails for a second reason\n",
+      "- Test: test/a1.test.ts: the case 1 fails\n",
+    );
+    const error = failureOf(text);
+    expect(error.message).toContain(
+      `line ${lineOf(text, "- Negative criterion 1:")}: Unit 1 has no \`- Test:\` line in its fixed form, so it cannot name a negative criterion. Fix the \`- Test:\` line first.`,
+    );
+    expect(error.message).not.toContain("has a `- No test:` line");
+  });
+
   it("refuses the same criterion twice in one unit", () => {
     const text = swap("- Negative criterion 2: the case 1b fails", "- Negative criterion 1: the case 1b fails");
     const error = failureOf(text);

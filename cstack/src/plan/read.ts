@@ -464,8 +464,10 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion}, which is not in \`## Negative criteria\`.` });
     } else if (seen.has(criterion)) {
       problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion} twice. Name each criterion once.` });
-    } else if (values["No test"] || !unit.test) {
+    } else if (values["No test"]) {
       problems.push({ line, rule: `Unit ${number} has a \`- No test:\` line, so it cannot name a negative criterion. Add a \`- Test:\` line.` });
+    } else if (!unit.test) {
+      problems.push({ line, rule: `Unit ${number} has no \`- Test:\` line in its fixed form, so it cannot name a negative criterion. Fix the \`- Test:\` line first.` });
     } else if (!unit.test.cases.includes(text)) {
       problems.push({ line, rule: `The case "${text}" of negative criterion ${criterion} is not one of the cases of the \`- Test:\` lines of Unit ${number}.` });
     } else unit.negativeCriteria.push({ criterion, case: text });
