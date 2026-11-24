@@ -410,7 +410,10 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #93: https://github.com/gambitl/claude-code-stack/issues/93
+- Comments on the dependent tickets #95, #96, #103, #107 and #108, on the same tracker, each one in the issue of that number.
+- Decision record: `docs/decisions/ADR-RQG-A-helpers-and-units-inside-a-ticket.md`, with the status line of `docs/decisions/ADR-SIC-A-helpers.md` changed to say that it replaces that record.
+- Specification page: section 9 of `docs/projects/refocus-and-quality-guards.md` links to ADR-RQG-A.
 
 ## Executor notes
 
