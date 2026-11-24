@@ -29,7 +29,7 @@ A step has one of three kinds.
 - A `helper` step names a helper prompt, written `<skill>:<name>`, for example `resolve-issue:cto-review`. It can be followed by one space and one word for the moment or the focus of the helper.
 - An `action` step is one id, such as `approval-gate`, for a step that is not a command and not a helper.
 
-A condition says how often a step applies. Only these seven are accepted.
+A condition says how often a step applies. Only these eight are accepted.
 
 - `each-unit` repeats the step once for each unit of the plan.
 - `each-unit-with-test` repeats it for each unit that has a `Test` line.
@@ -38,6 +38,7 @@ A condition says how often a step applies. Only these seven are accepted.
 - `each-dependent-ticket` repeats it for each ticket that the "Feeds" part of the ticket footer names.
 - `user-interface` applies the step once when a unit has a `Design specification` line.
 - `new-structural-decision` applies the step once when the plan does not hold the sentence "No new decision since the question round".
+- `big-decision` applies the step once when a line of the `Documentation duties` section of the plan says that a decision record applies. The section "How the audit checks the big decisions" below explains it.
 
 In an `each-` step, `<n>` stands for the number of the unit.
 
@@ -59,7 +60,7 @@ Reading, searching and looking at the history are not steps. They leave nothing 
 
 A block describes a run that reaches the end of its phase on the normal path. On that path, each command succeeds, no unit is stuck and the user approves. A step that belongs to another path is left out. For example, a command that exits with another code, a command that refuses, a stop, and an open blocker all belong to other paths.
 
-A step that the prose makes conditional is left out. The one exception is a step whose condition is one of the seven conditions listed in the Decision section above. So a block never lists a step for a condition that the format cannot say.
+A step that the prose makes conditional is left out. The one exception is a step whose condition is one of the conditions listed in the Decision section above. So a block never lists a step for a condition that the format cannot say.
 
 A block writes each command as the prose of its guide writes it, with the same placeholders. It lists the steps in the order in which a run does them.
 
@@ -83,9 +84,9 @@ This section was added when ticket #90 made `cstack audit` evaluate the helper s
 
 The audit prints one line for each helper step whose condition holds. Only a launch of the named sub-agent proves a helper step. A plan section never proves it. A launch of another type, and a message sent to a running sub-agent, never count, because the guides ask for a fresh launch. When the setting `review.agent` is not `claude`, the independent review also accepts an Orca worker launch.
 
-The audit never prints a line for a step of the `action` kind. The close of most phases already refuses an empty plan section, so the audit does not repeat that check.
+The audit never prints a line for a step of the `action` kind, except for two steps of a big decision. See the section "How the audit checks the big decisions" below. The close of most phases already refuses an empty plan section, so the audit does not repeat that check.
 
-The audit lists a step only when its condition holds. The condition `each-dependent-ticket` repeats the step once for each ticket that the `Feeds:` line of the ticket names. The conditions `user-interface` and `new-structural-decision` list the step once, or not at all. The conditions `each-stuck-unit` and `each-negative-criterion` count as false for now, so their steps are never listed.
+The audit lists a step only when its condition holds. The condition `each-dependent-ticket` repeats the step once for each ticket that the `Feeds:` line of the ticket names. The conditions `user-interface`, `new-structural-decision` and `big-decision` list the step once, or not at all. The conditions `each-stuck-unit` and `each-negative-criterion` count as false for now, so their steps are never listed.
 
 One call or one launch serves at most one line. This stops a single wait or a single launch from proving several steps. The phase lines take no call, so a phase line and the `cstack next --done` step of the same phase still share their call.
 
@@ -106,3 +107,23 @@ The filter runs after the lines are computed, in `cstack/src/commands/audit.ts`,
 The filter finds the phase of a line from the text of the line. A line belongs to the phase when its text is the phase line, the start line, or starts with the phase name, a colon and a space. A later change could give each line a phase field instead.
 
 One limit is known. A run that stops for good never closes its last phase, so the audit never shows the steps of that phase. The sentence on standard error makes this gap visible.
+
+## How the audit checks the big decisions
+
+This section was added when ticket #118 made the audit check the big decisions of a run. It changes two rules of this record. The list of conditions now has eight, because of `big-decision`. And the audit no longer never prints a line for an `action` step, because it now prints one for two of them.
+
+A big decision is a decision that the plan says it records. The plan says so in its `Documentation duties` section. The condition `big-decision` holds when one line of that section names a decision record before its first colon and says "applies" right after that colon. The line names a record when the text before the colon holds the word "ADR" or "decision record", in any case, as whole words. A plural counts too. The line says "applies" when the text after the colon starts with that word, in any case. A line of another section never makes the condition hold. The placeholder of the plan template never makes it hold either.
+
+The document guide has two `action` steps with this condition, `write-decision-record` and `write-why-comment`. The audit prints a line for them only when the condition holds. It proves them with git, not with a call, because both are deeds that leave a commit.
+
+The record counts as written when a commit of the branch adds or changes a `.md` file that the duty line names in backticks. The commits of the branch are the commits of HEAD that are not on the target branch. When the line names no such file, the record lives outside the repository, git cannot check it, and the audit prints no line for it. A file that does not exist at HEAD still counts as a file to look for. So a run that promised a record and never wrote it shows "skipped".
+
+The `WHY:` comment counts as written when a commit of the branch adds a line that holds `WHY:` and the name of a record. The file of that line must not end in `.md`. A removed line never counts.
+
+The name of a record comes from the `.md` file of the duty line. It is the leading part of the file name that is made of capital letters, digits and dashes, without its trailing dashes. So `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md` gives `ADR-RQG-C`. When the line names no such file, the name is the text before the first colon of the line.
+
+The two lines take no part in the order of the phase. They set no floor for a later step, no earlier step sets a floor for them, and no time window limits them. The reason is that a record is often committed by a unit during the build, long before the document phase starts. With a window, that run would show "out of order" for good work. So the lines print among the command lines, in the order of the block, before the helper lines.
+
+When git fails, for example because the target branch does not exist, both lines are skipped. The audit does not stop for that.
+
+One limit is known. The audit still lists the `WHY:` step for a decision that governs no code, such as a change to a guide only. The retrospective judges a "skipped" there. Another limit is that the words "applies", "ADR" and "decision record" are English.
