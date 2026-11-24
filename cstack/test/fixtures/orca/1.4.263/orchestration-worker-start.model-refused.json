@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "invalid_argument",
-    "message": "The model example-model is not available for the agent claude."
-  }
-}

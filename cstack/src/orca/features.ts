@@ -4,9 +4,6 @@ import { checkShape, ShapeError } from "./shapes.js";
 import { MIN_ORCA_VERSION, compareVersions, parseVersion } from "./version.js";
 
 export type OrcaFeatureName =
-  | "workers"
-  | "child-worktrees"
-  | "ticket-worktrees"
   | "jira"
   | "linear";
 
@@ -17,14 +14,6 @@ const CONTEXT = "orca agent-context --json";
 const JIRA = "orca jira connection --json";
 const LINEAR = "orca linear team list --workspace all --json";
 
-const WORKER_COMMANDS = [
-  "orchestration worker-start",
-  "orchestration worker-show",
-  "orchestration send",
-  "orchestration check",
-];
-const CHILD_WORKTREE_COMMANDS = [...WORKER_COMMANDS, "orchestration worker-release", "worktree rm"];
-const TICKET_WORKTREE_COMMANDS = ["worktree create", "reference find"];
 const JIRA_COMMANDS = [
   "jira connection",
   "jira issue",
@@ -125,9 +114,6 @@ export function orcaFeatures(
   };
 
   const detect: Record<OrcaFeatureName, () => Promise<void>> = {
-    workers: () => commands(WORKER_COMMANDS),
-    "child-worktrees": () => commands(CHILD_WORKTREE_COMMANDS),
-    "ticket-worktrees": () => commands(TICKET_WORKTREE_COMMANDS),
     jira: async () => {
       await commands(JIRA_COMMANDS);
       const body = await read(JIRA, ["jira", "connection"]);

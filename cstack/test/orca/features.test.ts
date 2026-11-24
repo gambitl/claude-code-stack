@@ -30,7 +30,7 @@ function setup(over: Record<string, string> = {}) {
   return { features: orcaFeatures(run, {}), calls };
 }
 
-const ALL = ["workers", "child-worktrees", "ticket-worktrees", "jira", "linear"] as const;
+const ALL = ["jira", "linear"] as const;
 
 describe("orca features", () => {
   it("makes every feature unavailable below the minimum version", async () => {
@@ -57,17 +57,6 @@ describe("orca features", () => {
     const jira = await features.get("jira");
     expect(jira.available === false && jira.reason).toContain("no saved Jira site");
     expect((await features.get("linear")).available).toBe(true);
-    expect((await features.get("workers")).available).toBe(true);
-  });
-
-  it("makes only child worktrees unavailable without the worktree rm command", async () => {
-    const answer = JSON.parse(text("agent-context.current.json"));
-    answer.commands = answer.commands.filter((c: { command: string }) => c.command !== "worktree rm");
-    const { features } = setup({ "agent-context --json": JSON.stringify(answer) });
-    const child = await features.get("child-worktrees");
-    expect(child.available).toBe(false);
-    expect(child.available === false && child.reason).toContain("worktree rm");
-    expect((await features.get("workers")).available).toBe(true);
   });
 
   it("explains two Jira sites", async () => {
@@ -98,7 +87,7 @@ describe("orca features", () => {
     answer.result.runtime.reachability = answer.result.runtime.reachable;
     delete answer.result.runtime.reachable;
     const { features } = setup({ [STATUS]: JSON.stringify(answer) });
-    const f = await features.get("workers");
+    const f = await features.get("linear");
     expect(f.available === false && f.reason).toContain("result.runtime.reachable");
   });
 
@@ -108,7 +97,6 @@ describe("orca features", () => {
     await features.get("jira");
     expect(calls).not.toContain(LINEAR);
     await features.get("linear");
-    await features.get("workers");
     for (const c of new Set(calls)) expect(calls.filter((x) => x === c)).toHaveLength(1);
   });
 });

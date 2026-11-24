@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "dispatch_not_found",
-    "message": "Worker Dispatch ctx_000000000001 was not found."
-  }
-}

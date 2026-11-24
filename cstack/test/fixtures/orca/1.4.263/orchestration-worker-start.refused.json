@@ -1,7 +1,0 @@
-{
-  "ok": false,
-  "error": {
-    "code": "invalid_argument",
-    "message": "The nesting limit of workers is reached."
-  }
-}
