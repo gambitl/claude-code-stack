@@ -302,15 +302,6 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 28,
     built: true,
   }),
-  {
-    usage: "cstack wave (--milestone <name> | --epic <key>) [--tracker <name>] [--from-file <path>] [--watch]",
-    summary: "List a wave and start its ready tickets.",
-    flags: ["--milestone", "--epic", "--tracker", "--from-file", "--watch"],
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 4: NO_TOOL, 5: TOOL_FAILED },
-    file: "wave.ts",
-    ticket: 29,
-    built: true,
-  },
 ];
 
 /** The command words of an entry: its usage words, without `cstack`, before the first `<`, `[` or `(`. */

@@ -50,6 +50,17 @@ describe("run", () => {
     expect(code).toBe(2);
   });
 
+  it("answers cstack wave as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["wave", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "wave"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack wave");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
   it("names an unknown option, prints the usage and returns 2", async () => {
     const { out, io } = collect();
     const code = await run(["--nope"], io);
@@ -137,7 +148,7 @@ describe("run", () => {
   });
 
   it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
-    // Its own list, because no real first word is unbuilt as a whole since cstack wave is built.
+    // Its own list, because every real first word has at least one built command.
     const entry = (usage: string, ticket: number): CommandEntry => ({
       usage,
       summary: "A command that no ticket builds.",

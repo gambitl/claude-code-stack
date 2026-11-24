@@ -25,7 +25,6 @@ import { unitGreen } from "./commands/unit-green.js";
 import { unitOrder } from "./commands/unit-order.js";
 import { unitRed } from "./commands/unit-red.js";
 import { version } from "./commands/version.js";
-import { wave, defaultWaveDeps } from "./commands/wave.js";
 import { type Io, processIo } from "./io.js";
 import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
 import { createRunner } from "./orca/run.js";
@@ -68,7 +67,6 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
     }),
   publish: (args, io) => publish(args, io),
-  wave: (args, io) => wave(args, io, defaultWaveDeps()),
   report: (args, io) =>
     dispatchSubcommand("report", args, io, {
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),

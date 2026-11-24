@@ -109,8 +109,8 @@ describe("matchMention", () => {
   });
 
   it("reads the command words of a usage line that has a group in parentheses", () => {
-    const wave = COMMANDS.find((c) => c.usage.startsWith("cstack wave"));
-    expect(commandWords(wave as CommandEntry)).toEqual(["wave"]);
+    const list = COMMANDS.find((c) => c.usage.startsWith("cstack tracker list"));
+    expect(commandWords(list as CommandEntry)).toEqual(["tracker", "list"]);
   });
 
   it("stops the command words at a flag", () => {
@@ -140,21 +140,17 @@ describe("the flags that are not built yet", () => {
       },
     ];
     expect(unbuiltRefusal(["frobnicate", "--later"], made)).toContain("Ticket #999 builds it.");
-    expect(unbuiltRefusal(["wave", "--watch"], built)).toBeUndefined();
-    expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
   });
 
   it("names the ticket of the command while the command is not built", () => {
     expect(unbuiltRefusal(["unit", "collect"])).toBeUndefined();
     expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
-    expect(unbuiltRefusal(["wave"])).toBeUndefined();
-    expect(unbuiltRefusal(["wave", "--watch"])).toBeUndefined();
   });
 });
 
 describe("the command list", () => {
-  it("holds twenty-four built commands and none that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(24);
+  it("holds twenty-three built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(23);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 
