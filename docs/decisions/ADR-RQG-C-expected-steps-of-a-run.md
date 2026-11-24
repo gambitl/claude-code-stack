@@ -150,7 +150,7 @@ The code is in `cstack/src/audit/whole-file.ts`. The sentence "The exit code loo
 
 This section was added when ticket #108 made the implementer line name the unit that it checks. It adds to the record above and changes none of its decisions.
 
-A helper step with the condition `each-unit` prints one line for each unit. The line reads `<phase>: <helper> for unit <n>`, followed by its verdict. Before this change, the build phase printed one line, `build: resolve-issue:implementer`, which named no unit. So one launch could prove the work of every unit.
+A helper step with the condition `each-unit` prints one line for each unit. The line reads `<phase>: <helper> for unit <n>`, followed by its verdict. Before this change, the build phase already printed one line for each unit. Each of these lines read `build: resolve-issue:implementer` and named no unit. Any implementer launch in the window could prove any of these lines. So the audit counted the launches, but it never checked which unit each launch built.
 
 A launch now proves the line of unit `<n>` only when its own sub-agent transcript holds a call `cstack unit red <n>`, `cstack unit green <n>` or `cstack unit commit <n>`. A launch whose transcript names only other units never proves that line. A launch with no transcript never proves it. The older rules still apply: the launch has the right type, it lies in the window of the build phase, it comes at or after the floor of the line, and one launch serves at most one line. So one implementer that built units 1 and 2 proves only one of the two lines.
 
