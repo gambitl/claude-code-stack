@@ -1,14 +1,12 @@
-// The shared helper of the Orca end-to-end tests. It compiles cstack once into a temporary folder, builds the environment of the
+// The shared helper of the end-to-end tests without Orca. It compiles cstack once into a temporary folder, builds the environment of the
 // child processes from scratch, and sets up a project with a bare remote and the fake `orca` and `gh` programs of test/e2e/bin.
 // Nothing here reaches the real Orca, the real gh, the network or the real home folder.
-import { execFile, execFileSync, spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
-import { pathToFileURL } from "node:url";
 import { expect } from "vitest";
 import { withoutBlock } from "../../src/guide-steps.js";
-import type { Runner } from "../../src/orca/run.js";
 
 const CSTACK = join(import.meta.dirname, "..", "..");
 const FIXTURES = join(import.meta.dirname, "..", "fixtures", "e2e-orca");
@@ -25,20 +23,10 @@ export interface Result {
   stderr: string;
 }
 
-/** A cstack command that runs in the background. */
-export interface Waiter {
-  /** The exit code, or null while the command still runs. */
-  exitCode(): number | null;
-  /** Resolves when the command ends, and fails when it is still running after the time. */
-  finished(timeoutMs: number): Promise<Result>;
-}
-
 export interface Call {
   program: string;
   args: string[];
   cwd?: string;
-  /** For `worker-show`, the status that the fake Orca answered. */
-  status?: string;
 }
 
 interface Options {
@@ -59,24 +47,7 @@ export interface Chain {
   run(args: string[], options?: Options): Result;
   /** Runs the built cstack after checking that the guide or prompt names the command. */
   follow(source: string, args: string[], options?: Options): Result;
-  followInBackground(source: string, args: string[]): Waiter;
-  /** Runs a cstack command in the background, as followInBackground does, without the check of a guide. */
-  runInBackground(args: string[]): Waiter;
-  /** Runs `cstack wave` in process, with a terminal that answers `answer`. */
-  wave(args: string[], answer: string): Promise<Result>;
-  git(...args: string[]): string;
-  orcaCalls(): Call[];
   ghCalls(): Call[];
-  /** The text of each file that the fake gh got through --body-file. */
-  ghBodies(): string[];
-  /** The path of the child worktree that the fake Orca made for a unit, if any. */
-  childPath(unit: number): string | undefined;
-  /** The Dispatch id that a helper has on record. */
-  dispatchOf(helperId: string): string;
-  /** The Dispatches whose worker sent worker_done, in order. */
-  sentDispatches(): string[];
-  /** Copies a file of the fixtures of a unit into a worktree. */
-  copyUnitFile(unit: number, file: string, into: string): void;
   /** The programs of the PATH folder. */
   pathPrograms(): string[];
   cleanup(): void;
@@ -146,19 +117,6 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
   git("commit", "-m", "chore: start the project");
   git("push", "-u", "origin", "main");
 
-  const runner =
-    (timeout: number): Runner =>
-    (command, args, cwd) =>
-      new Promise((resolve) => {
-        execFile(command, args, { cwd, env, timeout, killSignal: "SIGKILL", encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }, (error, stdout, stderr) => {
-          if (!error) return resolve({ kind: "ok", stdout, stderr });
-          const e = error as NodeJS.ErrnoException & { killed?: boolean };
-          if (e.code === "ENOENT") return resolve({ kind: "missing" });
-          if (e.killed) return resolve({ kind: "timeout" });
-          resolve({ kind: "failed", exitCode: typeof e.code === "number" ? e.code : 1, stdout, stderr });
-        });
-      });
-
   const run = (args: string[], o: Options = {}): Result => {
     const r = spawnSync(process.execPath, [bin, ...args], { cwd: o.cwd ?? project, env, input: o.input, encoding: "utf8", timeout: COMMAND_TIMEOUT_MS });
     return { code: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
@@ -167,13 +125,7 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
   /** The command as a guide writes it: placeholders stand for the plan path, the unit, the helper id, the ticket key and the tracker name. */
   const written = (args: string[]): string => {
     const words = args.filter((w) => w !== "--child-worktree").map((w) => (w === PLAN ? "<plan file>" : w));
-    if (words[0] === "helper" && words[1] === "wait") words[2] = "<helper id>";
-    const helperAt = words.indexOf("--helper");
-    if (words[0] === "helper" && words[1] === "done" && helperAt >= 0) words[helperAt + 1] = "<helper id>";
     if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
-    if (words[0] === "unit" && words[1] === "collect") words.splice(2, words.indexOf("--plan") - 2, "<n>...");
-    const unitAt = words.indexOf("--unit");
-    if (words[0] === "helper" && words[1] === "start" && unitAt >= 0) words[unitAt + 1] = "<n>";
     if (words[0] === "tracker") {
       words[2] = "'<key>'";
       words[words.indexOf("--tracker") + 1] = "<name>";
@@ -197,31 +149,6 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
       .filter(Boolean)
       .map((l) => JSON.parse(l) as Call)
       .filter((c) => c.program === program);
-  const fakeLines = (file: string): Record<string, string>[] =>
-    existsSync(join(fakeDir, file)) ? readFileSync(join(fakeDir, file), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as Record<string, string>) : [];
-
-  const runInBackground = (args: string[]): Waiter => {
-    const child: ChildProcess = spawn(process.execPath, [bin, ...args], { cwd: project, env, stdio: ["ignore", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    child.stdout!.on("data", (d: Buffer) => (stdout += d.toString()));
-    child.stderr!.on("data", (d: Buffer) => (stderr += d.toString()));
-    const ended = new Promise<Result>((resolve) => child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr })));
-    return {
-      exitCode: () => child.exitCode,
-      finished: (timeoutMs) =>
-        Promise.race([
-          ended,
-          new Promise<Result>((_, reject) =>
-            setTimeout(() => {
-              child.kill("SIGKILL");
-              reject(new Error(`The command was still running after ${timeoutMs} ms.`));
-            }, timeoutMs),
-          ),
-        ]),
-    };
-  };
-
   return {
     env,
     temp,
@@ -237,40 +164,7 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
       check(source, args);
       return run(args, o);
     },
-    followInBackground(source, args) {
-      check(source, args);
-      return runInBackground(args);
-    },
-    runInBackground,
-    async wave(args, answer) {
-      const load = (file: string) => import(pathToFileURL(join(temp, "dist", file)).href);
-      const { wave } = await load("commands/wave.js");
-      const { openTracker } = await load("tracker/open.js");
-      let stdout = "";
-      let stderr = "";
-      const io = { stdout: (t: string) => void (stdout += t), stderr: (t: string) => void (stderr += t) };
-      const deps = { cwd: project, env, run: runner(COMMAND_TIMEOUT_MS), runLong: runner(COMMAND_TIMEOUT_MS), isTerminal: () => true, readAnswer: async () => answer, openTracker };
-      const code = (await wave(args, io, deps)) as number;
-      return { code, stdout, stderr };
-    },
-    git,
-    orcaCalls: () => calls("orca"),
     ghCalls: () => calls("gh"),
-    ghBodies: () =>
-      readdirSync(fakeDir)
-        .filter((f) => f.startsWith("body-"))
-        .sort()
-        .map((f) => readFileSync(join(fakeDir, f), "utf8")),
-    childPath: (unit) => fakeLines("starts.log").find((s) => s.title === `implementer unit ${unit}`)?.path,
-    dispatchOf(helperId) {
-      const common = git("rev-parse", "--path-format=absolute", "--git-common-dir");
-      const record = JSON.parse(readFileSync(join(common, "cstack", "runs", "e2e-orca", "helpers", `${helperId}.json`), "utf8")) as { dispatchId: string };
-      return record.dispatchId;
-    },
-    sentDispatches: () => fakeLines("sent.log").map((s) => s.dispatchId),
-    copyUnitFile(unit, file, into) {
-      cpSync(join(FIXTURES, "units", String(unit), file + (file.includes(".test.") ? ".fixture" : "")), join(into, file));
-    },
     pathPrograms: () => readdirSync(binDir).sort(),
     cleanup() {
       rmSync(temp, { recursive: true, force: true });

@@ -75,9 +75,6 @@ function written(args: string[]): string {
   if (words[0] === "audit" && homeAt >= 0) words.splice(homeAt, 2);
   words = words.map((w) => (w === PLAN ? "<plan file>" : w));
   if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
-  if (words[0] === "unit" && words[1] === "collect") words.splice(2, words.indexOf("--plan") - 2, "<n>...");
-  const unitAt = words.indexOf("--unit");
-  if (words[0] === "helper" && words[1] === "start" && unitAt >= 0) words[unitAt + 1] = "<n>";
   if (words[0] === "plan" && words[1] === "section") words[2] = "<name>";
   return `cstack ${words.join(" ")}`;
 }
@@ -228,8 +225,6 @@ beforeAll(() => {
     GIT_ALLOW_PROTOCOL: "file",
     FAKE_BARE: bare,
     FAKE_BRANCH: BRANCH,
-    // No Orca worker runs in this test, so `cstack helper start` falls back to a sub-agent and never reaches the real Orca.
-    CSTACK_ORCA_WORKERS: "off",
     ORCA_CLI_COMMAND: join(temp, "no-such-orca"),
   };
 
