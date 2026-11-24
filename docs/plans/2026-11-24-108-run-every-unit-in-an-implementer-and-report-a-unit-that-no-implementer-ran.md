@@ -272,6 +272,7 @@ Correctness reviewer: no finding. It ran cstack audit on this run and all six im
 Security reviewer: no finding.
 Conventions reviewer: the two implementer type names were written twice (audit.ts and evaluate.ts). Fixed with one exported constant.
 Simplicity reviewer: same duplicate, fixed. Its second point (narrow the type of the launch map in calls.ts to drop one re-check) is a follow-up of about one line and was not done.
+Independent review: it added one test (a unit with no implementer launch at all prints as skipped, commit 2cc1de5) and fixed one wrong sentence in ADR-RQG-C (6958ab9). Judgment calls left as they are: the implementer prompt does not mention the check, because ticket #103 rewrites it; the warning on standard error looks at every implementer launch in the session files, not only those of the build phase; one new test repeats the input of another.
 
 ## Briefing
 
