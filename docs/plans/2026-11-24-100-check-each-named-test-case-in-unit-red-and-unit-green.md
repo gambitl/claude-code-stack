@@ -395,7 +395,44 @@ Independent review (phase independent-review): the reviewer fixed one README sen
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+**What you should know about what was built**
+
+The branch does what the ticket asked. `cstack unit red` and `cstack unit green` now check each named case when the settings declare a JUnit report, and they save every case in `red.json` and `green.json`. Without a usable report, they keep the check of the whole test file and record why. The plan gets a note, and `cstack audit` prints one line for each unit that fell back. I ran the type check and the three changed test files again (187 tests), and they pass.
+
+**What you need to do**
+
+**Confirm that the pull request body drops the sentence about notes lost in a child worktree.** The plan asks for that sentence, but `main` no longer has child worktrees. The ticket that removed old commands (#95) deleted `cstack/src/helper/` and `cstack/src/unit/collect.ts`. So the limit no longer exists, and the sentence would mislead a reader. I recommend dropping it.
+
+**What to watch**
+
+- This repository's `.cstack/settings.json` declares no report. So on its own tickets, the new guard never runs. Each red and green run only writes the fallback note, and the audit prints one line per unit. The guard starts working here only when someone adds a JUnit report to the settings, which this branch may not do.
+- Each red and green run now changes the plan file. This works, because `cstack unit commit` takes only the files of the unit and the build commits the plan at its end. But a `git add -A` in a unit commit would mix the plan with code, and `cstack plan status` would refuse that commit.
+- Units 2 and 4 skipped the step where each refusal is broken on purpose. The refusals of `cstack unit green` and the writing of the note have tests, but nobody saw those tests fail against broken code.
+
+**What changed since the plan**
+
+- The copy of the notes in `cstack unit collect` was dropped during the rebase, because `main` removed that file.
+- The end-to-end test of the audit now skips the new lines with a narrow filter, in its own commit, as the coordinator agreed.
+
+### Details
+
+The build matches the scope and the six acceptance criteria. `checkNamedCases()` in `cstack/src/unit-test-command.ts` compares the named cases with the report for both commands. `describeReport()`, `buildNote()`, `setUnitNote()`, `writeUnitNote()` and `FALLBACK_REASONS` live in `cstack/src/unit-test-runs.ts`. The audit line comes from `cstack/src/audit/whole-file.ts`, which `cstack/src/commands/audit.ts` calls only once the build phase is over, so it never changes the exit code. On 2026-11-24 I ran `npm run typecheck` and `npx vitest run test/unit-red-green.test.ts test/audit.test.ts test/unit-test-runs.test.ts` in `cstack/`. All 187 tests passed. The Hand-off log reports the full suite passing after the rebase (103 files, 1789 tests).
+
+The pull request body should not carry the sentence that decision 216 asks for, about a note lost in a child worktree. On the rebased branch, `cstack/src/helper/` and `cstack/src/unit/` do not exist, and no file of `cstack/src` mentions `child-worktree` or starts a `git worktree`. Every unit now runs in the ticket worktree, so the note always lands in the plan file of the ticket. If nobody decides, the pull request phase follows decision 216 and writes the sentence. It harms nothing, but it describes a mode that no longer exists. Items 1, 2, 4 and 5 of the independent review, which are all about `cstack unit collect`, are moot for the same reason.
+
+This repository declares no per-case report. `.cstack/settings.json` has only the `all` and `file` commands, so `usesReport()` is false (`cstack/src/test-run.ts`, lines 38 to 40). Every red and green run here takes the `"no-report"` fallback, writes the fallback note into its unit and gives one audit line per unit. The guard that this ticket builds therefore protects other repositories first. This branch may not change `.cstack/settings.json` (decision 167). This is a new question, and it is non-blocking, because this ticket is complete whatever the answer. It is for the maintainer of `cstack`, in English, word for word: "This repository's `.cstack/settings.json` declares no per-case report, so the check of each named test case added by #100 never runs on this repository's own tickets. Should a later ticket add `\"report\": \"junit\"` and make `testCommands.file` write a JUnit report, for example with vitest's `--reporter=default --reporter=junit --outputFile.junit={report}`?" I did not test that vitest command line.
+
+The plan file now changes at each accepted red or green run. The check in `cstack/src/commands/unit-commit.ts` (line 127) reads the git status of the unit's files only, so a changed plan file never blocks a unit commit. The build guide commits the plan file at the end of the build (`cstack/guides/resolve-issue/build.md`, line 36), and `cstack publish` refuses uncommitted tracked files, so the note cannot be forgotten. The remaining trap is a manual `git add -A` or `git commit -a` in a unit commit. It would put documentation and code under one `Cstack-Unit` trailer, which `cstack plan status` refuses. Decision 144 already forbids `git commit -a`. The guides and prompts of #103 should say that the plan file changes during the build, and the comment on #103 already tells it about the notes.
+
+Units 2 and 4 did not break their refusals on purpose (Executor notes, line 1). The tests exist and pass. What is not proven is that each test fails when its own refusal is removed. The most useful checks to break by hand are the named-case refusal after the run in `cstack/src/commands/unit-green.ts`, the comparison with the cases of `red.json` before the run in the same file, and the replacement of the note in `setUnitNote()`. Run each one with a time limit, as decision 151 says.
+
+Several things changed since the plan. The change to `cstack/src/unit/collect.ts` and its test were dropped during the rebase, because `main` deleted that file (decision 216). The end-to-end filter of the audit lines in `cstack/test/e2e/resolve-issue.test.ts` is its own commit (32d7ce6), with the narrow regular expression of decision 213. The earlier exemption and its revert were dropped. The note reader that only `cstack unit collect` used was removed (9f2ac58). The two review commits got their `cli` scope back, as decision 218 asks. In the README, the rebase kept the side of `main` and added the sentences of this ticket again (Executor notes, line 5).
+
+A few small points stay open, and none of them blocks the merge. Without a `file` command, the fallback message says that cstack checked "the whole test file", although the whole suite ran (independent review, item 6). The older hint about `red.log` still prints right after it, so the reader sees the truth. `readSavedRun()` does not check the type of `cases`, so a hand-edited `red.json` whose `cases` is not a list would make `cstack unit green` throw instead of refusing cleanly. Only a person who edits that file by hand can reach this. The check of a title at HEAD is a substring search, so a new case whose title appears inside older text of the test file gets no warning, as the question round accepted. The `"timed-out"` report problem maps to `"missing"` in `describeReport()`, but it cannot be reached, because a timeout exits with 5 before that point.
+
+The earlier questions were resolved as follows. Question 1 kept the child-process tests without a report, and the new tests call `unitRed()` and `unitGreen()` inside vitest. Question 2 became the one-line free note at the end of the unit, written under the lock `plan-file.lock` (decisions 180, 204 and 205). Question 3 became the warning limited to titles missing from the test file at HEAD, with at most ten names in the note. Question 4 became the fallback with a recorded reason (decisions 183 and 201). Question 5 became unit 5, the audit line without a verdict. The question to the coordinator about which ticket adds the audit line was answered by unit 5. The pytest question about `error` stays open and non-blocking, and it is already under "Non-blocking questions".
+
+I checked security, data model lock-in, scale, failure modes and rollback, user-facing edge cases, operations and cost, reversibility and hidden coupling, and found nothing beyond the points above.
 
 ## Non-blocking questions
 
