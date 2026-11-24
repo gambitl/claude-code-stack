@@ -381,7 +381,39 @@ I checked security, the data model, scale, failure modes, reversibility, operati
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): move the workspace setup to an Orca setup hook and remove setupCommand
+
+````markdown
+## What this does
+
+`cstack` no longer carries the command that installs the packages of a new workspace. Orca now runs it, as a setup hook that this repository declares in a new file, `orca.yaml`. The hook is `cd cstack && npm ci`, and the agent waits for it to succeed before it starts.
+
+## Key decisions
+
+- `cstack` now refuses the settings keys `setupCommand` and `watchIntervalMinutes`. Each has its own message that tells you to remove the key. Nothing read them any more, because the commands that used them left with #95.
+- `.cstack/settings.json` loses `setupCommand` in the same commit as the code, because the new code would refuse the file otherwise.
+- The argument `hasWorktree` of `readyState()` and the field `readAt` of `SavedReport` are removed, because only the removed commands used them.
+- The README section "Set up a new workspace", a sentence in `CLAUDE.md` and an amendment of ADR-SIC-D explain the hook and the removed keys.
+
+## Files touched
+
+`cstack/src/settings.ts`, `cstack/src/tracker/ready.ts`, `cstack/src/commands/tracker-list.ts`, `cstack/src/run-state.ts`, their tests, `.cstack/settings.json`, the settings template, `orca.yaml`, `README.md`, `CLAUDE.md`, ADR-SIC-D and the specification page. The plan is `docs/plans/2026-11-24-97-move-the-setup-command-of-a-new-workspace-to-an-orca-setup-hook.md`.
+
+## Judgment calls from the review
+
+- No test runs `cstack next` itself on a settings file with `setupCommand`. The refusal uses the error path that an existing test already covers.
+- A newer `cstack` refuses any settings file that still holds `watchIntervalMinutes`, for example one copied from the old template. This is on purpose. The comment on #104 asks the release notes to say so.
+- The new test that reads this repository's settings file builds the path in a way that breaks for a checkout path with a space. We left it, because no checkout path has one.
+- The review of the security reviewer and the advisor corrected the README paragraph about Orca's trust prompt. On one computer, one approval trusts the whole repository, so the README tells readers to read `orca.yaml` too.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- For the maintainer: Please create one new workspace in the Orca app from the branch of this pull request, approve the setup script, and tell us whether `cstack/node_modules` exists. This is the hand check of the third acceptance item.
+
+Fixes #97
+````
 
 ## Documentation
 
