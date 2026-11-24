@@ -5,7 +5,7 @@ import { readSavedRun } from "../saved-runs.js";
 import { runTests, testScript, usesReport } from "../test-run.js";
 import { caseName, checkNamedCases, fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { deletePassingRun, buildNote, noteFailed, printFallback, writeUnitNote, savePassingRun, type FailingUnitRun, type SavedUnitRun } from "../unit-test-runs.js";
+import { deletePassingRun, buildNote, caseProblemText, describeReport, noteFailed, printFallback, writeUnitNote, savePassingRun, type FailingUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitGreen(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -116,12 +116,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 5;
   }
   const report = run.report;
-  const caseRun: Pick<SavedUnitRun, "caseCheck" | "fallback" | "cases"> =
-    report === undefined
-      ? { caseCheck: "file", fallback: "no-report" }
-      : "cases" in report
-        ? { caseCheck: "cases", cases: report.cases.map((c) => ({ name: c.name, outcome: c.outcome })) }
-        : { caseCheck: "file", fallback: report.problem === "malformed" ? "malformed" : "missing" };
+  const { caseRun, problem: reportProblem } = describeReport(report);
   if (report !== undefined && "cases" in report) {
     const problems = checkNamedCases(named, report.cases, "pass");
     if (problems.length > 0) {
@@ -130,11 +125,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
       } catch (error) {
         return failWith(error, io, prefix);
       }
-      const text = {
-        wrong: "failed.",
-        missing: "is not in the test report.",
-        skipped: "was skipped, so it never ran. A failing beforeAll hook is a common cause.",
-      };
+      const text = caseProblemText("green");
       io.stderr(
         `${prefix}These cases that unit ${unit.number} names do not pass:\n` +
           problems.map((p) => `  ${caseName(p.name)} ${text[p.kind]}\n`).join("") +
@@ -163,7 +154,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     io.stderr(`${prefix}Warning: the test file ${testFile} changed since the failing run of unit ${unit.number}. Say in your report what changed in the test and why.\n`);
   }
   io.stdout(`${prefix}Unit ${unit.number} passes. The passing run is saved in ${runDir}/units/${unit.number}/green.json.\n`);
-  if (caseRun.caseCheck === "file") printFallback(io, "green", unit.number, caseRun.fallback!, report !== undefined && "problem" in report ? report.message : undefined);
+  if (caseRun.caseCheck === "file") printFallback(io, "green", unit.number, caseRun.fallback!, reportProblem);
   const problem = await writeUnitNote(root, planPath, unit.number, "green", buildNote("green", caseRun.fallback));
   if (problem !== undefined) return noteFailed(io, "green", unit.number, problem);
   return 0;

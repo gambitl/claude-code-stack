@@ -2,7 +2,7 @@ import type { Io } from "../io.js";
 import { runTests, testScript, usesReport } from "../test-run.js";
 import { caseName, checkNamedCases, fileSha256, headCommit, headTestFile, prepareUnitTest, printTestOutput, unnamedPassingCases } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { buildNote, noteFailed, printFallback, saveFailingRun, writeUnitNote, type SavedUnitRun } from "../unit-test-runs.js";
+import { buildNote, caseProblemText, describeReport, noteFailed, printFallback, saveFailingRun, writeUnitNote } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitRed(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -48,20 +48,11 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     return 5;
   }
   const report = run.report;
-  const caseRun: Pick<SavedUnitRun, "caseCheck" | "fallback" | "cases"> =
-    report === undefined
-      ? { caseCheck: "file", fallback: "no-report" }
-      : "cases" in report
-        ? { caseCheck: "cases", cases: report.cases.map((c) => ({ name: c.name, outcome: c.outcome })) }
-        : { caseCheck: "file", fallback: report.problem === "malformed" ? "malformed" : "missing" };
+  const { caseRun, problem: reportProblem } = describeReport(report);
   if (report !== undefined && "cases" in report) {
     const problems = checkNamedCases(unit.test!.cases, report.cases, "fail");
     if (problems.length > 0) {
-      const text = {
-        wrong: "passed.",
-        missing: "is not in the test report.",
-        skipped: "was skipped, so it never ran. A failing beforeAll hook is a common cause.",
-      };
+      const text = caseProblemText("red");
       io.stderr(
         `${prefix}These cases that unit ${unit.number} names do not fail before the code exists:\n` +
           problems.map((p) => `  ${caseName(p.name)} ${text[p.kind]}\n`).join("") +
@@ -87,7 +78,7 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
     return failWith(error, io, prefix);
   }
   io.stdout(`${prefix}Unit ${unit.number} fails as it should (exit code ${run.exitCode}). The failing run is saved in ${runDir}/units/${unit.number}/red.json.\n`);
-  if (caseRun.caseCheck === "file") printFallback(io, "red", unit.number, caseRun.fallback!, report !== undefined && "problem" in report ? report.message : undefined);
+  if (caseRun.caseCheck === "file") printFallback(io, "red", unit.number, caseRun.fallback!, reportProblem);
   let unnamed: string[] = [];
   if (report !== undefined && "cases" in report) {
     unnamed = unnamedPassingCases(unit.test!.cases, report.cases, headTestFile(root, testFile));
