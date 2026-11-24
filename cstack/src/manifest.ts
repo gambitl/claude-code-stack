@@ -140,7 +140,7 @@ export const COMMANDS: CommandEntry[] = [
   {
     ...planCommand({
       usage: "cstack unit order [--json]",
-      summary: "Print the units in batches that can run in parallel.",
+      summary: "Print the units in the order they run.",
       flags: ["--json"],
       exitCodes: { 0: OK, 1: "The Depends on lines form a cycle.", 2: USAGE, 3: INVALID },
       file: "unit-order.ts",

@@ -149,6 +149,11 @@ describe("the command list", () => {
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 
+  it("summarises cstack unit order as the order the units run", () => {
+    const entry = COMMANDS.find((c) => commandWords(c).join(" ") === "unit order");
+    expect(entry?.summary).toBe("Print the units in the order they run.");
+  });
+
   it("has no entry with the command words graph ensure", () => {
     expect(COMMANDS.some((c) => commandWords(c).join(" ") === "graph ensure")).toBe(false);
   });
