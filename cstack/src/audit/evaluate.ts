@@ -11,6 +11,7 @@ import type { RunState } from "../run-state.js";
 import type { Call, Launch } from "./calls.js";
 import type { Conditions } from "./conditions.js";
 import { matchesStep, split, stepWords } from "./match.js";
+import { GIT_ACTIONS, recordTime, whyTime } from "./records.js";
 
 export type Verdict = "done" | "skipped" | "out of order";
 export type Evidence = "session" | "run state" | "git";
@@ -85,20 +86,24 @@ export type StepInput = {
   reviewAgent: string;
 };
 
-type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[]; helper?: string };
+type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[]; helper?: string; action?: string };
 
 const REPEATED = ["each-unit", "each-unit-with-test"];
-type Kind = "unit" | "ticket" | "single" | "helper";
+type Kind = "unit" | "ticket" | "single" | "helper" | "git";
 
 // Which group a listed step joins, or undefined when its condition does not hold for this plan.
 function kindOf(step: Step, conditions: Conditions): Kind | undefined {
-  if (step.kind === "action") return undefined;
+  if (step.kind === "action") {
+    const proved = (GIT_ACTIONS as readonly string[]).includes(step.action);
+    return proved && step.condition === "big-decision" && conditions.bigDecision ? "git" : undefined;
+  }
   const once: Kind = step.kind === "helper" ? "helper" : "single";
   if (step.condition === undefined) return once;
   if (REPEATED.includes(step.condition)) return "unit";
   if (step.condition === "each-dependent-ticket") return conditions.dependentTickets > 0 ? "ticket" : undefined;
   if (step.condition === "user-interface") return conditions.userInterface ? once : undefined;
   if (step.condition === "new-structural-decision") return conditions.newStructuralDecision ? once : undefined;
+  if (step.condition === "big-decision") return conditions.bigDecision ? once : undefined;
   return undefined;
 }
 
@@ -110,7 +115,7 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
     const kind = kindOf(step, conditions);
     if (kind === undefined) continue;
     const last = segments[segments.length - 1];
-    if (kind !== "single" && last && last.kind === kind) last.steps.push(step);
+    if (kind !== "single" && kind !== "git" && last && last.kind === kind) last.steps.push(step);
     else segments.push({ kind, steps: [step] });
   }
   const nodes: Node[] = [];
@@ -124,6 +129,12 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
       const shown = unit === undefined ? text : text.replace(/<n>(?!\.\.\.)/g, String(unit));
       return { id, phase, text: shown, words: stepWords(text), unit, before };
     };
+    if (segment.kind === "git") {
+      // A git node has no floor and leaves the floor of the steps after it as it was.
+      const step = segment.steps[0] as { action: string };
+      nodes.push({ id: `${phase}:${index}`, phase, text: step.action, words: [], before: [], action: step.action });
+      return;
+    }
     if (segment.kind === "single") {
       const node = make(segment.steps[0]!, `${phase}:${index}`, undefined, tail);
       nodes.push(node);
@@ -240,6 +251,19 @@ export function evaluateSteps(input: StepInput): Line[] {
       const floors = node.before.map((id) => results.get(id)).filter((time): time is number => time !== undefined);
       const floor = floors.length === 0 ? undefined : Math.max(...floors);
       const text = `${name}: ${node.text}`;
+      if (node.action !== undefined) {
+        // WHY: ADR-RQG-C, section "How the audit checks the big decisions".
+        // Only git proves these two lines, and a record or a comment is often written in the build phase, so they take no part in the order of the phase.
+        const found =
+          node.action === "write-decision-record"
+            ? input.conditions.recordFiles.length === 0
+              ? "none"
+              : recordTime(input.root, input.targetBranch, input.conditions.recordFiles)
+            : whyTime(input.root, input.targetBranch, input.conditions.recordNames);
+        if (found === "none") continue;
+        lines.push(found === undefined ? { text, verdict: "skipped" } : { text, verdict: "done", time: found, record: "git" });
+        continue;
+      }
       // A step of a late unit is looked for until the close of the phase that built the unit, or with no end.
       const builtTime = node.unit === undefined ? undefined : builtAt.get(node.unit);
       const end = builtTime === undefined ? later : closes.find((time) => time !== undefined && time >= builtTime);
