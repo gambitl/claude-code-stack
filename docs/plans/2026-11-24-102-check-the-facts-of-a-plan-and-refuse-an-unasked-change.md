@@ -351,11 +351,12 @@ When the approval checks a fact with a file source, must the quoted text be a pa
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- I ran `cstack helper wait` for unit 1 right after launching the sub-agent, and it exited 1 ("finished without an accepted report"). The sub-agent was still running. I waited for its notification, then the wait exited 0.
+- The implementer of unit 3 could not confirm one mutation check: a named-pipe test case hung when the regular-file check was disabled, so no failing test name was seen.
 
 ## Hand-off log
 
-- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check.
+- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done.
 
 ## History
 
