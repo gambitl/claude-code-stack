@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { next } from "../src/commands/next.js";
+import type { PhaseName } from "../src/phases.js";
 import { markDone } from "../src/run-progress.js";
 import { readState, runFolder, currentRunPath } from "../src/run-state.js";
 import { collect, commitFiles, commitPlan, git, makeRepo } from "./helpers/plan-repo.js";
@@ -298,7 +299,7 @@ describe("cstack next", () => {
       const dir = makeRepo();
       commitPlan(dir, readyPlan(), PLAN);
       startRun(dir, ["ticket", "dependencies", "code-map", "questions", "plan", "build"]);
-      const order = ["review", "independent-review", "update-branch", "document", "briefing", "after-build-questions", "ready"];
+      const order: PhaseName[] = ["review", "independent-review", "update-branch", "document", "briefing", "after-build-questions", "ready"];
       for (let i = 0; i < order.length - 1; i++) {
         const result = await run(dir, "--done", order[i]!, "--plan", PLAN);
         expect(result.code).toBe(0);
