@@ -332,12 +332,46 @@ Security reviewer: one finding. The README said Orca never asks again after the 
 Conventions reviewer: nothing found.
 Simplicity reviewer: nothing to cut.
 Tests: typecheck and the full `npm test` pass (103 files, 1738 tests) after the fix.
+Briefing follow-up: the CTO advisor read Orca's source and found that on one computer a single approval trusts the whole repository, so the trust paragraph of the README was corrected a second time, in a `fix(cli)` commit.
 
 Independent review: no code changed. Judgment calls for the pull request body. First, no test runs `cstack next` itself on a file with `setupCommand`; the refusal uses the same error path that an existing `next-settings.test.ts` case covers. Second, a newer `cstack` refuses any settings file that still holds `setupCommand` or `watchIntervalMinutes`, on purpose, so the release notes of #104 should say it clearly. Third, the repository-root path in the new settings test breaks for a checkout path with a space, which was left as it is. The hand check of `orca.yaml` in a new Orca workspace is still open for the user.
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+### What you should know about what was built
+
+The ticket does what it asked, except for one paragraph of the README, which now gives wrong safety advice. `cstack` refuses `setupCommand` and `watchIntervalMinutes` with a message of their own, `.cstack/settings.json` lost the key in the same commit, and `orca.yaml` declares `cd cstack && npm ci` with `wait-for-setup`. I ran the settings and ready-state test files again, and their 82 tests pass.
+
+**What you need to do**
+
+**Let me fix the trust paragraph of the README before the pull request opens.** The review rewrote it to say that Orca asks again when the setup script in `orca.yaml` changes. Orca's code says the opposite since mid-November. On one computer, a single approval trusts the whole repository. After that, Orca runs the setup of any branch without asking, even when the branch changes `orca.yaml`. So the README tells readers to check `package.json` and the lockfile, but no longer `orca.yaml`, which is the most direct way in. I recommend the replacement text in the details below, as a `fix(cli)` commit. "ok" is enough.
+
+**Do the hand check once the pull request is open.** Create one workspace in the Orca app from the branch `gambitl/orca-setup-hook`, approve the script, and tell me whether `cstack/node_modules` exists. Then remove that workspace and its new branch. If the setup fails with "npm: command not found", the setup terminal does not see Node from Homebrew, and the hook itself is fine.
+
+**What to watch**
+
+- After the merge, the first workspace that the coordinator creates from `main` may wait for your approval in the Orca app. With `wait-for-setup`, its agent starts only after the setup succeeded. If `npm ci` fails, that worker gets no agent at all.
+- Every repository whose settings file came from the old template holds `watchIntervalMinutes`. After the upgrade, every `cstack` command there exits with 3 until the line goes. The comment on the release notes ticket (#104) says so. Check that it reaches the final notes.
+
+**What changed since the plan**
+
+- The review rewrote the trust paragraph of the README section, which the plan had fixed word for word. That is the paragraph I ask to fix above.
+
+#### Details
+
+The README paragraph is wrong for the Orca that this machine runs. The plan fixed the README section word for word (Unit 3), and that text told readers to read the `orca.yaml` and the `package.json` of an outside pull request. The security reviewer then changed it in commit dce8554. The new text says "Orca asks again only when the setup script in `orca.yaml` changes", and it tells readers to read only `cstack/package.json` and `cstack/package-lock.json`. I read Orca's source on `main` of `stablyai/orca`. In `src/shared/workspace-setup/hooks/orca-hook-trust-entries.ts`, the comment of `isOrcaHookRepoTrusted()` says "on a single host, an approval of any hook kind also trusts the repo", and the function returns true once any content hash is approved. In `src/renderer/src/runtime/repo-hooks/hook-script-confirmation.ts`, `confirmScriptContent()` returns `RUN_ANY` without a prompt when the repository is trusted. Only a repository known on several hosts, or a VM, keeps the check per script version. That behaviour came with Orca pull request #42890, "Approve a repo's orca.yaml hooks once, not each version", merged on 2026-11-16, so it is in v1.4.262 and later. This machine runs 1.4.272. The reviewer's sentence describes the older behaviour, or the several-hosts case. The fix is testable and was tested by reading the source, so it needs no question to anyone. I recommend replacing the third paragraph of `## Set up a new workspace` with this text, word for word: "The first time, Orca asks you to trust the setup script. On one computer, that approval trusts the whole repository. After that, Orca runs the setup of any branch without asking, even when the branch changes `orca.yaml`. The setup runs `npm ci`, and `npm ci` runs the install scripts of `cstack/package.json` and of the packages in `cstack/package-lock.json`. So before you open a workspace on a pull request from someone else, read its changes to `orca.yaml`, `cstack/package.json` and `cstack/package-lock.json`. You can also create that workspace with its setup skipped. The setting **Settings → Repository** of the Orca app decides whether the setup runs by itself, asks each time, or is skipped." The commit is `fix(cli): say that one Orca approval trusts the setup of every branch in the README`, and it touches only `README.md`. If nobody decides, a public README gives safety advice that misses the file an attacker would change first.
+
+The hand check of the acceptance is still open, as question 5 planned. The brief forbids `orca worktree create` in this run, so only the user can do it. git refuses a branch that another worktree already holds, so the new workspace starts from `gambitl/orca-setup-hook` and Orca makes a new branch on top of it. Node comes from Homebrew on this machine, so a setup terminal without `/opt/homebrew/bin` on its path fails with "npm: command not found". That failure would come from the terminal environment, not from `orca.yaml`. The result goes into the comment on #97, which the document phase already posted, so the comment needs an update or a reply with the result. If nobody does the check, the third acceptance item of the ticket stays unchecked.
+
+After the merge, `orca.yaml` on `main` changes every workspace that the coordinator creates for later tickets. Their setup runs by default, because this repository's app setting is `run-by-default`. The first one may open the trust prompt in the app, and with `wait-for-setup` the agent waits until the setup succeeded. Orca's `src/shared/agent-launch/startup/setup-agent-sequencing.ts` sets the wait limit to two hours. For a worker, `src/main/runtime/rpc/methods/orchestration/worker/start/readiness/worker-setup-gate.ts` records the stage `setup_failed` when the setup fails. So a broken `npm ci` on `main`, for example a lockfile that no longer matches `package.json`, stops every new worker of the next wave, not only one test run. The branches of this wave that started before the merge have no `orca.yaml`, so their new workspaces get no setup until they merge `main`.
+
+The refusal of `watchIntervalMinutes` is on purpose, and it reaches every repository that copied the old template `cstack/skills/resolve-issue/templates/settings.json`, which held `"watchIntervalMinutes": 5`. After the release of milestone R3, `next`, `publish`, `unit commit`, `audit` and the unit test commands exit with 3 in those repositories until the line is removed. The message says "Remove this key", so the fix is one line. The comment posted on #104 lists it. The independent review asked for the same thing.
+
+The earlier questions were all resolved as recommended. Question 1: `.cstack/settings.json` lost only `setupCommand` and its comma, and it now holds `version` and `testCommands` only. Question 2: the file keeps version 1, and the amendment of ADR-SIC-D and the comment of `cstack/src/settings.ts` (lines 11 to 13) carry the new rule word for word. Question 3: `REMOVED_KEYS` in `cstack/src/settings.ts` holds both texts word for word, and only the top-level call of `unknownKeys()` passes it, so a removed key inside `review` keeps the generic message. Question 4: `orca.yaml` holds the six planned lines, with `setupAgentStartupPolicy: wait-for-setup`. Question 5 is still open, as above. Question 6: the four extra files changed, and no other file outside the approved list changed. The sentence of `CLAUDE.md` and the new README section went in as planned, except for the trust paragraph above. The commits carry only the no-reply address as author and committer.
+
+No new question for someone outside the conversation came up. The README fix is a correction that the source already answers. The test that reads `.cstack/settings.json` through a path relative to the test file was left as it is, as the review log says, and it ties that file to the code on purpose.
+
+I checked security, the data model, scale, failure modes, reversibility, operations and hidden coupling. Beyond the points above, I found nothing in scale, user-interface edge cases or recurring cost.
 
 ## Non-blocking questions
 
@@ -358,11 +392,12 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- `cstack helper wait` and notifications: nothing stumbled with them.
+- The README trust paragraph was fixed word for word by the plan, then corrected twice after two reviewers disagreed about Orca's behaviour. The plan text came from the user's own question round, not from Orca's source.
 
 ## Hand-off log
 
-- 2026-11-24, executor build: moved #97 to "in progress" with cstack tracker move. Branch gambitl/orca-setup-hook was already checked out.
+- 2026-11-24, executor run: built units 1 to 3 one at a time, reviewed, rebased on main, documented on #97, #104 and the specification page, and wrote the briefing. Returned a done report. Moved #97 to "in progress" with cstack tracker move. Branch gambitl/orca-setup-hook was already checked out.
 
 ## History
 
