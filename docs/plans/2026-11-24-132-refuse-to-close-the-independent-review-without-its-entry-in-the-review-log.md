@@ -260,7 +260,7 @@ The new check in `cstack/src/phases.ts` must read the lines of the "Review log".
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes (phase review). `contentLines` is read only in `cstack/src/phases.ts` (`independentReviewLogged`) and in its test in `cstack/test/plan/read.test.ts`. No other code destructures `PlanSection`, so the new field is additive. The two fixtures that close the independent review, `cstack/test/fixtures/plans/ready-for-review.md` and `cstack/test/fixtures/e2e/sections/review-log.md`, got the new line, and the tests that read them passed in unit 2. The files that usually change with `cstack/src/phases.ts` are `cstack/test/phases.test.ts` (changed) and `cstack/src/plan/approval.ts` (not affected, it does not read the Review log). The guide `independent-review.md` keeps its block of mandatory steps in line with its prose, and its close sentence is unchanged. No `WHY:` or `DECISION:` comment or decision record conflicts with the change.
 
 ## Briefing
 
