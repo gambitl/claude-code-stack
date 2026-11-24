@@ -86,10 +86,10 @@ describe("the end of each executor guide points to the close rule", () => {
   });
 });
 
-const NINE = [...PHASE_GUIDES, "ready", "publish"];
+const EXECUTOR_GUIDES = [...PHASE_GUIDES, "ready", "publish"];
 
 describe("the block of mandatory steps of each executor guide", () => {
-  it.each(NINE)("%s: still holds the line that closes its phase", (phase) => {
+  it.each(EXECUTOR_GUIDES)("%s: still holds the line that closes its phase", (phase) => {
     const text = guideText(phase);
     const block = text.slice(text.indexOf("<!-- mandatory steps"), text.indexOf("-->"));
     expect(block).toContain(`command: cstack next --done ${phase} --plan <plan file>`);
