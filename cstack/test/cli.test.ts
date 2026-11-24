@@ -71,6 +71,14 @@ describe("run", () => {
     expect(code).toBe(2);
   });
 
+  it("answers cstack unit collect with the usage of the unit group", async () => {
+    const { out, io } = collect();
+    const code = await run(["unit", "collect", "--cstack-unknown-flag"], io);
+    expect(code).toBe(2);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toBe("cstack: usage: cstack unit <order|commit|red|green>\n");
+  });
+
   it("lets a crash inside a command reach the caller instead of printing the usage", async () => {
     const io: Io = {
       stdout: () => {

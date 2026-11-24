@@ -143,14 +143,13 @@ describe("the flags that are not built yet", () => {
   });
 
   it("names the ticket of the command while the command is not built", () => {
-    expect(unbuiltRefusal(["unit", "collect"])).toBeUndefined();
     expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
   });
 });
 
 describe("the command list", () => {
-  it("holds twenty-three built commands and none that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(23);
+  it("holds twenty-two built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(22);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 
@@ -166,7 +165,7 @@ describe("the command list", () => {
   });
 
   it("gives --plan to the new commands that work on a run", () => {
-    for (const words of ["helper start", "helper done", "unit collect"]) {
+    for (const words of ["helper start", "helper done"]) {
       const entry = COMMANDS.find((c) => commandWords(c).join(" ") === words);
       expect(entry?.flags, words).toContain("--plan");
     }

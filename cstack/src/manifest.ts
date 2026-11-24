@@ -287,21 +287,6 @@ export const COMMANDS: CommandEntry[] = [
     ticket: 27,
     built: true,
   }),
-  planCommand({
-    usage: "cstack unit collect <n>... [--discard-untracked]",
-    summary: "Bring the commits of units from their child worktrees onto the ticket branch.",
-    flags: ["--discard-untracked"],
-    exitCodes: {
-      0: OK,
-      1: "A check or a cherry-pick failed, or a child worktree was kept because it has uncommitted changes.",
-      2: USAGE,
-      3: INVALID,
-      5: "Orca or git failed during the clean-up, for example when a child branch could not be deleted.",
-    },
-    file: "unit-collect.ts",
-    ticket: 28,
-    built: true,
-  }),
 ];
 
 /** The command words of an entry: its usage words, without `cstack`, before the first `<`, `[` or `(`. */
