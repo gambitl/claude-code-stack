@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/plan-format-v2
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-23T20:56:18+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T07:14:13+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -427,7 +427,50 @@ I checked security (fact paths go through `pathProblem()`, nothing is run or ope
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): add version 2 of the plan format
+
+````markdown
+## What this does
+
+This pull request raises the plan format to `cstack-plan/2`. It makes `cstack` read the new data and refuse a plan in version 1. It adds no check of that data. The checks come in #100, #101 and #102.
+
+A plan has three new sections: `## Negative criteria`, `## Facts` and `## Changes to what the ticket fixes`. Each one holds its lines or the single word `none`. A fact names its source, either a file with a line number and the quoted text, or the user with a date. A unit may now have several `- Test:` lines, one per test case. It names each negative criterion it covers on a `- Negative criterion <k>:` line. `readPlan()` returns all of this in `PlanRead` and `PlanUnit`.
+
+## Key decisions
+
+- Every command refuses a plan in version 1 with exit code 3, except `cstack measure` and `cstack audit`. They pass a new option, `acceptVersion1`, so the old runs can still be measured and audited. The message names the version of `cstack` that can read the plan. When the plan does not name one, it names cstack 0.3.2.
+- A test case is written exactly as the JUnit report names it. The reader does not check this rule.
+- The reader checks only the form of each line. A fact path goes through the existing `pathProblem()`, so an absolute path or a `..` part is refused. Whether the file exists is the check of #102.
+- ADR-RQG-B (`docs/decisions/ADR-RQG-B-plan-format-version-2.md`) records the options, the choice and the reasons. Section 9 of the specification links to it.
+
+## Files touched
+
+The reader is in `cstack/src/plan/read.ts`. The two version 1 calls are in `cstack/src/measure/moments.ts` and `cstack/src/commands/audit.ts` (one line). The plan template, the fixtures and the tests moved to version 2. The new files are the ADR and `cstack/test/audit-version-1.test.ts`.
+
+## Review
+
+Four reviewers and an independent reviewer read the branch. They found three small bugs, and all three are fixed: a change line that accepted question 0, a wrong sentence in the ADR, and a misleading message for a unit with a malformed Test line. The full suite passes after the rebase on `main` (130 files, 1912 tests).
+
+Follow-ups and judgment calls:
+
+- The refusal message of a malformed Test line in `read.ts` still says `<failing case>`, while the template says `<the case>`.
+- `stopOnFormat()` could throw once, and `readSource()` could use one pattern per source form. I did not do this, because it would change exact messages.
+- The version in `cstack/package.json` is still 0.3.2, the same number as the last version that reads version 1. The release ticket #104 raises it.
+- A placeholder line left next to real lines in a new section is refused as a malformed line. This follows the recorded rule.
+- No guide fills the new sections yet, and the done report does not check them. #103 and later tickets cover that.
+
+The plan file is `docs/plans/2026-11-23-98-version-2-of-the-plan-format.md`. It stays in format `cstack-plan/1`, because this run used the installed `cstack` 0.3.2.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- "Who checks that every negative criterion of the ticket is covered by a unit? This ticket adds no such check. The plan check of #102 or the guides of #103 could add it." For the maintainer.
+- "Who wires the audit condition `each-negative-criterion` to the new data? This ticket does not. The ticket that adds the break step to the guides (#103) uses it." For the maintainer.
+- "Should ADR-SIC-B (line 29) get a one-line pointer to ADR-RQG-B? It still says that a plan starts with `Format: cstack-plan/1`, and ADR-RQG-B says that it replaces that line. This ticket left ADR-SIC-B as it is." For the maintainer.
+
+Fixes #98
+````
 
 ## Documentation
 
