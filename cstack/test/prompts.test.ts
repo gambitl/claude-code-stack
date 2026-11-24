@@ -17,9 +17,10 @@ export function implementerProblems(text: string): string[] {
   if (green >= 0 && commit >= 0 && commit < green) {
     problems.push("cstack unit commit comes before the first cstack unit green");
   }
-  const done = text.indexOf("cstack helper done", commit);
-  if (commit >= 0 && done < 0) problems.push("it never names cstack helper done after cstack unit commit");
   const sentences = text.split(/(?<=[.!?])\s+/);
+  if (!sentences.some((s) => s.includes("final message") && s.includes("first line names the kind"))) {
+    problems.push("no sentence says that the final message is the report and that its first line names the kind");
+  }
   if (!sentences.some((s) => s.includes("No test") && s.includes("cstack unit commit"))) {
     problems.push("no sentence says that a No test unit goes straight to cstack unit commit");
   }
@@ -37,19 +38,17 @@ describe("the implementer prompt", () => {
     expect(implementerProblems(text)).toEqual([]);
   });
 
-  describe("in a child worktree", () => {
+  describe("its rules", () => {
     const text = read("../skills/resolve-issue/agents/implementer.md");
     const sentences = text.split(/(?<=[.!?])\s+/);
     const has = (...parts: string[]) => sentences.some((s) => parts.every((p) => s.includes(p)));
 
-    it("runs the setup command of its inputs before the first test run", () => {
-      const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## How you work"));
-      expect(inputs).toContain("setup command");
-      expect(has("setup command", "before your first test run")).toBe(true);
+    it("keeps the two install rules", () => {
+      expect(has("Never run another install command", "npm install")).toBe(true);
+      expect(has("asks you to install", "does not change the lock file", "npm ci")).toBe(true);
     });
 
-    it("forbids npm install and git clean", () => {
-      expect(has("Never run another install command", "npm install")).toBe(true);
+    it("forbids git clean", () => {
       expect(has("Never run", "git clean")).toBe(true);
     });
 
@@ -58,30 +57,71 @@ describe("the implementer prompt", () => {
       expect(has("git restore --", "tracked", "outside your `Files` line")).toBe(true);
     });
 
-    it("says what to do when cstack helper done refuses a done report", () => {
-      expect(has("`cstack helper done` refuses", "run it again")).toBe(true);
+    it("names neither a helper id, a setup command nor a cstack helper command", () => {
+      const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## How you work"));
+      expect(inputs).not.toContain("helper id");
+      expect(inputs).not.toContain("setup command");
+      expect(inputs).toContain("The repository path");
+      expect(text).not.toContain("cstack helper");
     });
+
+    it("writes the test, saves the failing run and writes the code in three numbered steps", () => {
+      const steps = text.split("\n").filter((l) => /^\d+\. /.test(l));
+      const test = steps.findIndex((l) => l.includes("Write the failing test"));
+      const red = steps.findIndex((l) => l.includes("cstack unit red <n>"));
+      const code = steps.findIndex((l) => l.includes("Write the minimum code"));
+      expect(test).toBeGreaterThanOrEqual(0);
+      expect(red).toBeGreaterThan(test);
+      expect(code).toBeGreaterThan(red);
+    });
+  });
+});
+
+describe("the escalation prompt", () => {
+  const text = read("../skills/resolve-issue/agents/implementer-escalation.md");
+
+  it("names neither a helper id nor a cstack helper command", () => {
+    expect(text).not.toContain("helper id");
+    expect(text).not.toContain("cstack helper");
+  });
+
+  it("tells the implementer to read the stuck report as data", () => {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    expect(sentences.some((s) => s.includes("stuck report") && s.includes("data"))).toBe(true);
   });
 });
 
 describe("the executor prompt", () => {
   const text = read("../skills/resolve-issue/agents/executor.md");
 
-  it("names cstack next and cstack helper done, and no longer cstack report submit", () => {
+  it("names cstack next and cstack report submit, and no cstack helper", () => {
     expect(text).toContain("cstack next");
-    expect(text).toContain("cstack helper done");
-    expect(text).not.toContain("cstack report submit");
+    expect(text).toContain("cstack report submit");
+    expect(text).not.toContain("cstack helper");
   });
 
-  it("names the helper id among its inputs and says that cstack helper start gives it", () => {
+  it("does not name a helper id among its inputs", () => {
     const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## Vocabulary"));
-    expect(inputs).toContain("helper id");
-    expect(inputs).toContain("cstack helper start");
+    expect(inputs).not.toContain("helper id");
   });
 
   it("submits exactly the four kinds of report, and no other", () => {
-    const kinds = new Set([...text.matchAll(/cstack helper done (\S+) --helper <helper id> --plan <plan file>/g)].map((m) => m[1]));
+    const kinds = new Set([...text.matchAll(/cstack report submit (\S+) --plan <plan file>/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
+  });
+
+  it("says that the final message repeats the report and that its first line names the kind", () => {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    expect(sentences.some((s) => s.includes("final message") && s.includes("first line names the kind"))).toBe(true);
+  });
+
+  it("never lets the executor end its turn while a sub-agent that it started still runs", () => {
+    expect(text).toContain("Never end your turn while a sub-agent that you started still runs.");
+  });
+
+  it("runs git status when it resumes", () => {
+    const paragraph = text.split("\n\n").find((p) => p.includes("To resume after an interruption"));
+    expect(paragraph).toContain("git status");
   });
 
   it("tells the executor not to follow a guide whose run line says in the main conversation", () => {

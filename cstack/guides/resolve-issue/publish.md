@@ -1,7 +1,7 @@
 <!-- mandatory steps
 command: cstack publish --plan <plan file>
 command: cstack next --done publish --plan <plan file>
-command: cstack helper done published --helper <helper id> --plan <plan file>
+command: cstack report submit published --plan <plan file>
 -->
 
 # Publish
@@ -24,7 +24,7 @@ The checks are green.
    - If cstack exits with exit code `4`, no client can reach the tracker. Move the ticket with your own connection instead.
 2. Add the pull request link to every decision record written in the `document` and `briefing` phases that lives in a documentation tool. These are edits in that tool, not commits. A record that lives in the repository does not get the link, because that would need another push. The forge and the ticket carry the link for it.
 3. Run `cstack next --done publish --plan <plan file>`.
-4. Submit the report with `cstack helper done published --helper <helper id> --plan <plan file>`.
+4. Submit the report with `cstack report submit published --plan <plan file>`, with the report on standard input. Then end with the same report as your final message.
 
 ## Exit code 6
 
@@ -46,6 +46,6 @@ A reason can say that a unit has no commit with its trailer and no Blocked line.
 
 ## Exit codes 4 and 5
 
-Exit code `4` means that the forge client is missing. Exit code `5` means that a push or a forge call failed. Submit a failed report that names the problem with `cstack helper done failed --helper <helper id> --plan <plan file>`.
+Exit code `4` means that the forge client is missing. Exit code `5` means that a push or a forge call failed. Submit a failed report that names the problem with `cstack report submit failed --plan <plan file>`.
 
 When `cstack publish` exits with `0`, finish with `cstack next --done publish --plan <plan file>` and the `published` report.

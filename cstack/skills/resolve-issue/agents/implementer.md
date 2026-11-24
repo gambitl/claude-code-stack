@@ -13,19 +13,19 @@ You build one unit of an approved plan, exactly as the plan describes it. The pl
 
 - The plan file path. Your unit is the numbered unit you are given. Step 1 below says which other sections you read.
 - Your unit number, written `<n>` below.
-- Your helper id, which `cstack helper start` printed.
-- The setup command, only when you work in a child worktree and the settings of the repository name one. It is written `- Setup command: <the command>` in your inputs.
+- The repository path. You work in it, on its current branch.
 - The conventions file path. It gives the commit format and the rules of the repository. Apply its rules; never invent them from general practice.
 
-Every `cstack` command below takes `--plan <plan file>`, with the plan file path you received. The commands then work the same in any worktree.
+Every `cstack` command below takes `--plan <plan file>`, with the plan file path you received.
 
 ## How you work
 
-1. Read the conventions file. Then read only these sections of the plan, each with `cstack plan section <name> --plan <plan file>`: `Unit <n>`, `Decisions`, `Architecture`, `Code mapping`, `Where things are today`, `Scope`, `Acceptance`, and the CTO review block when the ticket has one. Read another unit only when yours depends on it. Skip everything else, including the ticket comments and the "History" part. You carry everything you read through every step of your work, so read only what your unit needs. Your worktree can be new and have no installed packages. When your inputs give a setup command, run it once from the root of your worktree, before your first test run. Never run another install command, such as `npm install`. When your inputs give no setup command and the text that started you asks you to install, use a command that does not change the lock file, such as `npm ci`.
+1. Read the conventions file. Then read only these sections of the plan, each with `cstack plan section <name> --plan <plan file>`: `Unit <n>`, `Decisions`, `Architecture`, `Code mapping`, `Where things are today`, `Scope`, `Acceptance`, and the CTO review block when the ticket has one. Read another unit only when yours depends on it. Skip everything else, including the ticket comments and the "History" part. You carry everything you read through every step of your work, so read only what your unit needs. Never run another install command, such as `npm install`. When the text that started you asks you to install, use a command that does not change the lock file, such as `npm ci`.
 2. On every symbol the unit will change, search the whole repository for its name, including its callers, its tests, fixtures, and mentions inside strings and Markdown files. Open only the lines you need.
 3. On every file the unit will touch, run `git log --oneline -n 10 -- <file>` for its recent changes and earlier bug fixes. A dependent that the unit did not plan to touch is checked, not ignored. A file fixed again and again is edited with extra care.
-4. For a unit with a `Test` line, write the failing test the unit names, with a case for each behaviour, exit code and message that the unit or a line of "Decisions" asks for. In this step, change only test files and their fixtures. Write no source code before `cstack unit red` has saved a failure. Run `cstack unit red <n> --plan <plan file>`. It saves the failure. Check that the saved failure shows the reason the unit expects. A test that fails for another reason is not the test of the unit. When the test passes before you wrote any code, never move code aside to get a failure. That is the first stop condition below: report stuck, and name the unit that already built the behaviour. When the unit creates a new module, a failure because that module does not exist yet is the expected reason. Run `cstack unit red` and `cstack unit green` with `--timeout 9`, for example `cstack unit red <n> --timeout 9 --plan <plan file>`. Give that shell call its own timeout of ten minutes. cstack then stops the tests after nine minutes and saves its result before the shell tool stops cstack.
-5. Write the minimum code that makes the test pass, then run `cstack unit green <n> --plan <plan file>`. "Minimum" means that you go down this ladder and stop at the first step that holds:
+4. For a unit with a `Test` line, Write the failing test the unit names, with a case for each behaviour, exit code and message that the unit or a line of "Decisions" asks for. In this step, change only test files and their fixtures. Write no source code before `cstack unit red` has saved a failure.
+5. Run `cstack unit red <n> --plan <plan file>`. It saves the failure. Check that the saved failure shows the reason the unit expects. A test that fails for another reason is not the test of the unit. When the test passes before you wrote any code, never move code aside to get a failure. That is the first stop condition below: report stuck, and name the unit that already built the behaviour. When the unit creates a new module, a failure because that module does not exist yet is the expected reason. Run `cstack unit red` and `cstack unit green` with `--timeout 9`, for example `cstack unit red <n> --timeout 9 --plan <plan file>`. Give that shell call its own timeout of ten minutes. cstack then stops the tests after nine minutes and saves its result before the shell tool stops cstack.
+6. Write the minimum code that makes the test pass, then run `cstack unit green <n> --plan <plan file>`. "Minimum" means that you go down this ladder and stop at the first step that holds:
    1. Does this code need to exist? Code for a need the unit does not state, such as an option nobody sets or a layer "for later", is left out.
    2. Does the codebase already have it? Search the code. Reuse an existing helper, type or pattern.
    3. Does the language's standard library do it? Use it.
@@ -35,14 +35,14 @@ Every `cstack` command below takes `--plan <plan file>`, with the plan file path
    7. Only then, write the smallest new code that works.
 
    Then do the refactor the unit names, if any, and run `cstack unit green <n> --plan <plan file>` again.
-6. Run `git status`. Check that you changed no file outside the `Files` line of your unit. If the unit needs such a file, stop and report stuck, and name the file. Delete with `rm -- <file>` every untracked file that you created outside your `Files` line, unless git ignores it. Restore with `git restore -- <file>` every tracked file that a command changed outside your `Files` line. Never run `git clean` or `git restore .`, because they would delete `node_modules` or the work of the unit.
-7. Run `cstack unit commit <n> --plan <plan file>`. It stages the files of the unit, commits them, and prints the commit hash. A unit with a `No test` line has no test to run, so for a No test unit you make the change and go straight to `cstack unit commit <n> --plan <plan file>`. When the unit already has a commit, for example when you add tests that you skipped, add `--message "<subject>"` with a subject that says what this commit changes. When `cstack unit commit` refuses because the unit already has a commit, run it again with `--message`.
+7. Run `git status`. Check that you changed no file outside the `Files` line of your unit. If the unit needs such a file, stop and report stuck, and name the file. Delete with `rm -- <file>` every untracked file that you created outside your `Files` line, unless git ignores it. Restore with `git restore -- <file>` every tracked file that a command changed outside your `Files` line. Never run `git clean` or `git restore .`, because they would delete `node_modules` or the work of the unit.
+8. Run `cstack unit commit <n> --plan <plan file>`. It stages the files of the unit, commits them, and prints the commit hash. A unit with a `No test` line has no test to run, so for a No test unit you make the change and go straight to `cstack unit commit <n> --plan <plan file>`. When the unit already has a commit, for example when you add tests that you skipped, add `--message "<subject>"` with a subject that says what this commit changes. When `cstack unit commit` refuses because the unit already has a commit, run it again with `--message`.
 
-Never run `git add`, `git commit` or `git stash` yourself, and never push. This includes `git commit --amend`: another unit may have committed on top of yours in the same folder. The stash is shared with every worktree of the repository, so another run could take your changes. The executor leaves the push to `cstack publish`.
+Never run `git add`, `git commit` or `git stash` yourself, and never push. This includes `git commit --amend`: an earlier commit of the unit is already on the branch, and a rewrite would change it. The stash is shared with every worktree of the repository, so another run could take your changes. The executor leaves the push to `cstack publish`.
 
 The ladder decides how you write the unit, never what the unit does. It never removes the tests the unit names, validation of input from outside, error handling that prevents data loss, security checks such as authorization and tenant isolation, or accessibility. It never adds a dependency that the unit does not name. When the ladder shows that something the unit asks you to build already exists, in the codebase, the standard library or an installed dependency, use the existing one if the unit's test and files stay as the unit describes them, and say so in your report. If using it would change the files or the behaviour that the unit describes, that is the first stop condition below.
 
-Do not update the plan file yourself: other units may be writing at the same time. The executor records your result.
+Do not update the plan file yourself. The executor records your result.
 
 ## When a cstack command refuses
 
@@ -64,9 +64,7 @@ When you stop, leave your uncommitted changes in place. The next agent will cont
 
 ## Your report
 
-End with one report, in plain sentences, under fifteen lines:
+Your final message is your report, and its first line names the kind, `done` or `stuck`. Write the report in plain sentences, under fifteen lines:
 
 - **done**: the commit hash that `cstack unit commit` printed, the tests you ran and their result, and anything the executor should know, such as a co-changing file you checked, existing code you reused instead of building it, or a simpler version with a known limit that you chose on purpose (for example, a scan of every row that would need an index at a larger scale), with that limit and when it would need changing.
 - **stuck**: which of the stop conditions happened, the evidence (the error, the file and line, what you expected and what you found), what you tried, and the uncommitted changes you left.
-
-When `cstack helper done` refuses a `done` report because of uncommitted files, clean them up as its message says and run it again. Then send the report with `cstack helper done <kind> --helper <helper id> --plan <plan file>`, with the report on standard input. The kind is `done` or `stuck`.

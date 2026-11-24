@@ -20,14 +20,26 @@ describe("the Start section of the build guide", () => {
     expect(start).toContain("Hand-off log");
   });
 
-  it("keeps the branch that cstack wave created", () => {
-    expect(start).toContain("cstack wave");
-    expect(start).toContain("issue-12");
+  it("keeps the current branch when git rev-list shows no commit that the target branch lacks", () => {
+    expect(start).toContain("git rev-list --count <target branch>..HEAD");
+    expect(start).not.toContain("cstack wave");
   });
 
-  it("has a Branch line in the plan template that names cstack wave", () => {
+  it("has a Branch line in the plan template that names git rev-list and not cstack wave", () => {
     const line = template.split("\n").find((l) => l.startsWith("Branch:"))!;
-    expect(line).toContain("cstack wave");
+    expect(line).toContain("git rev-list --count <target branch>..HEAD");
+    expect(line).not.toContain("cstack wave");
     expect(line).toMatch(/^Branch:\s*<.*>/);
+  });
+
+  it("keeps another branch only when it is not the default branch either", () => {
+    const sentence = start.split(/(?<=[.!?])\s+/).find((s) => s.includes("git rev-list --count <target branch>..HEAD"));
+    expect(sentence, "no sentence of the Start section names git rev-list").toBeDefined();
+    expect(sentence).toContain("neither the target branch nor the default branch");
+  });
+
+  it("has a Branch line in the plan template that leaves out the default branch", () => {
+    const line = template.split("\n").find((l) => l.startsWith("Branch:"))!;
+    expect(line).toContain("neither the target branch nor the default branch");
   });
 });

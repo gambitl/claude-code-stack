@@ -60,6 +60,8 @@ export interface Chain {
   /** Runs the built cstack after checking that the guide or prompt names the command. */
   follow(source: string, args: string[], options?: Options): Result;
   followInBackground(source: string, args: string[]): Waiter;
+  /** Runs a cstack command in the background, as followInBackground does, without the check of a guide. */
+  runInBackground(args: string[]): Waiter;
   /** Runs `cstack wave` in process, with a terminal that answers `answer`. */
   wave(args: string[], answer: string): Promise<Result>;
   git(...args: string[]): string;
@@ -198,6 +200,28 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
   const fakeLines = (file: string): Record<string, string>[] =>
     existsSync(join(fakeDir, file)) ? readFileSync(join(fakeDir, file), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l) as Record<string, string>) : [];
 
+  const runInBackground = (args: string[]): Waiter => {
+    const child: ChildProcess = spawn(process.execPath, [bin, ...args], { cwd: project, env, stdio: ["ignore", "pipe", "pipe"] });
+    let stdout = "";
+    let stderr = "";
+    child.stdout!.on("data", (d: Buffer) => (stdout += d.toString()));
+    child.stderr!.on("data", (d: Buffer) => (stderr += d.toString()));
+    const ended = new Promise<Result>((resolve) => child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr })));
+    return {
+      exitCode: () => child.exitCode,
+      finished: (timeoutMs) =>
+        Promise.race([
+          ended,
+          new Promise<Result>((_, reject) =>
+            setTimeout(() => {
+              child.kill("SIGKILL");
+              reject(new Error(`The command was still running after ${timeoutMs} ms.`));
+            }, timeoutMs),
+          ),
+        ]),
+    };
+  };
+
   return {
     env,
     temp,
@@ -215,26 +239,9 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
     },
     followInBackground(source, args) {
       check(source, args);
-      const child: ChildProcess = spawn(process.execPath, [bin, ...args], { cwd: project, env, stdio: ["ignore", "pipe", "pipe"] });
-      let stdout = "";
-      let stderr = "";
-      child.stdout!.on("data", (d: Buffer) => (stdout += d.toString()));
-      child.stderr!.on("data", (d: Buffer) => (stderr += d.toString()));
-      const ended = new Promise<Result>((resolve) => child.on("close", (code) => resolve({ code: code ?? -1, stdout, stderr })));
-      return {
-        exitCode: () => child.exitCode,
-        finished: (timeoutMs) =>
-          Promise.race([
-            ended,
-            new Promise<Result>((_, reject) =>
-              setTimeout(() => {
-                child.kill("SIGKILL");
-                reject(new Error(`The command was still running after ${timeoutMs} ms.`));
-              }, timeoutMs),
-            ),
-          ]),
-      };
+      return runInBackground(args);
     },
+    runInBackground,
     async wave(args, answer) {
       const load = (file: string) => import(pathToFileURL(join(temp, "dist", file)).href);
       const { wave } = await load("commands/wave.js");
