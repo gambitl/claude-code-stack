@@ -20,14 +20,15 @@ describe("the Start section of the build guide", () => {
     expect(start).toContain("Hand-off log");
   });
 
-  it("keeps the branch that cstack wave created", () => {
-    expect(start).toContain("cstack wave");
-    expect(start).toContain("issue-12");
+  it("keeps the current branch when git rev-list shows no commit that the target branch lacks", () => {
+    expect(start).toContain("git rev-list --count <target branch>..HEAD");
+    expect(start).not.toContain("cstack wave");
   });
 
-  it("has a Branch line in the plan template that names cstack wave", () => {
+  it("has a Branch line in the plan template that names git rev-list and not cstack wave", () => {
     const line = template.split("\n").find((l) => l.startsWith("Branch:"))!;
-    expect(line).toContain("cstack wave");
+    expect(line).toContain("git rev-list --count <target branch>..HEAD");
+    expect(line).not.toContain("cstack wave");
     expect(line).toMatch(/^Branch:\s*<.*>/);
   });
 });

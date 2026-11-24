@@ -183,11 +183,6 @@ const ATTRIBUTION = "Assisted-by: cstack end-to-end test";
 
 /** What an implementer does for one unit, with the commands of its prompt. */
 function implement(unit: number): void {
-  // The build guide starts each implementer. No batch holds two units, so no --child-worktree is given.
-  const started = follow(BUILD_GUIDE, ["helper", "start", "implementer", "--plan", PLAN, "--unit", String(unit)]);
-  expect(started.code, started.stderr).toBe(6);
-  expect(started.stdout).toContain("Sub-agent: resolve-issue:implementer");
-  const implementerId = started.stdout.trim().split("\n").pop()!.replace("Helper id: ", "");
   if (unit === 3) {
     copyFromUnit(3, "README.md");
   } else {
@@ -220,13 +215,8 @@ function implement(unit: number): void {
   expect(message.slice(-2)).toEqual([`${TRAILER}${unit}`, ATTRIBUTION]);
   expect(message.filter((l) => l.startsWith(TRAILER))).toHaveLength(1);
 
-  // The implementer prompt ends the report with cstack helper done, and the build guide waits for it.
+  // The implementer prompt still ends its report with cstack helper done. Unit 2 of the ticket changes that.
   expect(IMPLEMENTER).toContain("cstack helper done <kind> --helper <helper id> --plan <plan file>");
-  const done = run(["helper", "done", "done", "--helper", implementerId, "--plan", PLAN], `Unit ${unit} is committed.\n`);
-  expect(done.code, done.stderr).toBe(0);
-  const waited = follow(BUILD_GUIDE, ["helper", "wait", implementerId]);
-  expect(waited.code, waited.stderr).toBe(0);
-  expect(waited.stdout).toBe(`done\nUnit ${unit} is committed.\n`);
 }
 
 beforeAll(() => {
@@ -365,15 +355,15 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     expect(batchOf(1)).not.toBe(batchOf(2));
     expect(batches.flat().sort()).toEqual([1, 2, 3]);
 
+    // The build guide starts each implementer as a sub-agent. Claude does that, so the test checks only the prose.
+    expect(prose(BUILD_GUIDE, "the text that names the sub-agent")).toContain("resolve-issue:implementer");
+
     const committed: number[] = [];
     for (const batch of batches) {
       for (const unit of batch) {
         implement(unit);
         committed.push(unit);
       }
-      // No unit ran in a child worktree, so the collect skips every unit.
-      const collected = follow(BUILD_GUIDE, ["unit", "collect", ...batch.map(String), "--plan", PLAN]);
-      expect(collected.code, collected.stderr).toBe(0);
       const status = follow(lastGuide, ["plan", "status", "--plan", PLAN]);
       expect(status.code, status.stderr).toBe(0);
       for (const n of [1, 2, 3]) {

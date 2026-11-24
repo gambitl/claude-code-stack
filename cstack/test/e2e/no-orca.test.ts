@@ -58,7 +58,7 @@ describe.each(runs)("the chain with $name", ({ options }) => {
 
     for (const unit of [1, 2]) {
       const name = unit === 1 ? "square" : "cube";
-      const started = chain.follow(BUILD_GUIDE, ["helper", "start", "implementer", "--plan", chain.plan, "--unit", String(unit), "--child-worktree"]);
+      const started = chain.run(["helper", "start", "implementer", "--plan", chain.plan, "--unit", String(unit), "--child-worktree"]);
       expect(started.code, started.stderr).toBe(6);
       expect(started.stdout).toContain("Sub-agent: resolve-issue:implementer");
       expect(started.stdout).toContain(`- Unit number: ${unit}`);
@@ -74,14 +74,14 @@ describe.each(runs)("the chain with $name", ({ options }) => {
       const id = idOf(started.stdout);
       const done = chain.run(["helper", "done", "done", "--helper", id, "--plan", chain.plan], { input: `Unit ${unit} is committed.\n` });
       expect(done.code, done.stderr).toBe(0);
-      const waited = chain.follow(BUILD_GUIDE, ["helper", "wait", id]);
+      const waited = chain.run(["helper", "wait", id]);
       expect(waited.code, waited.stderr).toBe(0);
       expect(waited.stdout).toBe(`done\nUnit ${unit} is committed.\n`);
     }
   }, 150_000);
 
   it("skips both units in the collect, because no unit ran in a child worktree", () => {
-    const collected = chain.follow(BUILD_GUIDE, ["unit", "collect", "1", "2", "--plan", chain.plan]);
+    const collected = chain.run(["unit", "collect", "1", "2", "--plan", chain.plan]);
     expect(collected.code, collected.stderr).toBe(0);
     expect(collected.stdout).toContain("Unit 1 was skipped");
     expect(collected.stdout).toContain("Unit 2 was skipped");

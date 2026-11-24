@@ -106,9 +106,8 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
     const order = chain.follow(BUILD_GUIDE, ["unit", "order", "--plan", chain.plan]);
     expect(order.code, order.stderr).toBe(0);
     expect(order.stdout).toMatch(/^Batch 1: units 1, 2$/m);
-    expect(BUILD_GUIDE).toContain("`--child-worktree`");
     for (const unit of [1, 2]) {
-      const started = chain.follow(BUILD_GUIDE, ["helper", "start", "implementer", "--plan", chain.plan, "--unit", String(unit), "--child-worktree"]);
+      const started = chain.run(["helper", "start", "implementer", "--plan", chain.plan, "--unit", String(unit), "--child-worktree"]);
       expect(started.code, started.stderr).toBe(0);
       const path = chain.childPath(unit);
       expect(path).toBeDefined();
@@ -132,7 +131,6 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
       expect(green.code, green.stderr).toBe(0);
       const commit = chain.follow(IMPLEMENTER, ["unit", "commit", String(unit), "--plan", chain.plan], { cwd: path });
       expect(commit.code, commit.stderr).toBe(0);
-      expect(IMPLEMENTER).toContain("cstack helper done <kind> --helper <helper id> --plan <plan file>");
       const done = chain.run(["helper", "done", "done", "--helper", id, "--plan", chain.plan], { input: `Unit ${unit} is committed.\n`, cwd: path });
       expect(done.code, done.stderr).toBe(0);
     }
@@ -142,7 +140,7 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
     expect(chain.sentDispatches()).toHaveLength(2);
     expect(waiter.exitCode()).toBeNull();
     for (const { unit, id } of implementers) {
-      const waited = chain.follow(BUILD_GUIDE, ["helper", "wait", id]);
+      const waited = chain.run(["helper", "wait", id]);
       expect(waited.code, waited.stderr).toBe(0);
       expect(waited.stdout).toBe(`done\nUnit ${unit} is committed.\n`);
     }
@@ -150,7 +148,7 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
   });
 
   it("collects both units onto the ticket branch and removes the child worktrees", () => {
-    const collected = chain.follow(BUILD_GUIDE, ["unit", "collect", "1", "2", "--plan", chain.plan]);
+    const collected = chain.run(["unit", "collect", "1", "2", "--plan", chain.plan]);
     expect(collected.code, collected.stderr).toBe(0);
     expect(collected.stdout).toContain("Unit 1: applied 1 commit.");
     expect(collected.stdout).toContain("Unit 2: applied 1 commit.");
