@@ -347,6 +347,8 @@ Impact notes. The new condition `big-decision` is named in the ADR-RQG-C, the RE
 Reviewers. Correctness found one bug: the two git checks compared with the local target branch and not with its upstream, so a stale local `main` made the audit print "done" for work of other tickets. Fixed: `records.ts` now uses the upstream like `listUnitCommits()`, with a new test. Security found nothing; it suggested `--no-textconv`, which I added. Conventions found nothing at or above 80. Simplicity suggested `-G 'WHY:'`, which I added. Left as follow-ups because they are small or rare: use `Pick` for the `Records` type, use a `Set` in `records()`, inline `GIT_ACTIONS`, a record name that is a prefix of another name, and a `WHY:` line in a file whose name needs quoting.
 
 
+Independent review. The reviewer changed nothing and found no bug or broken convention. Two timeouts in files this branch does not touch passed when run alone. Judgment calls for the pull request: the base-branch lookup `baseOf()` in `records.ts` copies the upstream logic of `listUnitCommits()`, and a shared helper would keep them together. A record file with a lowercase name gives no short name, so the audit uses the text before the colon as the name, as the plan decided. A `WHY:` scan reads an added line that begins with `++ ` as a file header, which is rare.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
