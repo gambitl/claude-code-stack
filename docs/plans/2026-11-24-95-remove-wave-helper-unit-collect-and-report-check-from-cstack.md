@@ -401,6 +401,42 @@ Independent review (executor, 2026-11-24): the reviewer found no bug, security p
 
 ## Briefing
 
+### What you should know about what was built
+
+The branch removes the six commands `cstack wave`, `cstack helper start`, `cstack helper wait`, `cstack helper done`, `cstack unit collect` and `cstack report check`. Their code, their tests, their recorded Orca answers and their README paragraphs go with them. It does what the ticket asks: I ran the type check and the key test files again (106 cases, all green), and the branch is up to date with `main`.
+
+**What you need to do**
+
+- **Approve a correction comment on the ticket that removes `setupCommand` (#97).** The posted comment is not the approved text, because it leaves out the settings template `cstack/skills/resolve-issue/templates/settings.json`. If #97 removes the key from the code but not from the template, `cstack` will refuse every new settings file copied from the template. I propose to add this comment, word for word: "One correction to my comment above: `watchIntervalMinutes` is also in the settings template `cstack/skills/resolve-issue/templates/settings.json` (line 7). Please remove it there in the same change, or `cstack` will refuse every settings file copied from the template."
+
+**What to watch**
+
+- Watch the merges with the ticket that changes `cstack next` (#102) and the ticket that changes `unit red` and `unit green` (#100). I simulated the merge with the branch of #102: no conflict, and the new message after `--done publish` stays in the code and in its test. The branch of #100 is not pushed yet. After the second merge, run the whole suite again, because the test that counts the built commands (eighteen) breaks as soon as a ticket adds one.
+- At release time (#104), anyone who still has the 0.3.2 skills installed and a run in progress will hit `cstack helper done`. It now answers "unknown command" with exit code 2. The comments on #104 already say so, so check that this reaches the release notes.
+- Nothing refuses a finished unit without a saved failing run and passing run any more. Only `cstack unit commit` still requires the passing run, so a commit made by hand with the `Cstack-Unit:` line passes. In practice, this was already true since #93.
+
+**What changed since the plan**
+
+- One deleted test was the only check of the file name that `saveReport()` writes. The function did not change, so only that coverage is gone.
+
+### Details
+
+The comment on #97 is at https://github.com/gambitl/claude-code-stack/issues/97#issuecomment-7127747251. The decision of the question round fixed its words: "Please remove `watchIntervalMinutes` in the same change as `setupCommand`. Only `cstack wave --watch` read it, and #95 removed that command. The key is in `cstack/src/settings.ts` and in `cstack/skills/resolve-issue/templates/settings.json`." The posted text says instead that the key is "in `cstack/src/settings.ts` and in `cstack/test/`". So it names the test file, which #97 would find anyway, and leaves out the template, which is the one place a reader of #97 could miss. `unknownKeys()` in `cstack/src/settings.ts` refuses an unknown key. The template (`cstack/skills/resolve-issue/templates/settings.json`, line 7) still holds the key, and new repositories copy it. If #97 removes the key from the reader only, every settings file made from the template breaks. I rejected editing the posted comment in place, because GitHub sends no notification for an edit and the #97 run may already have read it. A follow-up comment is visible and cheap. Nothing reaches #97 until the developer approves the words. If nobody decides, #97 works from the incomplete comment, and its own code map may or may not find the template.
+
+I simulated the merge with `git merge-tree --write-tree HEAD origin/gambitl/plan-facts-check`, which is the branch of #102. It reported no conflict. In the merged tree, `cstack/src/commands/next.ts` (line 183) and `cstack/test/next.test.ts` (line 342) both hold the new message "The run is finished. Submit your published report with cstack report submit published --plan <plan file>." So the change at line 181 of `next.ts` and the change of #102 around `missingToStart()` merge cleanly. No pushed branch changes `cstack/src/commands/unit-red.ts`, so the branch of #100 could not be checked. The coordinator said that #100 imports no removed module. The case of `cstack/test/manifest.test.ts` that counts the built commands now expects eighteen. A ticket that adds a built command and merges after this one will not conflict on that line unless it changes the count too. The suite then fails on `main` rather than on the branch. This is the reason to run the whole suite after the second merge.
+
+The installed 0.3.2 executor prompt ends with `cstack helper done`. With a binary built from this branch, that call reaches `fail()` in `run()` of `cstack/src/cli.ts` and exits with 2. This only matters once #104 publishes the release, because users install `cstack` from npm and `main` reaches nobody before that. The comment on #104 lists the six commands, `CSTACK_ORCA_WORKERS`, what replaces them and the new answers. Earlier comments on #104 ask users to finish their runs and to run `cstack skills install` again. No action is needed in this ticket.
+
+The removed `checkImplementer()` in `cstack/src/report/reports.ts` refused a done report of an implementer when a unit with a `Test` line had no `red.json` or no `green.json` in its run folder. Since #93, implementers are sub-agents that never call `cstack helper done`, so that check had no caller in a real run already. What remains is `cstack unit green`, which refuses a unit with no saved failing run (`cstack/src/commands/unit-green.ts`, line 16), and `cstack unit commit`, which refuses a unit with a `Test` line and no saved passing run (`cstack/src/commands/unit-commit.ts`, line 72). `buildDone()` in `cstack/src/phases.ts` (line 71) only counts commits with the `Cstack-Unit:` trailer, so a commit made by plain git passes the executor's done report. `cstack plan status` shows `failingRunSaved` and `passingRunSaved`, but does not refuse. #100 works on `unit red`, `unit green` and the audit of one unit, so it is the natural place to close this gap if the maintainer wants it closed. This is not a question for this ticket, because the ticket's acceptance asks only that `report submit` keeps refusing a done report while a unit has no commit, which `buildDone()` still does.
+
+The lost coverage of `saveReport()` comes from the deletion of the case "saves unit reports apart from the run reports and finds the latest of a helper" of `cstack/test/report.test.ts`. The case "never replaces a report saved at the same time" still covers the uniqueness of the file name, but not its exact form. The independent review accepted this. A later test can add it if the file name ever matters to a reader.
+
+The earlier questions are all resolved as the user approved them. The message after `--done publish` has the exact approved words, and `cstack/test/next.test.ts` checks them. `cstack unit collect` and `cstack report check` answer with the usage of their group and exit with 2, and `cstack wave` and `cstack helper` answer as unknown commands, which five new cases of `cstack/test/cli.test.ts` check. Each case calls the removed command with `--cstack-unknown-flag`, as accepted by default. `watchIntervalMinutes` stays in `cstack/src/settings.ts` and in the template, and the comment on #97 was posted with the gap described above. `cstack/src/plan/unit-line.ts` and its test are gone, and line 71 of `cstack/skills/resolve-issue/templates/plan.md` has the exact approved words. `cstack/test/e2e/no-orca.test.ts` keeps only its tracker cases, with a trimmed `chain.ts` and a fake `bin/orca` that answers only `--version`, `status --json` and `agent-context --json`. `cstack unit order` keeps its output, and only its summary changed.
+
+The review log names commits 45c4646 and 444c417 and "Decision 70" and "Decision 71". The rebase changed those hashes to 1fd8946 and de25cd3, and the decisions of this plan file have no numbers. The pull request body should name the commits by their current hashes and the decisions by what they say. No new question arose after the build, and the open non-blocking question about `hasWorktree` and `readAt` is already listed below. All commits use the no-reply address.
+
+I checked security and authorization, data model lock-in, scale and performance, UX edge cases, and operations and cost, and found nothing that this ticket touches.
+
 ## Non-blocking questions
 
 1. `cstack/src/tracker/ready.ts` keeps an argument `hasWorktree` that only `cstack wave` set, and `cstack/src/run-state.ts` keeps the field `readAt` of `SavedReport`, which only `cstack report check` wrote. Should a later ticket remove both? This pull request leaves them, because neither file belongs to it and both are harmless.
@@ -412,6 +448,7 @@ Independent review (executor, 2026-11-24): the reviewer found no bug, security p
 
 - Ticket comment on #95: https://github.com/gambitl/claude-code-stack/issues/95
 - Comment on #97 (remove `watchIntervalMinutes` with `setupCommand`): https://github.com/gambitl/claude-code-stack/issues/97
+- Correction on #97 about the settings template: same link as above.
 - Comment on #104 (what to say in the release notes): https://github.com/gambitl/claude-code-stack/issues/104
 - `README.md`, `cstack/skills/resolve-issue/templates/plan.md` and `cstack/test/fixtures/orca/README.md`, changed on the branch by units 10, 11 and 7.
 - No decision record: ADR-RQG-A already records this removal.
