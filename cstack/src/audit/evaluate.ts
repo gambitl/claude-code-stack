@@ -90,6 +90,7 @@ type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?
 
 const IMPLEMENTER = "resolve-issue:implementer";
 const ESCALATION = "resolve-issue:implementer-escalation";
+export const IMPLEMENTER_TYPES = [IMPLEMENTER, ESCALATION];
 const UNIT_CALLS = ["red", "green", "commit"].map((word) => stepWords(`unit ${word} <n>`));
 const REPEATED = ["each-unit", "each-unit-with-test"];
 type Kind = "unit" | "ticket" | "single" | "helper" | "git";

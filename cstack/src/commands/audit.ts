@@ -6,7 +6,7 @@ import { readCalls } from "../audit/calls.js";
 import { readConditions } from "../audit/conditions.js";
 import { wholeFileLines } from "../audit/whole-file.js";
 import { mainFiles } from "../audit/main-session.js";
-import { evaluatePhases, evaluateSteps, formatLine } from "../audit/evaluate.js";
+import { evaluatePhases, evaluateSteps, formatLine, IMPLEMENTER_TYPES } from "../audit/evaluate.js";
 import { readSteps, type Step } from "../guide-steps.js";
 import type { Io } from "../io.js";
 import { MomentsError, readMoments, worktreeFolders } from "../measure/moments.js";
@@ -152,8 +152,7 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
   if (main.fallback) {
     io.stderr("cstack audit: no session file holds the close of the ticket phase, so the steps of the main conversation may show the calls of another agent.\n");
   }
-  const IMPLEMENTERS = ["resolve-issue:implementer", "resolve-issue:implementer-escalation"];
-  const noTranscript = read.launches.some((launch) => launch.kind === "sub-agent" && IMPLEMENTERS.includes(launch.type) && launch.transcript === undefined);
+  const noTranscript = read.launches.some((launch) => launch.kind === "sub-agent" && IMPLEMENTER_TYPES.includes(launch.type) && launch.transcript === undefined);
   if (!leftOut.includes("build") && noTranscript) {
     io.stderr("cstack audit: some implementer launches have no sub-agent transcript with a meta file, so the units they built may show as skipped.\n");
   }
