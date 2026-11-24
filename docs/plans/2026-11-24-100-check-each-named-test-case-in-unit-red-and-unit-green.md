@@ -437,6 +437,8 @@ I checked security, data model lock-in, scale, failure modes and rollback, user-
 ## Non-blocking questions
 
 - A comment from #99 says that pytest gives `error`, not `failed`, for a broken fixture. `cstack unit red` counts `error` as a failure, as the ticket asks, so a case can fail first for the wrong reason. Should a later ticket treat `error` differently in the red run? For: the maintainer of `cstack`.
+- This repository's `.cstack/settings.json` declares no per-case report, so the check of each named test case added by #100 never runs on this repository's own tickets. Should a later ticket add `"report": "junit"` and make `testCommands.file` write a JUnit report, for example with vitest's `--reporter=default --reporter=junit --outputFile.junit={report}`? For: the maintainer of `cstack`.
+- The plan asks the pull request body to say that a note written in a child worktree is lost. On the rebased `main` there are no child worktrees any more, so that limit no longer exists. Should the pull request body drop that sentence? I recommend dropping it, and the pull request follows that unless you say otherwise. For: the coordinator of the wave.
 
 ## Pull request
 
