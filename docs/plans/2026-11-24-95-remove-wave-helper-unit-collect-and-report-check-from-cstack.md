@@ -410,10 +410,22 @@ Independent review (executor, 2026-11-24): the reviewer found no bug, security p
 
 ## Documentation
 
+- Ticket comment on #95: https://github.com/gambitl/claude-code-stack/issues/95
+- Comment on #97 (remove `watchIntervalMinutes` with `setupCommand`): https://github.com/gambitl/claude-code-stack/issues/97
+- Comment on #104 (what to say in the release notes): https://github.com/gambitl/claude-code-stack/issues/104
+- `README.md`, `cstack/skills/resolve-issue/templates/plan.md` and `cstack/test/fixtures/orca/README.md`, changed on the branch by units 10, 11 and 7.
+- No decision record: ADR-RQG-A already records this removal.
+
 ## Executor notes
+
+- I started `cstack helper wait` for unit 1 before its sub-agent had returned, and it exited with 1 ("finished without an accepted report"). I waited for the sub-agent and ran it again.
+- I once piped `cstack helper wait` into `head`, which the brief forbids. The output was complete, and I did not do it again.
+- The first full `npm test` showed two failures in one file while another test run went at the same time. A second run alone passed all tests.
+- `cstack tracker comment` printed a 504 from GitHub, yet all three comments were posted. I checked the issues before I tried again, so nothing is duplicated.
 
 ## Hand-off log
 
+- 2026-11-24, executor, build to document: built units 1 to 11 with one sub-agent each, one at a time. Reviewed with four reviewers and one independent reviewer. Rebased onto main without conflicts, and the full suite passed (1701 tests). Wrote the ticket comments on #95, #97 and #104.
 - 2026-11-24, executor, build phase: moved ticket #95 to "in progress" with cstack tracker move. Branch gambitl/remove-old-commands is checked out.
 
 ## History
