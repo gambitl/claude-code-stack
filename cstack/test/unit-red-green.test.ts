@@ -844,3 +844,73 @@ describe("cstack unit green with a per-case report", () => {
     expect(JSON.parse(readFileSync(greenFile(dir), "utf8")).cases).toEqual([{ name: "case one", outcome: "passed" }]);
   });
 });
+
+describe("the check of the whole test file", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  const readGreen = (dir: string) => JSON.parse(readFileSync(join(unitFiles(dir), "green.json"), "utf8"));
+  const HINT = "Check that testCommands.file in .cstack/settings.json makes the test tool write a JUnit report to {report}. The plan file notes this under unit 1.\n";
+
+  it("cstack unit red without a per-case report saves the fallback and its reason in red.json and says so", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "no-report" });
+    expect(r.stdout).toContain(
+      "cstack unit red: The settings declare no per-case report, so cstack checked the whole test file. The plan file notes this under unit 1.\n",
+    );
+  });
+
+  it("cstack unit green without a per-case report saves the fallback and its reason in green.json and says so", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(readGreen(dir)).toMatchObject({ caseCheck: "file", fallback: "no-report" });
+    expect(r.stdout).toContain(
+      "cstack unit green: The settings declare no per-case report, so cstack checked the whole test file. The plan file notes this under unit 1.\n",
+    );
+  });
+
+  it("cstack unit red falls back when the declared report is missing, warns and names testCommands.file", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "missing" });
+    expect(r.stderr).toContain(
+      `cstack unit red: Warning: the test command wrote no report file, so cstack checked the whole test file. ${HINT}`,
+    );
+  });
+
+  it("cstack unit red falls back when the declared report is malformed, warns and gives the problem", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), 'echo garbage > "$1"\nexit 1\n');
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "malformed" });
+    expect(r.stderr).toContain(
+      `cstack unit red: Warning: the report file is not a JUnit report that cstack can read, so cstack checked the whole test file. ${HINT}`,
+    );
+    expect(r.stderr).toMatch(/The reader of the report says: .+\n/);
+  });
+
+  it("cstack unit green falls back when the declared report is missing, warns and saves the reason", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(readGreen(dir)).toMatchObject({ caseCheck: "file", fallback: "missing" });
+    expect(r.stderr).toContain(
+      `cstack unit green: Warning: the test command wrote no report file, so cstack checked the whole test file. ${HINT}`,
+    );
+  });
+});

@@ -1,4 +1,5 @@
 import { rmSync } from "node:fs";
+import type { Io } from "./io.js";
 import { join } from "node:path";
 import type { CaseOutcome } from "./junit-report.js";
 import { writeFileAtomic, type SavedTestRun } from "./run-state.js";
@@ -52,4 +53,20 @@ export function saveFailingRun(runDir: string, unit: number, run: FailingUnitRun
 /** Saves a passing run. The failing run stays. */
 export function savePassingRun(runDir: string, unit: number, run: SavedUnitRun, log: string): void {
   write(runDir, unit, "green", run, log);
+}
+
+/**
+ * Tells the user that the whole test file was checked, and why.
+ * Without a declared report it writes on standard output. With a declared report that gave none, it writes a warning on standard error.
+ */
+export function printFallback(io: Io, kind: "red" | "green", unit: number, fallback: Fallback, problem?: string): void {
+  const prefix = `cstack unit ${kind}: `;
+  if (fallback === "no-report") {
+    io.stdout(`${prefix}The settings declare no per-case report, so cstack checked the whole test file. The plan file notes this under unit ${unit}.\n`);
+    return;
+  }
+  io.stderr(
+    `${prefix}Warning: ${FALLBACK_REASONS[fallback]}, so cstack checked the whole test file. Check that testCommands.file in .cstack/settings.json makes the test tool write a JUnit report to {report}. The plan file notes this under unit ${unit}.\n`,
+  );
+  if (fallback === "malformed" && problem !== undefined) io.stderr(`The reader of the report says: ${problem}\n`);
 }
