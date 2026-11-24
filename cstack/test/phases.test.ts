@@ -72,6 +72,49 @@ describe("the done checks and start conditions", () => {
     expect(phase("plan").start!(context(answered(text)))).toEqual([]);
   });
 
+  describe("the changes to what the ticket fixes", () => {
+    const withChanges = (text: string, lines: string[]) =>
+      text.replace("## Changes to what the ticket fixes\n\nnone", `## Changes to what the ticket fixes\n\n${lines.join("\n")}`);
+    const lineOf = (text: string, needle: string) => text.split("\n").findIndex((l) => l === needle) + 1;
+    const doneOf = (text: string) => phase("plan").done!(context(text));
+
+    it("plan refuses a change whose blocking question does not exist", () => {
+      const change = "- The flag is long. Blocking question: 3";
+      const text = withChanges(answered(fixture("approved")), [change]);
+      expect(doneOf(text)).toContain(
+        `The change at line ${lineOf(text, change)} of the plan: blocking question 3 does not exist.`,
+      );
+    });
+
+    it("plan refuses a change whose blocking question is still open", () => {
+      const change = "- The name is short. Blocking question: 2";
+      const text = withChanges(fixture("approved"), [change]);
+      expect(doneOf(text)).toContain(
+        `The change at line ${lineOf(text, change)} of the plan: blocking question 2 has no answer yet.`,
+      );
+    });
+
+    it("plan refuses a change whose blocking question has an empty answer", () => {
+      const change = "- The name is short. Blocking question: 2";
+      const text = withChanges(fixture("approved").replace("- Answer: open", "- Answer: "), [change]);
+      expect(doneOf(text)).toContain(
+        `The change at line ${lineOf(text, change)} of the plan: blocking question 2 has no answer yet.`,
+      );
+    });
+
+    it("plan passes a change whose blocking question is answered", () => {
+      const one = "- The flag is long. Blocking question: 1";
+      const two = "- The name is short. Blocking question: 2";
+      const base = answered(fixture("approved"));
+      expect(doneOf(withChanges(base, [one]))).toEqual([]);
+      const text = withChanges(fixture("approved"), [one, two]);
+      const messages = doneOf(text).filter((m) => m.startsWith("The change at line"));
+      expect(messages).toEqual([
+        `The change at line ${lineOf(text, two)} of the plan: blocking question 2 has no answer yet.`,
+      ]);
+    });
+  });
+
   it("plan fails when the status is not approved", () => {
     const text = answered(fixture("approved")).replace("Status: approved", "Status: draft");
     expect(phase("plan").done!(context(text))).not.toEqual([]);
