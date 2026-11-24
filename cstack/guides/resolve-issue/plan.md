@@ -84,6 +84,8 @@ The `retro` guide sends you back here after the `publish` phase. Its final messa
 - **needs-decision.** Ask the user the question, write the answer into `## Decisions`, and start a fresh executor with the same four inputs.
 - **failed.** Tell the user plainly what it returns, and stop.
 
+When this session is an Orca worker, the run of this skill ends with the **published** report. After you tell the user about it, send `worker_done` once, with the command that Orca's preamble gives. Put the pull request link and the state of its checks in its body. Never send it while the run still goes on, for example at a question or at the approval gate, because it tells the coordinator that the ticket is done. When the run ends without a pull request, Orca's preamble says what to do.
+
 ## Close the phase
 
 The command that closes this phase is `cstack next --done plan`. You ran it at approval, before you started the executor.
