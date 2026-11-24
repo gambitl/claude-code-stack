@@ -402,13 +402,17 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- My first `cstack helper start implementer --unit 1` ran without `CSTACK_ORCA_WORKERS=off` and was piped into `head`. It started an Orca worker (helper id 20261124-070120162-implementer-1) in this worktree at the same time as the sub-agent. The coordinator stopped that worker. I checked the unit 1 commit, and it holds only the sub-agent's content.
+- `cstack unit green` of unit 1 warned that `helpers-are-sub-agents.test.ts` had changed after the red run, and its import of `relative` was missing. This was probably the stray worker, and the sub-agent fixed it.
+- The unit 3 implementer wrote the guide edits before `cstack unit red`, so red refused. It restored the sources with `git restore`, saved the red run, and reapplied the patch.
+- `cstack helper wait` exited with 1 when I ran it while the sub-agent was still running. The build guide says to run it only after the sub-agent returns. Later units no longer need that command.
+- The unit 4 implementer said that `cstack helper done` accepted its report, although the prompt of unit 2 no longer names that command.
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
-- 2026-11-24, executor run 1: moved the ticket to "in progress" with `cstack tracker move`. The run keeps the branch `gambitl/subagent-helpers`, which the `Branch` line names.
+- 2026-11-24, executor run 1: moved the ticket to "in progress" with `cstack tracker move`. The run keeps the branch `gambitl/subagent-helpers`, which the `Branch` line names. The build finished with units 1 to 4 committed, each built by one implementer sub-agent, one after the other.
 
 ## History
 
