@@ -382,6 +382,7 @@ I checked security, data model lock-in, scale, failure modes, reversibility, ope
 ## Non-blocking questions
 
 - The briefing phase can also write a decision record (`cstack/guides/resolve-issue/briefing.md`, line 18). Should the block of the briefing guide get the same two steps of a big decision? For: the maintainer.
+- Should the plan guide (`cstack/guides/resolve-issue/plan.md`) require that the line of a decision record in "Documentation duties" names its `.md` file in backticks? Without the file name, the audit uses the text before the colon as the record name, and the `WHY:` step can never show "done". For: the maintainer.
 
 ## Pull request
 
