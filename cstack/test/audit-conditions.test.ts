@@ -90,4 +90,112 @@ describe("readConditions", () => {
     const text = "A new decision was taken in the question round.";
     expect(readConditions(text, planOf({ first: 1, last: 1 })).newStructuralDecision).toBe(true);
   });
+
+  describe("decision records of the documentation duties", () => {
+    /** A plan with a Decisions section and then a Documentation duties section. */
+    function dutiesPlan(duties: string[], decisions: string[] = []) {
+      const lines = ["## Decisions", "", ...decisions, ""];
+      const first = lines.length + 1;
+      lines.push("## Documentation duties", "", ...duties);
+      const last = lines.length;
+      const plan = {
+        sections: [
+          { name: "Decisions", first: 1, last: first - 1, filled: true, bodyLines: 1 },
+          { name: "Documentation duties", first, last, filled: true, bodyLines: 1 },
+        ],
+        units: [],
+      } as unknown as PlanRead;
+      return { text: lines.join("\n"), plan };
+    }
+
+    async function read(duties: string[], decisions: string[] = []) {
+      const { readConditions } = await load();
+      const { text, plan } = dutiesPlan(duties, decisions);
+      const c = readConditions(text, plan);
+      return { bigDecision: c.bigDecision, recordFiles: c.recordFiles, recordNames: c.recordNames };
+    }
+
+    const A = "docs/decisions/ADR-SAMPLE-A-sample.md";
+    const B = "docs/decisions/ADR-SAMPLE-B-other.md";
+
+    it("sets bigDecision for a duty that names a record and says applies", async () => {
+      expect(await read([`- ADR-SAMPLE-A: applies, written to \`${A}\` by unit 2.`])).toEqual({
+        bigDecision: true,
+        recordFiles: [A],
+        recordNames: ["ADR-SAMPLE-A"],
+      });
+    });
+
+    it("accepts the path of the record before the colon", async () => {
+      expect(await read([`- ADR-SAMPLE-A (\`${A}\`): applies, a short section added.`])).toEqual({
+        bigDecision: true,
+        recordFiles: [A],
+        recordNames: ["ADR-SAMPLE-A"],
+      });
+    });
+
+    it("accepts the words decision record in any case", async () => {
+      const r = await read([`- Decision Record: Applies, written to \`${B}\`.`]);
+      expect(r.bigDecision).toBe(true);
+      expect(r.recordNames).toEqual(["ADR-SAMPLE-B"]);
+    });
+
+    it("clears bigDecision for a duty that does not apply", async () => {
+      expect(await read(["- Architecture decision record: does not apply."])).toEqual({
+        bigDecision: false,
+        recordFiles: [],
+        recordNames: [],
+      });
+    });
+
+    it("ignores a duty that names a record only after its colon", async () => {
+      const r = await read(["- The comment on this ticket: applies, it names ADR-SAMPLE-A."]);
+      expect(r.bigDecision).toBe(false);
+    });
+
+    it("ignores the word ADR inside a longer word", async () => {
+      const r = await read(["- The ADRESSE page: applies, written to the wiki."]);
+      expect(r.bigDecision).toBe(false);
+    });
+
+    it("ignores a matching line outside the Documentation duties section", async () => {
+      const r = await read(
+        ["- A decision record: does not apply."],
+        [`- ADR-SAMPLE-A: applies, written to \`${A}\`.`],
+      );
+      expect(r.bigDecision).toBe(false);
+    });
+
+    it("ignores the placeholder of the template", async () => {
+      const r = await read([
+        '<phase document: each duty "applies, written to <place>" or "does not apply">',
+      ]);
+      expect(r.bigDecision).toBe(false);
+    });
+
+    it("keeps only the paths in backticks that end in .md", async () => {
+      const r = await read([
+        `- ADR-SAMPLE-A: applies, written to \`${A}\`, with a comment in \`src/a.ts\`.`,
+      ]);
+      expect(r.recordFiles).toEqual([A]);
+    });
+
+    it("names the record by the text before the colon when the duty names no .md file", async () => {
+      expect(await read(["- ADR-157: applies, written to the wiki page of the team."])).toEqual({
+        bigDecision: true,
+        recordFiles: [],
+        recordNames: ["ADR-157"],
+      });
+    });
+
+    it("lists each file and each name once over two duties", async () => {
+      const r = await read([
+        `- ADR-SAMPLE-A: applies, written to \`${A}\`.`,
+        `- ADR-SAMPLE-A again: applies, a section in \`${A}\`.`,
+        `- ADR-SAMPLE-B: applies, written to \`${B}\`.`,
+      ]);
+      expect(r.recordFiles).toEqual([A, B]);
+      expect(r.recordNames).toEqual(["ADR-SAMPLE-A", "ADR-SAMPLE-B"]);
+    });
+  });
 });
