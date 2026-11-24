@@ -5,7 +5,7 @@ import { readSavedRun } from "../saved-runs.js";
 import { runTests, testScript, usesReport } from "../test-run.js";
 import { caseName, checkNamedCases, fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { deletePassingRun, printFallback, savePassingRun, type FailingUnitRun, type SavedUnitRun } from "../unit-test-runs.js";
+import { deletePassingRun, buildNote, noteFailed, printFallback, writeUnitNote, savePassingRun, type FailingUnitRun, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitGreen(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -18,7 +18,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 1;
   });
   if (typeof context === "number") return context;
-  const { root, runDir, unit, testFile, commands, timeoutMs } = context;
+  const { root, runDir, unit, testFile, commands, timeoutMs, planPath } = context;
 
   // WHY: red.json is written by saveFailingRun, so it has the fields of a SavedUnitRun. An older file may lack the hash.
   let saved: (Partial<FailingUnitRun>) | undefined;
@@ -164,5 +164,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
   }
   io.stdout(`${prefix}Unit ${unit.number} passes. The passing run is saved in ${runDir}/units/${unit.number}/green.json.\n`);
   if (caseRun.caseCheck === "file") printFallback(io, "green", unit.number, caseRun.fallback!, report !== undefined && "problem" in report ? report.message : undefined);
+  const problem = await writeUnitNote(root, planPath, unit.number, "green", buildNote("green", caseRun.fallback));
+  if (problem !== undefined) return noteFailed(io, "green", unit.number, problem);
   return 0;
 }

@@ -1,15 +1,15 @@
 import type { Io } from "../io.js";
 import { runTests, testScript, usesReport } from "../test-run.js";
-import { caseName, checkNamedCases, fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { caseName, checkNamedCases, fileSha256, headCommit, headTestFile, prepareUnitTest, printTestOutput, unnamedPassingCases } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { printFallback, saveFailingRun, type SavedUnitRun } from "../unit-test-runs.js";
+import { buildNote, noteFailed, printFallback, saveFailingRun, writeUnitNote, type SavedUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitRed(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
   const prefix = "cstack unit red: ";
   const context = prepareUnitTest("red", args, io, cwd);
   if (typeof context === "number") return context;
-  const { root, runDir, unit, testFile, commands, timeoutMs } = context;
+  const { root, runDir, unit, testFile, commands, timeoutMs, planPath } = context;
 
   const startedAt = new Date().toISOString();
   const status = readUnitStatus(root, unit.files);
@@ -88,6 +88,19 @@ export async function unitRed(args: string[], io: Io, cwd: string = process.cwd(
   }
   io.stdout(`${prefix}Unit ${unit.number} fails as it should (exit code ${run.exitCode}). The failing run is saved in ${runDir}/units/${unit.number}/red.json.\n`);
   if (caseRun.caseCheck === "file") printFallback(io, "red", unit.number, caseRun.fallback!, report !== undefined && "problem" in report ? report.message : undefined);
+  let unnamed: string[] = [];
+  if (report !== undefined && "cases" in report) {
+    unnamed = unnamedPassingCases(unit.test!.cases, report.cases, headTestFile(root, testFile));
+    if (unnamed.length > 0) {
+      io.stdout(
+        `${prefix}Warning: these cases of ${testFile} are not named in unit ${unit.number}, and they passed before the code existed:\n` +
+          unnamed.map((n) => `  ${caseName(n)}\n`).join("") +
+          `If one of them is new, name it on a \`- Test:\` line of the unit and make it fail first. The plan file notes this under unit ${unit.number}.\n`,
+      );
+    }
+  }
+  const problem = await writeUnitNote(root, planPath, unit.number, "red", buildNote("red", caseRun.fallback, unnamed));
+  if (problem !== undefined) return noteFailed(io, "red", unit.number, problem);
   if (commands.file === undefined) {
     io.stdout(
       `The whole test suite ran. Check in red.log that the test of unit ${unit.number} is the one that fails.\n`,

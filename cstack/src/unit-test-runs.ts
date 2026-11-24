@@ -1,8 +1,11 @@
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync } from "node:fs";
 import type { Io } from "./io.js";
 import { join } from "node:path";
 import type { CaseOutcome } from "./junit-report.js";
-import { writeFileAtomic, type SavedTestRun } from "./run-state.js";
+import { caseName } from "./unit-test-command.js";
+import { withCommitLock } from "./commit-lock.js";
+import { readPlan } from "./plan/read.js";
+import { gitFolders, writeFileAtomic, type SavedTestRun } from "./run-state.js";
 
 /** Why a run checked the whole test file instead of each case. The messages and notes use these words only. */
 export const FALLBACK_REASONS = {
@@ -69,4 +72,62 @@ export function printFallback(io: Io, kind: "red" | "green", unit: number, fallb
     `${prefix}Warning: ${FALLBACK_REASONS[fallback]}, so cstack checked the whole test file. Check that testCommands.file in .cstack/settings.json makes the test tool write a JUnit report to {report}. The plan file notes this under unit ${unit}.\n`,
   );
   if (fallback === "malformed" && problem !== undefined) io.stderr(`The reader of the report says: ${problem}\n`);
+}
+
+const noteStart = (kind: "red" | "green") => `Note of cstack unit ${kind}: `;
+
+/**
+ * Returns the plan text with the note of one command in one unit. The old note of that command goes first.
+ * A new note goes after the last line of the unit that is not empty. Without a note, the old one is only removed.
+ * The unit runs from its heading to the line before the next heading.
+ */
+export function setUnitNote(text: string, unit: number, kind: "red" | "green", note: string | undefined): string {
+  const plan = readPlan(text);
+  const target = plan.units.find((u) => u.number === unit);
+  if (!target) throw new Error(`The plan has no unit ${unit}.`);
+  const lines = text.split("\n");
+  const next = plan.headings.find((heading) => heading.line > target.line);
+  const end = next ? next.line - 1 : lines.length;
+  const start = target.line;
+  const kept = lines.slice(start, end).filter((line) => !line.startsWith(noteStart(kind)));
+  let last = kept.length - 1;
+  while (last >= 0 && kept[last].trim() === "") last--;
+  if (note !== undefined) kept.splice(last + 1, 0, note);
+  return [...lines.slice(0, start), ...kept, ...lines.slice(end)].join("\n");
+}
+
+/** Writes the note into the plan file, inside the commit lock of the plan file. It returns a message when it fails. */
+export async function writeUnitNote(
+  root: string,
+  planPath: string,
+  unit: number,
+  kind: "red" | "green",
+  note: string | undefined,
+): Promise<string | undefined> {
+  const lockPath = join(gitFolders(root).gitDir, "cstack", "plan-file.lock");
+  try {
+    const locked = await withCommitLock(lockPath, unit, 60_000, () =>
+      writeFileAtomic(planPath, setUnitNote(readFileSync(planPath, "utf8"), unit, kind, note)),
+    );
+    return locked.ok ? undefined : locked.message;
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error);
+  }
+}
+
+/** Builds the note of a run: the passing unnamed cases (red only), or the fallback, or none. */
+export function buildNote(kind: "red" | "green", fallback: Fallback | undefined, unnamed: string[] = []): string | undefined {
+  if (fallback !== undefined) return `Note of cstack unit ${kind}: the whole test file was checked, because ${FALLBACK_REASONS[fallback]}.`;
+  if (unnamed.length === 0) return undefined;
+  const shown = unnamed.slice(0, 10).map(caseName).join(", ");
+  const rest = unnamed.length > 10 ? `, and ${unnamed.length - 10} more.` : ".";
+  return `${noteStart(kind)}these cases are not named in this unit, and they passed before the code existed: ${shown}${rest}`;
+}
+
+/** Prints the failure to write the note, and returns the exit code 5. */
+export function noteFailed(io: Io, kind: "red" | "green", unit: number, message: string): number {
+  io.stderr(
+    `cstack unit ${kind}: The ${kind === "red" ? "failing" : "passing"} run is saved, but cstack could not write the note of unit ${unit} into the plan file: ${message}. Run \`cstack unit ${kind} ${unit}\` again.\n`,
+  );
+  return 5;
 }

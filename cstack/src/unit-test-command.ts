@@ -17,6 +17,8 @@ export interface UnitTestContext {
   root: string;
   runDir: string;
   unit: PlanUnit;
+  /** The path of the plan file. */
+  planPath: string;
   /** The path of the unit's `Test` line, as the plan writes it. */
   testFile: string;
   commands: TestCommands;
@@ -36,7 +38,7 @@ export function prepareUnitTest(
   args: string[],
   io: Io,
   cwd: string,
-  beforeSettings?: (context: Pick<UnitTestContext, "root" | "runDir" | "unit">) => number | undefined,
+  beforeSettings?: (context: Pick<UnitTestContext, "root" | "runDir" | "unit" | "planPath">) => number | undefined,
 ): UnitTestContext | number {
   const prefix = `cstack unit ${name}: `;
   const usage = `Usage: cstack unit ${name} <n> [--timeout <minutes>] [--plan <file>]`;
@@ -92,7 +94,7 @@ export function prepareUnitTest(
     }
     if (!unit.test) return refuse(`Unit ${n} has neither a \`Test\` line nor a \`No test\` line.`, 3);
 
-    const base = { root: located.root, runDir: runFolder(located.root, located.relative), unit };
+    const base = { root: located.root, runDir: runFolder(located.root, located.relative), unit, planPath: located.path };
     const early = beforeSettings?.(base);
     if (early !== undefined) return early;
 
@@ -171,4 +173,21 @@ export function fileSha256(root: string, file: string): string {
 export function printTestOutput(io: Io, output: string): void {
   const tail = lastLines(output);
   io.stdout(tail === "" || tail.endsWith("\n") ? tail : `${tail}\n`);
+}
+
+/** Returns the test file as HEAD has it, or undefined when git cannot give it. Git runs without a shell. */
+export function headTestFile(root: string, testFile: string): string | undefined {
+  const result = spawnSync("git", ["show", `HEAD:${testFile}`], { cwd: root, encoding: "utf8" });
+  return result.status === 0 ? result.stdout : undefined;
+}
+
+/**
+ * Returns the names of the passed cases that the unit does not name and whose title (the part after the last " > ")
+ * is not in the test file at HEAD. When HEAD has no such file, every passed unnamed case is kept.
+ */
+export function unnamedPassingCases(named: string[], cases: TestCase[], headText: string | undefined): string[] {
+  return cases
+    .filter((c) => c.outcome === "passed" && !named.includes(c.name))
+    .filter((c) => headText === undefined || !headText.includes(c.name.slice(c.name.lastIndexOf(" > ") === -1 ? 0 : c.name.lastIndexOf(" > ") + 3)))
+    .map((c) => c.name);
 }
