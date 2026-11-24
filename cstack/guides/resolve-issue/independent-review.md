@@ -1,6 +1,7 @@
 <!-- mandatory steps
 action: check-the-settings-file
 helper: resolve-issue:pr-reviewer
+action: write-independent-review-entry
 command: cstack next --done independent-review --plan <plan file>
 -->
 
@@ -26,9 +27,12 @@ Give the reviewer only the repository path, the branch name, the plan file path 
 ## After the review
 
 1. Read its report.
-2. If it changed code, run the commands of the `testCommands` setting again, and update the "Review log".
-3. Write the judgment calls it raises into the "Review log". They go into the pull request body.
+2. If it changed code, run the commands of the `testCommands` setting again.
+3. Write its entry into the "Review log". The first line of the entry starts with `Independent review:`, word for word.
+4. When the reviewer changed nothing and raised no judgment call, that first line is `Independent review: none`. Otherwise, list each fix with its commit, and each judgment call, after `Independent review:`. You can write them on the same line or on the lines below. The judgment calls go into the pull request body.
 
 ## End of the phase
+
+`cstack next --done independent-review` refuses to close the phase while the "Review log" has no line that starts with `Independent review:`.
 
 Run `cstack next --done independent-review --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.
