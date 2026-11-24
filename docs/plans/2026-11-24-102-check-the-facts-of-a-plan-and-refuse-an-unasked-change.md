@@ -353,7 +353,10 @@ Independent reviewer: found no bug and no security problem. It added commit ba3b
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #102 (what was built, what stays open), posted with `cstack tracker comment`.
+- Comment on the dependent ticket #103 (what the approval now checks, and the non-blocking question word for word), posted with `cstack tracker comment`.
+- `README.md`, the `cstack next` paragraph, written by unit 6.
+- No decision record: ADR-RQG-B already records the format of the facts and the changes.
 
 ## Executor notes
 
