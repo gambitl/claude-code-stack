@@ -294,7 +294,7 @@ describe("cstack next", () => {
       markDone(dir, PLAN, "retro", new Date("2026-11-19T07:00:00.000Z"));
       const result = await run(dir, "--done", "publish");
       expect(result.code).toBe(0);
-      expect(result.stdout).toBe("The run is finished. Submit your published report with cstack helper done published --helper <helper id>.\n");
+      expect(result.stdout).toBe("The run is finished. Submit your published report with cstack report submit published --plan <plan file>.\n");
     });
 
     it("--done retro prints the digest notice with ten retros and none with nine", async () => {

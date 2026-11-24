@@ -178,7 +178,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
       return 0;
     }
     if (name === undefined) {
-      if (after !== undefined) io.stdout("The run is finished. Submit your published report with cstack helper done published --helper <helper id>.\n");
+      if (after !== undefined) io.stdout("The run is finished. Submit your published report with cstack report submit published --plan <plan file>.\n");
       else io.stdout(`Run: ${located.relative}. The run is finished.\n`);
       return 0;
     }
