@@ -376,7 +376,9 @@ US-6, AC5 says that the audit reports a unit that used the check of the whole te
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes (phase review): The branch changed unit-red.ts, unit-green.ts, unit-test-command.ts, unit-test-runs.ts, audit.ts and the exit code text in manifest.ts. Outside callers of the changed helpers are `cstack/src/test-run.ts` (the report reader, unchanged), `cstack/src/commands/publish.ts` (reads saved runs, extra fields are optional so it still works) and the tests `cstack/test/unit-test-runs.test.ts` and `cstack/test/test-run.test.ts`. The usual companions are `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts` and the README, and the branch updated the README and the manifest text. The full test run in unit 4 passed. The ADR `ADR-RQG-C-expected-steps-of-a-run.md` was read and its audit sentence was aligned.
+
+Reviewer findings: pending.
 
 ## Briefing
 
