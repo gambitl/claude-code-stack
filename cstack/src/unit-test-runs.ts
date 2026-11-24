@@ -6,6 +6,7 @@ import { caseName } from "./unit-test-command.js";
 import { withCommitLock } from "./commit-lock.js";
 import { readPlan } from "./plan/read.js";
 import { gitFolders, writeFileAtomic, type SavedTestRun } from "./run-state.js";
+import type { ReportResult } from "./test-run.js";
 
 /** Why a run checked the whole test file instead of each case. The messages and notes use these words only. */
 export const FALLBACK_REASONS = {
@@ -82,18 +83,27 @@ const noteStart = (kind: "red" | "green") => `Note of cstack unit ${kind}: `;
  * The unit runs from its heading to the line before the next heading.
  */
 export function setUnitNote(text: string, unit: number, kind: "red" | "green", note: string | undefined): string {
-  const plan = readPlan(text);
-  const target = plan.units.find((u) => u.number === unit);
-  if (!target) throw new Error(`The plan has no unit ${unit}.`);
-  const lines = text.split("\n");
-  const next = plan.headings.find((heading) => heading.line > target.line);
-  const end = next ? next.line - 1 : lines.length;
-  const start = target.line;
+  const { lines, start, end } = unitRange(text, unit);
   const kept = lines.slice(start, end).filter((line) => !line.startsWith(noteStart(kind)));
   let last = kept.length - 1;
   while (last >= 0 && kept[last].trim() === "") last--;
   if (note !== undefined) kept.splice(last + 1, 0, note);
   return [...lines.slice(0, start), ...kept, ...lines.slice(end)].join("\n");
+}
+
+function unitRange(text: string, unit: number) {
+  const plan = readPlan(text);
+  const target = plan.units.find((u) => u.number === unit);
+  if (!target) throw new Error(`The plan has no unit ${unit}.`);
+  const lines = text.split("\n");
+  const next = plan.headings.find((heading) => heading.line > target.line);
+  return { lines, start: target.line, end: next ? next.line - 1 : lines.length };
+}
+
+/** Returns the note line of one command in one unit of a plan text, or nothing when the unit has none. */
+export function readUnitNote(text: string, unit: number, kind: "red" | "green"): string | undefined {
+  const { lines, start, end } = unitRange(text, unit);
+  return lines.slice(start, end).find((line) => line.startsWith(noteStart(kind)));
 }
 
 /** Writes the note into the plan file, inside the commit lock of the plan file. It returns a message when it fails. */
@@ -117,7 +127,7 @@ export async function writeUnitNote(
 
 /** Builds the note of a run: the passing unnamed cases (red only), or the fallback, or none. */
 export function buildNote(kind: "red" | "green", fallback: Fallback | undefined, unnamed: string[] = []): string | undefined {
-  if (fallback !== undefined) return `Note of cstack unit ${kind}: the whole test file was checked, because ${FALLBACK_REASONS[fallback]}.`;
+  if (fallback !== undefined) return `${noteStart(kind)}the whole test file was checked, because ${FALLBACK_REASONS[fallback]}.`;
   if (unnamed.length === 0) return undefined;
   const shown = unnamed.slice(0, 10).map(caseName).join(", ");
   const rest = unnamed.length > 10 ? `, and ${unnamed.length - 10} more.` : ".";
@@ -127,7 +137,23 @@ export function buildNote(kind: "red" | "green", fallback: Fallback | undefined,
 /** Prints the failure to write the note, and returns the exit code 5. */
 export function noteFailed(io: Io, kind: "red" | "green", unit: number, message: string): number {
   io.stderr(
-    `cstack unit ${kind}: The ${kind === "red" ? "failing" : "passing"} run is saved, but cstack could not write the note of unit ${unit} into the plan file: ${message}. Run \`cstack unit ${kind} ${unit}\` again.\n`,
+    `cstack unit ${kind}: The ${kind === "red" ? "failing" : "passing"} run is saved, but cstack could not write the note of unit ${unit} into the plan file: ${message.replace(/\.$/, "")}. Run \`cstack unit ${kind} ${unit}\` again.\n`,
   );
   return 5;
+}
+
+/** The texts that say why a named case is a problem. Only the text of a wrong case differs between red and green. */
+export function caseProblemText(kind: "red" | "green"): Record<"wrong" | "missing" | "skipped", string> {
+  return {
+    wrong: kind === "red" ? "passed." : "failed.",
+    missing: "is not in the test report.",
+    skipped: "was skipped, so it never ran. A failing beforeAll hook is a common cause.",
+  };
+}
+
+/** What a run saves about its cases, and the message of the report's problem when the report gave no cases. */
+export function describeReport(report: ReportResult | undefined): { caseRun: Pick<SavedUnitRun, "caseCheck" | "fallback" | "cases">; problem?: string } {
+  if (report === undefined) return { caseRun: { caseCheck: "file", fallback: "no-report" } };
+  if ("cases" in report) return { caseRun: { caseCheck: "cases", cases: report.cases.map((c) => ({ name: c.name, outcome: c.outcome })) } };
+  return { caseRun: { caseCheck: "file", fallback: report.problem === "malformed" ? "malformed" : "missing" }, problem: report.message };
 }
