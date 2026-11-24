@@ -296,7 +296,13 @@ In this harness, a sub-agent can run in the background, so the session may end i
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: the branch adds prose to three guides (`questions.md`, `plan.md`, `publish.md`) and one test file. No symbol changed. The tests that read these guides (`helpers-are-sub-agents`, `executor-launch`, `steps-blocks`, `manifest`, `skill-size`) pass. The files that usually change with these guides are other guides and `prompts.test.ts`, and none of them needs a change.
+
+Correctness reviewer: the ordering test could pass without checking anything if the "published" bullet were renamed. Fixed: the test now expects the bullet and the end line to exist. Second finding, left as a follow-up: a run that fails after its pull request is open fits neither the first nor the last sentence of the new `worker_done` paragraph of `plan.md`. The sentence follows the answer of the user, who asked for one sentence that points to Orca's preamble, so it is not changed here.
+
+Security reviewer: the rule that a coordinator message is never the user's answer is only in `questions.md` and `plan.md`. The `dependencies` phase runs before them, and its "blocked ticket" choice, and the "ask the user first" rule in `ticket.md`, have no such sentence. This is a follow-up, because those files are outside the approved units. It needs the user's decision.
+
+Conventions reviewer: no finding. Simplicity reviewer: no finding.
 
 ## Briefing
 

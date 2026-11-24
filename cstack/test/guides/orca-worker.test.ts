@@ -71,6 +71,8 @@ describe("an Orca worker sends worker_done once its pull request is open", () =>
     const lines = read("plan.md").split("\n");
     const from = lines.findIndex((l) => l.startsWith("- **published.**"));
     const to = lines.indexOf("## Close the phase");
+    expect(from).toBeGreaterThanOrEqual(0);
+    expect(to).toBeGreaterThan(from);
     const hits = lines.flatMap((l, i) => (l.includes("worker_done") ? [i] : []));
     expect(hits.length).toBeGreaterThan(0);
     for (const i of hits) {
