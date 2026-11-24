@@ -284,6 +284,11 @@ none
 
 ## Documentation
 
+- README.md, the `cstack audit` paragraph (unit 6).
+- docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md, new section "How the audit ties an implementer to its unit" and the sentence about a launch of another type (unit 6).
+- Comment on #108: https://github.com/gambitl/claude-code-stack/issues/108
+- Comment on the dependent ticket #103: https://github.com/gambitl/claude-code-stack/issues/103
+
 ## Executor notes
 
 - Unit 1 refusals broken: a broken or missing meta file counted as unreadable (failed the no-meta-file, invalid-JSON and unreadable-file cases); a non-string toolUseId accepted (failed the non-string case, after a test fix because the first version survived); a launch with no transcript linked to the last transcript (failed the three links-no-launch cases); the tool call id ignored (failed the two-launches case).
