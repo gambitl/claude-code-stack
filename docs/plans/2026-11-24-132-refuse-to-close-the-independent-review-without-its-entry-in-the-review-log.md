@@ -283,7 +283,9 @@ None from the question round.
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #132: https://github.com/gambitl/claude-code-stack/issues/132, posted with `cstack tracker comment`.
+- Comment on the release ticket #104, which names the new refusal and the exact line it expects: posted with `cstack tracker comment` on `#104`.
+- Decision record, README and specification page: not needed, as the "Documentation duties" say. The `WHY:` comment sits in `cstack/src/phases.ts` above `independentReviewLogged`.
 
 ## Executor notes
 
