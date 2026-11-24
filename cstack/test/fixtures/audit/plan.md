@@ -1,5 +1,5 @@
 # Plan: #99 — An audit example plan
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: cstack 0.1.0
 Date: 2026-11-18
 Ticket: #99
@@ -42,6 +42,10 @@ The status of each unit is true.
 
 The maintainer chose a long flag.
 
+## Negative criteria
+
+none
+
 ## Dependencies
 
 None.
@@ -49,6 +53,10 @@ None.
 ## Code mapping
 
 The reader is in `src/plan/read.ts`.
+
+## Facts
+
+none
 
 ## Decisions
 
@@ -94,6 +102,10 @@ Write the page of the command.
 Should the flag be long?
 - For: the maintainer
 - Answer: Yes, long. The maintainer, 2026-11-18.
+
+## Changes to what the ticket fixes
+
+none
 
 ## Review log
 

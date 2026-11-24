@@ -1,5 +1,5 @@
 # Plan: #1 — A small ticket
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: cstack 0.1.0
 Date: 2026-11-18
 Ticket: #1
@@ -25,6 +25,10 @@ npm test
 
 None.
 
+## Negative criteria
+
+none
+
 ## Dependencies
 
 Some text.
@@ -36,6 +40,10 @@ Some text.
 ## Architecture
 
 Some text.
+
+## Facts
+
+none
 
 ## Decisions
 
@@ -52,6 +60,10 @@ Some text.
 ## Blocking questions
 
 Some text.
+
+## Changes to what the ticket fixes
+
+none
 
 ## Review log
 

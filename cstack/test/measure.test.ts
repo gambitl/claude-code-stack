@@ -372,6 +372,18 @@ describe("cstack measure", () => {
       expect(code).toBe(0);
     });
 
+    it("reads both moments from the header of a cstack-plan/1 plan that cstack 0.3.1 wrote", async () => {
+      const repo = realpathSync(makeRepo());
+      const version1 = readFileSync(new URL("./fixtures/plans/version-1.md", import.meta.url), "utf8");
+      writePlanV1(repo, "2026-03-01T10:00:00+01:00", "2026-03-01T12:30:00+01:00", version1);
+      const home = tmp("cstack-home-");
+      oneSession(home, repo, "2026-03-01T09:10:00.000Z", "2026-03-01T09:20:00.000Z");
+      const { out, code } = await measureRepo(repo, home);
+      expect(out.stdout).toContain("minutes from approval to ready for review: 150\n");
+      expect(out.stderr).toBe("");
+      expect(code).toBe(0);
+    });
+
     it("prints the minutes of a version 1 plan even when they are under one minute", async () => {
       const repo = realpathSync(makeRepo());
       writePlanV1(repo, "2026-03-01T10:00:00+01:00", "2026-03-01T10:00:30+01:00");
@@ -409,7 +421,7 @@ describe("cstack measure", () => {
         [
           "2026-03-01T10:00:00+01:00",
           "2026-03-01T12:00:00+01:00",
-          PLAN_V1.replace("Format: cstack-plan/1", "Format: ZQ7-SECRET-FORMAT"),
+          PLAN_V1.replace("Format: cstack-plan/2", "Format: ZQ7-SECRET-FORMAT"),
           "the plan file is not a valid cstack plan file.",
         ],
         // The plan reader checks the shape of a time only, so an hour of 25 reaches the measure.

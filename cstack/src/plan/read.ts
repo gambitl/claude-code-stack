@@ -1,4 +1,7 @@
-export const PLAN_FORMAT = "cstack-plan/1";
+export const PLAN_FORMAT = "cstack-plan/2";
+
+/** The last cstack release that reads `cstack-plan/1`. */
+export const LAST_VERSION_1_READER = "0.3.2";
 
 export const HEADER_KEYS = [
   "Format",
@@ -17,13 +20,16 @@ export const HEADER_KEYS = [
 
 export const SECTION_NAMES = [
   "Ticket",
+  "Negative criteria",
   "Dependencies",
   "Code mapping",
+  "Facts",
   "Decisions",
   "Architecture",
   "Implementation units",
   "Documentation duties",
   "Blocking questions",
+  "Changes to what the ticket fixes",
   "Review log",
   "Briefing",
   "Non-blocking questions",
@@ -89,8 +95,10 @@ export interface PlanUnit {
   name: string;
   line: number;
   files: string[];
-  test?: { file: string; case: string };
+  test?: { file: string; cases: string[] };
   noTest?: string;
+  /** The negative criteria that the unit covers, each with the case that proves it. */
+  negativeCriteria: { criterion: number; case: string }[];
   minimumCode: string;
   refactor: string;
   commitMessage: string;
@@ -110,6 +118,29 @@ export interface BlockingQuestion {
   open: boolean;
 }
 
+export interface NegativeCriterion {
+  number: number;
+  line: number;
+  text: string;
+}
+
+export type FactSource =
+  | { kind: "file"; path: string; line: number; quote: string }
+  | { kind: "user"; date: string };
+
+export interface PlanFact {
+  line: number;
+  text: string;
+  source: FactSource;
+}
+
+export interface TicketChange {
+  line: number;
+  text: string;
+  /** The number of the blocking question that covers the change. */
+  question: number;
+}
+
 export interface PlanPullRequest {
   title: string;
   body: string;
@@ -119,6 +150,9 @@ export interface PlanRead {
   header: Record<HeaderKey, string>;
   headings: PlanHeading[];
   sections: PlanSection[];
+  negativeCriteria: NegativeCriterion[];
+  facts: PlanFact[];
+  ticketChanges: TicketChange[];
   units: PlanUnit[];
   blockingQuestions: BlockingQuestion[];
   pullRequest?: PlanPullRequest;
@@ -200,7 +234,7 @@ function scan(lines: string[]): Scanned {
 }
 
 // WHY: ADR-SIC-B (docs/decisions/ADR-SIC-B-run-state.md). An unknown format version is refused, and the message names the cstack version that can read the file.
-function stopOnFormat(lines: string[], firstHeadingLine: number): void {
+function stopOnFormat(lines: string[], firstHeadingLine: number, acceptVersion1: boolean): boolean {
   const region = lines.slice(0, firstHeadingLine - 1);
   const value = (key: string) =>
     region.map((text) => new RegExp(`^${key}:\\s*(.*)$`).exec(text)).find(Boolean)?.[1].trim();
@@ -210,16 +244,28 @@ function stopOnFormat(lines: string[], firstHeadingLine: number): void {
       `This plan file has no Format line. The prose skill wrote it before cstack existed. This cstack reads ${PLAN_FORMAT}.`,
     );
   }
+  if (acceptVersion1 && format === "cstack-plan/1") return true;
   if (format !== PLAN_FORMAT) {
     const writer = /^cstack (\S+)$/.exec(value("Written by") ?? "");
+    const head = `This plan file has the format ${format}. This cstack reads ${PLAN_FORMAT}.`;
+    if (format === "cstack-plan/1") {
+      const reader = writer
+        ? `cstack ${writer[1]} can read it.`
+        : `cstack ${LAST_VERSION_1_READER} is the last version that reads cstack-plan/1.`;
+      throw new PlanFormatError(
+        `${head} ${reader} To finish this run, install that release, then run \`cstack skills install\` again.`,
+      );
+    }
     const reader = writer
       ? `cstack ${writer[1]} can read it.`
       : "The file does not name the cstack version that can read it.";
-    throw new PlanFormatError(
-      `This plan file has the format ${format}. This cstack reads ${PLAN_FORMAT}. ${reader}`,
-    );
+    throw new PlanFormatError(`${head} ${reader}`);
   }
+  return false;
 }
+
+/** The sections that version 2 added. A version 1 plan has none of them. */
+const VERSION_2_SECTIONS: readonly SectionName[] = ["Negative criteria", "Facts", "Changes to what the ticket fixes"];
 
 function checkHeaderValue(key: HeaderKey, value: string): string | undefined {
   if (value === "" || isPlaceholder(value)) {
@@ -296,21 +342,36 @@ const UNIT_FIELDS = [
   ["Worktree"],
 ] as const;
 const REQUIRED_FIELDS = 6;
+const CRITERION_LINE = /^- Negative criterion (\d+):(?: (.*))?$/;
 const FIELD_LINE = /^- (Files|Test|No test|Minimum code|Refactor|Commit message|Depends on|Design specification|Blocked|Worktree):(?: (.*))?$/;
 
-function readUnit(region: Region, number: number, heading: PlanHeading, last: number): PlanUnit {
+function readUnit(region: Region, number: number, heading: PlanHeading, last: number, criteriaCount: number): PlanUnit {
   const { problems } = region;
   const values: Record<string, { line: number; text: string }> = {};
+  const tests: { line: number; text: string }[] = [];
+  const criteria: { line: number; criterion: number; text: string }[] = [];
   let slot = -1;
   let current: string | undefined;
   for (let line = heading.line + 1; line <= last; line++) {
     const text = region.lines[line - 1];
     if (region.comments.has(line)) continue;
+    const criterion = CRITERION_LINE.exec(text);
+    if (criterion) {
+      // The Negative criterion lines come after the Test lines and before Minimum code.
+      if (slot !== 1) {
+        problems.push({ line, rule: "The line `- Negative criterion <k>:` is out of order. It comes after the `- Test:` lines and before `- Minimum code:`." });
+        continue;
+      }
+      current = "Negative criterion";
+      criteria.push({ line, criterion: Number(criterion[1]), text: (criterion[2] ?? "").trim() });
+      continue;
+    }
     const field = FIELD_LINE.exec(text);
     if (field) {
       const label = field[1];
       const index = UNIT_FIELDS.findIndex((names) => (names as readonly string[]).includes(label));
-      if (index <= slot) {
+      const nextTest = label === "Test" && current === "Test";
+      if (index <= slot && !nextTest) {
         problems.push({ line, rule: `The line \`- ${label}:\` is repeated or out of order. The unit lines come in a fixed order.` });
         continue;
       }
@@ -325,12 +386,16 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       slot = index;
       current = label;
       values[label] = { line, text: (field[2] ?? "").trim() };
+      if (label === "Test") tests.push(values[label]);
       continue;
     }
     if (slot >= 5) continue; // After Depends on, free notes and optional lines follow.
     const continues = text.trim() === "" || text.startsWith("  ");
     if (continues && current !== undefined && current !== "Commit message") {
-      if (text.trim() !== "") values[current].text += ` ${text.trim()}`;
+      if (text.trim() !== "") {
+        const target = current === "Negative criterion" ? criteria[criteria.length - 1] : values[current];
+        target.text += ` ${text.trim()}`;
+      }
       continue;
     }
     if (text.trim() === "" && current === undefined) continue;
@@ -358,6 +423,7 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
     line: heading.line,
     files: [],
     minimumCode: values["Minimum code"]?.text ?? "",
+    negativeCriteria: [],
     refactor: values["Refactor"]?.text ?? "",
     commitMessage: (values["Commit message"]?.text ?? "").replace(/^`(.*)`$/, "$1"),
     dependsOn: [],
@@ -374,17 +440,38 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
       }
     }
   }
-  if (values["Test"]) {
-    const { line, text } = values["Test"];
+  for (const { line, text } of tests) {
     const parsed = /^`([^`]+)`: (.+)$/.exec(text);
     if (!parsed) {
       problems.push({ line, rule: "`- Test:` holds `<test file>`: <failing case>, with the file in backticks." });
-    } else {
-      unit.test = { file: parsed[1], case: parsed[2] };
-      if (!unit.files.includes(parsed[1])) {
-        problems.push({ line, rule: `The test file \`${parsed[1]}\` is missing from \`- Files:\`.` });
-      }
+      continue;
     }
+    const [, file, name] = parsed;
+    if (unit.test === undefined) {
+      unit.test = { file, cases: [name] };
+      if (!unit.files.includes(file)) {
+        problems.push({ line, rule: `The test file \`${file}\` is missing from \`- Files:\`.` });
+      }
+    } else if (file !== unit.test.file) {
+      problems.push({ line, rule: `All the \`- Test:\` lines of a unit name the same test file, \`${unit.test.file}\`. This one names \`${file}\`.` });
+    } else if (unit.test.cases.includes(name)) {
+      problems.push({ line, rule: `The case "${name}" is named twice in this unit. Name each case once.` });
+    } else unit.test.cases.push(name);
+  }
+  const seen = new Set<number>();
+  for (const { line, criterion, text } of criteria) {
+    if (criterion < 1 || criterion > criteriaCount) {
+      problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion}, which is not in \`## Negative criteria\`.` });
+    } else if (seen.has(criterion)) {
+      problems.push({ line, rule: `Unit ${number} names the negative criterion ${criterion} twice. Name each criterion once.` });
+    } else if (values["No test"]) {
+      problems.push({ line, rule: `Unit ${number} has a \`- No test:\` line, so it cannot name a negative criterion. Add a \`- Test:\` line.` });
+    } else if (!unit.test) {
+      problems.push({ line, rule: `Unit ${number} has no \`- Test:\` line in its fixed form, so it cannot name a negative criterion. Fix the \`- Test:\` line first.` });
+    } else if (!unit.test.cases.includes(text)) {
+      problems.push({ line, rule: `The case "${text}" of negative criterion ${criterion} is not one of the cases of the \`- Test:\` lines of Unit ${number}.` });
+    } else unit.negativeCriteria.push({ criterion, case: text });
+    seen.add(criterion);
   }
   if (values["No test"]) unit.noTest = values["No test"].text;
   if (values["Design specification"]) unit.designSpecification = values["Design specification"].text;
@@ -410,7 +497,7 @@ function readUnit(region: Region, number: number, heading: PlanHeading, last: nu
   return unit;
 }
 
-function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[] {
+function readUnits(region: Region, section: PlanSection | undefined, criteriaCount: number): PlanUnit[] {
   if (!section) return [];
   const { problems } = region;
   const unitHeadings = region.headings.filter(
@@ -431,7 +518,7 @@ function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[]
       problems.push({ line: heading.line, rule: `Unit ${number} is out of place. Units are numbered from 1 with no gap, so Unit ${units.length + 1} comes here.` });
     }
     const next = unitHeadings[index + 1]?.line ?? section.last + 1;
-    units.push(readUnit(region, number, heading, next - 1));
+    units.push(readUnit(region, number, heading, next - 1, criteriaCount));
   });
   for (const unit of units) {
     let line = unit.line;
@@ -448,6 +535,97 @@ function readUnits(region: Region, section: PlanSection | undefined): PlanUnit[]
     }
   }
   return units;
+}
+
+// The content lines of a section that holds a list, or the word `none`. The word `none` alone gives no line.
+function listLines(region: Region, section: PlanSection | undefined, noun: string) {
+  if (!section || !section.filled) return [];
+  const content = contentLines(region, section.first + 1, section.last);
+  if (content.length === 1 && content[0].text.trim() === "none") return [];
+  return content.filter(({ line, text }) => {
+    if (text.trim() !== "none") return true;
+    region.problems.push({ line, rule: `The word \`none\` cannot sit next to ${noun}. Remove it.` });
+    return false;
+  });
+}
+
+function readNegativeCriteria(region: Region, section: PlanSection | undefined): NegativeCriterion[] {
+  const { problems } = region;
+  const criteria: NegativeCriterion[] = [];
+  for (const { line, text } of listLines(region, section, "a negative criterion")) {
+    const parsed = /^(\d+)\. (\S.*)$/.exec(text);
+    if (!parsed) {
+      problems.push({ line, rule: "A negative criterion line is `<k>. <criterion>`, with <k> a number from 1. Write the word `none` when the ticket has none." });
+      continue;
+    }
+    const number = Number(parsed[1]);
+    if (number !== criteria.length + 1) {
+      problems.push({ line, rule: `Negative criterion ${number} is out of place. Criteria are numbered from 1 with no gap, so number ${criteria.length + 1} comes here.` });
+    }
+    criteria.push({ number, line, text: parsed[2].trim() });
+  }
+  return criteria;
+}
+
+// The rest of a fact line after ` Source: `: a whole valid source, or the reason it is not one.
+function readSource(rest: string): FactSource | string {
+  if (rest.startsWith("the user")) {
+    const user = /^the user, on (.+)$/.exec(rest);
+    if (!user) return "A user source is `Source: the user, on <YYYY-MM-DD>`.";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(user[1])) return `The date \`${user[1]}\` of a user source is not in the form YYYY-MM-DD.`;
+    return { kind: "user", date: user[1] };
+  }
+  const file = /^`([^`]*)`, line (\d+): "(.+)"$/.exec(rest);
+  if (!file) {
+    return 'A file source is `Source: `<path>`, line <n>: "<the quoted text>"`. The quoted text is not empty and ends the line.';
+  }
+  const line = Number(file[2]);
+  if (line < 1) return "The line number of a file source is a number from 1.";
+  const problem = pathProblem(file[1]);
+  if (problem) return problem;
+  return { kind: "file", path: file[1], line, quote: file[3] };
+}
+
+function readFacts(region: Region, section: PlanSection | undefined): PlanFact[] {
+  const facts: PlanFact[] = [];
+  const SOURCE = " Source: ";
+  for (const { line, text } of listLines(region, section, "a fact")) {
+    const row = text.trimEnd();
+    const form = "A fact line is `- <the fact> Source: <the source>`.";
+    if (!row.startsWith("- ")) {
+      region.problems.push({ line, rule: form });
+      continue;
+    }
+    // The source starts at the first ` Source: ` whose rest is a whole valid source.
+    let firstReason: string | undefined;
+    let found: PlanFact | undefined;
+    for (let at = row.indexOf(SOURCE); at !== -1 && !found; at = row.indexOf(SOURCE, at + 1)) {
+      const factText = row.slice(2, at).trim();
+      const source = readSource(row.slice(at + SOURCE.length));
+      if (typeof source === "string") firstReason ??= source;
+      else if (factText === "") firstReason ??= "The fact text is empty.";
+      else found = { line, text: factText, source };
+    }
+    if (found) facts.push(found);
+    else region.problems.push({ line, rule: firstReason ?? `The fact has no \` Source: \`. ${form}` });
+  }
+  return facts;
+}
+
+function readTicketChanges(region: Region, section: PlanSection | undefined): TicketChange[] {
+  const changes: TicketChange[] = [];
+  for (const { line, text } of listLines(region, section, "a change")) {
+    const parsed = /^- (\S.*) Blocking question: ([1-9]\d*)$/.exec(text.trimEnd());
+    if (!parsed) {
+      region.problems.push({
+        line,
+        rule: "A change line is `- <the change> Blocking question: <n>`, with <n> the number of a blocking question. Write the word `none` when the plan changes nothing that the ticket fixes.",
+      });
+      continue;
+    }
+    changes.push({ line, text: parsed[1].trim(), question: Number(parsed[2]) });
+  }
+  return changes;
 }
 
 function readQuestions(region: Region, section: PlanSection | undefined): BlockingQuestion[] {
@@ -517,13 +695,18 @@ function readPullRequest(region: Region, section: PlanSection | undefined): Plan
   return { title, body: lines.slice(open.line, close.line - 1).join("\n") };
 }
 
-export function readPlan(text: string): PlanRead {
+/**
+ * `acceptVersion1` lets `cstack measure` read the header of a `cstack-plan/1` plan.
+ * Under it, the three sections of version 2 are not required.
+ */
+export function readPlan(text: string, options: { acceptVersion1?: boolean } = {}): PlanRead {
   const lines = text.split(/\r?\n/);
   if (lines.at(-1) === "") lines.pop();
   const { headings, comments, problems } = scan(lines);
 
   const firstSection = headings.find((heading) => heading.level === 2);
-  stopOnFormat(lines, firstSection?.line ?? lines.length + 1);
+  const version1 = stopOnFormat(lines, firstSection?.line ?? lines.length + 1, options.acceptVersion1 === true);
+  const sectionNames = version1 ? SECTION_NAMES.filter((name) => !VERSION_2_SECTIONS.includes(name)) : SECTION_NAMES;
 
   // Title and header.
   const title = headings.find((heading) => heading.level === 1);
@@ -569,7 +752,7 @@ export function readPlan(text: string): PlanRead {
   const sections: PlanSection[] = [];
   let expected = 0;
   sectionHeadings.forEach((heading, index) => {
-    const known = SECTION_NAMES.indexOf(heading.text as SectionName);
+    const known = sectionNames.indexOf(heading.text as SectionName);
     if (known === -1) {
       problems.push({
         line: heading.line,
@@ -598,7 +781,7 @@ export function readPlan(text: string): PlanRead {
       bodyLines,
     });
   });
-  for (const name of SECTION_NAMES) {
+  for (const name of sectionNames) {
     if (!sections.some((section) => section.name === name)) {
       problems.push({ line: lines.length, rule: `The section ${name} is missing.` });
     }
@@ -606,7 +789,10 @@ export function readPlan(text: string): PlanRead {
 
   const region: Region = { lines, headings, comments, problems };
   const section = (name: SectionName) => sections.find((candidate) => candidate.name === name);
-  const units = readUnits(region, section("Implementation units"));
+  const negativeCriteria = readNegativeCriteria(region, section("Negative criteria"));
+  const facts = readFacts(region, section("Facts"));
+  const ticketChanges = readTicketChanges(region, section("Changes to what the ticket fixes"));
+  const units = readUnits(region, section("Implementation units"), negativeCriteria.length);
   const blockingQuestions = readQuestions(region, section("Blocking questions"));
   const pullRequest = readPullRequest(region, section("Pull request"));
 
@@ -617,5 +803,5 @@ export function readPlan(text: string): PlanRead {
       problems,
     );
   }
-  return { header, headings, sections, units, blockingQuestions, pullRequest };
+  return { header, headings, sections, negativeCriteria, facts, ticketChanges, units, blockingQuestions, pullRequest };
 }

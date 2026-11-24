@@ -57,4 +57,24 @@ describe("the plan template", () => {
     const context = { plan: readPlan(filled), commits: { units: {}, invalid: [] }, doneAt: {} };
     expect(ticket.done!(context)).toEqual(["Ticket is not filled."]);
   });
+
+  it("describes every line form of version 2 in its comments", () => {
+    const section = (name: string) => {
+      const start = template.indexOf(`## ${name}\n`);
+      const next = template.indexOf("\n## ", start + 1);
+      return template.slice(start, next);
+    };
+    const facts = section("Facts");
+    expect(facts).toContain("- <the fact> Source: `<path>`, line <n>: \"<the quoted text>\"");
+    expect(facts).toContain("- <the fact> Source: the user, on <YYYY-MM-DD>");
+    expect(facts).toContain("none");
+    expect(section("Changes to what the ticket fixes")).toContain("- <the change> Blocking question: <n>");
+    const negative = section("Negative criteria");
+    expect(negative).toContain("<k>. <the criterion, word for word>");
+    expect(negative).toContain("none");
+    const units = section("Implementation units");
+    expect(units).toContain("- Test: `<test file>`: <the case>");
+    expect(units).toContain("- Negative criterion <k>: <the case that proves it>");
+    expect(units).toContain("as the JUnit report names it");
+  });
 });

@@ -1,5 +1,5 @@
 # Plan: #1 — Add multiply and divide
-Format: cstack-plan/1
+Format: cstack-plan/2
 Written by: not yet
 Date: 2026-11-19
 Ticket: #1
@@ -16,6 +16,10 @@ Ready for review at: not yet
 
 Add the functions multiply and divide to the tiny math library, and describe all four functions in the README.
 
+## Negative criteria
+
+none
+
 ## Dependencies
 
 <!-- later -->
@@ -23,6 +27,10 @@ Add the functions multiply and divide to the tiny math library, and describe all
 ## Code mapping
 
 <!-- later -->
+
+## Facts
+
+none
 
 ## Decisions
 
@@ -65,6 +73,10 @@ The README describes the functions.
 ## Blocking questions
 
 <!-- later -->
+
+## Changes to what the ticket fixes
+
+none
 
 ## Review log
 
