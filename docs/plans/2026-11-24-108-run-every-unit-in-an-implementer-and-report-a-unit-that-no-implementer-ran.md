@@ -214,6 +214,7 @@ No new decision since the question round.
 - Refactor: none
 - Commit message: feat(cli): accept the escalation implementer for the implementer line of a unit in cstack audit
 - Depends on: 2
+- Blocked: unit 2 (commit c5a151a) already built the escalation behaviour, so no test of this unit can fail first and `cstack unit red 3` refuses to save a passing run. The test case of this unit was written and all 109 cases passed; its diff is kept outside the repository. Not escalated, because a second attempt meets the same refusal. The user decides.
 
 ### Unit 4: Say when an implementer launch has no transcript
 - Files: `cstack/src/commands/audit.ts`, `cstack/test/audit.test.ts`
