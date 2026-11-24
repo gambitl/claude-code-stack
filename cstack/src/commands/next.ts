@@ -155,6 +155,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
       if (isDone(state, closed) && closed !== "retro") {
         io.stdout(`${closed} is already done.\n`);
       } else {
+        // WHY: the check of the facts needs the repository root, which PhaseContext does not carry (plan of ticket #102).
         const missing = [...missingToStart(closed, state, context), ...(phase?.done?.(context) ?? []), ...(closed === "plan" ? factProblems(located.root, plan.facts) : [])];
         if (missing.length > 0) {
           io.stderr(`cstack: the phase ${closed} cannot be closed.\n${missing.map((m) => `${m}\n`).join("")}`);
