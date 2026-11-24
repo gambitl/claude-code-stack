@@ -216,6 +216,51 @@ describe("cstack next", () => {
       expect(planText(dir2)).toContain("Approved at: not yet");
     });
 
+    const withFact = (fact: string, base = draft()) => base.replace("## Facts\n\nnone", `## Facts\n\n${fact}`);
+    const factLine = (text: string) => text.split("\n").findIndex((l) => l.startsWith("- The ")) + 1;
+    const GOOD_FACT = '- The readme starts. Source: `README.md`, line 1: "start"';
+    const BAD_FACT = '- The readme ends. Source: `README.md`, line 1: "finish"';
+    const badMessage = (text: string) => `The fact at line ${factLine(text)} of the plan: line 1 of \`README.md\` does not hold the quoted text.`;
+    const FOUR = ["ticket", "dependencies", "code-map", "questions"];
+
+    it("--done plan passes a fact that points to its line and refuses one that does not", async () => {
+      const dir = makeRepo();
+      commitPlan(dir, withFact(GOOD_FACT), PLAN);
+      startRun(dir, FOUR);
+      expect((await run(dir, "--done", "plan")).code).toBe(0);
+      const dir2 = makeRepo();
+      const text = withFact(BAD_FACT);
+      commitPlan(dir2, text, PLAN);
+      startRun(dir2, FOUR);
+      const result = await run(dir2, "--done", "plan");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("cstack: the phase plan cannot be closed.");
+      expect(result.stderr).toContain(badMessage(text));
+      expect(planText(dir2)).toContain("Approved at: not yet");
+      expect(readState(dir2, PLAN)?.phases.plan?.doneAt).toBeUndefined();
+    });
+
+    it("--done plan lists a wrong fact next to a Status that is not approved", async () => {
+      const dir = makeRepo();
+      const text = withFact(BAD_FACT, draft().replace("Status: approved", "Status: draft"));
+      commitPlan(dir, text, PLAN);
+      startRun(dir, FOUR);
+      const result = await run(dir, "--done", "plan");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain("Status is not `approved`.");
+      expect(result.stderr).toContain(badMessage(text));
+    });
+
+    it("--done plan refuses a user source whose date does not exist", async () => {
+      const dir = makeRepo();
+      const text = withFact("- The maintainer chose a long flag. Source: the user, on 2026-02-30");
+      commitPlan(dir, text, PLAN);
+      startRun(dir, FOUR);
+      const result = await run(dir, "--done", "plan");
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain(`The fact at line ${factLine(text)} of the plan: its user source has no real date in the form YYYY-MM-DD.`);
+    });
+
     it("--done plan writes Approved at with an offset and prints the executor line only", async () => {
       const dir = makeRepo();
       commitPlan(dir, draft(), PLAN);

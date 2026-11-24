@@ -6,6 +6,7 @@ import type { Io } from "../io.js";
 import { localTime } from "../local-time.js";
 import { PHASES, type PhaseName } from "../phases.js";
 import { setHeaderValues } from "../plan/header-write.js";
+import { factProblems } from "../plan/approval.js";
 import { locatePlan } from "../plan/locate.js";
 import { readPlan } from "../plan/read.js";
 import { clearCurrentRun, isDone, markDone, markStarted, missingToStart, nextPhase, phaseContext } from "../run-progress.js";
@@ -154,7 +155,7 @@ export function next(args: string[], io: Io, options: NextOptions): number {
       if (isDone(state, closed) && closed !== "retro") {
         io.stdout(`${closed} is already done.\n`);
       } else {
-        const missing = [...missingToStart(closed, state, context), ...(phase?.done?.(context) ?? [])];
+        const missing = [...missingToStart(closed, state, context), ...(phase?.done?.(context) ?? []), ...(closed === "plan" ? factProblems(located.root, plan.facts) : [])];
         if (missing.length > 0) {
           io.stderr(`cstack: the phase ${closed} cannot be closed.\n${missing.map((m) => `${m}\n`).join("")}`);
           return 1;
