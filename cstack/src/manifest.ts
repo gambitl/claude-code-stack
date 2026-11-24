@@ -170,7 +170,7 @@ export const COMMANDS: CommandEntry[] = [
     flags: ["--timeout"],
     exitCodes: {
       0: OK,
-      1: "No failing run is saved, the test command changed since it, a changed code file is older than the latest failing run, or the test still fails.",
+      1: "No failing run is saved, the test command changed since it, a changed code file is older than the latest failing run, the test still fails, or a named case does not pass or was not seen failing in the saved failing run.",
       2: USAGE,
       3: INVALID,
       5: "The test command cannot start, runs past the timeout, or git cannot read the status of the unit's files.",
