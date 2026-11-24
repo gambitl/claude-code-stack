@@ -100,12 +100,6 @@ function unitRange(text: string, unit: number) {
   return { lines, start: target.line, end: next ? next.line - 1 : lines.length };
 }
 
-/** Returns the note line of one command in one unit of a plan text, or nothing when the unit has none. */
-export function readUnitNote(text: string, unit: number, kind: "red" | "green"): string | undefined {
-  const { lines, start, end } = unitRange(text, unit);
-  return lines.slice(start, end).find((line) => line.startsWith(noteStart(kind)));
-}
-
 /** Writes the note into the plan file, inside the commit lock of the plan file. It returns a message when it fails. */
 export async function writeUnitNote(
   root: string,
