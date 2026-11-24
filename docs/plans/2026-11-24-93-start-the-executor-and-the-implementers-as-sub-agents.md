@@ -437,7 +437,9 @@ I checked security and authorization, data model lock-in, scale, operations and 
 
 ## Non-blocking questions
 
-none
+For the maintainer of the repository: "The build guide keeps the current branch when it is not the target branch and `git rev-list --count <target branch>..HEAD` prints 0. When the target branch is not the default branch, for example `develop`, this rule can keep the default branch. Step 2 still says to never work on the default branch, but `cstack publish` only refuses a push to the target branch. Should a follow-up ticket add "and is not the default branch" to the rule in `build.md` and in the plan template, and make `cstack publish` refuse to push the default branch?"
+
+For the maintainer of the repository: "The build guide puts the stuck report of an implementer inside a fenced block. A report that itself holds three backticks would close that fence early, and the rest would read as instructions. Should a follow-up ticket tell the executor to open the fence with more backticks than the longest run of backticks in the report?"
 
 ## Pull request
 
