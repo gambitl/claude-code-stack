@@ -86,6 +86,8 @@ none
 
 Text of the review log.
 
+Independent review: none
+
 ## Briefing
 
 Text of the briefing.

@@ -58,6 +58,16 @@ export const ticketCopied: PhaseCheck = ({ plan }) =>
     ? []
     : ["Ticket is not filled."];
 
+// WHY: since #107 the executor may close a phase in the same answer as its last edit, so a failed edit of the Review log must not let the close pass (ticket #132).
+export const independentReviewLogged: PhaseCheck = ({ plan }) =>
+  (plan.sections.find((section) => section.name === "Review log")?.contentLines ?? []).some((line) =>
+    line.startsWith("Independent review:"),
+  )
+    ? []
+    : [
+        'Review log has no line that starts with "Independent review:". Add that line to the Review log, followed by the findings of the independent review or by the word none.',
+      ];
+
 export const noOpenQuestion: PhaseCheck = ({ plan }) =>
   plan.blockingQuestions.filter((q) => q.open).map((q) => `Blocking question ${q.number} is still open.`);
 
@@ -103,7 +113,7 @@ export const PHASES: readonly Phase[] = [
   phase("plan", "5", MAIN, ["questions"], { start: noOpenQuestion, done: planDone, writes: ["Approved at"] }),
   phase("build", "6", EXEC, ["plan"], { done: buildDone }),
   phase("review", "7", EXEC, ["build"], { done: filled("Review log") }),
-  phase("independent-review", "8", EXEC, ["review"]),
+  phase("independent-review", "8", EXEC, ["review"], { done: independentReviewLogged }),
   phase("update-branch", "9", EXEC, ["independent-review"]),
   phase("document", "10.3", EXEC, ["update-branch"], { done: filled("Documentation") }),
   phase("briefing", "10.1", EXEC, ["document"], { done: filled("Briefing") }),
