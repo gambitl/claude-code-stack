@@ -392,6 +392,8 @@ Rejected. The simplicity reviewer asked to remove the new branch rule, the sente
 
 Follow-ups. The security reviewer found that the branch rule could keep the default branch when it is not the target branch, for example in a git-flow setup, and that `cstack publish` only refuses a push when the branch equals the target branch. A later ticket should add "and is not the default branch" to the rule and make `cstack publish` refuse the default branch. The fence in the stuck report could close early if the report holds three backticks. The `- Worktree:` description in the plan template stays for #95.
 
+Independent review. The reviewer changed no code and ran the full suite, which passed. It raised two cheap points, and I fixed both in `build.md`: a final message that names no kind counts as stuck, and step 5 now also checks that the unit is done with a commit. Judgment calls for the pull request: `cstack next` still names `cstack helper done published` after the publish phase, and #95 owns that. The capital "Write" in step 4 of `implementer.md` stays because a test matches it. The default-branch case of the branch rule and the early-closing fence stay as follow-ups.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
