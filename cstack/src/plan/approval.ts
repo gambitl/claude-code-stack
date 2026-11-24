@@ -1,5 +1,5 @@
 import { readFileSync, realpathSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { PlanFact, PlanRead } from "./read.js";
 
 /** One message for each change to what the ticket fixes whose blocking question is missing or unanswered. */
@@ -55,12 +55,19 @@ export function factProblems(root: string, facts: PlanFact[]): string[] {
 function fileProblem(root: string, where: string, source: { path: string; line: number; quote: string }): string | undefined {
   if (source.quote.trim() === "") return `${where} its quoted text holds only spaces.`;
   const unreadable = `${where} the file \`${source.path}\` cannot be read.`;
+  const realRoot = realpathSync(root);
+  const outside = `${where} its file is outside the repository.`;
+  if (leaves(realRoot, resolve(realRoot, source.path))) return outside;
   let real: string;
   try {
-    real = realpathSync(resolve(realpathSync(root), source.path));
+    real = realpathSync(resolve(realRoot, source.path));
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     return code === "ENOENT" || code === "ENOTDIR" ? `${where} the file \`${source.path}\` does not exist.` : unreadable;
+  }
+  if (leaves(realRoot, real)) return outside;
+  if (relative(realRoot, real).split(sep).some((part) => part.toLowerCase() === ".git")) {
+    return `${where} its file is inside the git folder.`;
   }
   if (!statSync(real).isFile()) return `${where} \`${source.path}\` is not a regular file.`;
   const lines = readFileSync(real, "utf8").split(/\r?\n/);
@@ -70,4 +77,10 @@ function fileProblem(root: string, where: string, source: { path: string; line: 
     return `${where} line ${source.line} of \`${source.path}\` does not hold the quoted text.`;
   }
   return undefined;
+}
+
+/** True when the path is the root itself or is not inside it. */
+function leaves(root: string, path: string): boolean {
+  const rel = relative(root, path);
+  return rel === "" || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
 }

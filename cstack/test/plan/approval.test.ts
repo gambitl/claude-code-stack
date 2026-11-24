@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, relative } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { PlanFact } from "../../src/plan/read.js";
 
@@ -109,5 +109,56 @@ describe("factProblems()", () => {
       "The fact at line 45 of the plan: the file `src/missing-zq7.ts` does not exist.",
       "The fact at line 43 of the plan: line 2 of `src/a.ts` does not hold the quoted text.",
     ]);
+  });
+});
+
+describe("factProblems() bounds", () => {
+  let outside = "";
+  const escaped = "The fact at line 40 of the plan: its file is outside the repository.";
+  const gitFolder = "The fact at line 40 of the plan: its file is inside the git folder.";
+
+  beforeEach(() => {
+    outside = mkdtempSync(join(tmpdir(), "cstack-outside-"));
+    writeFileSync(join(outside, "outside.ts"), "const secret = 1;\n");
+  });
+
+  afterEach(() => {
+    rmSync(outside, { recursive: true, force: true });
+  });
+
+  it("refuses an absolute path", async () => {
+    const result = await check([file(join(outside, "outside.ts"), 1, "const secret")]);
+    expect(result).toEqual([escaped]);
+    expect(result[0]).not.toContain(outside);
+    expect(result[0]).not.toContain(root);
+  });
+
+  it("refuses a path that climbs out with ..", async () => {
+    const climb = relative(root, join(outside, "outside.ts"));
+    expect(climb.startsWith("..")).toBe(true);
+    expect(await check([file(climb, 1, "const secret")])).toEqual([escaped]);
+  });
+
+  it("refuses a symbolic link that leads outside the repository", async () => {
+    symlinkSync(join(outside, "outside.ts"), join(root, "src", "out.ts"));
+    const result = await check([file("src/out.ts", 1, "const secret")]);
+    expect(result).toEqual([escaped]);
+    expect(result[0]).not.toContain(outside);
+  });
+
+  it("refuses a symbolic link that leads into the git folder", async () => {
+    mkdirSync(join(root, ".git"));
+    mkdirSync(join(root, "docs"));
+    writeFileSync(join(root, ".git", "config"), "[core]\n");
+    symlinkSync("../.git/config", join(root, "docs", "config"));
+    expect(await check([file("docs/config", 1, "[core]")])).toEqual([gitFolder]);
+  });
+
+  it("refuses a path into the git folder written in another case", async () => {
+    mkdirSync(join(root, ".git"));
+    writeFileSync(join(root, ".git", "config"), "[core]\n");
+    const result = await check([file(".GIT/config", 1, "[core]")]);
+    const missing = "The fact at line 40 of the plan: the file `.GIT/config` does not exist.";
+    expect([[gitFolder], [missing]]).toContainEqual(result);
   });
 });
