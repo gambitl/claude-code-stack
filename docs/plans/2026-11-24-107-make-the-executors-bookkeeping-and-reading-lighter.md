@@ -330,7 +330,42 @@ Independent review (executor, phase independent-review). The reviewer made one f
 
 ## Briefing
 
-<CTO advisor, moment after-build>
+### What you should know about what was built
+
+The executor prompt now has four new rules. It skips the conventions file when its context already shows it. It reads the plan file once, up to `## History`, and then only the sections it needs. It closes a phase in the same shell call as the last command, joined with `&&`, or in the same answer as the last edit. It never joins the close after a pipe. The end of the nine executor guides points to these rules, and `cstack next` does not change. This does what the ticket asked, with the acceptance criteria that you changed at the question round. I ran the seven test files that the branch touches (156 cases) and the type check myself, and they pass.
+
+**What to watch**
+
+- The first run that uses this prompt is the real test. Its audit should show `session` on the close lines of the executor phases. Also check that the executor never reads the whole plan file again. A partial read before an edit was only tested in a main session, not in a sub-agent.
+- The ticket that rewrites the agent prompts (#103) comes next. The new test file checks these rules sentence by sentence, so it will fail if that rewrite drops one. That is on purpose, so keep the sentences or update the test with care.
+- The gain only shows once a release ships these prompts, at the end of milestone R3. Check that the comparison runs 5 and 6 use that release.
+
+**What changed since the plan**
+
+- Skipping the `## History` part saves less than the plan expected. In the plan files of this wave, History is only 14 to 18 KB out of 77 to 112 KB, and the part read at start is 62 to 94 KB.
+- The largest of those working parts is above the 25,000-token limit of one Read, so the "one read" can take two calls.
+- The example of the pipe rule says `<test command>` instead of `npm test`, because a test refuses "npm test" in a prompt.
+- The new case of `next.test.ts` calls `--done` alone. Only the audit test checks a close that is joined to another command.
+
+### Details
+
+The build follows the plan and the user's answers. The executor prompt (`cstack/skills/resolve-issue/agents/executor.md`, "How you work") holds the two paragraphs of unit 1 and the close paragraph of unit 2. Each of the nine executor guides in `cstack/guides/resolve-issue/` ends with the new sentence of unit 3, and its block of mandatory steps is unchanged. `ready.md` joins the commit after the close, and `publish.md` joins the submit after the close. `cstack/test/guides/executor-bookkeeping.test.ts`, the new case of `cstack/test/next.test.ts` and `cstack/test/audit-chained-close.test.ts` cover the change. ADR-RQG-C has the new section "How the executor closes a phase". On 2026-11-24, I ran `npx vitest run` on `executor-bookkeeping.test.ts`, `audit-chained-close.test.ts`, `next.test.ts`, `prompts.test.ts`, `guides/steps-blocks.test.ts`, `guides/settings-applied.test.ts` and `manifest.test.ts`: 7 files and 156 cases passed. `npm run typecheck` passed too. Every commit of the branch carries the no-reply address as author and as committer, and the branch is level with `origin/main`. `main` takes pull requests with a merge commit, as the last twelve merges show, so the merge needs nothing special.
+
+The first real run with this prompt is the proof that the rules work in a sub-agent. The partial read before an Edit was tested in the main session of this run (decision of 2026-11-24 about reading the plan file), never in a sub-agent. If a sub-agent's Edit tool asks for a full read, the executor follows its fallback and reads only the lines of the section. Nothing breaks, but the saving is smaller. The audit of that run should show the record word `session`, not `run state`, on the `cstack next --done <phase>` lines of the executor phases (`cstack/src/audit/evaluate.ts`, lines 214 to 219 and 291). A `run state` record there means that the close ran in a call that the audit did not read as its own. One more case fails safe and costs an answer. When the plan file has no change, `git commit` exits with 1, so a close joined after it does not run and the executor must close alone. No guide makes this case likely.
+
+The ticket that rewrites the agent prompts (#103) changes the same prompt. `executor-bookkeeping.test.ts` quotes every new sentence, so a rewrite that drops or rephrases one fails at once. That guard is intended, and the comment posted on #103 asks it to keep the rules. The audit test copies only the setup it needs from `cstack/test/audit.test.ts`, so a change of the audit by #100 can break `audit-chained-close.test.ts` without touching `audit.test.ts`. That failure would be real information, not noise.
+
+The token gain cannot show before a release. This run follows the installed `cstack` 0.3.2, and `## Decisions` keeps the version unchanged until the end of milestone R3. Comparison runs 5 and 6 must use a release that contains this branch, or they will measure the old prompt.
+
+The plan expected most of the saving of the plan read to come from skipping History. The code mapping says that "most of that weight is the History part". I measured the plan files of this wave on 2026-11-24, as the bytes before the line `## History` against the whole file. For #107 it is 61,763 bytes out of 76,831. For #93 it is 93,866 out of 111,684, for #95 90,509 out of 107,101, for #98 81,563 out of 95,801, and for #102 72,756 out of 86,338. So History is about 15 to 20 percent of a finished plan file. The working part is the heavy one, and the `## Decisions` block alone is 22,855 bytes in this plan, mostly rules copied from the brief of the run. The rule is still right, because it removes a full second read and keeps History out. But its gain is smaller than the plan assumed. The Read tool also refused to return more than 25,000 tokens in one call when I read this plan file, and it stopped at line 344 of 433. A working part of 94 KB is above that limit, so the executor's one read can take two calls with an offset. That costs one extra call, not a second copy of the file.
+
+Three small departures from the plan were taken. The example of the pipe rule reads `<test command> | tail -5 && cstack next --done review`, because `cstack/test/guides/settings-applied.test.ts` refuses "npm test" in a prompt (unit 2, commit 8fb9960). The new case of `next.test.ts` runs `--done` for six executor phases as separate calls. So the joined shell call itself is proven only by `audit-chained-close.test.ts`, which works on recorded session lines. That is enough, because the `&&` semantics belong to the shell, not to `cstack`. The constant `NINE` of the guide test became `EXECUTOR_GUIDES` (commits 1ffa18e and a9b9c2f). The example in the prompt commits before the close, while `ready` commits after the close, because `--done ready` writes the Status into the plan file. `ready.md` says so, and the done report refuses an uncommitted plan file, so a wrong order is caught.
+
+The earlier questions were resolved this way. Question 1, about the conventions file in a sub-agent's context, was answered with a test, and the prompt keeps the condition for `AGENTS.md` or `CONTRIBUTING.md`. Question 2 took the first way, which joins the close and leaves `cstack next` unchanged. Questions 3 to 7, 9 and 10 of the question round were built as recommended, including the ban on a pipe and the fallback for a cut output. Question 8, about the other helpers and the conventions file, stays open for #103 under "Non-blocking questions". The gap of the independent review, which has no check on its close, is the second open question there.
+
+One new question was found after the build. It is non-blocking, because this ticket is complete and correct whatever the answer. It is for the maintainer, in English: "In the plan files of this wave, the part before `## History` weighs 62 to 94 KB, and History only 14 to 18 KB. The `## Decisions` block of #107 alone is about 23 KB, mostly rules copied from the run brief. Should a later ticket, such as #108, cut what the executor reads when it starts? For example, it could read only the sections that its guides name, instead of the whole working part."
+
+I checked security and authorization, data model lock-in, scale, failure modes, user experience, operations and cost, and reversibility, and found nothing in them. The change is prose plus tests, it adds no flag, no plan format change and no dependency, and a revert undoes it.
 
 ## Non-blocking questions
 
