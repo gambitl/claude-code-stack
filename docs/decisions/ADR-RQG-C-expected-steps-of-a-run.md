@@ -144,4 +144,4 @@ The audit prints one line for each unit that used this check. The line says whic
 
 These lines have no verdict. The audit never marks them as done, skipped or out of order, and they never change the exit code. The reason is that a repository without a per-case report always uses the whole test file. If the lines had a verdict, every audit of such a repository would fail. The check of the whole test file is a known and allowed fallback, so the audit only shows it.
 
-The code is in `cstack/src/audit/whole-file.ts`. The sentence "The exit code looks only at the printed lines" in the README stays true, because these lines are not verdict lines.
+The code is in `cstack/src/audit/whole-file.ts`. The sentence "The exit code looks only at the printed verdict lines" in the README stays true, because these lines are not verdict lines.

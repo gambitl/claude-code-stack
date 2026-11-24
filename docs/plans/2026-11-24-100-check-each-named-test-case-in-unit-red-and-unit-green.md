@@ -398,11 +398,13 @@ US-6, AC5 says that the audit reports a unit that used the check of the whole te
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- Unit 2 did not run the deliberate-break check that the wave rules ask for, and unit 4 skipped it too. The implementer reports say so.
+- `cstack helper wait` for unit 1 exited with 1 when I ran it right after starting the sub-agent, because the sub-agent had not returned yet. I ran it again after it returned.
+- The README sentence about the audit exit code was reworded in unit 6, and the ADR still quoted the old wording. I fixed the ADR line.
 
 ## Hand-off log
 
-2026-11-24 (executor, build): moved ticket #100 to "in progress" with cstack tracker move. Building the units one at a time.
+2026-11-24 (executor, build): moved ticket #100 to "in progress" with cstack tracker move. Built units 1 to 6 one at a time with implementer sub-agents. Fixed one ADR sentence to match the README.
 
 ## History
 
