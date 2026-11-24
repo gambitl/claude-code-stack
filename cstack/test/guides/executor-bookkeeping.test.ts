@@ -49,3 +49,49 @@ describe("the close rules of the executor prompt", () => {
     expect(howYouWork()).toContain(sentence);
   });
 });
+
+const GUIDES = new URL("../../guides/resolve-issue/", import.meta.url);
+
+function guideText(phase: string): string {
+  return readFileSync(new URL(`${phase}.md`, GUIDES), "utf8");
+}
+
+const PHASE_GUIDES = [
+  "build",
+  "review",
+  "independent-review",
+  "update-branch",
+  "document",
+  "briefing",
+  "after-build-questions",
+];
+
+describe("the end of each executor guide points to the close rule", () => {
+  it.each(PHASE_GUIDES)("%s: holds the new close sentence", (phase) => {
+    expect(guideText(phase)).toContain(
+      `Run \`cstack next --done ${phase} --plan <plan file>\` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.`,
+    );
+  });
+
+  it("ready: step 2 joins the commit of the plan file to the close", () => {
+    expect(guideText("ready")).toContain(
+      "2. Commit the plan file in the same shell call as the close of step 1, joined after it with `&&`. The done report is refused while the plan file has an uncommitted change.",
+    );
+  });
+
+  it("publish: step 3 joins the close to the submit", () => {
+    expect(guideText("publish")).toContain(
+      "Run `cstack next --done publish --plan <plan file>` in the same shell call as the submit of step 4, joined before it with `&&`.",
+    );
+  });
+});
+
+const NINE = [...PHASE_GUIDES, "ready", "publish"];
+
+describe("the block of mandatory steps of each executor guide", () => {
+  it.each(NINE)("%s: still holds the line that closes its phase", (phase) => {
+    const text = guideText(phase);
+    const block = text.slice(text.indexOf("<!-- mandatory steps"), text.indexOf("-->"));
+    expect(block).toContain(`command: cstack next --done ${phase} --plan <plan file>`);
+  });
+});

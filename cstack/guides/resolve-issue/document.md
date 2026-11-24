@@ -39,4 +39,4 @@ Write every place you wrote to, with its link, into the plan file's "Documentati
 
 ## End of the phase
 
-Run `cstack next --done document --plan <plan file>`.
+Run `cstack next --done document --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.

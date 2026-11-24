@@ -51,4 +51,4 @@ When a unit changed a user interface, open or refresh the page with the browser 
 
 ## End of the phase
 
-Every unit needs a commit with its `Cstack-Unit` trailer, or a `- Blocked:` line. Run `cstack next --done build --plan <plan file>`.
+Every unit needs a commit with its `Cstack-Unit` trailer, or a `- Blocked:` line. Run `cstack next --done build --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.

@@ -42,4 +42,4 @@ Then run the tests. Run first the tests that the impact notes list. Then run the
 
 ## End of the phase
 
-The "Review log" must be filled. Run `cstack next --done review --plan <plan file>`.
+The "Review log" must be filled. Run `cstack next --done review --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.
