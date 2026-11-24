@@ -318,11 +318,11 @@ none
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- I ran `cstack helper wait` for unit 1 before the sub-agent had returned, and it exited 1 with "finished without an accepted report". Running it again after the sub-agent returned worked.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+- 2026-11-24, executor run, build phase: moved #96 to "in progress", committed the plan file, and built units 1 and 2 one at a time with sub-agent implementers (commits d30777c and 496fffd). Next phases follow.
 
 ## History
 
