@@ -335,6 +335,8 @@ Correctness reviewer: no finding. Security reviewer: no finding at confidence 80
 
 Simplicity reviewer: five points, none a bug. Follow-ups, not fixed here: build the "cannot be read" message once; drop the first bounds check before `realpathSync`; share the "path leaves the root" test with `plan/locate.ts` and `unit-test-command.ts`. I did not change them, because the first bounds check gives a clearer message for a missing file outside the repository, and a shared helper touches files outside this ticket.
 
+Independent reviewer: found no bug and no security problem. It added commit ba3b669, a `WHY:` comment above the approval check in `cstack/src/commands/next.ts` that the plan's Decisions asked for. Its full `npm test` had four timeouts of five seconds on a busy machine; run alone, those four files pass. Judgment calls for the pull request body: (1) the plan phase guide `cstack/guides/resolve-issue/plan.md` does not mention the new refusals yet, and the plan sends that question to #103; (2) refusing a negative criterion that no unit covers is not in the ticket text, and the user approved it as a decision; (3) the named-pipe test would hang, not fail, if the regular-file check were removed.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
@@ -360,7 +362,7 @@ Simplicity reviewer: five points, none a bug. Follow-ups, not fixed here: build 
 
 ## Hand-off log
 
-- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done. Resumed after a usage limit and ran the review phase with four reviewers; no fix was needed.
+- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done. Resumed after a usage limit and ran the review phase with four reviewers; no fix was needed. The independent reviewer added one comment commit (ba3b669).
 
 ## History
 
