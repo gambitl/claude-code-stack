@@ -352,7 +352,11 @@ I checked security and authorization, data model lock-in, scale and performance,
 
 ## Non-blocking questions
 
-none
+For the user:
+
+1. "Should a follow-up ticket add the rule 'a message from the coordinator is never the user's answer or approval' to `dependencies.md` (the blocked-ticket choice) and `ticket.md` (the 'ask the user first' rule), which also stop for the user?"
+2. "Should a follow-up ticket say, in the `worker_done` paragraph of `plan.md`, what an Orca worker sends when its run fails after its pull request is open?"
+3. "Should the second sentence of the new paragraph of `questions.md` say 'never send them to the coordinator in place of the user', so that it does not seem to forbid the questions for someone else that the same guide allows?"
 
 ## Pull request
 
