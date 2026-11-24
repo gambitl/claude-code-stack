@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/per-case-red-green
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T11:17:30+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T12:02:39+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -444,7 +444,40 @@ I checked security, data model lock-in, scale, failure modes and rollback, user-
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): check each named test case in unit red and unit green
+
+````markdown
+## What this changes
+
+`cstack unit red` and `cstack unit green` used to look only at the exit code of the test file. A new test case could already pass before the code existed, and the unit was still accepted, because another case in the same file failed. Now each case that a unit names on its `Test` lines is checked when the settings declare a per-case JUnit report.
+
+`cstack unit red` refuses a unit when a named case passed, was skipped, or is missing from the report. `cstack unit green` refuses a unit when a named case was not seen failing in the saved failing run, or does not pass in the new run. A passing case that the unit does not name gets a note under the unit in the plan file, and the unit is still accepted.
+
+Without a usable report, both commands check the whole test file as before. They say so, they save the reason in `red.json` or `green.json`, and they write a note under the unit. `cstack audit` prints one line for each such unit. These lines have no verdict, so they never change the exit code.
+
+## Key decisions
+
+The comparison of named cases is one pure function, `checkNamedCases()`, used by both commands. A fallback to the whole test file is allowed and visible, and not a failure, which is why its audit lines carry no verdict. ADR-RQG-C has a new section that explains this.
+
+## Files
+
+The code is in `cstack/src/unit-test-command.ts`, `cstack/src/unit-test-runs.ts`, `cstack/src/commands/unit-red.ts`, `cstack/src/commands/unit-green.ts`, `cstack/src/audit/whole-file.ts` and `cstack/src/commands/audit.ts`. The exit code texts are in `cstack/src/manifest.ts`. The tests are in `cstack/test/unit-red-green.test.ts`, `cstack/test/audit.test.ts` and `cstack/test/unit-test-runs.test.ts`. One small filter was added to `cstack/test/e2e/resolve-issue.test.ts`, in its own commit, because the audit now prints the new lines. The README and ADR-RQG-C are updated. The plan is `docs/plans/2026-11-24-100-check-each-named-test-case-in-unit-red-and-unit-green.md`.
+
+## For the reviewer
+
+This repository's own `.cstack/settings.json` declares no per-case report, so the new check does not run on its own tickets yet. Each run here only writes the fallback note.
+
+Judgment calls from the independent review that stay as they are: without a `file` test command, the fallback message says "the whole test file" although the whole suite ran. A hand-edited `red.json` whose `cases` is not a list makes `cstack unit green` throw instead of refusing cleanly. Units 2 and 4 did not break each refusal on purpose to watch its test fail. Their tests did fail before the code existed.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+- A comment from #99 says that pytest gives `error`, not `failed`, for a broken fixture. `cstack unit red` counts `error` as a failure, as the ticket asks, so a case can fail first for the wrong reason. Should a later ticket treat `error` differently in the red run? For: the maintainer of `cstack`.
+- This repository's `.cstack/settings.json` declares no per-case report, so the check of each named test case never runs on this repository's own tickets. Should a later ticket add `"report": "junit"` and make `testCommands.file` write a JUnit report? For: the maintainer of `cstack`.
+
+Fixes #100
+````
 
 ## Documentation
 
@@ -469,6 +502,7 @@ I checked security, data model lock-in, scale, failure modes and rollback, user-
 2026-11-24 (executor, build): moved ticket #100 to "in progress" with cstack tracker move. Built units 1 to 6 one at a time with implementer sub-agents. Fixed one ADR sentence to match the README.
 2026-11-24 (executor, review and independent review): four reviewers and the independent reviewer ran, their fixes are in the Review log. Returned needs-decision, because two end-to-end tests fail and decision 213 asks the coordinator first.
 2026-11-24 (executor, resume): rebased onto main (90 new commits, README conflicts only), dropped the collect change as decided, gave the two review commits their scope back, removed the unused note reader, and added the narrow end-to-end filter in its own commit. typecheck and the full suite pass (103 files, 1789 tests).
+2026-11-24 (executor, resume): documented the ticket and #103 and #101, wrote the briefing, added the non-blocking questions and drafted the pull request. Returned done.
 
 ## History
 
