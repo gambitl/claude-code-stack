@@ -69,7 +69,7 @@ describe("readSteps", () => {
     expect(result.steps.map((step) => step.line)).toEqual([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
   });
 
-  it("accepts all seven conditions and the three kinds from the exported lists", async () => {
+  it("accepts all eight conditions and the three kinds from the exported lists", async () => {
     const { STEP_KINDS, CONDITIONS } = await load();
     expect([...STEP_KINDS]).toEqual(["command", "helper", "action"]);
     expect([...CONDITIONS]).toEqual([
@@ -80,6 +80,15 @@ describe("readSteps", () => {
       "each-dependent-ticket",
       "user-interface",
       "new-structural-decision",
+      "big-decision",
+    ]);
+  });
+
+  it("reads the condition big-decision on an action step", async () => {
+    const { readSteps } = await load();
+    const result = readSteps(block("action: write-decision-record | big-decision"), "build.md");
+    expect(result.ok && result.steps).toEqual([
+      { line: 2, kind: "action", action: "write-decision-record", condition: "big-decision" },
     ]);
   });
 

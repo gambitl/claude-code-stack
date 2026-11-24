@@ -13,6 +13,7 @@ export const CONDITIONS = [
   "each-dependent-ticket",
   "user-interface",
   "new-structural-decision",
+  "big-decision",
 ] as const;
 export type Condition = (typeof CONDITIONS)[number];
 

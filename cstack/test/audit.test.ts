@@ -951,6 +951,93 @@ describe("cstack audit conditional command steps", () => {
     expect(lines.filter((l) => l.includes("cstack unit green") || l.includes("cstack unit red"))).toHaveLength(0);
     expect(lines).toHaveLength(2);
   });
+
+  describe("with a big decision", () => {
+    const RECORD = "docs/decisions/ADR-SAMPLE-A-sample.md";
+    const DUTY = "- ADR-SAMPLE-A (`docs/decisions/ADR-SAMPLE-A-sample.md`): applies, written in the document phase.";
+    const withDuty = (text: string, duty = DUTY) => text.replace("Write the page of the command.", duty);
+    const GUIDE = {
+      document: [
+        `command: ${COMMENT}`,
+        "action: write-decision-record | big-decision",
+        "action: write-why-comment | big-decision",
+        "action: write-documentation-places",
+        "command: cstack next --done document",
+      ],
+    };
+    const documentAt = phaseIndex("document");
+    const commitAtTime = (repo: string, file: string, text: string, time: string) => {
+      mkdirSync(dirname(join(repo, file)), { recursive: true });
+      writeFileSync(join(repo, file), text);
+      git(repo, "add", file);
+      process.env.GIT_AUTHOR_DATE = time;
+      try {
+        git(repo, "commit", "-m", "change");
+      } finally {
+        delete process.env.GIT_AUTHOR_DATE;
+      }
+    };
+    const commits = (times: { record: string; why: string }) => (s: Setup) => {
+      git(s.repo, "checkout", "-b", "feature");
+      commitAtTime(s.repo, RECORD, "record\n", times.record);
+      commitAtTime(s.repo, "src/a.ts", "// WHY: ADR-SAMPLE-A, the reason.\n", times.why);
+    };
+    const RECORD_LINE = "document: write-decision-record:";
+    const WHY_LINE = "document: write-why-comment:";
+
+    it("prints both steps of a big decision as skipped when the branch has no record and no WHY comment", async () => {
+      const r = await run(withDuty(basePlan()), GUIDE, commentCalls(1));
+      const lines = r.stdout.split("\n");
+      expect(lines).toContain("document: write-decision-record: skipped");
+      expect(lines).toContain("document: write-why-comment: skipped");
+      expect(r.code).toBe(1);
+    });
+
+    it("prints no step of a big decision when no duty says a record applies", async () => {
+      const r = await run(basePlan(), GUIDE, commentCalls(1));
+      expect(only(r.stdout, "document: write-")).toHaveLength(0);
+    });
+
+    it("prints both steps done from git when the branch has the record and the WHY comment", async () => {
+      const times = { record: at(documentAt, 20), why: at(documentAt, 30) };
+      const r = await run(withDuty(basePlan()), GUIDE, commentCalls(1), commits(times));
+      const lines = r.stdout.split("\n");
+      expect(lines).toContain(`document: write-decision-record: done ${localTime(new Date(times.record))} git`);
+      expect(lines).toContain(`document: write-why-comment: done ${localTime(new Date(times.why))} git`);
+    });
+
+    it("prints no record line when the duty names no .md file", async () => {
+      const r = await run(withDuty(basePlan(), "- ADR-157: applies, written to the wiki page of the team."), GUIDE, commentCalls(1));
+      expect(only(r.stdout, RECORD_LINE)).toHaveLength(0);
+      expect(only(r.stdout, `${WHY_LINE} `)).toHaveLength(1);
+    });
+
+    it("prints no line for an action step other than the two of a big decision", async () => {
+      const guide = { document: [...GUIDE.document.slice(0, 1), "action: write-decision-record", ...GUIDE.document.slice(1)] };
+      const r = await run(withDuty(basePlan()), guide, commentCalls(1));
+      expect(only(r.stdout, RECORD_LINE)).toHaveLength(1);
+      expect(r.stdout).not.toContain("write-documentation-places");
+    });
+
+    it("keeps a record committed during the build out of the order of the phase", async () => {
+      const times = { record: at(buildAt, 20), why: at(buildAt, 30) };
+      const r = await run(withDuty(basePlan()), GUIDE, commentCalls(1), commits(times));
+      const lines = r.stdout.split("\n");
+      expect(lines).toContain(`document: write-decision-record: done ${localTime(new Date(times.record))} git`);
+      expect(lines).toContain(`document: write-why-comment: done ${localTime(new Date(times.why))} git`);
+      expect(lines.find((l) => l.startsWith("document: cstack next --done document: "))).toBe(
+        `document: cstack next --done document: done ${localTime(new Date(at(documentAt + 1)))} session`,
+      );
+    });
+
+    const READY = { ready: ["command: cstack next --done ready", "command: cstack plan status --plan <plan file> | big-decision"] };
+    it("lists a command step with big-decision once when it holds", async () => {
+      const yes = await run(withDuty(basePlan()), READY);
+      expect(only(yes.stdout, "ready: cstack plan status --plan <plan file>: ")).toHaveLength(1);
+      const no = await run(basePlan(), READY);
+      expect(only(no.stdout, "ready: cstack plan status --plan <plan file>: ")).toHaveLength(0);
+    });
+  });
 });
 
 describe("cstack audit helper steps", () => {
