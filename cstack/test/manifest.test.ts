@@ -125,7 +125,6 @@ describe("matchMention", () => {
 
 describe("the flags that are not built yet", () => {
   it("names the ticket of the flag once the command is built", () => {
-    const built = COMMANDS.map((e) => ({ ...e, built: true }));
     // Its own list, so the case does not depend on which real flags are still unbuilt.
     const made: CommandEntry[] = [
       {

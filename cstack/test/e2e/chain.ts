@@ -2,7 +2,7 @@
 // child processes from scratch, and sets up a project with a bare remote and the fake `orca` and `gh` programs of test/e2e/bin.
 // Nothing here reaches the real Orca, the real gh, the network or the real home folder.
 import { execFileSync, spawnSync } from "node:child_process";
-import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { accessSync, constants, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, renameSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { delimiter, join } from "node:path";
 import { expect } from "vitest";
