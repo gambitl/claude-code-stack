@@ -375,7 +375,7 @@ I checked security, the data model, scale, failure modes, reversibility, operati
 
 ## Non-blocking questions
 
-none
+- For the maintainer: Please create one new workspace in the Orca app from the branch of this pull request, approve the setup script, and tell us whether `cstack/node_modules` exists. This is the hand check of the third acceptance item.
 
 ## Pull request
 
