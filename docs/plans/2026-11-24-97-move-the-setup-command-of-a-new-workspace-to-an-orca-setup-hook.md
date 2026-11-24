@@ -351,7 +351,10 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #97: https://github.com/gambitl/claude-code-stack/issues/97
+- Comment on ticket #104 (release notes): https://github.com/gambitl/claude-code-stack/issues/104
+- `README.md`, section "Set up a new workspace"; `CLAUDE.md`; amendment at the end of `docs/decisions/ADR-SIC-D-settings-file-and-review-model.md`
+- `docs/projects/refocus-and-quality-guards.md`, answer to the first open question
 
 ## Executor notes
 
