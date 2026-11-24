@@ -343,7 +343,11 @@ Independent review (executor, phase independent-review). The reviewer made one f
 
 ## Documentation
 
-<phase document>
+- ADR-RQG-C, `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`: new section "How the executor closes a phase", committed on the branch.
+- The `WHY:` comment that names ADR-RQG-C, first line of `cstack/test/audit-chained-close.test.ts`, written by unit 4.
+- Comment on #107: https://github.com/gambitl/claude-code-stack/issues/107
+- Comment on #103: https://github.com/gambitl/claude-code-stack/issues/103
+- Not documented, as the duties say: `README.md`, the `cstack next` entry of the manifest, and the specification page.
 
 ## Executor notes
 
