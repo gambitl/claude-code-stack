@@ -88,6 +88,8 @@ export interface PlanSection {
   filled: boolean;
   /** Content lines that are not headings. A heading alone does not make a ticket. */
   bodyLines: number;
+  /** The content lines of the section: no blank line, no comment line and no placeholder line. */
+  contentLines: string[];
 }
 
 export interface PlanUnit {
@@ -779,6 +781,7 @@ export function readPlan(text: string, options: { acceptVersion1?: boolean } = {
       last,
       filled: contentLines.length > 0,
       bodyLines,
+      contentLines,
     });
   });
   for (const name of sectionNames) {

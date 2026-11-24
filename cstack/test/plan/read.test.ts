@@ -102,6 +102,17 @@ describe("the sections of version 2", () => {
   );
 });
 
+describe("the sections of version 2 and their content lines", () => {
+  it("keeps the content lines of each section, without blank, comment and placeholder lines", () => {
+    const text = fixture("approved").replace(
+      "## Review log\n\n<!-- later -->",
+      "## Review log\n\nFirst line.\n\n<!-- a comment -->\n<a placeholder>\n  Indented line.",
+    );
+    const section = readPlan(text).sections.find((candidate) => candidate.name === "Review log");
+    expect(section?.contentLines).toEqual(["First line.", "  Indented line."]);
+  });
+});
+
 describe("a valid plan file", () => {
   let plan: ReturnType<typeof readPlan>;
   beforeAll(() => {
