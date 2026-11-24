@@ -17,7 +17,7 @@ This repository is public. Never write the name of an employer or a client in it
 
 ## Commands
 
-You run these commands from the `cstack/` folder. `npm ci` installs the packages. A new worktree has no `node_modules`, so run `npm ci` there before the first type check or test run. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
+You run these commands from the `cstack/` folder. `npm ci` installs the packages. When Orca creates a new worktree, the setup hook in `orca.yaml` runs `npm ci` in `cstack/`. If `cstack/node_modules` is missing, for example because the setup was skipped or the worktree was made with `git worktree add`, run `npm ci` there before the first type check or test run. `npm test` runs the tests. `npm run typecheck` checks the types. `npm run build` compiles `cstack/src/` into `cstack/dist/`.
 
 The full `npm test` takes about 90 seconds, so give it a shell timeout above two minutes. `cstack/test/report.test.ts` prepares its git repositories once and copies them for each case, so its cases stay fast on a busy machine. Other test files still build a new git repository for each case. When the machine is busy, for example while several test runs go at once, one of their cases can take longer than the five-second timeout of vitest. When only one file fails, run it alone before you look for a bug.
 
