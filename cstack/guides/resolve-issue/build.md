@@ -32,7 +32,7 @@ In this phase you start the work and build every unit of the plan. The settings 
 2. Build the units one at a time, in the order that `cstack unit order` prints: the units of batch 1 from left to right, then those of batch 2, and so on.
 3. For each unit, start a fresh sub-agent of type `resolve-issue:implementer`. Give it four inputs: the repository path, the plan file path, the unit number and the conventions file path. Never build a unit yourself, even one of a few lines, unless the harness cannot launch sub-agents. An implementer runs `cstack unit red` and `cstack unit green`, which prove that its test failed first.
 4. Wait for its final message in this same turn, and never end your turn while an implementer runs. The first line of that message names the kind, `done` or `stuck`.
-5. After each unit, run `cstack plan status --plan <plan file>` before you start the next unit. It shows which units are done.
+5. After each unit, run `cstack plan status --plan <plan file>` before you start the next unit. It shows which units are done. For a unit with a `Test` line, check that it says "failing run saved" and "passing run saved". When one is missing, treat the report as stuck and escalate the unit.
 6. At the end of the build, commit the plan file.
 
 ## When a unit gets stuck

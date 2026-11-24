@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 // may send Claude back to the helper commands or to an Orca worker, except for the independent
 // review by another agent than Claude.
 
-const ROOT = new URL("../../", import.meta.url).pathname;
+const ROOT = join(import.meta.dirname, "..", "..");
 const REVIEW_GUIDE = "guides/resolve-issue/independent-review.md";
 
 function markdownFiles(folder: string): string[] {

@@ -380,7 +380,17 @@ Once the `Branch:` line of the plan template and step 2 of `build.md` no longer 
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Impact notes
+
+The branch removes every mention of `cstack helper`, `cstack unit collect`, `cstack wave` and `--child-worktree` from the guides, skills and prompts. A search of the repository shows that these commands still appear in `cstack/src/`, in the `README.md` paragraphs and in the tests of the commands themselves (`test/helper/`, `test/next.test.ts`, `test/audit*.test.ts`, `test/manifest.test.ts`, `test/e2e/orca.test.ts`). The plan leaves them to ticket #95, which removes the code. `cstack next` still prints "Submit your published report with cstack helper done" after the publish phase (`src/commands/next.ts`, line 181). The plan lists it as known and owned by #95. The usual companions of the guides, which are their tests, were changed in the same branch. The full suite passes: 131 files and 1939 tests.
+
+Findings of the four reviewers, and what I did.
+
+Fixed. The correctness reviewer found that nothing checks any more that an implementer saved its failing run. Step 5 of "Build the units" in `build.md` now tells the executor to read "failing run saved" and "passing run saved" in `cstack plan status`, and to escalate a unit that lacks one. The conventions reviewer found a stale reason in `implementer.md` for never amending a commit, since units no longer run at the same time, and I rewrote it. The correctness reviewer also found that `helpers-are-sub-agents.test.ts` built its root from `URL.pathname`, which breaks on paths with spaces, so it now uses `import.meta.dirname`.
+
+Rejected. The simplicity reviewer asked to remove the new branch rule, the sentence about uncommitted changes of a blocked unit, the `git status` step of the executor, and the paragraph about forwarding a sub-agent result. Each of these is a decision recorded in "Decisions", with its exact wording, so they stay. The capital "W" in step 4 of `implementer.md` stays because `prompts.test.ts` checks that exact text.
+
+Follow-ups. The security reviewer found that the branch rule could keep the default branch when it is not the target branch, for example in a git-flow setup, and that `cstack publish` only refuses a push when the branch equals the target branch. A later ticket should add "and is not the default branch" to the rule and make `cstack publish` refuse the default branch. The fence in the stuck report could close early if the report holds three backticks. The `- Worktree:` description in the plan template stays for #95.
 
 ## Briefing
 
