@@ -386,6 +386,13 @@ Impact notes (executor, 2026-11-24):
 - The full suite passes: type check clean, 101 test files and 1677 tests. A first full run showed two failures in one file while another test run went at the same time. A second run alone passed.
 - I found no `WHY:` or `DECISION:` comment in the deleted files that conflicts with the removal. Decisions of this plan cover the removal.
 
+Reviewer findings (executor, 2026-11-24):
+
+- Correctness: no bug found. The reviewer ran the type check and the full suite, and both passed. Minor note: the file-name assertion of `saveReport` went away with a deleted test. I left it as it is.
+- Security: no finding. The branch only deletes code that started other programs.
+- Conventions: no finding. Authors and committers use the no-reply address, and the public text rule holds. Minor note: `checkReport` still says "role executor" in one message, and tests may match those words, so I left it.
+- Simplicity: I fixed two findings in commit 45c4646, the `--child-worktree` filter in `written()` and the comment about waves in `chain.ts`. I did not shrink the fake `bin/orca` script or drop an `export`, because the gain is small. `hasWorktree`, `readAt` and `watchIntervalMinutes` stay on purpose, as the Decisions say.
+
 ## Briefing
 
 ## Non-blocking questions
