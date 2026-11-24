@@ -262,6 +262,8 @@ The new check in `cstack/src/phases.ts` must read the lines of the "Review log".
 
 Impact notes (phase review). `contentLines` is read only in `cstack/src/phases.ts` (`independentReviewLogged`) and in its test in `cstack/test/plan/read.test.ts`. No other code destructures `PlanSection`, so the new field is additive. The two fixtures that close the independent review, `cstack/test/fixtures/plans/ready-for-review.md` and `cstack/test/fixtures/e2e/sections/review-log.md`, got the new line, and the tests that read them passed in unit 2. The files that usually change with `cstack/src/phases.ts` are `cstack/test/phases.test.ts` (changed) and `cstack/src/plan/approval.ts` (not affected, it does not read the Review log). The guide `independent-review.md` keeps its block of mandatory steps in line with its prose, and its close sentence is unchanged. No `WHY:` or `DECISION:` comment or decision record conflicts with the change.
 
+Four reviewers (phase review). Correctness: no problem. It ran the full `npm test` (106 files, 1842 tests) and `npm run typecheck`, and both passed. Security: no issue, because this is a local check that writes nothing. Conventions: no issue. Simplicity: nothing to cut. Two notes without a fix: a line inside a code fence counts as content, so a fenced `Independent review:` line would satisfy the check, and the plan already calls this harmless. The Decisions block says the line starts at its first character, and the code follows it. No code changed in this phase.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
