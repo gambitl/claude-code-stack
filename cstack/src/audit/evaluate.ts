@@ -88,6 +88,9 @@ export type StepInput = {
 
 type Node = { id: string; phase: PhaseName; text: string; words: string[]; unit?: number; before: string[]; helper?: string; action?: string };
 
+const IMPLEMENTER = "resolve-issue:implementer";
+const ESCALATION = "resolve-issue:implementer-escalation";
+const UNIT_CALLS = ["red", "green", "commit"].map((word) => stepWords(`unit ${word} <n>`));
 const REPEATED = ["each-unit", "each-unit-with-test"];
 type Kind = "unit" | "ticket" | "single" | "helper" | "git";
 
@@ -123,7 +126,8 @@ function nodesOf(phase: PhaseName, steps: Step[], units: PlanUnit[], late: Set<n
   segments.forEach((segment, index) => {
     const make = (step: Step, id: string, unit: number | undefined, before: string[]): Node => {
       if (step.kind === "helper") {
-        return { id, phase, text: step.word === undefined ? step.helper : `${step.helper} ${step.word}`, words: [], unit, before, helper: step.helper };
+        const name = step.word === undefined ? step.helper : `${step.helper} ${step.word}`;
+        return { id, phase, text: unit === undefined ? name : `${name} for unit ${unit}`, words: [], unit, before, helper: step.helper };
       }
       const text = (step as { command: string }).command;
       const shown = unit === undefined ? text : text.replace(/<n>(?!\.\.\.)/g, String(unit));
@@ -268,12 +272,20 @@ export function evaluateSteps(input: StepInput): Line[] {
       const builtTime = node.unit === undefined ? undefined : builtAt.get(node.unit);
       const end = builtTime === undefined ? later : closes.find((time) => time !== undefined && time >= builtTime);
       if (node.helper !== undefined) {
+        // WHY: ADR-RQG-C, section "How the audit ties an implementer to its unit".
+        // A helper line of a unit takes only a launch whose own transcript holds a call of that unit, so one implementer never proves the line of another unit.
+        const builtBy = (launch: Launch): boolean =>
+          node.unit === undefined ||
+          (launch.kind === "sub-agent" &&
+            launch.transcript !== undefined &&
+            input.calls.some((call) => call.file === launch.transcript && UNIT_CALLS.some((words) => matchesStep(words, call.args, node.unit))));
         const free = phaseLaunches.filter(
           (launch) =>
             !takenLaunches.has(launch) &&
             (launch.kind === "sub-agent"
-              ? launch.type === node.helper
+              ? launch.type === node.helper || (node.unit !== undefined && node.helper === IMPLEMENTER && launch.type === ESCALATION)
               : node.helper === "resolve-issue:pr-reviewer" && input.reviewAgent !== "claude") &&
+            builtBy(launch) &&
             (earlier === undefined || launch.time >= earlier) &&
             (end === undefined || launch.time <= end),
         );
