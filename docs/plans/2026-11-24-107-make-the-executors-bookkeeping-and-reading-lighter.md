@@ -371,6 +371,7 @@ I checked security and authorization, data model lock-in, scale, failure modes, 
 
 - Should the implementers, the reviewers and the CTO advisor also skip reading the conventions file when their context already shows it? Their prompts are outside this ticket, and #103 rewrites the agent prompts next. For: the maintainer.
 - Should `cstack next --done independent-review` check that the "Review log" holds the judgment calls of the independent review? The executor may now send the close in the same answer as its last edit, and that phase has no check that would refuse a close after a failed edit. For: the maintainer.
+- In the plan files of this wave, the part before `## History` weighs 62 to 94 KB, and History only 14 to 18 KB. The `## Decisions` block of #107 alone is about 23 KB, mostly rules copied from the run brief. Should a later ticket, such as #108, cut what the executor reads when it starts? For example, it could read only the sections that its guides name, instead of the whole working part. For: the maintainer.
 
 ## Pull request
 
