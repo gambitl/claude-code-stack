@@ -90,3 +90,19 @@ The audit lists a step only when its condition holds. The condition `each-depend
 One call or one launch serves at most one line. This stops a single wait or a single launch from proving several steps. The phase lines take no call, so a phase line and the `cstack next --done` step of the same phase still share their call.
 
 Two limits are known. The sentence "No new decision since the question round" is searched in the whole plan text, so a plan that only quotes it hides the step. The time windows of two phases can overlap, so a missing launch can be blamed on a neighbouring line. The exit code is still 1 in that case.
+
+## How the audit treats the phases that are not over
+
+This section was added when ticket #91 made the retro phase run `cstack audit`. It adds to the record above and changes none of its decisions. See the ticket at https://github.com/gambitl/claude-code-stack/issues/91.
+
+When the retro phase runs the audit, the retro phase and the publish phase are not closed yet. The time window of a phase ends at the next close of a later phase. So the window of retro never ends. A call of an earlier phase can then show up as a step of retro, and the audit printed a false "done" for it in an earlier run.
+
+The audit now leaves out every line of the phases that are not over. These phases are the first phase, in the order of the phase list, that the run state does not mark as done, and every phase after it. When at least one phase is left out, the audit prints one fixed sentence on standard error that names them. The exit code looks only at the lines that were printed. A finished run is audited as before.
+
+The options were these. The audit could print the left-out lines with a fourth verdict, "not checked yet". The retro guide could ask the agent to remove the lines by hand. Or nothing could change. We rejected the fourth verdict, because the line format is an interface that `digest-retros` will read. We rejected the removal by hand, because it breaks "the lines as the command printed them", and an agent can copy a long list wrongly. We chose to leave the lines out.
+
+The filter runs after the lines are computed, in `cstack/src/commands/audit.ts`, and does not change the time windows in `cstack/src/audit/evaluate.ts`. This is safe, because the phases are evaluated in order and one call serves one line only. So a later phase never takes a call away from an earlier one. It also keeps away from the code where most recent commits were fixes for those windows.
+
+The filter finds the phase of a line from the text of the line. A line belongs to the phase when its text is the phase line, the start line, or starts with the phase name, a colon and a space. A later change could give each line a phase field instead.
+
+One limit is known. A run that stops for good never closes its last phase, so the audit never shows the steps of that phase. The sentence on standard error makes this gap visible.

@@ -224,6 +224,8 @@ async function audit(args: string[], pkg: string) {
   return { code, ...out };
 }
 
+const NOT_OVER = (names: string): string => `cstack audit: these phases are not over yet, so their lines are left out: ${names}.\n`;
+
 function noPath(stderr: string, s: Setup): void {
   for (const path of [s.repo, s.home, s.guides, s.pkg]) expect(stderr).not.toContain(path);
 }
@@ -362,8 +364,9 @@ describe("cstack audit inputs", () => {
     phases.retro!.doneAt = at(1);
     const s = setup({ phases });
     const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
-    expect(r.code).toBe(1);
-    expect(r.stdout).toContain("phase retro: skipped\n");
+    expect(r.stdout).toContain("phase ready: done ");
+    expect(r.stdout).not.toMatch(/^(phase retro|retro: |phase publish|publish: )/m);
+    expect(r.stderr).toBe(NOT_OVER("retro, publish"));
   });
 
   it("prints a phase done before the phase before it as out of order", async () => {
@@ -1181,5 +1184,103 @@ describe("nothing private leaves the command", () => {
     withMarker(s);
     const r = await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
     for (const path of [s.repo, s.home, s.guides]) expect(r.stdout + r.stderr).not.toContain(path);
+  });
+});
+
+describe("cstack audit leaves out the phases that are not over", () => {
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const readyAt = PHASES.findIndex((p) => p.name === "ready");
+  type Phases = Record<string, { startedAt?: string; doneAt?: string }>;
+  const open = (): Phases => fullPhases() as Phases;
+  const retroRunning = (): Phases => {
+    const phases = open();
+    delete phases.retro!.doneAt;
+    delete phases.publish!.doneAt;
+    return phases;
+  };
+  const ofRetroOrPublish = /^(phase retro|retro: |phase publish|publish: )/m;
+
+  it("prints no line of retro or publish and still prints the ready line", async () => {
+    const s = setup({ phases: retroRunning() });
+    const r = await run(s);
+    expect(r.stdout).toContain("phase ready: done ");
+    expect(r.stdout).not.toMatch(ofRetroOrPublish);
+  });
+
+  it("prints no wait line of retro for a wait of the main conversation after the close of ready", async () => {
+    const calls = [...fullCalls(), { time: at(readyAt + 1, 5), command: "cstack helper wait x" }];
+    const s = setup({ phases: retroRunning(), calls });
+    const r = await run(s);
+    expect(r.stdout).toContain("ready: ");
+    expect(r.stdout).not.toContain("retro: cstack helper wait");
+  });
+
+  it("exits with 0 when every other line is done", async () => {
+    const s = setup({ phases: retroRunning() });
+    const r = await run(s);
+    expect(r.code).toBe(0);
+  });
+
+  it("prints the sentence about the phases that are not over as its whole standard error", async () => {
+    const s = setup({ phases: retroRunning() });
+    const r = await run(s);
+    expect(r.stderr).toBe(NOT_OVER("retro, publish"));
+  });
+
+  it("leaves out the build phase and every later one when build is not done", async () => {
+    const phases = open();
+    for (const { name } of PHASES.slice(buildAt)) delete phases[name]!.doneAt;
+    const s = setup({ phases });
+    const r = await run(s);
+    expect(r.stdout).toContain("phase plan: done ");
+    expect(r.stdout).not.toMatch(/^(phase |)(build|review|independent-review|update-branch|document|briefing|after-build-questions|ready|retro|publish)( started|:|$)/m);
+    expect(r.stderr).toBe(
+      NOT_OVER("build, review, independent-review, update-branch, document, briefing, after-build-questions, ready, retro, publish"),
+    );
+  });
+
+  it("leaves out retro and publish when retro was done before ready", async () => {
+    const phases = open();
+    phases.retro!.doneAt = at(1);
+    const s = setup({ phases });
+    const r = await run(s);
+    expect(r.stdout).not.toMatch(ofRetroOrPublish);
+    expect(r.stderr).toBe(NOT_OVER("retro, publish"));
+  });
+
+  it("leaves out only publish when only publish is not done", async () => {
+    const phases = open();
+    delete phases.publish!.doneAt;
+    const s = setup({ phases });
+    const r = await run(s);
+    expect(r.stdout).toContain("phase retro: done ");
+    expect(r.stdout).not.toMatch(/^(phase publish|publish: )/m);
+    expect(r.stderr.endsWith("left out: publish.\n")).toBe(true);
+  });
+
+  it("prints retro and publish and no sentence for a finished run", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stdout).toContain("phase retro: done ");
+    expect(r.stdout).toContain("phase publish: done ");
+    expect(r.stderr).not.toContain("not over yet");
+  });
+
+  it("prints the sentence about the phases that are not over before the sentence about unreadable files", async () => {
+    const s = setup({ phases: retroRunning() });
+    mkdirSync(join(s.home, ".claude", "projects", "p", "dir.jsonl"));
+    const r = await run(s);
+    expect(r.stderr).toBe(
+      NOT_OVER("retro, publish") + "cstack audit: some session files could not be read, so some steps may show as skipped.\n",
+    );
+  });
+
+  it("holds no path in standard output or standard error inside the retro phase", async () => {
+    const s = setup({ phases: retroRunning() });
+    const r = await run(s);
+    expect(r.stdout).toContain("phase ticket: done ");
+    expect(r.stderr).toBe(NOT_OVER("retro, publish"));
+    noPath(r.stderr, s);
+    noPath(r.stdout, s);
   });
 });

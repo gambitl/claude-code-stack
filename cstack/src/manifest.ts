@@ -79,8 +79,8 @@ export const COMMANDS: CommandEntry[] = [
     summary: "Say which phases, required commands and helper checks of one run were done, skipped or done out of order.",
     flags: ["--home", "--guides"],
     exitCodes: {
-      0: "Every phase, every required command and every helper check was done.",
-      1: "A phase, a command or a helper check was skipped or done out of order, a session file could not be read, no session file holds the close of the ticket phase, or the run needs the guides of another version.",
+      0: "Every phase that is over, with its required commands and helper checks, was done.",
+      1: "A phase that is over, one of its commands or one of its helper checks was skipped or done out of order, a session file could not be read, no session file holds the close of the ticket phase, or the run needs the guides of another version.",
       2: USAGE,
       3: "The plan file, the run state, a guide, the settings file or the session files cannot be used.",
       5: "git cannot list the worktrees of the repository.",
