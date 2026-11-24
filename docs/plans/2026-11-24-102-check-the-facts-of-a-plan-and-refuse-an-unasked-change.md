@@ -329,7 +329,11 @@ When the approval checks a fact with a file source, must the quoted text be a pa
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: the changed symbols are `planDone` (`cstack/src/phases.ts`), the new `cstack/src/plan/approval.ts` and the `--done plan` path of `cstack/src/commands/next.ts`. Only `next.ts` runs the done checks of a phase, so no other command is affected. The tests that exercise them are `phases.test.ts`, `next.test.ts` and `plan/approval.test.ts`. The usual companion of `phases.ts` is `phases.test.ts`, which the branch changed. The full typecheck and `npm test` pass (134 files, 2008 tests). No `WHY:` comment or decision record conflicts.
+
+Correctness reviewer: no finding. Security reviewer: no finding at confidence 80 or above; it noted a short time gap between `statSync` and `readFileSync`, and no cover for Windows `.git.` aliases, both judged not worth a change. Conventions reviewer: no finding.
+
+Simplicity reviewer: five points, none a bug. Follow-ups, not fixed here: build the "cannot be read" message once; drop the first bounds check before `realpathSync`; share the "path leaves the root" test with `plan/locate.ts` and `unit-test-command.ts`. I did not change them, because the first bounds check gives a clearer message for a missing file outside the repository, and a shared helper touches files outside this ticket.
 
 ## Briefing
 
@@ -356,7 +360,7 @@ When the approval checks a fact with a file source, must the quoted text be a pa
 
 ## Hand-off log
 
-- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done.
+- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done. Resumed after a usage limit and ran the review phase with four reviewers; no fix was needed.
 
 ## History
 
