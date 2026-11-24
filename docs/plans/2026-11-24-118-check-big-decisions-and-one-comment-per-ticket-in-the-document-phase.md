@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/document-big-decisions
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T07:47:28+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T08:12:50+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -388,7 +388,38 @@ I checked security, data model lock-in, scale, failure modes, reversibility, ope
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): check big decisions in cstack audit and ask for one comment per ticket
+
+````markdown
+`cstack audit` now checks that a run wrote its decision record and its `WHY:` comment. The document guide also asks for one `cstack tracker comment` call per comment, so the audit counts each comment.
+
+## What changed
+
+I added a condition called `big-decision` to the block format. It holds when a line of "Documentation duties" in the plan names a decision record before its first colon and says "applies" right after it. When it holds, the audit prints two more steps in the document phase. Only git proves them. The record step is done when a commit of the branch changes the record file. The `WHY:` step is done when a commit of the branch adds a `WHY:` line that names the record, in a file that is not Markdown. Both steps compare the branch with the upstream of the target branch, as the unit-commit check does. They take no part in the order of the phase, because a record is often written during the build. If the plan names no record, the audit prints neither line.
+
+The block of `cstack/guides/resolve-issue/document.md` lists the two steps and says that each tracker comment is its own call, never a shell loop. ADR-RQG-C and the `cstack audit` paragraph of the README describe the new rule and its limits.
+
+The main code is in `cstack/src/audit/conditions.ts`, `cstack/src/audit/records.ts` and `cstack/src/audit/evaluate.ts`. The plan file is `docs/plans/2026-11-24-118-check-big-decisions-and-one-comment-per-ticket-in-the-document-phase.md`.
+
+## Review
+
+The review found one bug, which is fixed with a test. The first version compared with the local target branch, so a stale local `main` would count commits of other tickets as proof. The independent review found nothing to change. Its judgment calls follow.
+
+- The lookup of the upstream branch in `baseOf()` copies the logic of `listUnitCommits()`. A shared helper would keep them together.
+- A record file with a lowercase name gives no short name. The audit then uses the text before the colon as the name, as the plan decided.
+- A `WHY:` scan reads an added line that begins with `++ ` as a file header. This is rare.
+
+Left as follow-ups: a `Pick` type for `Records`, a `Set` in `records()`, an exact match of record names, and a `WHY:` line in a file whose name needs quoting.
+
+## Open questions, not needed for this pull request
+
+You can merge this pull request without these answers.
+
+- The briefing guide can also write a decision record. Should its block get the same two steps of a big decision? For: the maintainer.
+- Should the plan guide require that the line of a decision record in "Documentation duties" names its `.md` file in backticks? Without the file name, the `WHY:` step can never show "done". For: the maintainer.
+
+Fixes #118
+````
 
 ## Documentation
 
@@ -406,7 +437,7 @@ I checked security, data model lock-in, scale, failure modes, reversibility, ope
 
 ## Hand-off log
 
-- 2026-11-24, executor run 1: moved ticket #118 to "in progress" with `cstack tracker move`. Started the build phase on branch gambitl/document-big-decisions.
+- 2026-11-24, executor run 1: built units 1 to 6 with implementers, ran the review and the independent review, documented ticket #118 and #103, wrote the briefing and the pull request draft, and returned a done report. Moved ticket #118 to "in progress" with `cstack tracker move`. Started the build phase on branch gambitl/document-big-decisions.
 
 ## History
 
