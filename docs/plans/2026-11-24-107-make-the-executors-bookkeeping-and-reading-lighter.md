@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/lighter-executor
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T11:28:45+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T11:51:14+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -375,7 +375,40 @@ I checked security and authorization, data model lock-in, scale, failure modes, 
 
 ## Pull request
 
-<phase pull-request>
+Title: feat(skill): let the executor close phases in one call and read less
+
+````markdown
+## What was built
+
+The executor now spends fewer answers on bookkeeping and reads less text. Its prompt tells it to skip the conventions file when its context already shows it, to read the plan file once up to `## History`, and then to read one section at a time with `cstack plan section`. It also tells it to close each phase in the same shell call as the last command of the phase, joined with `&&`, or in the same answer as the last edit of the plan file. The end of the nine executor guides points to these rules. No code of `cstack` changed.
+
+## Key decisions and why
+
+A Claude Code sub-agent already receives the whole `CLAUDE.md` in its first request. A transcript of a sub-agent of this run shows it. The prompt keeps one read for a conventions file with another name.
+
+For the close, the user chose to join it to another command instead of adding a flag to `cstack next`. A flag would save no answer, because the executor still needs the next guide. So the first failing tests are tests of the prompt and the guides, in `cstack/test/guides/executor-bookkeeping.test.ts`. The new cases in `cstack/test/next.test.ts` and `cstack/test/audit-chained-close.test.ts` guard behaviour that already exists. Each one was proved by breaking the rule it guards. The audit test shows that `cstack audit` still finds a close that shares a call with another command. ADR-RQG-C has a new section about it.
+
+## Files touched
+
+The executor prompt `cstack/skills/resolve-issue/agents/executor.md`, the end of the nine guides in `cstack/guides/resolve-issue/`, three test files, ADR-RQG-C, and the plan file `docs/plans/2026-11-24-107-make-the-executors-bookkeeping-and-reading-lighter.md`.
+
+## Judgment calls from the independent review
+
+- The example in the prompt commits before the close. The `ready` phase is the exception, because its close writes the status into the plan file. The `ready` guide says to commit after the close.
+- The new case in `next.test.ts` calls `--done` directly. The audit test covers the joined call.
+- Line 51 of `publish.md` stays as the plan says.
+- The pipe example uses `<test command>`, because a test refuses "npm test" in a prompt.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- Should the implementers, the reviewers and the CTO advisor also skip reading the conventions file when their context already shows it? Their prompts are outside this ticket, and #103 rewrites the agent prompts next. For: the maintainer.
+- Should `cstack next --done independent-review` check that the "Review log" holds the judgment calls of the independent review? The executor may now send the close in the same answer as its last edit, and that phase has no check that would refuse a close after a failed edit. For: the maintainer.
+- In the plan files of this wave, the part before `## History` weighs 62 to 94 KB, and History only 14 to 18 KB. Should a later ticket, such as #108, cut what the executor reads when it starts? For: the maintainer.
+
+Fixes #107
+````
 
 ## Documentation
 
@@ -387,11 +420,14 @@ I checked security and authorization, data model lock-in, scale, failure modes, 
 
 ## Executor notes
 
-- Unit 2: the implementer saved a done report before it ran the wider guide tests, then found that `settings-applied.test.ts` refuses "npm test" in a prompt. The helper takes one report only, so the executor made the fix itself (commit d408919).
+- Unit 2: the implementer saved a done report before it ran the wider guide tests, then found that `settings-applied.test.ts` refuses "npm test" in a prompt. The helper takes one report only, so the executor made the fix itself (commit d408919), and ran no `cstack helper wait` for that unit.
+- My rename of `NINE` in the review phase was committed with `-a` but only the plan file changed, so the independent reviewer redid it (commit efc1c91). I should have run `git show --stat` after that commit.
+- The installed 0.3.2 guides differ from the source on `main` (for example `cstack wave` is gone from main), and the plan notes it, so nothing stumbled there.
 
 ## Hand-off log
 
 - 2026-11-24, executor run 1: moved ticket #107 to "in progress" and started the build on branch gambitl/lighter-executor.
+- 2026-11-24, executor run 1: built units 1 to 4, reviewed, rebased on main, documented in ADR-RQG-C and on #107 and #103, wrote the briefing and the pull request draft.
 
 ## History
 
