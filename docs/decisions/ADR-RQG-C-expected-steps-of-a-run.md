@@ -127,3 +127,11 @@ The two lines take no part in the order of the phase. They set no floor for a la
 When git fails, for example because the target branch does not exist, both lines are skipped. The audit does not stop for that.
 
 One limit is known. The audit still lists the `WHY:` step for a decision that governs no code, such as a change to a guide only. The retrospective judges a "skipped" there. Another limit is that the words "applies", "ADR" and "decision record" are English.
+
+## How the executor closes a phase
+
+Each answer of the executor makes the model read its whole context again. So the executor does not spend an answer only on closing a phase. It runs `cstack next --done <phase> --plan <plan file>` in the same shell call as the last command of the phase, joined with `&&`. When the phase ends with an edit of the plan file, it sends the close in the same answer, as a second tool call right after the edit.
+
+The audit still finds such a close. Its shell reader ends a simple command at `&&`, so a joined close is one `cstack` call of its own. The test file `cstack/test/audit-chained-close.test.ts` proves it with two cases. In the first, a commit and the close of review share one call. In the second, the close of publish and the submit of the report share one call.
+
+This section adds to the record and changes none of its decisions. The command of each block of mandatory steps stays the same.

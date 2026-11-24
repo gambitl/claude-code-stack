@@ -21,5 +21,5 @@ When non-blocking questions stay open, add one heading, "Open questions, not nee
 ## Close the build
 
 1. Write the executor notes and a dated entry in the "Hand-off log", as your prompt says. Then run `cstack next --done ready --plan <plan file>`. It needs the "Pull request" and "Executor notes" sections filled. It writes the Status `ready for review` and its time into the plan file.
-2. Commit the plan file. The done report is refused while the plan file has an uncommitted change.
+2. Commit the plan file in the same shell call as the close of step 1, joined after it with `&&`. The done report is refused while the plan file has an uncommitted change.
 3. Submit the done report with `cstack report submit done --plan <plan file>`, with the report on standard input. Then end with the same report as your final message.

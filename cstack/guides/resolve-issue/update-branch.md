@@ -27,4 +27,4 @@ Run every check that the conventions file asks for before a push, such as format
 
 ## End of the phase
 
-Run `cstack next --done update-branch --plan <plan file>`.
+Run `cstack next --done update-branch --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.

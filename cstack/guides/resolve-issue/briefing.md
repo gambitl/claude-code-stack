@@ -19,4 +19,4 @@ The advisor may raise a trade-off that needs a decision record. Write that recor
 
 ## End of the phase
 
-The "Briefing" section must be filled. Run `cstack next --done briefing --plan <plan file>`.
+The "Briefing" section must be filled. Run `cstack next --done briefing --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.

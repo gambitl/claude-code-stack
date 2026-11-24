@@ -33,4 +33,4 @@ Add each one under `## Non-blocking questions`, word for word, with who it is fo
 
 ## End of the phase
 
-Run `cstack next --done after-build-questions --plan <plan file>`. It needs the "Non-blocking questions" section filled.
+Run `cstack next --done after-build-questions --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says. It needs the "Non-blocking questions" section filled.

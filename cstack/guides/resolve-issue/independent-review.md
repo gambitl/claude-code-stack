@@ -31,4 +31,4 @@ Give the reviewer only the repository path, the branch name, the plan file path 
 
 ## End of the phase
 
-Run `cstack next --done independent-review --plan <plan file>`.
+Run `cstack next --done independent-review --plan <plan file>` in the same shell call as the last command of the phase, or in the same answer as its last edit, as your prompt says.
