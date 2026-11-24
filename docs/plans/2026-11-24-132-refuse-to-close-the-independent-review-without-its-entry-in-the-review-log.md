@@ -282,11 +282,14 @@ None from the question round.
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+Unit 1 adds no refusal, so it has no deliberate break.
+Unit 2 adds one refusal, the message of `independentReviewLogged`. The implementer made the check return an empty list. Cases 1, 4, 5 and 6 of `cstack/test/phases.test.ts` failed, and the two closing cases passed. The code was restored and `git diff` showed only the intended change.
+Unit 2 stumbled once: the first deliberate break did not disable the check, so the implementer restored the file and broke it again.
+Unit 3 adds no refusal, so it has no deliberate break.
 
 ## Hand-off log
 
-<one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
+2026-11-24, executor, build phase: moved #132 to "in progress", built units 1, 2 and 3 one at a time with sub-agents (commits 1a2eb5b, c97f21a, 53c90f6), then went on to the next phases.
 
 ## History
 
