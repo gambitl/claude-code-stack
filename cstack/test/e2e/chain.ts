@@ -110,7 +110,7 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
   git("config", "commit.gpgsign", "false");
   git("remote", "add", "origin", REMOTE_URL);
   git("config", `url.${bare}.insteadOf`, REMOTE_URL);
-  // The plan is on main, and the branch of the ticket does not exist yet, as when a wave starts. A test creates the branch when it plays the ticket worktree.
+  // The plan is on main.
   mkdirSync(join(project, "docs", "plans"), { recursive: true });
   cpSync(join(FIXTURES, "plan.md"), join(project, PLAN));
   git("add", ".");
@@ -124,7 +124,7 @@ export async function createChain(options: { orca: boolean; orcaMode?: "old" | "
 
   /** The command as a guide writes it: placeholders stand for the plan path, the unit, the helper id, the ticket key and the tracker name. */
   const written = (args: string[]): string => {
-    const words = args.filter((w) => w !== "--child-worktree").map((w) => (w === PLAN ? "<plan file>" : w));
+    const words = args.map((w) => (w === PLAN ? "<plan file>" : w));
     if (words[0] === "unit" && ["red", "green", "commit"].includes(words[1])) words[2] = "<n>";
     if (words[0] === "tracker") {
       words[2] = "'<key>'";
