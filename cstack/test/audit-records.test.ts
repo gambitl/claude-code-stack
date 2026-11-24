@@ -103,4 +103,22 @@ describe("records", () => {
     expect(recordTime(dir, "missing", [RECORD])).toBeUndefined();
     expect(whyTime(dir, "missing", ["ADR-SAMPLE-A"])).toBeUndefined();
   });
+
+  it("compares with the upstream of the target branch when it has one", async () => {
+    const { recordTime, whyTime } = await load();
+    const dir = makeRepo();
+    const remote = `${dir}-remote`;
+    execFileSync("git", ["clone", "--bare", dir, remote]);
+    git(dir, "remote", "add", "origin", remote);
+    git(dir, "fetch", "origin");
+    git(dir, "branch", "--set-upstream-to=origin/main", "main");
+    commitAt(dir, RECORD, "other\n", 1_700_000_000);
+    commitAt(dir, "src/a.ts", LINE, 1_700_000_100);
+    git(dir, "push", "origin", "main");
+    git(dir, "reset", "--hard", "HEAD~2");
+    git(dir, "fetch", "origin");
+    git(dir, "checkout", "-b", "feature", "origin/main");
+    expect(recordTime(dir, "main", [RECORD])).toBeUndefined();
+    expect(whyTime(dir, "main", ["ADR-SAMPLE-A"])).toBeUndefined();
+  });
 });

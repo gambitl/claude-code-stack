@@ -3,11 +3,20 @@ import { spawnSync } from "node:child_process";
 /** The actions that only git can prove. */
 export const GIT_ACTIONS = ["write-decision-record", "write-why-comment"] as const;
 
+/** The branch that the commits are compared with: the upstream of the target branch when it has one, else the target branch. */
+function baseOf(root: string, targetBranch: string): string {
+  const run = spawnSync("git", ["rev-parse", "--abbrev-ref", "--symbolic-full-name", `${targetBranch}@{upstream}`], {
+    cwd: root,
+    encoding: "utf8",
+  });
+  return run.status === 0 && run.stdout.trim() !== "" ? run.stdout.trim() : targetBranch;
+}
+
 /** The output of `git log` over the commits of the branch, or undefined when git fails. */
 function logOf(root: string, targetBranch: string, args: string[], tail: string[] = []): string | undefined {
   const run = spawnSync(
     "git",
-    ["-c", "core.quotepath=false", "log", ...args, "--end-of-options", `${targetBranch}..HEAD`, ...tail],
+    ["-c", "core.quotepath=false", "log", ...args, "--end-of-options", `${baseOf(root, targetBranch)}..HEAD`, ...tail],
     { cwd: root, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 },
   );
   return run.status === 0 ? run.stdout : undefined;
@@ -25,7 +34,7 @@ export function recordTime(root: string, targetBranch: string, files: string[]):
 
 /** The author time, in milliseconds, of the oldest branch commit that adds a `WHY:` line naming one of the records, outside Markdown files. */
 export function whyTime(root: string, targetBranch: string, names: string[]): number | undefined {
-  const out = logOf(root, targetBranch, ["-p", "-U0", "--no-color", "--no-ext-diff", "--format=@@commit %at"]);
+  const out = logOf(root, targetBranch, ["-p", "-U0", "--no-color", "--no-ext-diff", "--no-textconv", "-G", "WHY:", "--format=@@commit %at"]);
   if (out === undefined) return undefined;
   const times: number[] = [];
   let time = 0;

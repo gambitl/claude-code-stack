@@ -342,7 +342,10 @@ How should the block of `document.md` write the two new steps, and what proves t
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes. The new condition `big-decision` is named in the ADR-RQG-C, the README, `guide-steps.ts`, `conditions.ts` and `evaluate.ts`, and all of them are updated. No current file outside `docs/plans/` still says "seven conditions". The usual companions of `evaluate.ts` are `test/audit.test.ts`, `commands/audit.ts` and `match.ts`. The tests of `audit.test.ts` pass, and `commands/audit.ts` handles the new lines.
+
+Reviewers. Correctness found one bug: the two git checks compared with the local target branch and not with its upstream, so a stale local `main` made the audit print "done" for work of other tickets. Fixed: `records.ts` now uses the upstream like `listUnitCommits()`, with a new test. Security found nothing; it suggested `--no-textconv`, which I added. Conventions found nothing at or above 80. Simplicity suggested `-G 'WHY:'`, which I added. Left as follow-ups because they are small or rare: use `Pick` for the `Records` type, use a `Set` in `records()`, inline `GIT_ACTIONS`, a record name that is a prefix of another name, and a `WHY:` line in a file whose name needs quoting.
+
 
 ## Briefing
 
@@ -364,7 +367,8 @@ How should the block of `document.md` write the two new steps, and what proves t
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- `cstack helper wait` for unit 1 exited with 1 ("finished without an accepted report") because I ran it before the sub-agent returned; running it after the return worked.
+- The implementer of unit 4 reported that the local build refuses this plan (format version 1), so it used the installed `cstack` for `unit red` and `unit green`.
 
 ## Hand-off log
 
