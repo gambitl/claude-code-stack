@@ -24,7 +24,7 @@ The checks are green.
    - If cstack exits with exit code `4`, no client can reach the tracker. Move the ticket with your own connection instead.
 2. Add the pull request link to every decision record written in the `document` and `briefing` phases that lives in a documentation tool. These are edits in that tool, not commits. A record that lives in the repository does not get the link, because that would need another push. The forge and the ticket carry the link for it.
 3. Run `cstack next --done publish --plan <plan file>`.
-4. Submit the report with `cstack report submit published --plan <plan file>`, with the report on standard input. Then end with the same report as your final message.
+4. Submit the report with `cstack report submit published --plan <plan file>`, with the report on standard input. Then end with the same report as your final message. The report gives the pull request link and the state of the checks, because the main conversation passes them on.
 
 ## Exit code 6
 
