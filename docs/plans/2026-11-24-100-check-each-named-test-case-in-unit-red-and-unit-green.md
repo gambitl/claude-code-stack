@@ -378,7 +378,16 @@ US-6, AC5 says that the audit reports a unit that used the check of the whole te
 
 Impact notes (phase review): The branch changed unit-red.ts, unit-green.ts, unit-test-command.ts, unit-test-runs.ts, audit.ts and the exit code text in manifest.ts. Outside callers of the changed helpers are `cstack/src/test-run.ts` (the report reader, unchanged), `cstack/src/commands/publish.ts` (reads saved runs, extra fields are optional so it still works) and the tests `cstack/test/unit-test-runs.test.ts` and `cstack/test/test-run.test.ts`. The usual companions are `cstack/test/manifest.test.ts`, `cstack/test/cli.test.ts` and the README, and the branch updated the README and the manifest text. The full test run in unit 4 passed. The ADR `ADR-RQG-C-expected-steps-of-a-run.md` was read and its audit sentence was aligned.
 
-Reviewer findings: pending.
+Reviewer findings and fixes (phase review):
+- Correctness: in a child worktree the note of `cstack unit red` and `cstack unit green` went into the child's copy of the plan file, and `cstack unit collect` restored that copy, so the note was lost. Fixed: collect now copies the notes of the unit into the ticket plan before it restores the file, with a test.
+- Correctness, minor: the message of exit code 5 could end with two periods. Fixed, with a test.
+- Security: no finding. Low-confidence notes, not fixed: `caseName` does not escape bidirectional control characters, and `readSavedRun` does not check the type of `cases` in a hand-edited `red.json`. Both are cosmetic or still refuse.
+- Conventions: no finding. Minor: `caseName` lives in `unit-test-command.ts` and `unit-test-runs.ts` imports it, and `audit.ts` calls `runFolder` twice. Left as they are.
+- Simplicity: the shared report code and message texts of the two commands moved into two helpers in `unit-test-runs.ts`, and `buildNote` uses `noteStart` everywhere. Fixed.
+- Found by running the tests: the end-to-end audit check rejected the new audit lines about the whole test file. The test now exempts those lines, because they carry no verdict. The full `npm run typecheck && npm test` passes (132 files, 1986 tests).
+- Note: the first fix commit does not compile alone, because it imports a helper that the next commit adds. The branch tip is fine.
+
+Independent review (phase independent-review): pending.
 
 ## Briefing
 
