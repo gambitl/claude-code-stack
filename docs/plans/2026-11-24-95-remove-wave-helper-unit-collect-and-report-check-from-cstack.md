@@ -379,6 +379,13 @@ The comment of the #93 run says to delete `cstack/test/e2e/no-orca.test.ts` with
 
 ## Review log
 
+Impact notes (executor, 2026-11-24):
+
+- I searched the whole repository for the names of the six removed commands, `CSTACK_ORCA_WORKERS`, `parseWorktreeList`, `HelperError`, `unit-line` and `orca/answer`. Outside the diff, only old plan files under `docs/plans/` and the command strings that `cstack/test/audit.test.ts` reads from guides and session logs still name them. Old plans are history, and the audit tests only match text, so both are fine.
+- `parseWorktreeList` now lives in `cstack/src/measure/moments.ts`, and its callers and its test moved with it in unit 2.
+- The full suite passes: type check clean, 101 test files and 1677 tests. A first full run showed two failures in one file while another test run went at the same time. A second run alone passed.
+- I found no `WHY:` or `DECISION:` comment in the deleted files that conflicts with the removal. Decisions of this plan cover the removal.
+
 ## Briefing
 
 ## Non-blocking questions
