@@ -9,7 +9,6 @@ const CSTACK = join(import.meta.dirname, "..", "..");
 const GUIDES = join(CSTACK, "guides", "resolve-issue");
 const read = (...parts: string[]) => readFileSync(join(...parts), "utf8");
 const TICKET_GUIDE = read(GUIDES, "ticket.md");
-const PLAN_GUIDE = read(GUIDES, "plan.md");
 const BUILD_GUIDE = read(GUIDES, "build.md");
 const DOCUMENT_GUIDE = read(GUIDES, "document.md");
 const PUBLISH_GUIDE = read(GUIDES, "publish.md");
@@ -87,7 +86,7 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
     const edits = chain.ghCalls().filter((c) => c.args[0] === "issue" && c.args[1] === "edit");
     expect(edits.map((c) => c.args)).toEqual([["issue", "edit", "4", "--repo", REPO, "--add-label", "in progress", "--remove-label", "in review"]]);
 
-    const started = chain.follow(PLAN_GUIDE, ["helper", "start", "executor", "--plan", chain.plan]);
+    const started = chain.run(["helper", "start", "executor", "--plan", chain.plan]);
     expect(started.code, started.stderr).toBe(0);
     executorId = idOf(started.stdout);
     expect(executorId).toMatch(/-executor$/);
@@ -98,7 +97,7 @@ describe("the executor and two implementers as Orca workers (US-13 AC1)", { time
   });
 
   it("waits for the executor, which stays pending while the implementers work", () => {
-    waiter = chain.followInBackground(PLAN_GUIDE, ["helper", "wait", executorId]);
+    waiter = chain.runInBackground(["helper", "wait", executorId]);
     expect(waiter.exitCode()).toBeNull();
   });
 

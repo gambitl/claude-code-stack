@@ -94,21 +94,34 @@ describe("the escalation prompt", () => {
 describe("the executor prompt", () => {
   const text = read("../skills/resolve-issue/agents/executor.md");
 
-  it("names cstack next and cstack helper done, and no longer cstack report submit", () => {
+  it("names cstack next and cstack report submit, and no cstack helper", () => {
     expect(text).toContain("cstack next");
-    expect(text).toContain("cstack helper done");
-    expect(text).not.toContain("cstack report submit");
+    expect(text).toContain("cstack report submit");
+    expect(text).not.toContain("cstack helper");
   });
 
-  it("names the helper id among its inputs and says that cstack helper start gives it", () => {
+  it("does not name a helper id among its inputs", () => {
     const inputs = text.slice(text.indexOf("## Inputs"), text.indexOf("## Vocabulary"));
-    expect(inputs).toContain("helper id");
-    expect(inputs).toContain("cstack helper start");
+    expect(inputs).not.toContain("helper id");
   });
 
   it("submits exactly the four kinds of report, and no other", () => {
-    const kinds = new Set([...text.matchAll(/cstack helper done (\S+) --helper <helper id> --plan <plan file>/g)].map((m) => m[1]));
+    const kinds = new Set([...text.matchAll(/cstack report submit (\S+) --plan <plan file>/g)].map((m) => m[1]));
     expect([...kinds].sort()).toEqual(["done", "failed", "needs-decision", "published"]);
+  });
+
+  it("says that the final message repeats the report and that its first line names the kind", () => {
+    const sentences = text.split(/(?<=[.!?])\s+/);
+    expect(sentences.some((s) => s.includes("final message") && s.includes("first line names the kind"))).toBe(true);
+  });
+
+  it("never lets the executor end its turn while a sub-agent that it started still runs", () => {
+    expect(text).toContain("Never end your turn while a sub-agent that you started still runs.");
+  });
+
+  it("runs git status when it resumes", () => {
+    const paragraph = text.split("\n\n").find((p) => p.includes("To resume after an interruption"));
+    expect(paragraph).toContain("git status");
   });
 
   it("tells the executor not to follow a guide whose run line says in the main conversation", () => {

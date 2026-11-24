@@ -6,8 +6,7 @@ action: write-implementation-units
 action: write-documentation-duties
 action: approval-gate
 command: cstack next --done plan
-command: cstack helper start executor --plan <plan file>
-command: cstack helper wait <helper id>
+helper: resolve-issue:executor
 -->
 
 # Phase `plan`: write the plan and get it approved
@@ -36,7 +35,7 @@ Write the work as numbered units under `## Implementation units`, in the format 
 - **User interface.** A unit that creates or changes a user interface must point to the approved design specification, which the ticket or its paired design ticket references. Without it, you cannot code that unit. Mark it "blocked, waiting for the open-design specification" and say so at the gate. Plan the other units normally. Never invent a design.
 - **Documentation.** List the documentation duties of this ticket under `## Documentation duties`, each as "applies, written to <place>" or "does not apply". Documentation is not optional.
 - **Commits.** Each unit makes one commit, in the Conventional Commits form with the scopes of the conventions file.
-- **Order.** Independent units run in parallel. Dependent units are ordered. No unit is coded in the main conversation.
+- **Order.** Units run one after the other, in the order that `cstack unit order` prints. A unit comes after the units it depends on. No unit is coded in the main conversation.
 
 ## The approval gate
 
@@ -60,31 +59,27 @@ At the gate you may only present, ask, answer follow-up questions, and edit the 
 
 When the user has approved, write the Status `approved` in the plan file. Run `cstack next --done plan`, which records the time.
 
-Then run `cstack helper start executor --plan <plan file>`. Do not touch the repository while the executor runs. It cannot talk to the user.
+Then start a fresh sub-agent of type `resolve-issue:executor`. Give it these four inputs and nothing from the conversation: the repository path, the plan file path, the conventions file path, and the path of `writing.md` in the skill folder. Do not touch the repository while the executor runs. It cannot talk to the user.
 
-When `cstack helper start` exits with code `6`, it prints the sub-agent to start, its inputs, and a helper id on its last line. Start that sub-agent with those inputs and nothing from the conversation. Wait until the sub-agent has returned.
+Wait until the executor returns, and never start a second executor while one still runs. Its final message is its report: the first line names the kind of the report, and the report follows.
 
-Then run `cstack helper wait <helper id>`. Give that shell call a timeout of ten minutes, because the command waits up to nine. When the executor runs as a sub-agent, run it only after the sub-agent has returned. While a sub-agent still runs, the wait exits with `1`, and that would make you start a second executor on the same branch.
+When the result of a sub-agent that the executor started reaches you instead of the executor, send it to the executor in a message.
 
-- Exit code `0` means the executor reported. The first line is the kind of the report, and the rest is the report itself.
-- Exit code `6` means the helper still works. End your turn. Orca wakes you when the report arrives.
-- Exit code `1` means the executor ended without an accepted report. Run `cstack helper start executor --plan <plan file>` again, once. When the second executor also ends without an accepted report, stop and tell the user.
+When the final message names no kind, or says that cstack refused the report, first send a message to the same executor, which keeps its context, and ask it to finish its phase and submit its report. When that resume fails, start a fresh executor with the same four inputs, once. When the fresh executor also ends without a report, stop and tell the user.
 
-A second `cstack helper wait` after an accepted report also exits with `1`. That is not a reason to start the executor again.
-
-When the wait exits with `0`, the report is one of these.
+The report is one of these.
 
 - **done.** Show the user the short briefing it returns, exactly as it is. Then say in two or three sentences what the independent reviewer changed and where the work was documented, with links. Then list once, word for word, the non-blocking questions that the build raised, each with who it is for. If there are none, say so in one sentence. Do not repeat what the briefing says. Nothing is pushed yet. Run `cstack next`, which prints the guide of the next phase.
-- **needs-decision.** Ask the user the question it returns, as `writing.md` asks: the decision first, then your recommendation, then only the context that changes the answer. Write the answer into `## Decisions`. Run `cstack helper start executor --plan <plan file>` again, and it resumes from the plan file. When the round ends the session, run `cstack next --phase retro`.
-- **needs-decision, for blocking questions found after the build.** The reviews or the briefing raised a question that can change what was built. The executor could not answer it with a test. The pull request is not opened. Show each question to the user, word for word, with its context and who can answer it. When someone else must answer, the user sends the question, or approves sending it through the channel the conventions file names. Then the run waits. Write each answer into `## Decisions` with its source and date. Run `cstack helper start executor --plan <plan file>` again. It applies the answers, reruns the reviews that the change calls for, and reports again. Publishing starts only when no blocking question is open.
+- **needs-decision.** Ask the user the question it returns, as `writing.md` asks: the decision first, then your recommendation, then only the context that changes the answer. Write the answer into `## Decisions`. Start a fresh executor with the same four inputs, and it resumes from the plan file. When the round ends the session, run `cstack next --phase retro`.
+- **needs-decision, for blocking questions found after the build.** The reviews or the briefing raised a question that can change what was built. The executor could not answer it with a test. The pull request is not opened. Show each question to the user, word for word, with its context and who can answer it. When someone else must answer, the user sends the question, or approves sending it through the channel the conventions file names. Then the run waits. Write each answer into `## Decisions` with its source and date. Start a fresh executor with the same four inputs. It applies the answers, reruns the reviews that the change calls for, and reports again. Publishing starts only when no blocking question is open.
 - **failed.** Tell the user plainly what it returns, and stop. Then run `cstack next --phase retro`.
 
 ## The report of the publish phase
 
-The `retro` guide sends you back here after the `publish` phase. Run `cstack helper wait <helper id>` first, as above. The executor then ends with one of these reports.
+The `retro` guide sends you back here after the `publish` phase. Its final message is its report, as above. The executor ends with one of these reports.
 
 - **published.** Tell the user the pull request link and the result of the checks, in a few sentences. Say plainly if a check is still red or pending, because the pull request is then not ready for review. Mention every extra push and its reason.
-- **needs-decision.** Ask the user the question, write the answer into `## Decisions`, and run `cstack helper start executor --plan <plan file>` again.
+- **needs-decision.** Ask the user the question, write the answer into `## Decisions`, and start a fresh executor with the same four inputs.
 - **failed.** Tell the user plainly what it returns, and stop.
 
 ## Close the phase

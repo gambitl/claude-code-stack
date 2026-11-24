@@ -9,15 +9,6 @@ import { describe, expect, it } from "vitest";
 const ROOT = new URL("../../", import.meta.url).pathname;
 const REVIEW_GUIDE = "guides/resolve-issue/independent-review.md";
 
-// The files that a later unit of ticket #93 still rewrites. Unit 3 removes this list and its use.
-const NOT_YET_REWRITTEN = [
-  "guides/resolve-issue/plan.md",
-  "guides/resolve-issue/retro.md",
-  "guides/resolve-issue/ready.md",
-  "guides/resolve-issue/publish.md",
-  "skills/resolve-issue/agents/executor.md",
-];
-
 function markdownFiles(folder: string): string[] {
   const found: string[] = [];
   for (const entry of readdirSync(folder, { withFileTypes: true })) {
@@ -34,7 +25,6 @@ const read = (file: string) => readFileSync(join(ROOT, file), "utf8");
 function places(text: string): string[] {
   const found: string[] = [];
   for (const file of files) {
-    if (NOT_YET_REWRITTEN.includes(file)) continue;
     read(file)
       .split("\n")
       .forEach((line, index) => {
@@ -72,7 +62,7 @@ describe("the guides, the skills and the agent prompts start their helpers as su
   it("never tell Claude to start an Orca worker, except in the independent review guide", () => {
     const found: string[] = [];
     for (const file of files) {
-      if (file === REVIEW_GUIDE || NOT_YET_REWRITTEN.includes(file)) continue;
+      if (file === REVIEW_GUIDE) continue;
       for (const { line } of orcaWorkerSentences(file)) found.push(`${file}:${line}`);
     }
     expect(found, `a sentence starts an Orca worker in:\n${found.join("\n")}`).toEqual([]);

@@ -9,7 +9,6 @@ const CSTACK = join(import.meta.dirname, "..", "..");
 const GUIDES = join(CSTACK, "guides", "resolve-issue");
 const read = (...parts: string[]) => readFileSync(join(...parts), "utf8");
 const TICKET_GUIDE = read(GUIDES, "ticket.md");
-const PLAN_GUIDE = read(GUIDES, "plan.md");
 const BUILD_GUIDE = read(GUIDES, "build.md");
 const DOCUMENT_GUIDE = read(GUIDES, "document.md");
 const PUBLISH_GUIDE = read(GUIDES, "publish.md");
@@ -51,7 +50,7 @@ describe.each(runs)("the chain with $name", ({ options }) => {
   it("answers the helpers with the sub-agent and its inputs, and runs the two implementers one after the other", () => {
     chain.git("checkout", "-b", "issue-4");
     expect(chain.follow(EXECUTOR, ["next", "--plan", chain.plan]).code).toBe(0);
-    const executor = chain.follow(PLAN_GUIDE, ["helper", "start", "executor", "--plan", chain.plan]);
+    const executor = chain.run(["helper", "start", "executor", "--plan", chain.plan]);
     expect(executor.code, executor.stderr).toBe(6);
     expect(executor.stdout).toContain("Sub-agent: resolve-issue:executor");
     expect(executor.stdout).toContain("- Plan file:");

@@ -3,7 +3,7 @@ action: draft-pull-request
 action: write-executor-notes
 command: cstack next --done ready --plan <plan file>
 action: commit-plan-file
-command: cstack helper done done --helper <helper id> --plan <plan file>
+command: cstack report submit done --plan <plan file>
 -->
 
 # Ready for review
@@ -22,4 +22,4 @@ When non-blocking questions stay open, add one heading, "Open questions, not nee
 
 1. Write the executor notes and a dated entry in the "Hand-off log", as your prompt says. Then run `cstack next --done ready --plan <plan file>`. It needs the "Pull request" and "Executor notes" sections filled. It writes the Status `ready for review` and its time into the plan file.
 2. Commit the plan file. The done report is refused while the plan file has an uncommitted change.
-3. Submit the done report with `cstack helper done done --helper <helper id> --plan <plan file>`.
+3. Submit the done report with `cstack report submit done --plan <plan file>`, with the report on standard input. Then end with the same report as your final message.
