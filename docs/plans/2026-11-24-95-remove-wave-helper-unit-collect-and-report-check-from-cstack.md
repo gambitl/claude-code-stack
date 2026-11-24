@@ -393,6 +393,12 @@ Reviewer findings (executor, 2026-11-24):
 - Conventions: no finding. Authors and committers use the no-reply address, and the public text rule holds. Minor note: `checkReport` still says "role executor" in one message, and tests may match those words, so I left it.
 - Simplicity: I fixed two findings in commit 45c4646, the `--child-worktree` filter in `written()` and the comment about waves in `chain.ts`. I did not shrink the fake `bin/orca` script or drop an `export`, because the gain is small. `hasWorktree`, `readAt` and `watchIntervalMinutes` stay on purpose, as the Decisions say.
 
+Independent review (executor, 2026-11-24): the reviewer found no bug, security problem or broken convention, and checked every acceptance criterion. It made one cleanup commit, 444c417, that removes an unused import in `chain.ts` and an unused list in `manifest.test.ts`. The full suite and the type check passed. Judgment calls for the pull request body:
+
+- The refusal of a done report with an unfinished unit is proved through `checkReport`, the function that `report submit` calls, and not through the command itself. Decision 71 accepts this.
+- One deleted test was the only check of the file name that `saveReport` writes. That function did not change, so only that coverage is gone.
+- `checkReport` still says "for the role executor" in its message about an unknown kind. Decision 70 keeps those exact words on purpose.
+
 ## Briefing
 
 ## Non-blocking questions
