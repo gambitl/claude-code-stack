@@ -167,6 +167,51 @@ describe("the done checks and start conditions", () => {
     expect(phase("publish").start!(at("2026-11-18T11:00:00+01:00"))).toEqual([]);
   });
 
+  describe("the independent review entry", () => {
+    const MESSAGE =
+      'Review log has no line that starts with "Independent review:". Add that line to the Review log, followed by the findings of the independent review or by the word none.';
+    const withLog = (lines: string[], text = fixture("approved")) =>
+      text.replace("## Review log\n\n<!-- later -->", "## Review log\n\n" + lines.join("\n"));
+
+    it("independent-review refuses a Review log that holds only the entries of the review phase", () => {
+      const text = withLog(["The review found nothing to change."]);
+      expect(phase("independent-review").done?.(context(text)) ?? []).toEqual([MESSAGE]);
+    });
+
+    it("independent-review closes with the line Independent review: none", () => {
+      const text = withLog(["The review found nothing to change.", "", "Independent review: none"]);
+      expect(phase("independent-review").done!(context(text))).toEqual([]);
+    });
+
+    it("independent-review closes with the findings below the line", () => {
+      const text = withLog([
+        "The review found nothing to change.",
+        "",
+        "Independent review:",
+        "- Fixed the refusal message in commit abc1234.",
+      ]);
+      expect(phase("independent-review").done!(context(text))).toEqual([]);
+    });
+
+    it("independent-review refuses the older forms of the entry", () => {
+      const text = withLog(["Independent review (phase 8): none", "- Independent review: none"]);
+      expect(phase("independent-review").done?.(context(text)) ?? []).toEqual([MESSAGE]);
+    });
+
+    it("independent-review does not count the line inside a comment", () => {
+      const text = withLog(["The review found nothing to change.", "<!-- Independent review: none -->"]);
+      expect(phase("independent-review").done?.(context(text)) ?? []).toEqual([MESSAGE]);
+    });
+
+    it("independent-review does not count the line in another section", () => {
+      const text = withLog(["The review found nothing to change."]).replace(
+        "## Executor notes\n\n<!-- later -->",
+        "## Executor notes\n\nIndependent review: none",
+      );
+      expect(phase("independent-review").done?.(context(text)) ?? []).toEqual([MESSAGE]);
+    });
+  });
+
   it("the section checks follow the filled sections", () => {
     expect(phase("ticket").done!(context(fixture("approved")))).toEqual([]);
     expect(phase("review").done!(context(fixture("approved")))).not.toEqual([]);
