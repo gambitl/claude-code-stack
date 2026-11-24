@@ -1,5 +1,5 @@
 import type { UnitCommits } from "./plan/commits.js";
-import { changeProblems } from "./plan/approval.js";
+import { changeProblems, uncoveredCriteria } from "./plan/approval.js";
 import type { PlanRead, SectionName } from "./plan/read.js";
 
 export type PhaseName =
@@ -67,6 +67,7 @@ const planDone: PhaseCheck = (context) => {
   if (plan.header.Status !== "approved") missing.push("Status is not `approved`.");
   if (plan.units.length === 0) missing.push("The plan has no unit.");
   missing.push(...changeProblems(plan));
+  missing.push(...uncoveredCriteria(plan));
   return missing;
 };
 

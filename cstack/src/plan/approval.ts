@@ -11,3 +11,12 @@ export function changeProblems(plan: PlanRead): string[] {
   }
   return problems;
 }
+
+/** One message for each negative criterion that no unit names on a `- Negative criterion <k>:` line. */
+export function uncoveredCriteria(plan: PlanRead): string[] {
+  const covered = new Set(plan.units.flatMap((unit) => unit.negativeCriteria.map((c) => c.criterion)));
+  return plan.negativeCriteria
+    .map((_, index) => index + 1)
+    .filter((k) => !covered.has(k))
+    .map((k) => `Negative criterion ${k} is covered by no unit. Add a \`- Negative criterion ${k}:\` line to the unit whose test proves it.`);
+}

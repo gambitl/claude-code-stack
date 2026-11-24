@@ -115,6 +115,29 @@ describe("the done checks and start conditions", () => {
     });
   });
 
+  describe("the negative criteria", () => {
+    const rules = ["1. The first rule holds.", "2. The second rule holds.", "3. The third rule holds."].join("\n");
+    const sentence = (k: number) =>
+      `Negative criterion ${k} is covered by no unit. Add a \`- Negative criterion ${k}:\` line to the unit whose test proves it.`;
+    const base = () => answered(fixture("approved")).replace("## Negative criteria\n\nnone", `## Negative criteria\n\n${rules}`);
+    const after = (text: string, test: string, lines: string[]) =>
+      text.replace(test, `${test}\n${lines.join("\n")}`);
+    const unit1 = "- Test: `test/a1.test.ts`: the case 1 fails";
+    const unit3 = "- Test: `test/a3.test.ts`: the case 3 fails";
+    const doneOf = (text: string) => phase("plan").done!(context(text));
+
+    it("plan names each negative criterion that no unit covers", () => {
+      const text = after(base(), unit1, ["- Negative criterion 2: the case 1 fails"]);
+      expect(doneOf(text)).toEqual([sentence(1), sentence(3)]);
+    });
+
+    it("plan passes when every negative criterion is covered by a unit", () => {
+      const one = after(base(), unit1, ["- Negative criterion 1: the case 1 fails", "- Negative criterion 2: the case 1 fails"]);
+      expect(doneOf(after(one, unit3, ["- Negative criterion 3: the case 3 fails"]))).toEqual([]);
+      expect(doneOf(one)).toEqual([sentence(3)]);
+    });
+  });
+
   it("plan fails when the status is not approved", () => {
     const text = answered(fixture("approved")).replace("Status: approved", "Status: draft");
     expect(phase("plan").done!(context(text))).not.toEqual([]);
