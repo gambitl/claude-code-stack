@@ -358,7 +358,16 @@ Today the message names the reader only from the `Written by` line, and says not
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+### Phase review
+
+Impact notes. Only four places read `unit.test`: `cstack/src/unit-test-command.ts` (line 109), `cstack/src/audit/evaluate.ts` (line 158), `cstack/src/report/reports.ts` (line 116) and `cstack/src/commands/unit-commit.ts` (line 69). They check that it exists or read `.file`, and none reads the old `.case`. Twelve calls of `readPlan()` stay strict, so they refuse a version 1 plan. Only `cstack/src/measure/moments.ts` and `cstack/src/commands/audit.ts` pass `acceptVersion1`. `cstack/src/plan/unit-line.ts` needs no change, because a Negative criterion line always comes before `- Minimum code:`.
+
+Findings of the four reviewers, and what was done.
+- Correctness: a change line accepted `Blocking question: 0`. Fixed in 50d7743, with a new refused row in the test. The ADR said that the guides fill the new sections, which is not true yet. Fixed in f6a7b2c.
+- Security: nothing at 80 or above. The fact paths go through `pathProblem()`, and the new patterns run fast on long lines.
+- Conventions: nothing at 80 or above. Follow-ups: ADR-SIC-B line 29 has no pointer to ADR-RQG-B. The refusal message of a Test line in `read.ts` (line 446) still says `<failing case>`. The name `stopOnFormat` now also returns a boolean.
+- Simplicity: follow-ups only. `stopOnFormat` could throw once, `readSource` could use one regex per source form, and `seen.add` could move into the last branch. None was done, because the first two would change exact messages.
+- Follow-up: the message for a Negative criterion line in a unit whose Test line is malformed says that the unit has a `- No test:` line, which may mislead.
 
 ## Briefing
 
@@ -381,11 +390,15 @@ Today the message names the reader only from the `Written by` line, and says not
 
 ## Executor notes
 
-<executor, before its report: what stumbled on its side, with evidence, or "nothing this time">
+- `cstack unit red` and the full `npm test` hit the 5 second timeout of vitest under machine load in `wave/*`, `helper/*`, `unit-commit` and `e2e/no-orca`. Each file passed when run alone (units 2, 3, 4, 5, 6).
+- Implementer of unit 6 did not break the "no source" and "user source with no date" refusals one by one, as the break rule asks. Their tests pass.
+- Implementer of unit 4 skipped the optional refactor of `REQUIRED_FIELDS`. Unit 5 did not need it.
+- The brief said the switch is at README line 63, but it is at line 64.
 
 ## Hand-off log
 
 - 2026-11-23: The executor moved #98 to "in progress" with `cstack tracker move`, and started the build.
+- 2026-11-24: The executor built units 1 to 9 one at a time with sub-agents, ran the four reviewers, and fixed two findings (50d7743, f6a7b2c).
 
 ## History
 
