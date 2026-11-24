@@ -9,33 +9,16 @@ import { WaveError } from "./errors.js";
 import { runTicketId, shortName } from "./names.js";
 import { mentionsLaunch, orcaErrorMessage } from "./orca-error.js";
 import { printableText } from "./title.js";
+import { parseWorktreeList } from "../measure/moments.js";
+import type { WorktreeEntry } from "../measure/moments.js";
 
-export interface WorktreeEntry {
-  path: string;
-  /** The branch without refs/heads/. Empty when the worktree has none. */
-  branch: string;
-  bare: boolean;
-}
+export { parseWorktreeList };
+export type { WorktreeEntry };
 
 export type WorktreeAnswer = { found: false } | { found: true; reason: string };
 
 export interface WorktreeCheck {
   check(ticket: { key: string; url: string }): Promise<WorktreeAnswer>;
-}
-
-/** One entry per block of `git worktree list --porcelain`. */
-export function parseWorktreeList(text: string): WorktreeEntry[] {
-  const entries: WorktreeEntry[] = [];
-  for (const block of text.split(/\r?\n\r?\n/)) {
-    const entry: WorktreeEntry = { path: "", branch: "", bare: false };
-    for (const line of block.split(/\r?\n/)) {
-      if (line.startsWith("worktree ")) entry.path = line.slice("worktree ".length);
-      else if (line.startsWith("branch ")) entry.branch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
-      else if (line === "bare") entry.bare = true;
-    }
-    if (entry.path !== "") entries.push(entry);
-  }
-  return entries;
 }
 
 const FIND_COMMAND = "orca reference find --json";

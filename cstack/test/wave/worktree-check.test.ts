@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { WaveError } from "../../src/wave/errors.js";
-import { loadWorktreeCheck, parseWorktreeList } from "../../src/wave/worktrees.js";
+import { loadWorktreeCheck } from "../../src/wave/worktrees.js";
 import { git } from "../helpers/plan-repo.js";
 import { fixture, makeClone, makeRunner, ticket } from "../helpers/wave.js";
 
@@ -15,15 +15,6 @@ async function checker(root: string, tracker: "jira" | "github" = "jira", orca: 
 }
 
 describe("worktree check", () => {
-  it("parses blocks", () => {
-    const text = "worktree /a\nHEAD x\nbranch refs/heads/main\n\nworktree /b\nbare\n\nworktree /c\ndetached\nprunable gone\n";
-    expect(parseWorktreeList(text)).toEqual([
-      { path: "/a", branch: "main", bare: false },
-      { path: "/b", branch: "", bare: true },
-      { path: "/c", branch: "", bare: false },
-    ]);
-  });
-
   it("counts a worktree on the branch abc-12", async () => {
     const { root } = makeClone();
     const dir = join(root, "..", "wt-abc-12");
