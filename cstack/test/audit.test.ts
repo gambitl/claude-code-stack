@@ -1371,3 +1371,66 @@ describe("cstack audit leaves out the phases that are not over", () => {
     noPath(r.stdout, s);
   });
 });
+
+describe("cstack audit, the check of the whole test file", () => {
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const saved = (s: Setup, unit: number, kind: "red" | "green", extra: Record<string, unknown>): void => {
+    const common = git(s.repo, "rev-parse", "--path-format=absolute", "--git-common-dir");
+    const folder = join(common, "cstack", "runs", "audit", "units", String(unit));
+    mkdirSync(folder, { recursive: true });
+    const run = { time: "t", command: "c", exitCode: 1, commit: "x", testFile: "f", testFileSha256: "h", ...extra };
+    writeFileSync(join(folder, `${kind}.json`), JSON.stringify(run));
+  };
+  const file = (reason: string) => ({ caseCheck: "file", fallback: reason });
+  const MISSING = "the test command wrote no report file";
+  const MALFORMED = "the report file is not a JUnit report that cstack can read";
+  const lines = (stdout: string): string[] => stdout.split("\n").filter((l) => l.includes("the whole test file was checked"));
+
+  it("prints a line for a unit whose red run checked the whole test file, and exits with 0", async () => {
+    const s = setup();
+    saved(s, 1, "red", file("missing"));
+    const r = await run(s);
+    expect(lines(r.stdout)).toEqual([`build: unit 1: the whole test file was checked in the red run, because ${MISSING}`]);
+    expect(r.code).toBe(0);
+  });
+
+  it("prints one line for both runs when they fell back for the same reason", async () => {
+    const s = setup();
+    saved(s, 2, "red", file("no-report"));
+    saved(s, 2, "green", file("no-report"));
+    const r = await run(s);
+    expect(lines(r.stdout)).toEqual([
+      "build: unit 2: the whole test file was checked in the red run and the green run, because the settings declare no per-case report",
+    ]);
+  });
+
+  it("prints both reasons when the red run and the green run fell back for different reasons", async () => {
+    const s = setup();
+    saved(s, 1, "red", file("missing"));
+    saved(s, 1, "green", file("malformed"));
+    const r = await run(s);
+    expect(lines(r.stdout)).toEqual([
+      `build: unit 1: the whole test file was checked in the red run, because ${MISSING}, and in the green run, because ${MALFORMED}`,
+    ]);
+  });
+
+  it("prints a line for one unit and none for a unit whose runs checked each case", async () => {
+    const s = setup();
+    saved(s, 1, "green", file("malformed"));
+    saved(s, 2, "red", { caseCheck: "cases", cases: [] });
+    saved(s, 2, "green", { caseCheck: "cases", cases: [] });
+    const r = await run(s);
+    expect(lines(r.stdout)).toEqual([`build: unit 1: the whole test file was checked in the green run, because ${MALFORMED}`]);
+  });
+
+  it("leaves the line out while the build phase is not over, and prints it once the build phase is closed", async () => {
+    const phases = fullPhases() as Record<string, { startedAt?: string; doneAt?: string }>;
+    delete phases.build!.doneAt;
+    const open = setup({ phases });
+    saved(open, 1, "red", file("missing"));
+    expect(lines((await run(open)).stdout)).toEqual([]);
+    const closed = setup();
+    saved(closed, 1, "red", file("missing"));
+    expect(lines((await run(closed)).stdout)).toHaveLength(1);
+  });
+});

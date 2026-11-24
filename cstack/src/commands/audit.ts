@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { readCalls } from "../audit/calls.js";
 import { readConditions } from "../audit/conditions.js";
+import { wholeFileLines } from "../audit/whole-file.js";
 import { mainFiles } from "../audit/main-session.js";
 import { evaluatePhases, evaluateSteps, formatLine } from "../audit/evaluate.js";
 import { readSteps, type Step } from "../guide-steps.js";
@@ -139,6 +140,10 @@ export async function audit(args: string[], io: Io, options: { packageRoot: stri
     text === `phase ${name}` || text === `phase ${name} started` || text.startsWith(`${name}: `);
   const lines = [...phaseLines, ...stepLines].filter((line) => !leftOut.some((name) => belongsTo(line.text, name)));
   for (const line of lines) io.stdout(`${formatLine(line)}\n`);
+  if (!leftOut.includes("build")) {
+    const folder = runFolder(moments.root, planArgument);
+    for (const text of wholeFileLines(folder, plan.units.map((unit) => unit.number))) io.stdout(`${text}\n`);
+  }
   if (leftOut.length > 0) {
     io.stderr(`cstack audit: these phases are not over yet, so their lines are left out: ${leftOut.join(", ")}.\n`);
   }
