@@ -365,7 +365,12 @@ Independent review. The reviewer changed nothing and found no bug or broken conv
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #118: https://github.com/gambitl/claude-code-stack/issues/118
+- Comment on the dependent ticket #103: https://github.com/gambitl/claude-code-stack/issues/103
+- Decision record: `docs/decisions/ADR-RQG-C-expected-steps-of-a-run.md`, new section "How the audit checks the big decisions" (commit 33eaaef).
+- Page: the `cstack audit` paragraph of `README.md` (commit 33eaaef).
+- `WHY:` comment naming ADR-RQG-C in `cstack/src/audit/evaluate.ts` (commit 2d25065).
+- Guide: `cstack/guides/resolve-issue/document.md` (commit a41d316).
 
 ## Executor notes
 
