@@ -333,6 +333,8 @@ Conventions reviewer: nothing found.
 Simplicity reviewer: nothing to cut.
 Tests: typecheck and the full `npm test` pass (103 files, 1738 tests) after the fix.
 
+Independent review: no code changed. Judgment calls for the pull request body. First, no test runs `cstack next` itself on a file with `setupCommand`; the refusal uses the same error path that an existing `next-settings.test.ts` case covers. Second, a newer `cstack` refuses any settings file that still holds `setupCommand` or `watchIntervalMinutes`, on purpose, so the release notes of #104 should say it clearly. Third, the repository-root path in the new settings test breaks for a checkout path with a space, which was left as it is. The hand check of `orca.yaml` in a new Orca workspace is still open for the user.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
