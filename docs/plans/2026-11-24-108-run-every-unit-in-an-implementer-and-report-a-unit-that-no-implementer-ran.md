@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/audit-unit-implementer
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T13:43:26+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T14:27:30+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -324,6 +324,24 @@ none
 
 ## Pull request
 
+Title: feat(cli): tie each implementer launch to its unit in cstack audit
+
+````markdown
+The audit now says which unit no implementer ran. Before, it counted the implementer launches but did not know which unit each one built, so it could blame the wrong unit. The ticket is #108.
+
+Each unit now has its own line, for example `build: resolve-issue:implementer for unit 2`. A launch proves that line only when the transcript of the launched sub-agent holds a `cstack unit red`, `green` or `commit` call that names the unit. The audit finds that transcript through the small meta file that Claude Code writes next to it, which holds the id of the launching call. The escalation implementer proves the line in the same way. When a launch has no transcript, the audit says so on standard error and keeps its exit code. A meta file that is missing or broken is ignored, and its text is never printed.
+
+The ticket first asked for a step for a check that changes no file. I changed that. The two guides now say that every unit runs in an implementer, and that a check goes inside a unit. The guides are `cstack/guides/resolve-issue/build.md` and `plan.md`. The code is in `cstack/src/audit/calls.ts`, `evaluate.ts` and `cstack/src/commands/audit.ts`. The README paragraph of `cstack audit` and ADR-RQG-C have a new section, "How the audit ties an implementer to its unit".
+
+Unit 3 of the plan stays blocked on purpose. Unit 2 already made the audit accept the escalation implementer, with its own test, so no test of unit 3 could fail first. The user decided to build nothing more for it.
+
+The independent review added one test for a unit with no launch at all, and fixed one wrong sentence in the ADR. It raised three points that I left as they are. The implementer prompt does not mention the check yet, because the ticket that rewrites the prompts (#103) owns that file, and it has a comment about it. The warning on standard error looks at every implementer launch in the session files, not only those of the build phase. One new test repeats the input of another. The simplicity review also found a one-line type narrowing in `calls.ts` that I did not do.
+
+The plan is at `docs/plans/2026-11-24-108-run-every-unit-in-an-implementer-and-report-a-unit-that-no-implementer-ran.md`.
+
+Fixes #108
+````
+
 ## Documentation
 
 - README.md, the `cstack audit` paragraph (unit 6).
@@ -346,6 +364,7 @@ none
 - 2026-11-24, executor run 1: moved #108 to "in progress" with cstack tracker move. Started the build on the branch gambitl/audit-unit-implementer.
 - 2026-11-24, executor run 1, later: units 1, 5, 2 and 4 built and committed. Unit 3 is blocked (already built by unit 2). Unit 6 waits on unit 3. Stopped with a needs-decision report.
 - 2026-11-24, executor run 2: committed the user's answer, built unit 6 (3af1e47). Unit 3 stays blocked by decision. Build phase finished.
+- 2026-11-24, executor run 2, later: review (one shared constant), independent review (one test, one ADR sentence), rebase onto main, documentation, briefing and the pull request draft are done. Full tests pass (1867).
 
 ## History
 
