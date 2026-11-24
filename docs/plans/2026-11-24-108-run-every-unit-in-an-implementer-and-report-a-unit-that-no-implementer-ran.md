@@ -215,7 +215,7 @@ No new decision since the question round.
 - Refactor: none
 - Commit message: feat(cli): accept the escalation implementer for the implementer line of a unit in cstack audit
 - Depends on: 2
-- Blocked: unit 2 already built this behaviour in commit c5a151a, with its own test case for a unit that an escalation implementer built. That case failed when the escalation filter was broken on purpose. So no test of this unit can fail first, and `cstack unit red 3` refuses to save a passing run. The user decided to keep this unit with this line, to drop its second test case, and to build nothing more for it.
+- Blocked: unit 2 already built this behaviour in commit 8e4fb9c, with its own test case for a unit that an escalation implementer built. That case failed when the escalation filter was broken on purpose. So no test of this unit can fail first, and `cstack unit red 3` refuses to save a passing run. The user decided to keep this unit with this line, to drop its second test case, and to build nothing more for it.
 
 ### Unit 4: Say when an implementer launch has no transcript
 - Files: `cstack/src/commands/audit.ts`, `cstack/test/audit.test.ts`
@@ -331,9 +331,9 @@ The audit now says which unit no implementer ran. Before, it counted the impleme
 
 Each unit now has its own line, for example `build: resolve-issue:implementer for unit 2`. A launch proves that line only when the transcript of the launched sub-agent holds a `cstack unit red`, `green` or `commit` call that names the unit. The audit finds that transcript through the small meta file that Claude Code writes next to it, which holds the id of the launching call. The escalation implementer proves the line in the same way. When a launch has no transcript, the audit says so on standard error and keeps its exit code. A meta file that is missing or broken is ignored, and its text is never printed.
 
-The ticket first asked for a step for a check that changes no file. I changed that. The two guides now say that every unit runs in an implementer, and that a check goes inside a unit. The guides are `cstack/guides/resolve-issue/build.md` and `plan.md`. The code is in `cstack/src/audit/calls.ts`, `evaluate.ts` and `cstack/src/commands/audit.ts`. The README paragraph of `cstack audit` and ADR-RQG-C have a new section, "How the audit ties an implementer to its unit".
+The ticket said that the implementer of a unit with no test commits only when the unit changes a file. That cannot work, because the build refuses to close while a unit has no commit. So the two guides now say that every unit runs in an implementer. A check that changes no file goes inside the unit whose code it checks. The guides are `cstack/guides/resolve-issue/build.md` and `plan.md`. The code is in `cstack/src/audit/calls.ts`, `evaluate.ts` and `cstack/src/commands/audit.ts`. The README paragraph of `cstack audit` explains the new line. ADR-RQG-C has a new section, "How the audit ties an implementer to its unit".
 
-Unit 3 of the plan stays blocked on purpose. Unit 2 already made the audit accept the escalation implementer, with its own test, so no test of unit 3 could fail first. The user decided to build nothing more for it.
+Unit 3 of the plan stays blocked on purpose. Unit 2 already made the audit accept the escalation implementer, with its own test, so no test of unit 3 could fail first. We decided to build nothing more for it.
 
 The independent review added one test for a unit with no launch at all, and fixed one wrong sentence in the ADR. It raised three points that I left as they are. The implementer prompt does not mention the check yet, because the ticket that rewrites the prompts (#103) owns that file, and it has a comment about it. The warning on standard error looks at every implementer launch in the session files, not only those of the build phase. One new test repeats the input of another. The simplicity review also found a one-line type narrowing in `calls.ts` that I did not do.
 
