@@ -215,8 +215,8 @@ function implement(unit: number): void {
   expect(message.slice(-2)).toEqual([`${TRAILER}${unit}`, ATTRIBUTION]);
   expect(message.filter((l) => l.startsWith(TRAILER))).toHaveLength(1);
 
-  // The implementer prompt still ends its report with cstack helper done. Unit 2 of the ticket changes that.
-  expect(IMPLEMENTER).toContain("cstack helper done <kind> --helper <helper id> --plan <plan file>");
+  // The implementer prompt ends with its report as the final message.
+  expect(IMPLEMENTER).toContain("final message");
 }
 
 beforeAll(() => {

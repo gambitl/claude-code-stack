@@ -9,16 +9,13 @@ import { describe, expect, it } from "vitest";
 const ROOT = new URL("../../", import.meta.url).pathname;
 const REVIEW_GUIDE = "guides/resolve-issue/independent-review.md";
 
-// The files that a later unit of ticket #93 still rewrites. Unit 2 removes the two implementer
-// prompts, and unit 3 removes this list and its use.
+// The files that a later unit of ticket #93 still rewrites. Unit 3 removes this list and its use.
 const NOT_YET_REWRITTEN = [
   "guides/resolve-issue/plan.md",
   "guides/resolve-issue/retro.md",
   "guides/resolve-issue/ready.md",
   "guides/resolve-issue/publish.md",
   "skills/resolve-issue/agents/executor.md",
-  "skills/resolve-issue/agents/implementer.md",
-  "skills/resolve-issue/agents/implementer-escalation.md",
 ];
 
 function markdownFiles(folder: string): string[] {
