@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/plan-facts-check
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T09:29:17+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T10:31:00+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -376,7 +376,44 @@ I checked security, data model lock-in, scale, failure modes, edge cases, operat
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(cli): check the facts of a plan when it is approved
+
+````markdown
+## What this does
+
+When you close the plan phase with `cstack next --done plan`, the command now checks the plan before it records the approval. Each refusal names the line of the plan, and the command exits with 1.
+
+It checks three things:
+
+- Every fact with a file source must point to a regular file inside the repository, outside the git folder. The quoted text must appear in the line the fact names. Spaces at the two ends do not count.
+- A fact with a user source must carry a real date.
+- Every change to something the ticket fixed must name a blocking question that exists and has an answer. Every negative criterion must be named by at least one unit.
+
+## Key decisions
+
+The quote only has to be a part of its line. The user chose this in the question round, because it accepts the plan fixture of #98 and keeps fact lines short. The check of negative criteria goes a little beyond the ticket text, and the user approved it. The checks of facts run in `next.ts` because they need the repository root, which the phase context does not carry.
+
+## Files
+
+The new code is in `cstack/src/plan/approval.ts`. It is called from `cstack/src/phases.ts` and `cstack/src/commands/next.ts`. The tests are in `cstack/test/plan/approval.test.ts`, `cstack/test/phases.test.ts` and `cstack/test/next.test.ts`. The `cstack next` paragraph of `README.md` explains the check.
+
+## Review
+
+Five reviewers found no bug and no security problem. The independent reviewer added one `WHY:` comment. The full test run had four timeouts of five seconds on a busy machine. Run alone, those files pass.
+
+Judgment calls: the plan guide does not mention the new refusals yet, which belongs to #103. The named-pipe test would hang, not fail, if the regular-file check were removed. Follow-ups left out: build the "cannot be read" message once, and share the "path leaves the root" test with `plan/locate.ts` and `unit-test-command.ts`.
+
+The plan file is `docs/plans/2026-11-24-102-check-the-facts-of-a-plan-and-refuse-an-unasked-change.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers.
+
+- For whoever takes #103: "In `plan.md`, should the agent run `cstack next --done plan` once before the approval gate, so that the user approves a plan whose facts `cstack` already checked? Today the check runs only after the user said yes, so a wrong fact gets fixed after the approval."
+- For the maintainer: "Should a small separate ticket add `timeout-minutes` to `ci.yml`? The named-pipe test in `cstack/test/plan/approval.test.ts` would hang, not fail, if the regular-file check were removed, and the CI job has no time limit."
+
+Fixes #102
+````
 
 ## Documentation
 
@@ -392,7 +429,7 @@ I checked security, data model lock-in, scale, failure modes, edge cases, operat
 
 ## Hand-off log
 
-- 2026-11-24 executor run 1: moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done. Resumed after a usage limit and ran the review phase with four reviewers; no fix was needed. The independent reviewer added one comment commit (ba3b669).
+- 2026-11-24 executor run 1 (build, review, independent review, document, briefing, ready; done report returned): moved #102 to "in progress", ran npm ci, started the build on branch gambitl/plan-facts-check. Built units 1 to 6 one at a time with sub-agents; all are done. Resumed after a usage limit and ran the review phase with four reviewers; no fix was needed. The independent reviewer added one comment commit (ba3b669).
 
 ## History
 
