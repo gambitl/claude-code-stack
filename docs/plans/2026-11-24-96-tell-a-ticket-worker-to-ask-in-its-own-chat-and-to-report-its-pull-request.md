@@ -322,7 +322,9 @@ none
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- Comment on ticket #96 (outcome, real-worker check, follow-ups): posted with `cstack tracker comment`.
+- Comment on ticket #103 (the new paragraphs and the test that pins them): posted with `cstack tracker comment`.
+- Decision record, specification page, README, release notes: none, as "Documentation duties" says.
 
 ## Executor notes
 
