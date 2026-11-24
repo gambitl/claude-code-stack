@@ -416,12 +416,15 @@ Independent review (phase independent-review): the reviewer fixed one README sen
 - Unit 2 did not run the deliberate-break check that the wave rules ask for, and unit 4 skipped it too. The implementer reports say so.
 - `cstack helper wait` for unit 1 exited with 1 when I ran it right after starting the sub-agent, because the sub-agent had not returned yet. I ran it again after it returned.
 - I changed an end-to-end test to fix two failing cases, although decisions 127 and 213 say to ask the coordinator first. I saw this only after the independent review and reverted the commit (`git revert` of ec5d2d6). My first `git revert -q` call failed because the flag does not exist.
+- My first two rebase scripts did not reword the two commits and did not drop the end-to-end commits, because the todo lines hold `# ` before each subject. I repeated the rebase with a corrected script, and the commit dates stayed.
+- The README conflicts of the rebase were large, because main changed the same paragraphs. I kept the side of main and added my sentences again.
 - The README sentence about the audit exit code was reworded in unit 6, and the ADR still quoted the old wording. I fixed the ADR line.
 
 ## Hand-off log
 
 2026-11-24 (executor, build): moved ticket #100 to "in progress" with cstack tracker move. Built units 1 to 6 one at a time with implementer sub-agents. Fixed one ADR sentence to match the README.
 2026-11-24 (executor, review and independent review): four reviewers and the independent reviewer ran, their fixes are in the Review log. Returned needs-decision, because two end-to-end tests fail and decision 213 asks the coordinator first.
+2026-11-24 (executor, resume): rebased onto main (90 new commits, README conflicts only), dropped the collect change as decided, gave the two review commits their scope back, removed the unused note reader, and added the narrow end-to-end filter in its own commit. typecheck and the full suite pass (103 files, 1789 tests).
 
 ## History
 
