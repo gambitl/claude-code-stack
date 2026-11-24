@@ -613,7 +613,8 @@ describe("cstack audit, the implementer line of each unit", () => {
   const BUILT = /^cstack unit (?:red|green|commit) (\d+)$/;
   // `transcripts` says, for each of the three launches in the order of the run, the units whose calls are in its own transcript.
   // A launch with no entry has no transcript and no meta file, and the calls of its unit stay in the main session file.
-  const run = async (transcripts: Record<number, number[]>, types: Record<number, string> = {}) => {
+  // `dropped` names the launches that the run never made.
+  const run = async (transcripts: Record<number, number[]>, types: Record<number, string> = {}, dropped: number[] = []) => {
     const given = fullCalls().map((call, i) => ({ call, id: `t${i}` }));
     const launches = given.filter(({ call }) => call.launch === IMPL);
     const owner = (command: string): number | undefined => {
@@ -621,7 +622,9 @@ describe("cstack audit, the implementer line of each unit", () => {
       if (unit === undefined) return undefined;
       return Object.keys(transcripts).map(Number).find((k) => transcripts[k]!.includes(Number(unit)));
     };
-    const calls = given.map(({ call }) => call).filter((call) => owner(call.command) === undefined);
+    const calls = given
+      .map(({ call }) => call)
+      .filter((call) => owner(call.command) === undefined && !dropped.includes(launches.findIndex(({ call: l }) => l === call) + 1));
     const typed = calls.map((call) => {
       const k = launches.findIndex(({ call: l }) => l === call) + 1;
       return k > 0 && types[k] !== undefined ? { ...call, launch: types[k]! } : call;
@@ -643,6 +646,14 @@ describe("cstack audit, the implementer line of each unit", () => {
 
   it("prints the line of unit 2 as skipped when only the executor holds its calls, and the lines of units 1 and 3 as done", async () => {
     const r = await run({ 1: [1], 3: [3] });
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(3)}done `);
+    expect(r.code).toBe(1);
+  });
+
+  it("prints the line of unit 2 as skipped when the executor holds its calls and no implementer was launched for it", async () => {
+    const r = await run({ 1: [1], 3: [3] }, {}, [2]);
     expect(r.stdout).toContain(`${line(2)}skipped\n`);
     expect(r.stdout).toContain(`${line(1)}done `);
     expect(r.stdout).toContain(`${line(3)}done `);
