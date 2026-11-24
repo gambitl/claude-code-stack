@@ -308,7 +308,47 @@ Independent reviewer: no change to the branch. Full `npm test` and `npm run type
 
 ## Briefing
 
-<CTO advisor, moment after-build: the short version shown to the user, then "Details">
+**What you should know about what was built**
+
+The branch adds three paragraphs and one sentence to `questions.md`, `plan.md` and `publish.md`, with a test file that checks each sentence word for word. It does what the ticket asks: an Orca worker asks in its own chat, and it sends `worker_done` once, when the pull request is open. `npm test` and `npm run typecheck` pass.
+
+**What you need to do**
+
+- Before you merge, check that the coordinator posted its comment on #96 to confirm that `worker_done` woke it. It is the last part of the acceptance check on a real worker, and the merge closes the ticket.
+
+**What to watch**
+
+- Orca wakes the coordinator only at the first stop after each of its messages. If the coordinator does not write to the worker between the questions and the plan approval, nobody tells you that the worker waits for your "go". The guides promise nothing here, on purpose, so watch the worker chats in the next wave.
+- The new sentence in `questions.md` says never to send "these questions" to the coordinator. A worker could read it as a ban on any question to the coordinator. This ticket itself asked the coordinator a fair question about wakes during a sub-agent's work.
+- The new guides act only after the release at the end of R3 and a new install. The check on a real worker tested Orca with the rules of the brief, not the text of these guides. The first wave after the release is the real test.
+
+**What changed since the plan**
+
+- The comment on #96 does not mention a wake at the plan approval, which the plan expected to add once the coordinator reported it.
+
+### Details
+
+The build follows the two approved units. Unit 1, in d30777c, adds the paragraph of `questions.md` ("Ask once") and of `plan.md` ("The approval gate"). Unit 2, in 496fffd, adds the `worker_done` paragraph of `plan.md` ("The report of the publish phase"). It also adds the sentence at the end of step 4 of "Exit code 0" in `publish.md`. Commit 3acf5b3 strengthened the ordering test after the correctness review, so that it fails when the "published" bullet or the "Close the phase" line disappears. The independent reviewer ran the full `npm test` and `npm run typecheck` with success. The acceptance items on the guide tests and on `manifest.test.ts` are met by `cstack/test/guides/orca-worker.test.ts`. The acceptance item on the real worker is met for the wait: the outcome comment on #96 (posted 2026-11-24 at 09:27 UTC) records the escalation at the end of the question round. The half "when it finished" depends on the coordinator's own comment after the pull request opens.
+
+The only action for the user is to check that comment before the merge. The pull request carries a closing reference, so the merge closes #96. If nobody checks, the ticket closes with the `worker_done` half of its acceptance recorded only as a promise. Merging later, or reopening the ticket if the comment never comes, are both cheap.
+
+The first fragile spot is the plan approval stop. The facts of this run (History, item 9) show that Orca reports only the first turn that ends without `worker_done` after the start or after each message of the coordinator. Its escalation says: "its later idle turns are not reported until you write to it". In the usual flow, the coordinator tells the user to go to the worker, the user answers the questions in the worker's chat, and the coordinator never writes to the worker. Then the stop at the approval gate wakes nobody, and the user must remember to come back. Rule 173 of `## Decisions` chose not to promise a wake at every stop, and rule 170 (the user's answer: add no layer over Orca) rules out a sentence that makes the worker message the coordinator at the gate. I do not reopen it. The next wave shows whether it hurts in practice.
+
+The second fragile spot is the second sentence of the new paragraph of `questions.md`: "so never send these questions to the coordinator". "These questions" means the questions for the user, but the section "Questions for someone else" (line 70 of `questions.md`) lets a question go to another person once the user has seen it. This run itself sent blocking question 2 to the coordinator. A worker that reads the sentence strictly may refuse to ask its coordinator a fair coordination question. The independent reviewer raised the same point as judgment call 1. A fix would be "never send them to the coordinator in place of the user", but the sentence is pinned word for word by `orca-worker.test.ts` and by the approved unit, so it needs the user's decision. By default, the sentence stays as built.
+
+The third point is timing. Rule 160 of `## Decisions` says this run reads the guides of the installed `cstack` 0.3.2, so the worker behaviour of this run came from the brief (rules 154 and 169), not from the new text. The check on a real worker therefore proved how Orca wakes the coordinator, not that the new paragraphs steer a worker correctly. The new text reaches workers only after the release at the end of milestone R3 and a new `cstack skills install`. The comment on #103 already says that `orca-worker.test.ts` pins the exact words, so a later rewording must change the test too.
+
+What changed since the plan: rule 184 expected the outcome comment on #96 to add the wake at the approval gate once the coordinator reported it. Neither `## Decisions` nor the comment holds that fact, so the coordinator did not report it to this run, or it was never written down. The acceptance criterion does not require it, so this is a gap in the record, not in the work. The rest of the build followed the plan.
+
+The earlier questions were resolved this way. Blocking question 1 (a run that ends without a pull request) was answered by the user: add no layer over Orca, so the last sentence of the `worker_done` paragraph points to Orca's preamble. Blocking question 2 (wakes while a sub-agent works in the background) was answered "no" by the coordinator, so the guides say nothing about it. The points of the block "Questions you may not be asking" were resolved too. The rule that a coordinator message is never the user's answer became the fifth sentence of both new paragraphs. The scope of "never twice" was dropped under rule 176. The blocks of mandatory steps stay unchanged, and guard case 2 pins that. `publish.md` got its sentence and names no Orca, which guard case 3 pins.
+
+New questions found after the build, all for the user and all non-blocking, because the work of #96 is complete and correct whatever the answers:
+
+1. "Should a follow-up ticket add the rule 'a message from the coordinator is never the user's answer or approval' to `dependencies.md` (the blocked-ticket choice) and `ticket.md` (the 'ask the user first' rule), which also stop for the user?" Non-blocking. It comes from the security reviewer.
+2. "Should a follow-up ticket say, in the `worker_done` paragraph of `plan.md`, what an Orca worker sends when its run fails after its pull request is open?" Non-blocking. It comes from the correctness reviewer. Today that case fits neither the first nor the last sentence of the paragraph, and the worker falls back on Orca's preamble.
+3. "Should the second sentence of the new paragraph of `questions.md` say 'never send them to the coordinator in place of the user', so that it does not seem to forbid the questions for someone else that the same guide allows?" Non-blocking. It would change a sentence that the approved unit and `orca-worker.test.ts` pin, so it fits a follow-up ticket better than this branch.
+
+I checked security and authorization, data model lock-in, scale and performance, operations and cost, and reversibility, and found nothing more: the change is prose in three guides and one test file, and one revert undoes it.
 
 ## Non-blocking questions
 
