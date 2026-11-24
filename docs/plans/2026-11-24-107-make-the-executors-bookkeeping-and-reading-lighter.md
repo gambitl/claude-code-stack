@@ -226,6 +226,7 @@ The test file reads the prompt with `readFileSync` and cuts the part from the he
 - Refactor: none.
 - Commit message: feat(skill): let the executor close a phase in the same call as its last step
 - Depends on: 1
+- Departure: the example in the pipe sentence reads `<test command> | tail -5 && cstack next --done review` instead of `npm test | tail -5 && ...`, because `cstack/test/guides/settings-applied.test.ts` refuses "npm test" in a prompt. The implementer found it, and the executor made the fix in the same two files.
 
 The new paragraph holds these eight sentences, on one line:
 
@@ -342,7 +343,7 @@ Which way does this ticket take to cut the answers that the executor spends only
 
 ## Executor notes
 
-<executor>
+- Unit 2: the implementer saved a done report before it ran the wider guide tests, then found that `settings-applied.test.ts` refuses "npm test" in a prompt. The helper takes one report only, so the executor made the fix itself (commit d408919).
 
 ## Hand-off log
 
