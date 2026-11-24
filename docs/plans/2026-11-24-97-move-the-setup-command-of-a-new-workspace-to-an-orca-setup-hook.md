@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/orca-setup-hook
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T11:17:25+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T11:38:04+01:00
 
 ## Ticket
 
