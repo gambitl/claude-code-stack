@@ -2,10 +2,10 @@ import { statSync } from "node:fs";
 import { join } from "node:path";
 import type { Io } from "../io.js";
 import { readSavedRun } from "../saved-runs.js";
-import { runTests, testScript } from "../test-run.js";
-import { fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
+import { runTests, testScript, usesReport } from "../test-run.js";
+import { caseName, checkNamedCases, fileSha256, headCommit, prepareUnitTest, printTestOutput } from "../unit-test-command.js";
 import { isTestFile, readUnitStatus, restartText } from "../unit-files.js";
-import { deletePassingRun, savePassingRun, type FailingUnitRun } from "../unit-test-runs.js";
+import { deletePassingRun, buildNote, caseProblemText, describeReport, noteFailed, printFallback, writeUnitNote, savePassingRun, type FailingUnitRun } from "../unit-test-runs.js";
 import { failWith } from "./errors.js";
 
 export async function unitGreen(args: string[], io: Io, cwd: string = process.cwd()): Promise<number> {
@@ -18,7 +18,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 1;
   });
   if (typeof context === "number") return context;
-  const { root, runDir, unit, testFile, commands, timeoutMs } = context;
+  const { root, runDir, unit, testFile, commands, timeoutMs, planPath } = context;
 
   // WHY: red.json is written by saveFailingRun, so it has the fields of a SavedUnitRun. An older file may lack the hash.
   let saved: (Partial<FailingUnitRun>) | undefined;
@@ -67,6 +67,23 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 1;
   }
 
+  // WHY: when the failing run saved its cases, each named case must have been seen failing there.
+  const named = unit.test!.cases;
+  if (saved.cases !== undefined && saved.cases.length > 0) {
+    const unseen = checkNamedCases(named, saved.cases, "fail");
+    if (unseen.length > 0) {
+      try {
+        deletePassingRun(runDir, unit.number);
+      } catch (error) {
+        return failWith(error, io, prefix);
+      }
+      io.stderr(
+        `${prefix}These cases that unit ${unit.number} names are not among the failing cases of its saved failing run: ${unseen.map((p) => caseName(p.name)).join(", ")}. Each named case must be seen failing before the code exists. No test ran, nothing is saved, and any earlier passing run is deleted.\n${restartText(unit.number)}\n`,
+      );
+      return 1;
+    }
+  }
+
   // WHY: the commit and the fingerprint are read just before the test runs, so they describe what ran.
   const commit = headCommit(root);
   if (commit === undefined) {
@@ -74,7 +91,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     return 5;
   }
   const testFileSha256 = fileSha256(root, testFile);
-  const run = await runTests(root, script, testFile, timeoutMs);
+  const run = await runTests(root, script, testFile, timeoutMs, { report: usesReport(commands, testFile) });
   printTestOutput(io, run.output);
 
   if (run.exitCode !== 0) {
@@ -98,6 +115,25 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     );
     return 5;
   }
+  const report = run.report;
+  const { caseRun, problem: reportProblem } = describeReport(report);
+  if (report !== undefined && "cases" in report) {
+    const problems = checkNamedCases(named, report.cases, "pass");
+    if (problems.length > 0) {
+      try {
+        deletePassingRun(runDir, unit.number);
+      } catch (error) {
+        return failWith(error, io, prefix);
+      }
+      const text = caseProblemText("green");
+      io.stderr(
+        `${prefix}These cases that unit ${unit.number} names do not pass:\n` +
+          problems.map((p) => `  ${caseName(p.name)} ${text[p.kind]}\n`).join("") +
+          "Nothing is saved, and any earlier passing run is deleted.\n",
+      );
+      return 1;
+    }
+  }
   if (run.exitCode !== 0) {
     io.stderr(
       `${prefix}The test of unit ${unit.number} still fails (exit code ${run.exitCode}). Nothing is saved, and any earlier passing run is deleted.\n`,
@@ -108,7 +144,7 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     savePassingRun(
       runDir,
       unit.number,
-      { time: new Date().toISOString(), command: run.script, exitCode: 0, commit, testFile, testFileSha256 },
+      { time: new Date().toISOString(), command: run.script, exitCode: 0, commit, testFile, testFileSha256, ...caseRun },
       run.output,
     );
   } catch (error) {
@@ -118,5 +154,8 @@ export async function unitGreen(args: string[], io: Io, cwd: string = process.cw
     io.stderr(`${prefix}Warning: the test file ${testFile} changed since the failing run of unit ${unit.number}. Say in your report what changed in the test and why.\n`);
   }
   io.stdout(`${prefix}Unit ${unit.number} passes. The passing run is saved in ${runDir}/units/${unit.number}/green.json.\n`);
+  if (caseRun.caseCheck === "file") printFallback(io, "green", unit.number, caseRun.fallback!, reportProblem);
+  const problem = await writeUnitNote(root, planPath, unit.number, "green", buildNote("green", caseRun.fallback));
+  if (problem !== undefined) return noteFailed(io, "green", unit.number, problem);
   return 0;
 }

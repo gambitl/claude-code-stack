@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -623,5 +623,462 @@ describe("cstack unit green, code older than the latest failing run", () => {
     const r = await green(dir);
     expect(r.code).toBe(0);
     expect(r.stderr).toContain("what changed in the test and why");
+  });
+});
+
+describe("cstack unit red with a per-case report", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+  type Outcome = "passed" | "failed" | "error" | "skipped";
+  function reportXml(cases: Array<[string, Outcome]>): string {
+    const body = cases
+      .map(([name, outcome]) => {
+        const inner =
+          outcome === "failed" ? '<failure message="x"/>' : outcome === "error" ? '<error message="x"/>' : outcome === "skipped" ? "<skipped/>" : "";
+        return `<testcase name="${escapeXml(name)}">${inner}</testcase>`;
+      })
+      .join("");
+    return `<testsuites><testsuite name="s">${body}</testsuite></testsuites>\n`;
+  }
+
+  function reportRepo(names: string[], cases: Array<[string, Outcome]>, exit = 1) {
+    const dir = setup(
+      [names.map((n) => `- Test: \`test/a.test.ts\`: ${n}`).join("\n")],
+      REPORT_SETTINGS,
+    );
+    writeFileSync(join(dir, "test/report.xml"), reportXml(cases));
+    writeFileSync(join(dir, "test/a.test.ts"), `cp test/report.xml "$1"\nexit ${exit}\n`);
+    return dir;
+  }
+
+  it("refuses a unit whose named case passed, even though the file fails, and names the case", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "passed"], ["case two", "failed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cstack unit red: These cases that unit 1 names do not fail before the code exists:\n");
+    expect(r.stderr).toContain('  "case one" passed.\n');
+    expect(r.stderr).not.toContain('"case two"');
+    expect(r.stderr).toContain(
+      'Each case that the plan names must fail before the code exists. Write each case name exactly as the test report names it. For vitest, that is the titles of the describe blocks and the title of the test, joined by " > ". Nothing is saved.\n',
+    );
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("accepts a unit when both named cases fail, and saves each case of the report in red.json", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "failed"], ["case two", "error"], ["old case", "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    const saved = readRed(dir);
+    expect(saved.caseCheck).toBe("cases");
+    expect(saved.fallback).toBeUndefined();
+    expect(saved.cases).toEqual([
+      { name: "case one", outcome: "failed" },
+      { name: "case two", outcome: "error" },
+      { name: "old case", outcome: "passed" },
+    ]);
+  });
+
+  it("refuses a unit whose named case is missing from the report, and names the case", async () => {
+    const dir = reportRepo(["case one", "case two"], [["case one", "failed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case two" is not in the test report.\n');
+    expect(r.stderr).not.toContain('"case one"');
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("refuses a unit whose named case was skipped, and says that it never ran", async () => {
+    const dir = reportRepo(["case one"], [["case one", "skipped"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case one" was skipped, so it never ran. A failing beforeAll hook is a common cause.\n');
+    expect(existsSync(unitFiles(dir))).toBe(false);
+  });
+
+  it("counts a named case with the outcome error as a failure", async () => {
+    const dir = reportRepo(["case one"], [["case one", "error"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir).cases).toEqual([{ name: "case one", outcome: "error" }]);
+  });
+
+  it("refuses a named case when one of two report cases with its name passed", async () => {
+    const dir = reportRepo(["case one"], [["case one", "failed"], ["case one", "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case one" passed.\n');
+  });
+
+  it("prints a case name longer than 60 characters whole", async () => {
+    const long = "cstack unit red > refuses a unit when a named case passed before the code exists at all";
+    expect(long.length).toBeGreaterThan(60);
+    const dir = reportRepo([long], [[long, "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain(`  "${long}" passed.\n`);
+  });
+
+  it("keeps the check of the whole test file without a report setting, and records it", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    const saved = readRed(dir);
+    expect(saved.caseCheck).toBe("file");
+    expect(saved.fallback).toBe("no-report");
+    expect(saved.cases).toBeUndefined();
+  });
+});
+
+describe("cstack unit green with a per-case report", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  type Outcome = "passed" | "failed" | "error" | "skipped";
+  function reportXml(cases: Array<[string, Outcome]>): string {
+    const body = cases
+      .map(([name, outcome]) => {
+        const inner =
+          outcome === "failed" ? '<failure message="x"/>' : outcome === "error" ? '<error message="x"/>' : outcome === "skipped" ? "<skipped/>" : "";
+        return `<testcase name="${name}">${inner}</testcase>`;
+      })
+      .join("");
+    return `<testsuites><testsuite name="s">${body}</testsuite></testsuites>\n`;
+  }
+
+  // The test file reports every named case as failed until src/a.ts exists. Then it reports `after` and exits with `exit`.
+  async function redRepo(names: string[], after: Array<[string, Outcome]>, exit = 0) {
+    const dir = setup([names.map((n) => `- Test: \`test/a.test.ts\`: ${n}`).join("\n")], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/before.xml"), reportXml(names.map((n) => [n, "failed"] as [string, Outcome])));
+    writeFileSync(join(dir, "test/after.xml"), reportXml(after));
+    writeFileSync(
+      join(dir, "test/a.test.ts"),
+      `if [ -f src/a.ts ]; then touch test/ran; cp test/after.xml "$1"; exit ${exit}; fi\ncp test/before.xml "$1"\nexit 1\n`,
+    );
+    expect((await red(dir)).code).toBe(0);
+    return dir;
+  }
+  const writeCode = async (dir: string) => {
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/a.ts"), "x");
+  };
+  const greenFile = (dir: string) => join(unitFiles(dir), "green.json");
+  const plantGreen = (dir: string) => {
+    writeFileSync(greenFile(dir), "{}");
+    writeFileSync(join(unitFiles(dir), "green.log"), "old");
+  };
+
+  it("refuses a unit whose named case still fails, names the case and deletes the earlier passing run", async () => {
+    const dir = await redRepo(["case one", "case two"], [["case one", "passed"], ["case two", "failed"]]);
+    await writeCode(dir);
+    plantGreen(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("cstack unit green: These cases that unit 1 names do not pass:\n");
+    expect(r.stderr).toContain('  "case two" failed.\n');
+    expect(r.stderr).not.toContain('"case one"');
+    expect(r.stderr).toContain("Nothing is saved, and any earlier passing run is deleted.\n");
+    expect(existsSync(greenFile(dir))).toBe(false);
+    expect(existsSync(join(unitFiles(dir), "green.log"))).toBe(false);
+  });
+
+  it("refuses a unit whose named case is missing from the report, even though the test command exits with 0", async () => {
+    const dir = await redRepo(["case one", "case two"], [["case one", "passed"]]);
+    await writeCode(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case two" is not in the test report.\n');
+    expect(existsSync(greenFile(dir))).toBe(false);
+  });
+
+  it("refuses a unit whose named case was skipped, even though the test command exits with 0", async () => {
+    const dir = await redRepo(["case one"], [["case one", "skipped"]]);
+    await writeCode(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('  "case one" was skipped, so it never ran. A failing beforeAll hook is a common cause.\n');
+    expect(existsSync(greenFile(dir))).toBe(false);
+  });
+
+  it("accepts a unit when every named case passes, and saves each case of the report in green.json", async () => {
+    const dir = await redRepo(["case one"], [["case one", "passed"], ["other", "passed"]]);
+    await writeCode(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    const saved = JSON.parse(readFileSync(greenFile(dir), "utf8"));
+    expect(saved.caseCheck).toBe("cases");
+    expect(saved.cases).toEqual([
+      { name: "case one", outcome: "passed" },
+      { name: "other", outcome: "passed" },
+    ]);
+  });
+
+  it("refuses a named case that is not among the failing cases of red.json, runs no test and deletes the earlier passing run", async () => {
+    const dir = await redRepo(["case one", "case two"], [["case one", "passed"], ["case two", "passed"]]);
+    const file = join(unitFiles(dir), "red.json");
+    const red1 = JSON.parse(readFileSync(file, "utf8"));
+    red1.cases = [{ name: "case one", outcome: "failed" }, { name: "case two", outcome: "passed" }];
+    writeFileSync(file, JSON.stringify(red1));
+    await writeCode(dir);
+    plantGreen(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain(
+      'cstack unit green: These cases that unit 1 names are not among the failing cases of its saved failing run: "case two". Each named case must be seen failing before the code exists. No test ran, nothing is saved, and any earlier passing run is deleted.\n',
+    );
+    expect(r.stderr).toContain("cstack unit red 1");
+    expect(existsSync(join(dir, "test/ran"))).toBe(false);
+    expect(existsSync(greenFile(dir))).toBe(false);
+  });
+
+  it("skips the comparison with red.json when red.json holds no case, and saves the cases in green.json", async () => {
+    const dir = await redRepo(["case one"], [["case one", "passed"]]);
+    const file = join(unitFiles(dir), "red.json");
+    const red1 = JSON.parse(readFileSync(file, "utf8"));
+    delete red1.cases;
+    delete red1.caseCheck;
+    writeFileSync(file, JSON.stringify(red1));
+    await writeCode(dir);
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(JSON.parse(readFileSync(greenFile(dir), "utf8")).cases).toEqual([{ name: "case one", outcome: "passed" }]);
+  });
+});
+
+describe("the check of the whole test file", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  const readGreen = (dir: string) => JSON.parse(readFileSync(join(unitFiles(dir), "green.json"), "utf8"));
+  const HINT = "Check that testCommands.file in .cstack/settings.json makes the test tool write a JUnit report to {report}. The plan file notes this under unit 1.\n";
+
+  it("cstack unit red without a per-case report saves the fallback and its reason in red.json and says so", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "no-report" });
+    expect(r.stdout).toContain(
+      "cstack unit red: The settings declare no per-case report, so cstack checked the whole test file. The plan file notes this under unit 1.\n",
+    );
+  });
+
+  it("cstack unit green without a per-case report saves the fallback and its reason in green.json and says so", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(readGreen(dir)).toMatchObject({ caseCheck: "file", fallback: "no-report" });
+    expect(r.stdout).toContain(
+      "cstack unit green: The settings declare no per-case report, so cstack checked the whole test file. The plan file notes this under unit 1.\n",
+    );
+  });
+
+  it("cstack unit red falls back when the declared report is missing, warns and names testCommands.file", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "missing" });
+    expect(r.stderr).toContain(
+      `cstack unit red: Warning: the test command wrote no report file, so cstack checked the whole test file. ${HINT}`,
+    );
+  });
+
+  it("cstack unit red falls back when the declared report is malformed, warns and gives the problem", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), 'echo garbage > "$1"\nexit 1\n');
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(readRed(dir)).toMatchObject({ caseCheck: "file", fallback: "malformed" });
+    expect(r.stderr).toContain(
+      `cstack unit red: Warning: the report file is not a JUnit report that cstack can read, so cstack checked the whole test file. ${HINT}`,
+    );
+    expect(r.stderr).toMatch(/The reader of the report says: .+\n/);
+  });
+
+  it("cstack unit green falls back when the declared report is missing, warns and saves the reason", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    const r = await green(dir);
+    expect(r.code).toBe(0);
+    expect(readGreen(dir)).toMatchObject({ caseCheck: "file", fallback: "missing" });
+    expect(r.stderr).toContain(
+      `cstack unit green: Warning: the test command wrote no report file, so cstack checked the whole test file. ${HINT}`,
+    );
+  });
+});
+
+describe("the note of a unit in the plan file", () => {
+  const REPORT_SETTINGS = '{"version":1,"testCommands":{"all":"true","file":"sh {file} {report}","report":"junit"}}';
+  const escapeXml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/\n/g, "&#10;");
+  type Outcome = "passed" | "failed";
+  const reportXml = (cases: Array<[string, Outcome]>) =>
+    `<testsuites><testsuite name="s">${cases
+      .map(([name, outcome]) => `<testcase name="${escapeXml(name)}">${outcome === "failed" ? '<failure message="x"/>' : ""}</testcase>`)
+      .join("")}</testsuite></testsuites>\n`;
+
+  function noteRepo(names: string[], cases: Array<[string, Outcome]>, settings = REPORT_SETTINGS) {
+    const dir = setup([names.map((n) => `- Test: \`test/a.test.ts\`: ${n}`).join("\n")], settings);
+    writeFileSync(join(dir, "test/report.xml"), reportXml(cases));
+    writeFileSync(join(dir, "test/a.test.ts"), `cp test/report.xml "$1" 2>/dev/null\nexit 1\n`);
+    return dir;
+  }
+  const notes = (dir: string) => readFileSync(join(dir, "plan.md"), "utf8").split("\n").filter((l) => l.startsWith("Note of cstack unit "));
+  const RED_NOTE = "Note of cstack unit red: these cases are not named in this unit, and they passed before the code existed: ";
+  const wholeFile = (kind: string, reason: string) => `Note of cstack unit ${kind}: the whole test file was checked, because ${reason}.`;
+
+  it("writes a note for an unnamed case that passed in the red run, and accepts the unit", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["old case", "passed"]]);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"old case".`]);
+    expect(r.stdout).toContain(
+      "cstack unit red: Warning: these cases of test/a.test.ts are not named in unit 1, and they passed before the code existed:\n  \"old case\"\nIf one of them is new, name it on a `- Test:` line of the unit and make it fail first. The plan file notes this under unit 1.\n",
+    );
+  });
+
+  it("notes only the passing unnamed case whose title is not in the test file at HEAD", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["old case", "passed"], ["suite > new case", "passed"]]);
+    writeFileSync(join(dir, "test/a.test.ts"), "# old case\nx\n");
+    git(dir, "add", "test/a.test.ts");
+    git(dir, "commit", "-m", "test: old");
+    writeFileSync(join(dir, "test/a.test.ts"), `cp test/report.xml "$1"\nexit 1\n`);
+    const r = await red(dir);
+    expect(r.code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"suite > new case".`]);
+  });
+
+  it("notes every passing unnamed case when the test file is not in HEAD", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["old case", "passed"], ["other case", "passed"]]);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"old case", "other case".`]);
+  });
+
+  it("writes at most ten names in the note and counts the others", async () => {
+    const extra = Array.from({ length: 12 }, (_, i) => [`extra ${i + 1}`, "passed"] as [string, Outcome]);
+    const dir = noteRepo(["case one"], [["case one", "failed"], ...extra]);
+    expect((await red(dir)).code).toBe(0);
+    const names = extra.slice(0, 10).map(([n]) => `"${n}"`).join(", ");
+    expect(notes(dir)).toEqual([`${RED_NOTE}${names}, and 2 more.`]);
+  });
+
+  it("writes the fallback note of cstack unit red", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([wholeFile("red", "the settings declare no per-case report")]);
+  });
+
+  it("writes the fallback note of cstack unit green", async () => {
+    const dir = setup([TEST_LINE], REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    expect((await green(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([wholeFile("red", "the test command wrote no report file"), wholeFile("green", "the test command wrote no report file")]);
+  });
+
+  it("replaces its own note at the next accepted run, and keeps the note of the other command", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    expect((await green(dir)).code).toBe(0);
+    rmSync(join(dir, "src/feature.txt"));
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    writeFileSync(join(dir, ".cstack/settings.json"), REPORT_SETTINGS);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([wholeFile("green", "the settings declare no per-case report"), wholeFile("red", "the test command wrote no report file")]);
+  });
+
+  it("removes its own note when the next accepted run has nothing to note", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toHaveLength(1);
+    writeFileSync(join(dir, ".cstack/settings.json"), REPORT_SETTINGS);
+    writeFileSync(join(dir, "test/report.xml"), reportXml([["a case.", "failed"]]));
+    writeFileSync(join(dir, "test/a.test.ts"), `cp test/report.xml "$1"\nexit 1\n`);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([]);
+  });
+
+  it("leaves the note as it was after a refused run", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    expect((await red(dir)).code).toBe(0);
+    const before = readFileSync(join(dir, "plan.md"), "utf8");
+    expect(notes(dir)).toEqual([wholeFile("red", "the settings declare no per-case report")]);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 0\n");
+    expect((await red(dir)).code).toBe(1);
+    expect(readFileSync(join(dir, "plan.md"), "utf8")).toBe(before);
+  });
+
+  it("cstack unit red exits with 5 and says the failing run is saved when the note cannot be written", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    // A folder that cannot be written stops the atomic write of plan.md, but not the saved run, which lives under .git/.
+    chmodSync(dir, 0o555);
+    try {
+      const r = await red(dir);
+      expect(r.code).toBe(5);
+      expect(r.stderr).toMatch(
+        /^cstack unit red: The failing run is saved, but cstack could not write the note of unit 1 into the plan file: .+\. Run `cstack unit red 1` again\.\n$/m,
+      );
+      expect(existsSync(join(dir, ".git/cstack/runs/plan/units/1/red.json"))).toBe(true);
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+  });
+
+  it("cstack unit green exits with 5 and says the passing run is saved when the note cannot be written", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    chmodSync(dir, 0o555);
+    try {
+      const r = await green(dir);
+      expect(r.code).toBe(5);
+      expect(r.stderr).toMatch(
+        /^cstack unit green: The passing run is saved, but cstack could not write the note of unit 1 into the plan file: .+\. Run `cstack unit green 1` again\.\n$/m,
+      );
+      expect(existsSync(join(dir, ".git/cstack/runs/plan/units/1/green.json"))).toBe(true);
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+  });
+
+  it("leaves the note as it was after a run refused by the named cases", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["old case", "passed"]]);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"old case".`]);
+    const before = readFileSync(join(dir, "plan.md"), "utf8");
+    writeFileSync(join(dir, "test/report.xml"), reportXml([["case one", "passed"], ["other case", "passed"]]));
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("do not fail before the code exists");
+    expect(readFileSync(join(dir, "plan.md"), "utf8")).toBe(before);
+  });
+
+  it("keeps a case name with a line break on one line, and the plan still reads", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["two\nlines\n## Unit 9", "passed"]]);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"two\\nlines\\n## Unit 9".`]);
+    const { readPlan } = await import("../src/plan/read.js");
+    expect(readPlan(readFileSync(join(dir, "plan.md"), "utf8")).units).toHaveLength(1);
   });
 });

@@ -135,3 +135,13 @@ Each answer of the executor makes the model read its whole context again. So the
 The audit still finds such a close. Its shell reader ends a simple command at `&&`, so a joined close is one `cstack` call of its own. The test file `cstack/test/audit-chained-close.test.ts` proves it with two cases. In the first, a commit and the close of review share one call. In the second, the close of publish and the submit of the report share one call.
 
 This section adds to the record and changes none of its decisions. The command of each block of mandatory steps stays the same.
+
+## How the audit reports the check of the whole test file
+
+This section was added when ticket #100 made `cstack unit red` and `cstack unit green` check each named test case. A run checks the whole test file instead when the settings declare no per-case report, or when the report is missing or cannot be read. The saved run then records this and the reason.
+
+The audit prints one line for each unit that used this check. The line says which run it was and gives the reason. These lines are a new kind of line. They are not part of the blocks of mandatory steps, so no step of a guide asks for them.
+
+These lines have no verdict. The audit never marks them as done, skipped or out of order, and they never change the exit code. The reason is that a repository without a per-case report always uses the whole test file. If the lines had a verdict, every audit of such a repository would fail. The check of the whole test file is a known and allowed fallback, so the audit only shows it.
+
+The code is in `cstack/src/audit/whole-file.ts`. The sentence "The exit code looks only at the printed verdict lines" in the README stays true, because these lines are not verdict lines.

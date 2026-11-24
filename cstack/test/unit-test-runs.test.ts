@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { readSavedRun } from "../src/saved-runs.js";
-import { saveFailingRun, savePassingRun, type FailingUnitRun } from "../src/unit-test-runs.js";
+import { noteFailed, saveFailingRun, savePassingRun, type FailingUnitRun } from "../src/unit-test-runs.js";
 
 const run = (over: Partial<FailingUnitRun> = {}): FailingUnitRun => ({
   time: "2026-11-19T10:00:00.000Z",
@@ -56,5 +56,15 @@ describe("saving the runs of a unit", () => {
     saveFailingRun(dir, 3, run(), "three");
     expect(readFileSync(join(dir, "units/2/green.json"), "utf8")).toBe("keep");
     expect(readFileSync(join(dir, "units/1/red.log"), "utf8")).toBe("one");
+  });
+});
+
+describe("the message when the note cannot be written", () => {
+  it("ends the reason with one period only", () => {
+    let text = "";
+    const code = noteFailed({ stdout: () => {}, stderr: (t: string) => { text += t; } } as never, "red", 2, "The lock is busy.");
+    expect(code).toBe(5);
+    expect(text).toContain("into the plan file: The lock is busy. Run");
+    expect(text).not.toContain("..");
   });
 });

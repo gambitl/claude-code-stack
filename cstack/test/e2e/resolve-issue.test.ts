@@ -408,7 +408,9 @@ describe("the resolve-issue skill, end to end", { timeout: 120_000 }, () => {
     const printed = audited.stdout.split("\n").filter(Boolean);
     expect(printed.some((l) => l.startsWith("phase ticket: done "))).toBe(true);
     const LINE = /^(phase [a-z-]+( started)?|[a-z-]+: .+): (done|skipped|out of order)( .+)?$/;
-    for (const line of printed) {
+    // The lines about the check of the whole test file have no verdict, so they are not step lines.
+    const WHOLE_FILE = /^build: unit \d+: the whole test file was checked in the /;
+    for (const line of printed.filter((l) => !WHOLE_FILE.test(l))) {
       expect(line).toMatch(LINE);
       if (!/: skipped$/.test(line)) expect(line, "a line that is not skipped needs a time and a record").toMatch(/: (done|out of order) \S+ \S+/);
     }

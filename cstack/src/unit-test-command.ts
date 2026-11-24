@@ -5,6 +5,7 @@ import { join, relative, isAbsolute, sep } from "node:path";
 import { parseArgs } from "node:util";
 import { failWith } from "./commands/errors.js";
 import type { Io } from "./io.js";
+import type { TestCase } from "./junit-report.js";
 import { locatePlan } from "./plan/locate.js";
 import { readPlan, type PlanUnit } from "./plan/read.js";
 import { runFolder } from "./run-state.js";
@@ -16,6 +17,8 @@ export interface UnitTestContext {
   root: string;
   runDir: string;
   unit: PlanUnit;
+  /** The path of the plan file. */
+  planPath: string;
   /** The path of the unit's `Test` line, as the plan writes it. */
   testFile: string;
   commands: TestCommands;
@@ -35,7 +38,7 @@ export function prepareUnitTest(
   args: string[],
   io: Io,
   cwd: string,
-  beforeSettings?: (context: Pick<UnitTestContext, "root" | "runDir" | "unit">) => number | undefined,
+  beforeSettings?: (context: Pick<UnitTestContext, "root" | "runDir" | "unit" | "planPath">) => number | undefined,
 ): UnitTestContext | number {
   const prefix = `cstack unit ${name}: `;
   const usage = `Usage: cstack unit ${name} <n> [--timeout <minutes>] [--plan <file>]`;
@@ -91,7 +94,7 @@ export function prepareUnitTest(
     }
     if (!unit.test) return refuse(`Unit ${n} has neither a \`Test\` line nor a \`No test\` line.`, 3);
 
-    const base = { root: located.root, runDir: runFolder(located.root, located.relative), unit };
+    const base = { root: located.root, runDir: runFolder(located.root, located.relative), unit, planPath: located.path };
     const early = beforeSettings?.(base);
     if (early !== undefined) return early;
 
@@ -126,6 +129,35 @@ export function prepareUnitTest(
   }
 }
 
+/** Writes a case name for a message: JSON-escaped, C1 control characters escaped, never cut. */
+export function caseName(name: string): string {
+  return JSON.stringify(name).replace(/[\u007f-\u009f]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
+}
+
+/** A named case that does not have the outcome the run needs. */
+export interface CaseProblem {
+  name: string;
+  /** "wrong" is the opposite outcome: passed in a red run, failed or error in a green run. */
+  kind: "wrong" | "missing" | "skipped";
+}
+
+/**
+ * Compares the cases that a unit names with the cases of a report, in the order of the plan.
+ * A named case matches every report case with exactly its name. With want "fail", each match must be failed or error.
+ * With want "pass", each match must be passed. A wrong outcome is reported before a skipped one.
+ */
+export function checkNamedCases(named: string[], cases: TestCase[], want: "fail" | "pass"): CaseProblem[] {
+  const problems: CaseProblem[] = [];
+  for (const name of named) {
+    const matches = cases.filter((c) => c.name === name);
+    const good = (c: TestCase) => (want === "pass" ? c.outcome === "passed" : c.outcome === "failed" || c.outcome === "error");
+    if (matches.length === 0) problems.push({ name, kind: "missing" });
+    else if (matches.some((c) => c.outcome !== "skipped" && !good(c))) problems.push({ name, kind: "wrong" });
+    else if (matches.some((c) => c.outcome === "skipped")) problems.push({ name, kind: "skipped" });
+  }
+  return problems;
+}
+
 /** Returns the commit of `HEAD`, or undefined when git cannot give it. Git runs without a shell. */
 export function headCommit(root: string): string | undefined {
   const result = spawnSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" });
@@ -141,4 +173,21 @@ export function fileSha256(root: string, file: string): string {
 export function printTestOutput(io: Io, output: string): void {
   const tail = lastLines(output);
   io.stdout(tail === "" || tail.endsWith("\n") ? tail : `${tail}\n`);
+}
+
+/** Returns the test file as HEAD has it, or undefined when git cannot give it. Git runs without a shell. */
+export function headTestFile(root: string, testFile: string): string | undefined {
+  const result = spawnSync("git", ["show", `HEAD:${testFile}`], { cwd: root, encoding: "utf8" });
+  return result.status === 0 ? result.stdout : undefined;
+}
+
+/**
+ * Returns the names of the passed cases that the unit does not name and whose title (the part after the last " > ")
+ * is not in the test file at HEAD. When HEAD has no such file, every passed unnamed case is kept.
+ */
+export function unnamedPassingCases(named: string[], cases: TestCase[], headText: string | undefined): string[] {
+  return cases
+    .filter((c) => c.outcome === "passed" && !named.includes(c.name))
+    .filter((c) => headText === undefined || !headText.includes(c.name.slice(c.name.lastIndexOf(" > ") === -1 ? 0 : c.name.lastIndexOf(" > ") + 3)))
+    .map((c) => c.name);
 }
