@@ -2,9 +2,6 @@ import { homedir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { doctor } from "./commands/doctor.js";
-import { helperDone } from "./commands/helper-done.js";
-import { helperStart } from "./commands/helper-start.js";
-import { helperWait } from "./commands/helper-wait.js";
 import { guide } from "./commands/guide.js";
 import { audit } from "./commands/audit.js";
 import { measure } from "./commands/measure.js";
@@ -12,20 +9,17 @@ import { next } from "./commands/next.js";
 import { publish } from "./commands/publish.js";
 import { planSection } from "./commands/plan-section.js";
 import { planStatus } from "./commands/plan-status.js";
-import { reportCheck } from "./commands/report-check.js";
 import { readStdin, reportSubmit } from "./commands/report-submit.js";
 import { skills } from "./commands/skills.js";
 import { trackerComment } from "./commands/tracker-comment.js";
 import { trackerList } from "./commands/tracker-list.js";
 import { trackerMove } from "./commands/tracker-move.js";
 import { trackerRead } from "./commands/tracker-read.js";
-import { unitCollect } from "./commands/unit-collect.js";
 import { unitCommit } from "./commands/unit-commit.js";
 import { unitGreen } from "./commands/unit-green.js";
 import { unitOrder } from "./commands/unit-order.js";
 import { unitRed } from "./commands/unit-red.js";
 import { version } from "./commands/version.js";
-import { wave, defaultWaveDeps } from "./commands/wave.js";
 import { type Io, processIo } from "./io.js";
 import { COMMANDS, type CommandEntry, EXIT, commandWords, unbuiltRefusal } from "./manifest.js";
 import { createRunner } from "./orca/run.js";
@@ -68,17 +62,9 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       section: (a, i) => planSection(a, i, { cwd: process.cwd() }),
     }),
   publish: (args, io) => publish(args, io),
-  wave: (args, io) => wave(args, io, defaultWaveDeps()),
   report: (args, io) =>
     dispatchSubcommand("report", args, io, {
       submit: (a, i) => reportSubmit(a, i, { cwd: process.cwd(), readInput: readStdin }),
-      check: (a, i) => reportCheck(a, i, { cwd: process.cwd() }),
-    }),
-  helper: (args, io) =>
-    dispatchSubcommand("helper", args, io, {
-      start: (a, i) => helperStart(a, i),
-      wait: (a, i) => helperWait(a, i),
-      done: (a, i) => helperDone(a, i),
     }),
   tracker: (args, io) => {
     const deps = { cwd: process.cwd(), run: createRunner(60000), env: process.env };
@@ -94,7 +80,6 @@ export const HANDLERS: Record<string, (args: string[], io: Io) => number | Promi
       order: (a, i) => unitOrder(a, i), commit: (a, i) => unitCommit(a, i),
       red: (a, i) => unitRed(a, i),
       green: (a, i) => unitGreen(a, i),
-      collect: async (a, i) => unitCollect(a, i, { cwd: process.cwd(), orca: { run: createRunner(60000), env: process.env } }),
     }),
 };
 

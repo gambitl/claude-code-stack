@@ -163,3 +163,15 @@ describe("cstack measure with child worktrees", () => {
     }
   });
 });
+
+describe("parseWorktreeList", () => {
+  it("parseWorktreeList reads the path, the branch and the bare mark of each block", async () => {
+    const { parseWorktreeList } = await import("../src/measure/moments.js");
+    const text = "worktree /a\nHEAD x\nbranch refs/heads/main\n\nworktree /b\nbare\n\nworktree /c\ndetached\nprunable gone\n";
+    expect(parseWorktreeList(text)).toEqual([
+      { path: "/a", branch: "main", bare: false },
+      { path: "/b", branch: "", bare: true },
+      { path: "/c", branch: "", bare: false },
+    ]);
+  });
+});

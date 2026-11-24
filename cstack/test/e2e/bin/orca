@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // A fake Orca for the end-to-end tests. It replays the recorded answers of test/fixtures/orca/1.4.263/.
 // It logs every call to calls.log in the folder that E2E_FAKE_DIR names, and it keeps its state in files there.
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
-import { execFileSync } from "node:child_process";
+import { appendFileSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,9 +11,7 @@ const args = process.argv.slice(2);
 const command = args.slice(0, 2).join(" ");
 const fixture = (name) => readFileSync(join(fixtures, name), "utf8");
 const json = (name) => JSON.parse(fixture(name));
-const lines = (file) => (existsSync(join(dir, file)) ? readFileSync(join(dir, file), "utf8").split("\n").filter(Boolean).map((l) => JSON.parse(l)) : []);
 const append = (file, value) => appendFileSync(join(dir, file), JSON.stringify(value) + "\n");
-const after = (flag) => args[args.indexOf(flag) + 1];
 // Stops the script with an exit code. The scripts end by setting process.exitCode, so the output is flushed.
 class Done extends Error {
   constructor(code) {
@@ -22,7 +19,6 @@ class Done extends Error {
     this.code = code;
   }
 }
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const say = (value) => {
   process.stdout.write(typeof value === "string" ? value : JSON.stringify(value));
   throw new Done(0);
@@ -31,20 +27,6 @@ const fail = (message) => {
   process.stdout.write(JSON.stringify({ ok: false, error: { code: "invalid_argument", message } }));
   throw new Done(1);
 };
-
-// The dispatches that were started, in order: { dispatchId, taskId, title }.
-const starts = () => lines("starts.log");
-// The dispatches whose worker sent worker_done.
-const sent = () => lines("sent.log").map((s) => s.dispatchId);
-
-/** The executor is done only after every implementer has sent its worker_done message. */
-function status(dispatchId) {
-  const start = starts().find((s) => s.dispatchId === dispatchId);
-  if (start === undefined || !sent().includes(dispatchId)) return "dispatched";
-  if (start.title !== "executor") return "completed";
-  const implementers = starts().filter((s) => s.title.startsWith("implementer"));
-  return implementers.every((s) => sent().includes(s.dispatchId)) ? "completed" : "dispatched";
-}
 
 try {
 if (args[0] === "--version") {
@@ -64,73 +46,6 @@ switch (command) {
   case "agent-context --json":
     answered = json("agent-context.current.json");
     break;
-  case "reference find":
-    answered = json("reference-find.none.json");
-    break;
-  case "worktree create":
-    answered = json("worktree-create.started.json");
-    break;
-  case "worktree rm": {
-    const path = after("--worktree").replace(/^path:/, "");
-    execFileSync("git", ["worktree", "remove", path], { stdio: "ignore" });
-    answered = { ok: true };
-    break;
-  }
-  case "orchestration worker-release":
-    answered = { ok: true };
-    break;
-  case "orchestration worker-start": {
-    const number = starts().length + 1;
-    const dispatchId = `ctx_${String(number).padStart(12, "0")}`;
-    const taskId = `task_${String(number).padStart(12, "0")}`;
-    const title = after("--task-title");
-    if (after("--worktree") === "new-child") {
-      const base = join(dir, "worktrees");
-      mkdirSync(base, { recursive: true });
-      const path = join(base, after("--name"));
-      execFileSync("git", ["worktree", "add", "-b", after("--name"), path, after("--base-branch")], { stdio: "ignore" });
-      answered = json("orchestration-worker-start.new-child.json");
-      answered.result.workspace = `repo_000000000001::${path}`;
-      append("starts.log", { dispatchId, taskId, title, path });
-    } else {
-      answered = json("orchestration-worker-start.ready.json");
-      append("starts.log", { dispatchId, taskId, title });
-    }
-    answered.result.dispatchId = dispatchId;
-    answered.result.taskId = taskId;
-    break;
-  }
-  case "orchestration worker-show": {
-    const dispatchId = after("--dispatch");
-    const start = starts().find((s) => s.dispatchId === dispatchId);
-    if (start === undefined) {
-      process.stdout.write(fixture("orchestration-worker-show.not-found.json"));
-      logged.status = "not-found";
-      append("calls.log", logged);
-      throw new Done(1);
-    }
-    const state = status(dispatchId);
-    answered = json(state === "completed" ? "orchestration-worker-show.completed.json" : "orchestration-worker-show.working.json");
-    answered.result.dispatch.id = dispatchId;
-    answered.result.dispatch.taskId = start.taskId;
-    logged.status = state;
-    break;
-  }
-  case "orchestration send": {
-    if (after("--type") !== "worker_done") fail("The fake Orca only sends worker_done messages.");
-    append("sent.log", { dispatchId: after("--dispatch-id") });
-    answered = json("orchestration-send.sent.json");
-    break;
-  }
-  case "orchestration check": {
-    // Like `check --wait`: it answers when a worker_done message that no earlier check returned has arrived, or when the time is up.
-    const limit = Date.now() + Number(after("--timeout-ms") ?? 0);
-    const seen = lines("checked.log").length;
-    while (sent().length <= seen && Date.now() < limit) await sleep(100);
-    for (let i = seen; i < sent().length; i++) append("checked.log", { n: i });
-    answered = sent().length > seen ? json("orchestration-check.worker-done.json") : json("orchestration-check.empty.json");
-    break;
-  }
   default:
     append("calls.log", logged);
     fail(`The fake Orca has no answer for: ${args.join(" ")}`);

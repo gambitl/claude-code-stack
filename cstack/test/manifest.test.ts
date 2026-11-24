@@ -109,8 +109,8 @@ describe("matchMention", () => {
   });
 
   it("reads the command words of a usage line that has a group in parentheses", () => {
-    const wave = COMMANDS.find((c) => c.usage.startsWith("cstack wave"));
-    expect(commandWords(wave as CommandEntry)).toEqual(["wave"]);
+    const list = COMMANDS.find((c) => c.usage.startsWith("cstack tracker list"));
+    expect(commandWords(list as CommandEntry)).toEqual(["tracker", "list"]);
   });
 
   it("stops the command words at a flag", () => {
@@ -125,7 +125,6 @@ describe("matchMention", () => {
 
 describe("the flags that are not built yet", () => {
   it("names the ticket of the flag once the command is built", () => {
-    const built = COMMANDS.map((e) => ({ ...e, built: true }));
     // Its own list, so the case does not depend on which real flags are still unbuilt.
     const made: CommandEntry[] = [
       {
@@ -140,22 +139,18 @@ describe("the flags that are not built yet", () => {
       },
     ];
     expect(unbuiltRefusal(["frobnicate", "--later"], made)).toContain("Ticket #999 builds it.");
-    expect(unbuiltRefusal(["wave", "--watch"], built)).toBeUndefined();
-    expect(unbuiltRefusal(["wave", "--milestone", "x"], built)).toBeUndefined();
-  });
-
-  it("names the ticket of the command while the command is not built", () => {
-    expect(unbuiltRefusal(["unit", "collect"])).toBeUndefined();
-    expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
-    expect(unbuiltRefusal(["wave"])).toBeUndefined();
-    expect(unbuiltRefusal(["wave", "--watch"])).toBeUndefined();
   });
 });
 
 describe("the command list", () => {
-  it("holds twenty-four built commands and none that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(24);
+  it("holds eighteen built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(18);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
+  });
+
+  it("summarises cstack unit order as the order the units run", () => {
+    const entry = COMMANDS.find((c) => commandWords(c).join(" ") === "unit order");
+    expect(entry?.summary).toBe("Print the units in the order they run.");
   });
 
   it("has no entry with the command words graph ensure", () => {
@@ -166,13 +161,6 @@ describe("the command list", () => {
     for (const entry of COMMANDS) {
       expect(entry.file).toMatch(/^[a-z-]+\.ts$/);
       if (entry.built) expect(existsSync(join(root, "src", "commands", entry.file))).toBe(true);
-    }
-  });
-
-  it("gives --plan to the new commands that work on a run", () => {
-    for (const words of ["helper start", "helper done", "unit collect"]) {
-      const entry = COMMANDS.find((c) => commandWords(c).join(" ") === words);
-      expect(entry?.flags, words).toContain("--plan");
     }
   });
 

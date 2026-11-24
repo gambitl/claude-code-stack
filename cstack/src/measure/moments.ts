@@ -4,7 +4,28 @@ import { homedir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import { PlanFormatError, readPlan } from "../plan/read.js";
-import { parseWorktreeList } from "../wave/worktrees.js";
+
+export interface WorktreeEntry {
+  path: string;
+  /** The branch without refs/heads/. Empty when the worktree has none. */
+  branch: string;
+  bare: boolean;
+}
+
+/** One entry per block of `git worktree list --porcelain`. */
+export function parseWorktreeList(text: string): WorktreeEntry[] {
+  const entries: WorktreeEntry[] = [];
+  for (const block of text.split(/\r?\n\r?\n/)) {
+    const entry: WorktreeEntry = { path: "", branch: "", bare: false };
+    for (const line of block.split(/\r?\n/)) {
+      if (line.startsWith("worktree ")) entry.path = line.slice("worktree ".length);
+      else if (line.startsWith("branch ")) entry.branch = line.slice("branch ".length).replace(/^refs\/heads\//, "");
+      else if (line === "bare") entry.bare = true;
+    }
+    if (entry.path !== "") entries.push(entry);
+  }
+  return entries;
+}
 
 const execFileAsync = promisify(execFile);
 const GIT_OPTIONS = ["--literal-pathspecs", "-c", "color.ui=never", "-c", "log.showSignature=false", "-c", "log.follow=false"];

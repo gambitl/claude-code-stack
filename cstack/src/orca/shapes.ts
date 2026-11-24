@@ -55,30 +55,6 @@ const SHAPES: Record<string, Field[]> = {
     { path: "result.teams", type: "array" },
     { path: "result.meta.workspaceErrors", type: "array" },
   ],
-  "orca orchestration worker-start --json": [
-    { path: "ok", type: "boolean" },
-    { path: "result.dispatchId", type: "string" },
-  ],
-  "orca orchestration worker-show --full --json": [
-    { path: "ok", type: "boolean" },
-    { path: "result.dispatch.taskId", type: "string" },
-    { path: "result.dispatch.status", type: "string" },
-    { path: "result.observation", type: "object" },
-  ],
-  "orca orchestration send --json": [{ path: "ok", type: "boolean" }],
-  "orca orchestration check --json": [{ path: "ok", type: "boolean" }],
-  "orca reference find --json": [
-    { path: "ok", type: "boolean" },
-    { path: "result.matches", type: "array" },
-    { path: "result.matches[].workspace.id", type: "string" },
-    { path: "result.matches[].workspace.kind", type: "string" },
-    { path: "result.matches[].workspace.name", type: "string" },
-    { path: "result.matches[].workspace.archived", type: "boolean" },
-  ],
-  "orca worktree create --json": [
-    { path: "ok", type: "boolean" },
-    { path: "result", type: "object" },
-  ],
   "orca linear issue --relations --json": [
     { path: "ok", type: "boolean" },
     { path: "result.issue.identifier", type: "string" },

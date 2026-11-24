@@ -79,9 +79,6 @@ describe("doctor and Orca", () => {
     const { orca, code } = await run();
     expect(orca).toEqual([
       "Orca (optional): 1.4.263, minimum 1.4.259, supported, running.",
-      "  Orca workers: available",
-      "  Child worktrees: available",
-      "  Worktrees linked to tickets: available",
       "  Jira through Orca: available",
       "  Linear through Orca: available",
     ]);
@@ -98,7 +95,7 @@ describe("doctor and Orca", () => {
   it("says that an older version is not supported", async () => {
     const { orca, code } = await run({ "orca --version": version("1.4.258") });
     expect(orca[0]).toContain("1.4.258, minimum 1.4.259, not supported");
-    expect(orca).toHaveLength(6);
+    expect(orca).toHaveLength(3);
     for (const line of orca.slice(1)) expect(line).toContain("not available");
     expect(code).toBe(0);
   });
@@ -106,7 +103,7 @@ describe("doctor and Orca", () => {
   it("gives every feature as not available when Orca is closed", async () => {
     const { orca, code } = await run({ [STATUS]: orcaText("status.closed.json") });
     expect(orca[0]).toContain("not running");
-    expect(orca).toHaveLength(6);
+    expect(orca).toHaveLength(3);
     for (const line of orca.slice(1)) expect(line).toContain("not available");
     expect(code).toBe(0);
   });

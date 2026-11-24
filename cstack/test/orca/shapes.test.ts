@@ -43,23 +43,6 @@ describe("shape check", () => {
     }
   });
 
-  it("checks the answers of orca reference find and orca worktree create", () => {
-    const found = load("reference-find.one-worktree.json") as any;
-    expect(() => checkShape("orca reference find --json", found, "1.4.263", "read")).not.toThrow();
-    delete found.result.matches[0].workspace.id;
-    let error: unknown;
-    try {
-      checkShape("orca reference find --json", found, "1.4.263", "read");
-    } catch (e) {
-      error = e;
-    }
-    expect(error).toBeInstanceOf(ShapeError);
-    expect((error as Error).message).toContain("result.matches[].workspace.id");
-    expect(() =>
-      checkShape("orca worktree create --json", load("worktree-create.started.json"), "1.4.263", "write"),
-    ).not.toThrow();
-  });
-
   it("reads the version of the recorded text file", () => {
     expect(parseVersion(readFileSync(join(dir, "version.current.txt"), "utf8"))).toBe("1.4.263");
   });
@@ -89,24 +72,6 @@ describe("shape check", () => {
     expect(() => checkShape("orca jira connection --json", { ok: true }, "1.4.263", "read")).not.toThrow(
       /cannot tell/,
     );
-  });
-});
-
-describe("orchestration shapes", () => {
-  it("refuses a worker-start answer without a Dispatch id in write mode", () => {
-    const answer = load("orchestration-worker-start.ready.json") as any;
-    delete answer.result.dispatchId;
-    let error: unknown;
-    try {
-      checkShape("orca orchestration worker-start --json", answer, "1.4.263", "write");
-    } catch (e) {
-      error = e;
-    }
-    expect(error).toBeInstanceOf(ShapeError);
-    const message = (error as Error).message;
-    expect(message).toContain("orca orchestration worker-start --json");
-    expect(message).toContain("result.dispatchId");
-    expect(message).toContain("cannot tell whether the change happened");
   });
 });
 

@@ -50,6 +50,50 @@ describe("run", () => {
     expect(code).toBe(2);
   });
 
+  it("answers cstack wave as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["wave", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "wave"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack wave");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("answers cstack helper start as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "start", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("answers cstack helper wait as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "wait", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("answers cstack helper done as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "done", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
   it("names an unknown option, prints the usage and returns 2", async () => {
     const { out, io } = collect();
     const code = await run(["--nope"], io);
@@ -58,6 +102,22 @@ describe("run", () => {
     expect(rest.join("\n")).toContain("Usage: cstack");
     expect(out.stdout).toBe("");
     expect(code).toBe(2);
+  });
+
+  it("answers cstack unit collect with the usage of the unit group", async () => {
+    const { out, io } = collect();
+    const code = await run(["unit", "collect", "--cstack-unknown-flag"], io);
+    expect(code).toBe(2);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toBe("cstack: usage: cstack unit <order|commit|red|green>\n");
+  });
+
+  it("answers cstack report check with the usage of the report group", async () => {
+    const { out, io } = collect();
+    const code = await run(["report", "check", "--cstack-unknown-flag"], io);
+    expect(code).toBe(2);
+    expect(out.stdout).toBe("");
+    expect(out.stderr).toBe("cstack: usage: cstack report <submit>\n");
   });
 
   it("lets a crash inside a command reach the caller instead of printing the usage", async () => {
@@ -137,7 +197,7 @@ describe("run", () => {
   });
 
   it("refuses a first word whose commands are all unbuilt and names all their tickets", async () => {
-    // Its own list, because no real first word is unbuilt as a whole since cstack wave is built.
+    // Its own list, because every real first word has at least one built command.
     const entry = (usage: string, ticket: number): CommandEntry => ({
       usage,
       summary: "A command that no ticket builds.",
@@ -248,7 +308,7 @@ describe("the plan and report groups", () => {
   it("returns 2 and lists the second words of the group when the second word is missing or unknown", async () => {
     for (const [args, words] of [
       [["plan"], "status|section"],
-      [["report", "nope"], "submit|check"],
+      [["report", "nope"], "submit"],
     ] as const) {
       const { out, io } = collect();
       expect(await run([...args], io)).toBe(2);

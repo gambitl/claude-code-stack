@@ -1,7 +1,0 @@
-import { test } from "node:test";
-import assert from "node:assert/strict";
-import { cube } from "../src/cube.js";
-
-test("cube returns the number multiplied by itself twice", () => {
-  assert.equal(cube(2), 8);
-});

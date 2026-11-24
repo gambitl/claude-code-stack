@@ -13,9 +13,6 @@ export const ORCA_HINT =
   "Download it from https://github.com/stablyai/orca/releases.";
 
 const FEATURE_LABELS: [OrcaFeatureName, string][] = [
-  ["workers", "Orca workers"],
-  ["child-worktrees", "Child worktrees"],
-  ["ticket-worktrees", "Worktrees linked to tickets"],
   ["jira", "Jira through Orca"],
   ["linear", "Linear through Orca"],
 ];
