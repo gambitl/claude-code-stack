@@ -301,7 +301,7 @@ I checked security, data model lock-in, scale and performance, operations and co
 
 ## Non-blocking questions
 
-None from the question round.
+none
 
 ## Pull request
 
