@@ -326,6 +326,8 @@ Impact notes (executor, phase review). The branch changed prose only: the part "
 
 Findings of the four reviewers. Correctness: no bug. Two notes below the bar: the example in the prompt commits before the close, while `ready` must commit after it (the `ready` guide says so), and the new `next.test.ts` case covers six phases, as the plan asks. Security: nothing found. Conventions: the constant `NINE` was a made-up label, so it was renamed to `EXECUTOR_GUIDES` (fixed). Line 51 of `publish.md` stays as the plan says. The long close paragraph and the sentence-by-sentence tests are fixed by the units and the user's answer, so they stay. Simplicity: moving the audit cases into `audit.test.ts` and dropping the nine block cases were declined, because `## Decisions` asks for a file of its own and for the nine block cases.
 
+Independent review (executor, phase independent-review). The reviewer made one fix, commit efc1c91, which finishes the rename of `NINE` to `EXECUTOR_GUIDES` in the test file. An earlier commit had named the rename but touched only the plan file. Judgment calls for the pull request body: (1) the example in the executor prompt commits before the close, while `ready` must commit after it, as its guide says; (2) the new `next.test.ts` case calls `--done` directly, and the audit test covers the joined call; (3) line 51 of `publish.md` stays as the plan says.
+
 ## Briefing
 
 <CTO advisor, moment after-build>
