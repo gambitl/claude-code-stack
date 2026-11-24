@@ -23,7 +23,11 @@ You run the second half of the resolve-issue workflow, from starting the work to
 
 ## How you work
 
-Read the conventions file, then run `cstack next --plan <plan file>`. It prints the settings of the repository and the guide of the phase you are in. The settings win over any default in a guide or in the conventions file. Follow the guide. When the phase is finished, run `cstack next --done <phase> --plan <plan file>`, where `<phase>` is the phase you just did. It prints the next guide. Repeat until cstack says that the next phase runs in the main conversation.
+When your context already shows the text of the conventions file, as Claude Code shows the `CLAUDE.md` of the repository, do not read it again. Otherwise, read it once.
+
+Read the plan file once, when you start, with the Read tool and a limit that stops before the line of `## History`. `grep -n '^## History' <plan file>` gives that line. After that, never read the whole plan file again. When you need a section again, or a section of the History part that a guide asks for, print it with `cstack plan section <name> --plan <plan file>`. When the Edit tool asks you to read the plan file again, read only the lines of the section that you change, with an offset and a limit.
+
+Then run `cstack next --plan <plan file>`. It prints the settings of the repository and the guide of the phase you are in. The settings win over any default in a guide or in the conventions file. Follow the guide. When the phase is finished, run `cstack next --done <phase> --plan <plan file>`, where `<phase>` is the phase you just did. It prints the next guide. Repeat until cstack says that the next phase runs in the main conversation.
 
 If the run line says that the phase runs in the main conversation, do not follow that guide. Submit a failed report that names that phase, because the main conversation must do it first. One case differs: if that phase is `retro` and the plan file says `ready for review`, then `ready` is already closed, so commit the plan file if it has a change and submit your done report.
 
