@@ -304,6 +304,8 @@ Security reviewer: the rule that a coordinator message is never the user's answe
 
 Conventions reviewer: no finding. Simplicity reviewer: no finding.
 
+Independent reviewer: no change to the branch. Full `npm test` and `npm run typecheck` pass. Judgment calls for the pull request body: (1) the new paragraph of `questions.md` says to send no questions to the coordinator, while "Questions for someone else" in the same file lets a question go to another person once the user saw it, so a reader may see a conflict; (2) the rule that a coordinator message is never the user's answer is missing in `dependencies.md` and `ticket.md`, which also stop for the user (follow-up, needs the user's decision); (3) a run that fails after its pull request is open fits neither end sentence of the `worker_done` paragraph, and the wording follows the user's answer; (4) commit 3acf5b3 holds a test fix and a plan-file edit together.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
