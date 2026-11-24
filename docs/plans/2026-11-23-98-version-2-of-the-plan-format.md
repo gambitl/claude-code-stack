@@ -395,7 +395,12 @@ The independent reviewer found no other bug and ran the full suite: 1835 tests a
 
 ## Documentation
 
-<phase document: ticket comment, dependent ticket comments, ADRs and pages, with links>
+- ADR-RQG-B: `docs/decisions/ADR-RQG-B-plan-format-version-2.md`, written by unit 9.
+- Section 9 of the specification: `docs/projects/refocus-and-quality-guards.md`, linked to ADR-RQG-B by unit 9.
+- The plan template: `cstack/skills/resolve-issue/templates/plan.md`, changed by units 1 and 8.
+- Comment on #98: https://github.com/gambitl/claude-code-stack/issues/98
+- Comments with the exact line forms on #100, #101, #102 and #103: https://github.com/gambitl/claude-code-stack/issues/100, https://github.com/gambitl/claude-code-stack/issues/101, https://github.com/gambitl/claude-code-stack/issues/102 and https://github.com/gambitl/claude-code-stack/issues/103
+- Reminder on #104 about finishing runs before the upgrade: https://github.com/gambitl/claude-code-stack/issues/104
 
 ## Executor notes
 
