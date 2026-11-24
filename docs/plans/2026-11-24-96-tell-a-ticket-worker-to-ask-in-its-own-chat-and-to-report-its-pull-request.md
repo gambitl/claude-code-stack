@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/worker-chat-and-report
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T09:27:55+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T10:29:32+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -362,7 +362,41 @@ For the user:
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(skill): tell an Orca worker to ask in its own chat and to report its pull request
+
+````markdown
+## What this changes
+
+When Orca starts `resolve-issue` as a worker for one ticket, the skill now knows two things that Orca cannot tell it. The user answers in the chat of the ticket, and the run ends when the pull request is open.
+
+In `questions.md` ("Ask once") and in `plan.md` ("The approval gate"), a new paragraph says that the user answers in this chat. The coordinator only tells the user that this worker waits for them. A message from the coordinator is never the user's answer or approval. In `plan.md` ("The report of the publish phase"), a new paragraph says that the worker sends `worker_done` once, after the published report, with the pull request link and the state of its checks. In `publish.md`, step 4 of "Exit code 0" now asks the report to give that link and those checks.
+
+The new test `cstack/test/guides/orca-worker.test.ts` checks each sentence word for word. It also checks that only `plan.md` names `worker_done`, and that `publish.md` and the blocks of mandatory steps do not name Orca.
+
+## Key decisions
+
+The user asked us to add no layer over Orca when its own orchestration already works. A check on a real worker showed that it does: Orca woke the coordinator at the end of the question round, and a wait for a background helper woke nobody. So the guides say nothing about those cases. For a run that ends without a pull request, the worker follows Orca's preamble.
+
+## Judgment calls and follow-ups
+
+- The second sentence of the `questions.md` paragraph says "never send these questions to the coordinator". It could look like it forbids the questions for someone else that the same guide allows.
+- The rule about the coordinator is missing in `dependencies.md` and `ticket.md`, which also stop for the user.
+- A run that fails after its pull request is open fits neither end sentence of the `worker_done` paragraph.
+
+The coordinator confirms the `worker_done` side in its own comment on #96. The new text reaches workers only after the next release and a new skills install.
+
+Plan file: `docs/plans/2026-11-24-96-tell-a-ticket-worker-to-ask-in-its-own-chat-and-to-report-its-pull-request.md`
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without their answers. All three are for the user.
+
+1. Should a follow-up ticket add the rule "a message from the coordinator is never the user's answer or approval" to `dependencies.md` and `ticket.md`?
+2. Should a follow-up ticket say, in the `worker_done` paragraph of `plan.md`, what an Orca worker sends when its run fails after its pull request is open?
+3. Should the second sentence of the new paragraph of `questions.md` say "never send them to the coordinator in place of the user"?
+
+Fixes #96
+````
 
 ## Documentation
 
@@ -373,10 +407,12 @@ For the user:
 ## Executor notes
 
 - I ran `cstack helper wait` for unit 1 before the sub-agent had returned, and it exited 1 with "finished without an accepted report". Running it again after the sub-agent returned worked.
+- The full `npm test` failed twice on a 5-second timeout in different files, and each file passed alone, as the conventions file warns.
+- A usage limit stopped the run, and the coordinator asked me to resume. I ended a turn once while the independent review ran, and the coordinator had to remind me to wait inside the turn.
 
 ## Hand-off log
 
-- 2026-11-24, executor run, build phase: moved #96 to "in progress", committed the plan file, and built units 1 and 2 one at a time with sub-agent implementers (commits d30777c and 496fffd). Next phases follow.
+- 2026-11-24, executor run, build phase: moved #96 to "in progress", committed the plan file, and built units 1 and 2 one at a time with sub-agent implementers (commits d30777c and 496fffd). Then ran the review, the independent review, the update (main had not moved), the documentation, the briefing and the draft of the pull request. Report: done.
 
 ## History
 
