@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/remove-old-commands
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T09:30:54+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T10:44:41+01:00
 
 ## Ticket
 
