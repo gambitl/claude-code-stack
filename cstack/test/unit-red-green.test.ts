@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -1022,6 +1022,55 @@ describe("the note of a unit in the plan file", () => {
     expect(notes(dir)).toEqual([wholeFile("red", "the settings declare no per-case report")]);
     writeFileSync(join(dir, "test/a.test.ts"), "exit 0\n");
     expect((await red(dir)).code).toBe(1);
+    expect(readFileSync(join(dir, "plan.md"), "utf8")).toBe(before);
+  });
+
+  it("cstack unit red exits with 5 and says the failing run is saved when the note cannot be written", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "exit 1\n");
+    // A folder that cannot be written stops the atomic write of plan.md, but not the saved run, which lives under .git/.
+    chmodSync(dir, 0o555);
+    try {
+      const r = await red(dir);
+      expect(r.code).toBe(5);
+      expect(r.stderr).toMatch(
+        /^cstack unit red: The failing run is saved, but cstack could not write the note of unit 1 into the plan file: .+\. Run `cstack unit red 1` again\.\n$/m,
+      );
+      expect(existsSync(join(dir, ".git/cstack/runs/plan/units/1/red.json"))).toBe(true);
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+  });
+
+  it("cstack unit green exits with 5 and says the passing run is saved when the note cannot be written", async () => {
+    const dir = setup([TEST_LINE], FILE_SETTINGS);
+    writeFileSync(join(dir, "test/a.test.ts"), "test -f src/feature.txt\n");
+    expect((await red(dir)).code).toBe(0);
+    await new Promise((r) => setTimeout(r, 20));
+    mkdirSync(join(dir, "src"), { recursive: true });
+    writeFileSync(join(dir, "src/feature.txt"), "x");
+    chmodSync(dir, 0o555);
+    try {
+      const r = await green(dir);
+      expect(r.code).toBe(5);
+      expect(r.stderr).toMatch(
+        /^cstack unit green: The passing run is saved, but cstack could not write the note of unit 1 into the plan file: .+\. Run `cstack unit green 1` again\.\n$/m,
+      );
+      expect(existsSync(join(dir, ".git/cstack/runs/plan/units/1/green.json"))).toBe(true);
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+  });
+
+  it("leaves the note as it was after a run refused by the named cases", async () => {
+    const dir = noteRepo(["case one"], [["case one", "failed"], ["old case", "passed"]]);
+    expect((await red(dir)).code).toBe(0);
+    expect(notes(dir)).toEqual([`${RED_NOTE}"old case".`]);
+    const before = readFileSync(join(dir, "plan.md"), "utf8");
+    writeFileSync(join(dir, "test/report.xml"), reportXml([["case one", "passed"], ["other case", "passed"]]));
+    const r = await red(dir);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("do not fail before the code exists");
     expect(readFileSync(join(dir, "plan.md"), "utf8")).toBe(before);
   });
 
