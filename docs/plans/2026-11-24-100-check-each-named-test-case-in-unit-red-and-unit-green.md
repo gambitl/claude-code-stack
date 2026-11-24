@@ -470,14 +470,16 @@ The code is in `cstack/src/unit-test-command.ts`, `cstack/src/unit-test-runs.ts`
 
 This repository's own `.cstack/settings.json` declares no per-case report, so the new check does not run on its own tickets yet. Each run here only writes the fallback note.
 
-Judgment calls from the independent review that stay as they are: without a `file` test command, the fallback message says "the whole test file" although the whole suite ran. A hand-edited `red.json` whose `cases` is not a list makes `cstack unit green` throw instead of refusing cleanly. Units 2 and 4 did not break each refusal on purpose to watch its test fail. Their tests did fail before the code existed.
+Judgment calls from the independent review that stay as they are: without a `file` test command, the fallback message says "the whole test file" although the whole suite ran. A hand-edited `red.json` whose `cases` is not a list makes `cstack unit green` throw instead of refusing cleanly.
+
+The implementers of units 2 and 4 did not break their refusals on purpose, so this was done after the build, one rule at a time, with the code restored after each break. Seven of the ten breaks failed their own test. The three others failed no test: the exit code 5 of `cstack unit red` and `cstack unit green` when the note cannot be written, and the note after a red run refused by the named cases. A separate commit adds a test for each of the three, and each new test fails under its break. The plan file lists every break and the test that failed.
 
 ## Open questions, not needed for this pull request
 
 This pull request can be merged without these answers.
 
 - A comment from #99 says that pytest gives `error`, not `failed`, for a broken fixture. `cstack unit red` counts `error` as a failure, as the ticket asks, so a case can fail first for the wrong reason. Should a later ticket treat `error` differently in the red run? For: the maintainer of `cstack`.
-- This repository's `.cstack/settings.json` declares no per-case report, so the check of each named test case never runs on this repository's own tickets. Should a later ticket add `"report": "junit"` and make `testCommands.file` write a JUnit report? For: the maintainer of `cstack`.
+- This repository's `.cstack/settings.json` declares no per-case report, so the check of each named test case added by #100 never runs on this repository's own tickets. Should a later ticket add `"report": "junit"` and make `testCommands.file` write a JUnit report, for example with vitest's `--reporter=default --reporter=junit --outputFile.junit={report}`? For: the maintainer of `cstack`.
 
 Fixes #100
 ````
