@@ -127,6 +127,7 @@ clear
 - Do not change `cstack/skills/resolve-issue/agents/implementer.md`. It is not on the file list of this ticket, and the ticket that wires the guards into the prompts (#103) rewrites it. Its step 8 already sends a unit with a `No test` line straight to `cstack unit commit`. (2026-11-24, assumption accepted by default)
 - Do not change the block of mandatory steps of any guide, nor the `cstack audit` entry of `cstack/src/manifest.ts`. The usage, the flags and the exit codes of `cstack audit` stay the same. (2026-11-24, from the code mapping)
 - No security surface beyond the reading of local session files. A meta file is data written by another program: read only its `toolUseId`, never follow a path from it, and never print it. (2026-11-24, from the plan)
+- Unit 3 stays in the plan with its `Blocked` line, because unit 2 already built its behaviour and its test. Do not commit the second test case of unit 3, and build nothing more for it. Unit 6 depends on units 2 and 4 only. Do not remove or renumber a unit, because the commit of each unit is tied to its number by its trailer. (2026-11-24, the user's answer)
 - The line numbers that the ticket gives for the guides are out of date, because #93 rewrote them. The sentence "Never build a unit yourself, even one of a few lines, unless the harness cannot launch sub-agents." is now in step 3 of `cstack/guides/resolve-issue/build.md`, line 33. The `Test` or `No test` rule is now in `cstack/guides/resolve-issue/plan.md`, line 32. (2026-11-24, read on `main` during the ticket phase)
 - Since #93, the executor starts each implementer as a Claude Code sub-agent of type `resolve-issue:implementer`. The audit finds such a launch in the transcript of the executor. The audit check of this ticket works with the launches of a sub-agent, and it does not read Orca workers. (2026-11-24, from the brief of the run)
 - The audit already prints a helper line of the form `<phase>: <helper>`, proved only by a launch of that sub-agent type. One call or one launch serves at most one line. Steps of the `action` kind are never printed. A step whose condition is false is not printed. The audit reads the settings file, and it exits with 3 when that file cannot be used. Do not break these rules. (2026-11-24, from the comment of 2026-11-23 on #108)
@@ -214,7 +215,7 @@ No new decision since the question round.
 - Refactor: none
 - Commit message: feat(cli): accept the escalation implementer for the implementer line of a unit in cstack audit
 - Depends on: 2
-- Blocked: unit 2 (commit c5a151a) already built the escalation behaviour, so no test of this unit can fail first and `cstack unit red 3` refuses to save a passing run. The test case of this unit was written and all 109 cases passed; its diff is kept outside the repository. Not escalated, because a second attempt meets the same refusal. The user decides.
+- Blocked: unit 2 already built this behaviour in commit c5a151a, with its own test case for a unit that an escalation implementer built. That case failed when the escalation filter was broken on purpose. So no test of this unit can fail first, and `cstack unit red 3` refuses to save a passing run. The user decided to keep this unit with this line, to drop its second test case, and to build nothing more for it.
 
 ### Unit 4: Say when an implementer launch has no transcript
 - Files: `cstack/src/commands/audit.ts`, `cstack/test/audit.test.ts`
@@ -238,7 +239,7 @@ No new decision since the question round.
 - Minimum code: in the `cstack audit` paragraph of `README.md`, say that a helper step for each unit prints `<phase>: <helper> for unit <n>`, how a launch proves the implementer line of a unit, that the escalation implementer also proves it, the new sentence on standard error, and the two limits: a transcript with no meta file, and a unit call that uses a shell variable in place of the number. In ADR-RQG-C, add the section "How the audit ties an implementer to its unit", and change the sentence about a launch of another type in the section "How the audit judges helper steps and conditions" so that it names this one exception. Change nothing else in ADR-RQG-C.
 - Refactor: none
 - Commit message: docs: document how cstack audit ties an implementer to its unit
-- Depends on: 2, 3, 4
+- Depends on: 2, 4
 
 ## Documentation duties
 
