@@ -370,6 +370,7 @@ I checked security, data model lock-in, scale, failure modes, edge cases, operat
 ## Non-blocking questions
 
 - For whoever takes #103, the ticket that wires the guards into the guides, as a comment on #103: "In `plan.md`, should the agent run `cstack next --done plan` once before the approval gate, so that the user approves a plan whose facts `cstack` already checked? Today the check runs only after the user said yes, so a wrong fact gets fixed after the approval." The user saw it word for word in the question round on 2026-11-24.
+- For the maintainer: "Should a small separate ticket add `timeout-minutes` to `ci.yml`? The named-pipe test in `cstack/test/plan/approval.test.ts` would hang, not fail, if the regular-file check were removed, and the CI job has no time limit."
 
 ## Pull request
 
