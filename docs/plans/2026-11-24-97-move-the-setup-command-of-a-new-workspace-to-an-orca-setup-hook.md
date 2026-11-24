@@ -325,7 +325,13 @@ The brief lists the files of this ticket. The removal needs four more files, and
 
 ## Review log
 
-<phase review findings and fixes; phase independent-review: fixes and judgment calls>
+Impact notes: a search of the whole repository finds `setupCommand`, `watchIntervalMinutes`, `hasWorktree` and `readAt` only in the refusal table, the tests, the README section, the ADR amendment and older project documents. `readyState` has one caller, `cstack/src/commands/tracker-list.ts`. The settings reader is used by commands that read only other keys. Companion files checked: the settings template, `.cstack/settings.json` and `next-settings.test.ts`, all changed.
+
+Correctness reviewer: no bug. It noted that the repository-root path in the new settings test breaks for a checkout path with spaces. This is not fixed, because no checkout path has spaces and the other tests use the same style.
+Security reviewer: one finding. The README said Orca never asks again after the first trust. Orca asks again when `orca.yaml` changes, and the real gap is `cstack/package.json` and `cstack/package-lock.json`. Fixed in a `fix(cli)` commit.
+Conventions reviewer: nothing found.
+Simplicity reviewer: nothing to cut.
+Tests: typecheck and the full `npm test` pass (103 files, 1738 tests) after the fix.
 
 ## Briefing
 
