@@ -276,6 +276,48 @@ Independent review: it added one test (a unit with no implementer launch at all 
 
 ## Briefing
 
+### What you should know about what was built
+
+The audit now ties each implementer launch to the unit that it built, and the line names that unit, as in `build: resolve-issue:implementer for unit 2: skipped`. The escalation implementer counts too. The two guides now say that an implementer builds every unit, and that a check that changes no file goes inside the unit it checks. It does what the ticket asked. I built the branch and ran its audit on this run: all six implementer lines came out done, with no warning about a missing transcript.
+
+**What you need to do**
+
+There is nothing to decide. Merge the pull request yourself when it is ready, with a merge commit as for the other pull requests of this wave.
+
+**What to watch**
+
+- The tie rests on the `agent-<id>.meta.json` file that Claude Code writes next to each sub-agent transcript, and Claude Code does not document it. If an update renames that file or its `toolUseId` key, every implementer line turns skipped and the audit exits with 1. The new sentence on standard error is the sign to look for.
+- An audit of a run that is older than these meta files now fails the same way. The retrospectives already written keep the old line with no unit number, so the retro digest will meet both shapes.
+- The ticket started from an executor that ran a check by itself. A check is no longer a unit, so the audit cannot see who ran it. Only the guide sentence prevents it, and the implementer prompt does not mention the check yet. The comment on the ticket that rewrites the prompts (#103) asks for it.
+
+**What changed since the plan**
+
+- Unit 2 already accepted the escalation implementer, with its own test, so unit 3 could not fail first. It stays in the plan as blocked, as you decided.
+- The audit prints the implementer line of unit 3 as done, because its implementer did run `cstack unit red 3` before it stopped.
+- The reviews moved the two implementer type names into one shared constant. The independent review added a test for a unit with no implementer launch at all, and fixed one sentence of ADR-RQG-C.
+
+### Details
+
+What was built matches the ticket and the plan. I ran `npm run build` in `cstack/`, then `node cstack/dist/bin.js audit` on this plan file. The output printed `build: resolve-issue:implementer for unit <n>: done` for units 1 to 6. It printed no sentence about an implementer launch without a transcript. It listed briefing, after-build-questions, ready, retro and publish as not over. It exited with 1 only because of the line `build: cstack unit commit 3: out of order`. The correctness reviewer already reported that line as an older issue that this branch does not touch. So the meta files of the current Claude Code version link every real launch. This includes the launches that the executor made, whose transcripts sit in the same `subagents` folder as the executor's own.
+
+Nothing needs a person's decision before the merge. The branch contained `origin/main` when I checked, so the merge of #132 (pull request #135) is already in it. `main` merges pull requests with a merge commit, and the decisions of this plan say that the user merges and that the coordinator asks for any later update.
+
+The meta file is the main fragile spot. `readCalls()` in `cstack/src/audit/calls.ts` reads it with `readFileSync` on the transcript path with `.jsonl` replaced by `.meta.json`, and keeps only a string `toolUseId`. If Claude Code renames the file, moves it, or renames the key, no launch gets a `transcript`, every implementer line becomes skipped, and the audit exits with 1. The sentence "cstack audit: some implementer launches have no sub-agent transcript with a meta file, so the units they built may show as skipped." then appears on standard error, which is how a user will notice it. The rollback is to revert the `builtBy` filter in `cstack/src/audit/evaluate.ts`, which brings back the count without units. The same failure applies to an audit of a run made before Claude Code wrote meta files. The retrospectives under `docs/retros/` copy the old line `build: resolve-issue:implementer: done`, so `digest-retros` will meet both shapes, as the earlier block already said.
+
+The original incident is only partly covered by the audit. The audit now catches an executor that builds a unit itself, because the unit calls would sit in the executor's transcript and no implementer transcript would name the unit. But a check that changes no file is no longer a unit, so nothing in the audit can tell who ran it. Only the new sentences of `cstack/guides/resolve-issue/build.md` and `cstack/guides/resolve-issue/plan.md` prevent the incident now. The implementer prompt `cstack/skills/resolve-issue/agents/implementer.md` was left unchanged by decision, and the comment posted on #103 asks that ticket to add the check there, and to keep the plain unit number in the `cstack unit` calls.
+
+A second trap is the deduplication of tool calls. `readCalls()` keeps only the first copy of each tool call id, and `findRunFiles()` lists a main session file before its sub-agent transcripts. If a future Claude Code version copied the tool calls of a sub-agent into the main session file, the unit calls would be filed under the main file, and the lines would turn skipped without the warning sentence, because each launch would still have its transcript. The current version does not do this, as the audit of this run shows. This is non-blocking and needs nobody's answer. It is only worth knowing when someone debugs skipped implementer lines.
+
+The warning sentence looks at every implementer launch of the session files, not only at the launches inside the build window. This matches the line of `## Decisions` about the sentence, which names no window, and the independent review left it as a judgment call. A launch with no meta file outside the build is unlikely, so the cost is at most an extra warning.
+
+Since the plan, unit 3 became blocked. Unit 2 built the escalation filter together with its test case, which failed when the filter was broken on purpose, so `cstack unit red 3` refused a passing run. The user decided to keep unit 3 with its `Blocked` line and to build nothing more. Because the implementer of unit 3 ran `cstack unit red 3`, the audit prints its implementer line as done. That is consistent with the rule: an implementer did take the unit. The conventions and simplicity reviewers found the two implementer type names written twice, and commit c76a8f0 replaced them with the exported constant `IMPLEMENTER_TYPES`. The simplicity reviewer's second point, narrowing the type of the launch map in `calls.ts`, was left as a follow-up of about one line. The independent review added the test for a unit with no implementer launch at all (2cc1de5) and corrected a sentence of ADR-RQG-C (6958ab9).
+
+All earlier questions are resolved. The tie through the transcript and its meta file (question 1) is built by units 1 and 2. The rule that a check that changes no file goes inside a unit (question 2) is in the two guides, word for word as `## Decisions` gives it, and `cstack/test/guides/every-unit-in-an-implementer.test.ts` checks it. The points accepted by default were all done as accepted. The line names its unit. The escalation implementer proves the line, and ADR-RQG-C has its new section. The warning sentence is on standard error. A test checks that the meta file's `description` is never printed. The implementer prompt is untouched, and #103 has its comment. The coordinator's answer on ADR-RQG-C was followed: only the new section and the sentence about a launch of another type changed.
+
+I found no new question, blocking or not.
+
+The audit reads only the `toolUseId` string of a meta file. It never follows a path from that file and never prints it. The cost is one small file read per transcript, and one scan of the calls for each candidate launch, which stays small at the size of a run. I checked security and authorization, data model lock-in, scale and performance, operations and cost, reversibility and hidden coupling, and found nothing beyond the points above.
+
 ## Non-blocking questions
 
 none
