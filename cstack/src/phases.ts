@@ -68,7 +68,7 @@ const planDone: PhaseCheck = (context) => {
   return missing;
 };
 
-export const buildDone: PhaseCheck = ({ plan, commits }) =>
+export const buildDone = ({ plan, commits }: Pick<PhaseContext, "plan" | "commits">): string[] =>
   plan.units
     .filter((unit) => unit.blocked === undefined && !commits.units[unit.number]?.length)
     .map((unit) => `Unit ${unit.number} has no commit with its trailer and no Blocked line.`);

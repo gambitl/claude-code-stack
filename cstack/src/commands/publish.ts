@@ -3,7 +3,9 @@ import { homedir } from "node:os";
 import { parseArgs } from "node:util";
 import type { Io } from "../io.js";
 import { locatePlan } from "../plan/locate.js";
-import { readPlan, type PlanRead } from "../plan/read.js";
+import { listUnitCommits } from "../plan/commits.js";
+import { PlanFormatError, readPlan, type PlanRead } from "../plan/read.js";
+import { buildDone } from "../phases.js";
 import { pushBranch, PublishFailure, remoteBranchHead, updateBranch } from "../publish/branch.js";
 import { waitForChecks, type ChecksOutcome } from "../publish/checks.js";
 import {
@@ -75,6 +77,15 @@ function brokenRules(root: string, plan: PlanRead, deps: PublishDeps): string[] 
   }
   if (Number.isNaN(Date.parse(plan.header["Ready for review at"]))) {
     problems.push("`Ready for review at` does not hold a time.");
+  }
+
+  try {
+    problems.push(...buildDone({ plan, commits: listUnitCommits(root, target) }));
+  } catch (error) {
+    if (!(error instanceof PlanFormatError)) throw error;
+    const exists = git(["rev-parse", "--verify", "--quiet", `refs/heads/${target}`]).ok;
+    const advice = exists ? "" : ` Run \`git branch --track ${target} origin/${target}\`, then run \`cstack publish\` again.`;
+    problems.push(`cstack cannot tell which units have a commit: ${error.message}${advice}`);
   }
 
   const entries = git(["status", "--porcelain=v1", "-z", "--untracked-files=no"]).stdout.split("\0").filter((e) => e !== "");

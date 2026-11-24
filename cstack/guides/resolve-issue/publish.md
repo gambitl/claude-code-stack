@@ -6,7 +6,7 @@ command: cstack helper done published --helper <helper id> --plan <plan file>
 
 # Publish
 
-In this phase you push the branch once, open the pull request, and wait for the checks. The settings that `cstack next` printed above this guide apply. They win over any default here. Only `cstack publish` pushes. Read only these sections of the plan file: its header, "Blocking questions", "Pull request", "Documentation" and "Executor notes".
+In this phase you push the branch once, open the pull request, and wait for the checks. The settings that `cstack next` printed above this guide apply. They win over any default here. Only `cstack publish` pushes. Read only these sections of the plan file: its header, "Blocking questions", "Pull request", "Documentation" and "Executor notes". The part "Exit code 1" below names more sections for one case.
 
 ## The plan file
 
@@ -41,6 +41,8 @@ The target branch moved and the update conflicts. You did not read the `update-b
 ## Exit code 1
 
 Read the reasons. A blocking question that is still open leads to a needs-decision report that lists it. Fix any other reason, and run the command again.
+
+A reason can say that a unit has no commit with its trailer and no Blocked line. Then the plan has a unit that nobody built or blocked. Read `## Decisions`, `## Implementation units`, "Review log" and "Briefing" in the plan file. Build that unit with an implementer, as `cstack guide build` says. Run the reviews that the change calls for on the new commits only, as `cstack guide review` says. Write them into the "Review log". Correct the body under `## Pull request` and the "Briefing", because both were written before the unit existed. In one more commit, add one line about the unit to "Executor notes". In the same commit, add one item to the "Improve" heading of the retrospective, following the rules of the retrospective template. Then run `cstack publish --plan <plan file>` again. If you cannot build the unit, return a needs-decision report. Name the unit in it, and ask the user whether to block it.
 
 ## Exit codes 4 and 5
 
