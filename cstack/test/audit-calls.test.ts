@@ -220,4 +220,53 @@ describe("readCalls launches", () => {
     const { launches } = await readCalls([{ path: file, helper: false }]);
     expect(launches.map((l) => (l as { type: string }).type)).toEqual(["early", "late"]);
   });
+
+  describe("transcript link", () => {
+    const meta = (transcript: string, content: unknown) =>
+      writeFileSync(transcript.replace(/\.jsonl$/, ".meta.json"), typeof content === "string" ? content : JSON.stringify(content));
+
+    it("gives a launch the index of the transcript whose meta file holds its tool call id", async () => {
+      const { readCalls } = await load();
+      const main = write("main.jsonl", [tool("a1", "Agent", { subagent_type: "x" })]);
+      const helper = write("agent-1.jsonl", [bash("t1", "cstack next")]);
+      meta(helper, { toolUseId: "a1" });
+      const { launches, unreadableFiles } = await readCalls([{ path: main, helper: false }, { path: helper, helper: true }]);
+      expect(launches).toEqual([{ time: Date.parse(T), file: 0, helper: false, kind: "sub-agent", type: "x", transcript: 1 }]);
+      expect(unreadableFiles).toBe(0);
+    });
+
+    it("gives each of two launches its own transcript", async () => {
+      const { readCalls } = await load();
+      const main = write("main.jsonl", [
+        tool("a1", "Agent", { subagent_type: "first" }, "2026-11-23T10:00:00.000Z"),
+        tool("a2", "Agent", { subagent_type: "second" }, "2026-11-23T11:00:00.000Z"),
+      ]);
+      const one = write("agent-1.jsonl", [bash("t1", "cstack next")]);
+      const two = write("agent-2.jsonl", [bash("t2", "cstack next")]);
+      meta(one, { toolUseId: "a2" });
+      meta(two, { toolUseId: "a1" });
+      const { launches } = await readCalls([{ path: main, helper: false }, { path: one, helper: true }, { path: two, helper: true }]);
+      expect(launches.map((l) => [(l as { type: string }).type, (l as { transcript?: number }).transcript])).toEqual([["first", 2], ["second", 1]]);
+    });
+
+    it.each([
+      ["has no meta file", null],
+      ["has a meta file that is not valid JSON", "{not json"],
+      ["has a meta file whose toolUseId is not a string", { toolUseId: 7 }],
+    ])("links no launch for a transcript that %s, and leaves unreadableFiles at 0", async (_name, content) => {
+      const { readCalls } = await load();
+      const main = write("main.jsonl", [
+        tool("7", "Agent", { subagent_type: "bad" }, "2026-11-23T10:00:00.000Z"),
+        tool("a2", "Agent", { subagent_type: "good" }, "2026-11-23T11:00:00.000Z"),
+      ]);
+      const bad = write("agent-bad.jsonl", [bash("t1", "cstack next")]);
+      const good = write("agent-good.jsonl", [bash("t2", "cstack next")]);
+      if (content !== null) meta(bad, content);
+      meta(good, { toolUseId: "a2" });
+      const { launches, unreadableFiles } = await readCalls([{ path: main, helper: false }, { path: bad, helper: true }, { path: good, helper: true }]);
+      expect(launches.map((l) => (l as { transcript?: number }).transcript)).toEqual([undefined, 2]);
+      expect("transcript" in launches[0]!).toBe(false);
+      expect(unreadableFiles).toBe(0);
+    });
+  });
 });

@@ -151,6 +151,22 @@ const buildAt = PHASES.findIndex((p) => p.name === "build");
 const retroAt = PHASES.findIndex((p) => p.name === "retro");
 const without = (calls: Call[], text: string): Call[] => calls.filter((c) => c.command !== text);
 
+// The k-th launch of an implementer builds unit k of the plan. Its calls `cstack unit red|green|commit <n>` move into its own transcript.
+// `id` gives the id of the launch from its place in `calls`, and the meta file of the transcript holds that id.
+function withImplementerTranscripts(calls: Call[], id: (index: number) => string, prefix: string): { calls: Call[]; files: { file: string; calls: Call[]; sidechain: boolean; toolUseId: string }[] } {
+  const count = calls.filter((call) => call.launch === "resolve-issue:implementer").length;
+  const own = (call: Call): number | undefined => {
+    const found = /^cstack unit (?:red|green|commit) (\d+)$/.exec(call.command);
+    return found && Number(found[1]) <= count ? Number(found[1]) : undefined;
+  };
+  const kept = calls.filter((call) => own(call) === undefined);
+  const launches = kept.flatMap((call, i) => (call.launch === "resolve-issue:implementer" ? [id(i)] : []));
+  return {
+    calls: kept,
+    files: launches.map((toolUseId, k) => ({ file: `${prefix}${k + 1}.jsonl`, calls: calls.filter((call) => own(call) === k + 1), sidechain: true, toolUseId })),
+  };
+}
+
 type Setup = { repo: string; home: string; guides: string; plan: string; pkg: string };
 
 // A repository with the plan committed, a run state, a home folder with one session, and guides.
@@ -163,7 +179,10 @@ function setup(options: {
   calls?: Call[];
   extraFile?: string;
   // More session files of the project folder, for example a helper transcript under `s/subagents/`.
-  files?: { file: string; calls: Call[]; sidechain?: boolean }[];
+  // A `toolUseId` writes a meta file next to the transcript, as Claude Code does for a sub-agent.
+  files?: { file: string; calls: Call[]; sidechain?: boolean; toolUseId?: string }[];
+  // The default run gives each implementer launch its own transcript. `false` keeps every call in the main session file.
+  implementerTranscripts?: boolean;
 } = {}): Setup {
   const repo = makeRepo();
   folders.push(repo);
@@ -182,7 +201,15 @@ function setup(options: {
   if (options.session !== false) {
     const folder = join(home, ".claude", "projects", "p");
     mkdirSync(folder, { recursive: true });
-    const lines = (options.calls ?? fullCalls()).map((call, i) => ({
+    const given = options.calls ?? fullCalls();
+    let mainCalls = given;
+    const extraFiles = [...(options.files ?? [])];
+    if (options.implementerTranscripts !== false) {
+      const split = withImplementerTranscripts(given, (i) => `t${i}`, "s/subagents/agent-impl");
+      mainCalls = split.calls;
+      extraFiles.push(...split.files);
+    }
+    const lines = mainCalls.map((call, i) => ({
       type: "assistant",
       cwd: repo,
       timestamp: call.time,
@@ -190,8 +217,9 @@ function setup(options: {
     }));
     writeFileSync(join(folder, "s.jsonl"), lines.map((l) => `${JSON.stringify(l)}\n`).join(""));
     if (options.extraFile !== undefined) writeFileSync(join(folder, "bad.jsonl"), options.extraFile);
-    for (const extra of options.files ?? []) {
+    for (const extra of extraFiles) {
       mkdirSync(dirname(join(folder, extra.file)), { recursive: true });
+      if (extra.toolUseId !== undefined) writeFileSync(join(folder, extra.file.replace(/\.jsonl$/, ".meta.json")), JSON.stringify({ agentType: "SECRET_META_TYPE", description: "SECRET_META_DESCRIPTION", toolUseId: extra.toolUseId }));
       const text = extra.calls.map((call, i) => ({
         type: "assistant",
         cwd: repo,
@@ -511,7 +539,7 @@ describe("cstack audit command steps", () => {
     const s = setup();
     const r = await run(s);
     expect(r.stdout).toContain("build: cstack unit order --plan <plan file>: done ");
-    expect(r.stdout).toContain("build: resolve-issue:implementer: done ");
+    expect(r.stdout).toContain("build: resolve-issue:implementer for unit 1: done ");
     expect(r.stdout).not.toContain("implementer-escalation");
     expect(r.stdout).not.toContain("approval-gate");
     expect(r.stdout).not.toContain("break-the-rule");
@@ -579,6 +607,107 @@ describe("cstack audit command steps", () => {
   });
 });
 
+describe("cstack audit, the implementer line of each unit", () => {
+  const IMPL = "resolve-issue:implementer";
+  const ESCALATION = "resolve-issue:implementer-escalation";
+  const BUILT = /^cstack unit (?:red|green|commit) (\d+)$/;
+  // `transcripts` says, for each of the three launches in the order of the run, the units whose calls are in its own transcript.
+  // A launch with no entry has no transcript and no meta file, and the calls of its unit stay in the main session file.
+  // `dropped` names the launches that the run never made.
+  const run = async (transcripts: Record<number, number[]>, types: Record<number, string> = {}, dropped: number[] = []) => {
+    const given = fullCalls().map((call, i) => ({ call, id: `t${i}` }));
+    const launches = given.filter(({ call }) => call.launch === IMPL);
+    const owner = (command: string): number | undefined => {
+      const unit = BUILT.exec(command)?.[1];
+      if (unit === undefined) return undefined;
+      return Object.keys(transcripts).map(Number).find((k) => transcripts[k]!.includes(Number(unit)));
+    };
+    const calls = given
+      .map(({ call }) => call)
+      .filter((call) => owner(call.command) === undefined && !dropped.includes(launches.findIndex(({ call: l }) => l === call) + 1));
+    const typed = calls.map((call) => {
+      const k = launches.findIndex(({ call: l }) => l === call) + 1;
+      return k > 0 && types[k] !== undefined ? { ...call, launch: types[k]! } : call;
+    });
+    // The id of a launch in the main session file is `t` and its place in the list of calls.
+    const idOf = (k: number): string => `t${calls.indexOf(launches[k - 1]!.call)}`;
+    const files = Object.keys(transcripts)
+      .map(Number)
+      .map((k) => ({
+        file: `s/subagents/agent-impl${k}.jsonl`,
+        calls: given.map(({ call }) => call).filter((call) => owner(call.command) === k),
+        sidechain: true,
+        toolUseId: idOf(k),
+      }));
+    const s = setup({ calls: typed, files, implementerTranscripts: false });
+    return await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  };
+  const line = (n: number) => `build: ${IMPL} for unit ${n}: `;
+
+  it("prints the line of unit 2 as skipped when only the executor holds its calls, and the lines of units 1 and 3 as done", async () => {
+    const r = await run({ 1: [1], 3: [3] });
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(3)}done `);
+    expect(r.code).toBe(1);
+  });
+
+  it("prints the line of unit 2 as skipped when the executor holds its calls and no implementer was launched for it", async () => {
+    const r = await run({ 1: [1], 3: [3] }, {}, [2]);
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(3)}done `);
+    expect(r.code).toBe(1);
+  });
+
+  it("prints the line of unit 3, which has no test, as done from its commit call in the transcript", async () => {
+    const r = await run({ 1: [1], 2: [2], 3: [3] });
+    expect(r.stdout).toContain(`${line(3)}done `);
+    expect(r.stdout).not.toContain("cstack unit red 3");
+  });
+
+  it("does not let a launch whose transcript names only unit 1 prove the line of unit 2", async () => {
+    const r = await run({ 2: [1], 3: [3] });
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(3)}done `);
+  });
+
+  it("does not let a launch of general-purpose prove the line of unit 2, even with the calls of unit 2", async () => {
+    const r = await run({ 1: [1], 2: [2], 3: [3] }, { 2: "general-purpose" });
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(3)}done `);
+  });
+
+  it("does not let a launch with no transcript prove the line of its unit", async () => {
+    const r = await run({ 1: [1], 3: [3] });
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+  });
+
+  it("lets one implementer whose transcript holds the calls of units 1 and 2 prove only one of the two lines", async () => {
+    const r = await run({ 1: [1, 2], 3: [3] });
+    expect(r.stdout).toContain(`${line(1)}done `);
+    expect(r.stdout).toContain(`${line(2)}skipped\n`);
+    expect(r.stdout).toContain(`${line(3)}done `);
+  });
+
+  it("lets a launch of the escalation implementer prove the line of the unit that its transcript names", async () => {
+    const r = await run({ 1: [1], 2: [2], 3: [3] }, { 2: ESCALATION });
+    expect(r.stdout).toContain(`${line(2)}done `);
+    expect(r.stdout).not.toContain("for unit 2: skipped");
+  });
+
+  it("prints the line of an implementer with only its fixed text, a verdict, a time and a record, never the meta file", async () => {
+    const r = await run({ 1: [1], 2: [2], 3: [3] });
+    expect(r.stdout + r.stderr).not.toContain("SECRET_META_DESCRIPTION");
+    expect(r.stdout + r.stderr).not.toContain("SECRET_META_TYPE");
+    const lines = r.stdout.split("\n").filter((l) => l.startsWith(`build: ${IMPL} for unit `));
+    expect(lines).toHaveLength(3);
+    for (const l of lines) expect(l).toMatch(/^build: resolve-issue:implementer for unit \d: (done \S+ session|skipped|out of order \S+ session)$/);
+  });
+});
+
 describe("cstack audit steps of the main conversation", () => {
   const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
   const readyAt = PHASES.findIndex((p) => p.name === "ready");
@@ -610,7 +739,8 @@ describe("cstack audit steps of the main conversation", () => {
     const retimed = mainCalls();
     const main = retimed.filter((_, i) => runsIn(tagged[i]!.phase) === "main conversation");
     const worker = tagged.filter((t) => runsIn(t.phase) === "executor").map(({ phase: _phase, ...call }) => call);
-    const s = setup({ calls: main, files: [{ file: "worker.jsonl", calls: [...worker, wait(at(buildAt, 50))] }] });
+    const split = withImplementerTranscripts([...worker, wait(at(buildAt, 50))], (i) => `worker.jsonl#${i}`, "s/subagents/agent-impl");
+    const s = setup({ calls: main, files: [{ file: "worker.jsonl", calls: split.calls }, ...split.files] });
     const r = await run(s);
     const executorLines = r.stdout.split("\n").filter((l) => PHASES.some((p) => p.runsIn === "executor" && l.startsWith(`${p.name}: `)));
     expect(executorLines.length).toBeGreaterThan(5);
@@ -626,10 +756,12 @@ describe("cstack audit steps of the main conversation", () => {
     const first = tagged.filter((t) => early.includes(t.phase)).map(({ phase: _phase, ...call }) => call);
     const second = mainCalls().filter((c) => !first.some((f) => f.time === c.time && f.command === c.command && f.launch === c.launch));
     const helper = [wait(at(buildAt, 20)), wait(at(publishAt + 1, 2))];
+    const split = withImplementerTranscripts(second, (i) => `s2.jsonl#${i}`, "s/subagents/agent-impl");
     const s = setup({
       calls: first,
       files: [
-        { file: "s2.jsonl", calls: second },
+        { file: "s2.jsonl", calls: split.calls },
+        ...split.files,
         { file: "s/subagents/agent-1.jsonl", calls: helper, sidechain: true },
       ],
     });
@@ -1253,7 +1385,7 @@ describe("nothing private leaves the command", () => {
     new RegExp(`^phase [a-z-]+ started: ${verdict}$`),
     new RegExp(`^phase [a-z-]+: ${verdict}$`),
     new RegExp(`^(${texts.join("|")}): ${verdict}$`),
-    new RegExp(`^[a-z-]+: resolve-issue:[a-z-]+( [a-z-]+)?: ${verdict}$`),
+    new RegExp(`^[a-z-]+: resolve-issue:[a-z-]+( [a-z-]+| for unit \\d+)?: ${verdict}$`),
   ];
 
   it("prints only the allowed lines and never the marker", async () => {
@@ -1432,5 +1564,66 @@ describe("cstack audit, the check of the whole test file", () => {
     const closed = setup();
     saved(closed, 1, "red", file("missing"));
     expect(lines((await run(closed)).stdout)).toHaveLength(1);
+  });
+});
+
+describe("cstack audit, an implementer launch with no transcript", () => {
+  const SENTENCE = "cstack audit: some implementer launches have no sub-agent transcript with a meta file, so the units they built may show as skipped.\n";
+  const run = async (s: Setup) => await audit([s.plan, "--home", s.home, "--guides", s.guides], s.pkg);
+  const notOver = (): Record<string, { startedAt?: string; doneAt?: string }> => {
+    const phases = fullPhases() as Record<string, { startedAt?: string; doneAt?: string }>;
+    delete phases.build!.doneAt;
+    for (const { name } of PHASES.slice(buildAt + 1)) delete phases[name];
+    return phases;
+  };
+  // A launch of the escalation type in the window of the build phase, with no transcript.
+  const lone = (type: string): Call => ({ time: at(buildAt, 9), command: "", launch: type });
+
+  it("prints the sentence after every other sentence when a launch has no transcript", async () => {
+    const s = setup({ implementerTranscripts: false });
+    mkdirSync(join(s.home, ".claude", "projects", "p", "dir.jsonl"));
+    const r = await run(s);
+    expect(r.stderr).toBe("cstack audit: some session files could not be read, so some steps may show as skipped.\n" + SENTENCE);
+    expect(r.stderr.endsWith("\n")).toBe(true);
+  });
+
+  it("prints the sentence after the sentence about the phases that are not over", async () => {
+    const phases = fullPhases() as Record<string, { startedAt?: string; doneAt?: string }>;
+    delete phases.publish!.doneAt;
+    const s = setup({ implementerTranscripts: false, phases });
+    const r = await run(s);
+    expect(r.stderr).toBe(NOT_OVER("publish") + SENTENCE);
+  });
+
+  it("prints the sentence for a launch of the escalation type with no transcript", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:implementer-escalation")] });
+    const r = await run(s);
+    expect(r.stderr).toBe(SENTENCE);
+  });
+
+  it("prints no sentence when every implementer launch has its transcript", async () => {
+    const s = setup();
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+  });
+
+  it("prints no sentence for a launch of another type with no transcript", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:executor")] });
+    const r = await run(s);
+    expect(r.stderr).toBe("");
+  });
+
+  it("prints no sentence while the build phase is not over", async () => {
+    const s = setup({ implementerTranscripts: false, phases: notOver() });
+    const r = await run(s);
+    expect(r.stderr).not.toContain("implementer launches");
+  });
+
+  it("still exits with 0 when the sentence is printed and every printed line is done", async () => {
+    const s = setup({ calls: [...fullCalls(), lone("resolve-issue:implementer-escalation")] });
+    const r = await run(s);
+    expect(r.stderr).toBe(SENTENCE);
+    expect(r.stdout.split("\n").filter((l) => l !== "").every((l) => /: done /.test(l))).toBe(true);
+    expect(r.code).toBe(0);
   });
 });

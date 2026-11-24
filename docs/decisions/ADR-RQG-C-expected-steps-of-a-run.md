@@ -82,7 +82,7 @@ Some tests read the raw guides, so they will see the blocks once ticket #88 adds
 
 This section was added when ticket #90 made `cstack audit` evaluate the helper steps and the conditions. It adds to the record above and changes none of its decisions.
 
-The audit prints one line for each helper step whose condition holds. Only a launch of the named sub-agent proves a helper step. A plan section never proves it. A launch of another type, and a message sent to a running sub-agent, never count, because the guides ask for a fresh launch. When the setting `review.agent` is not `claude`, the independent review also accepts an Orca worker launch.
+The audit prints one line for each helper step whose condition holds. Only a launch of the named sub-agent proves a helper step. A plan section never proves it. A launch of another type, and a message sent to a running sub-agent, never count, because the guides ask for a fresh launch. The only exception is a launch of `resolve-issue:implementer-escalation`, which can prove the implementer line of a unit. See the section "How the audit ties an implementer to its unit" below. When the setting `review.agent` is not `claude`, the independent review also accepts an Orca worker launch.
 
 The audit never prints a line for a step of the `action` kind, except for two steps of a big decision. See the section "How the audit checks the big decisions" below. The close of most phases already refuses an empty plan section, so the audit does not repeat that check.
 
@@ -145,3 +145,19 @@ The audit prints one line for each unit that used this check. The line says whic
 These lines have no verdict. The audit never marks them as done, skipped or out of order, and they never change the exit code. The reason is that a repository without a per-case report always uses the whole test file. If the lines had a verdict, every audit of such a repository would fail. The check of the whole test file is a known and allowed fallback, so the audit only shows it.
 
 The code is in `cstack/src/audit/whole-file.ts`. The sentence "The exit code looks only at the printed verdict lines" in the README stays true, because these lines are not verdict lines.
+
+## How the audit ties an implementer to its unit
+
+This section was added when ticket #108 made the implementer line name the unit that it checks. It adds to the record above and changes none of its decisions.
+
+A helper step with the condition `each-unit` prints one line for each unit. The line reads `<phase>: <helper> for unit <n>`, followed by its verdict. Before this change, the build phase already printed one line for each unit. Each of these lines read `build: resolve-issue:implementer` and named no unit. Any implementer launch in the window could prove any of these lines. So the audit counted the launches, but it never checked which unit each launch built.
+
+A launch now proves the line of unit `<n>` only when its own sub-agent transcript holds a call `cstack unit red <n>`, `cstack unit green <n>` or `cstack unit commit <n>`. A launch whose transcript names only other units never proves that line. A launch with no transcript never proves it. The older rules still apply: the launch has the right type, it lies in the window of the build phase, it comes at or after the floor of the line, and one launch serves at most one line. So one implementer that built units 1 and 2 proves only one of the two lines.
+
+A launch of `resolve-issue:implementer-escalation` that names the unit proves the implementer line of that unit, under the same rule. The step for each stuck unit stays unprinted, because its condition still counts as false. A launch of any other type, such as `general-purpose` or `resolve-issue:executor`, never proves the line, even when its transcript names the unit.
+
+Claude Code writes each sub-agent transcript as `agent-<id>.jsonl` in a `subagents` folder of the session, with a file `agent-<id>.meta.json` next to it. The `toolUseId` value of the meta file is the id of the `Agent` or `Task` call that launched the sub-agent. The audit reads only that value, and only when it is a string. It never prints anything from the meta file. A meta file that is missing, broken, or without a string `toolUseId` links no launch. It never counts as an unreadable session file.
+
+When the build phase is over and an implementer launch has no transcript, the audit prints one sentence on standard error. It says that the units that launch built may show as skipped. This sentence never changes the exit code by itself.
+
+Two limits are known. A transcript with no meta file cannot be linked to its launch. A unit call that uses a shell variable in place of the number, such as `cstack unit red $n`, matches no unit.
