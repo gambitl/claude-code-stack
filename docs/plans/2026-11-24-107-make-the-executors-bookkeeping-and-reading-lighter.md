@@ -322,7 +322,7 @@ Which way does this ticket take to cut the answers that the executor spends only
 
 ## Review log
 
-<phase review and independent-review>
+Impact notes (executor, phase review). The branch changed prose only: the part "How you work" of the executor prompt, one sentence at the end of each of the nine executor guides, and three test files. No symbol was changed or deleted. Tests that exercise the change are `cstack/test/guides/executor-bookkeeping.test.ts`, `cstack/test/prompts.test.ts`, `cstack/test/manifest.test.ts`, `cstack/test/guides/settings-applied.test.ts`, `cstack/test/guides/steps-blocks.test.ts` and the end-to-end test, and they pass. Usual companions of the changed files are `prompts.test.ts`, `implementer.md`, `templates/plan.md`, `build-helpers.test.ts` and `build-start.test.ts`. They were left untouched on purpose, as `## Decisions` says, and the tests that read them pass. The branch follows ADR-RQG-C, whose section the document phase adds to. One finding of the build: `settings-applied.test.ts` refuses "npm test" in a prompt, so the example in the pipe sentence uses `<test command>`.
 
 ## Briefing
 
