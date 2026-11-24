@@ -20,7 +20,7 @@ function ticket(
 describe("readyState", () => {
   it("blocks a ticket whose only blocker is in review", () => {
     const t = ticket("todo", [{ key: "ABC-2", stateKind: "in-progress" }]);
-    expect(readyState(t, false)).toEqual({
+    expect(readyState(t)).toEqual({
       kind: "blocked",
       reason: "blocked-by",
       blockers: ["ABC-2"],
@@ -29,26 +29,25 @@ describe("readyState", () => {
 
   it("is ready when every blocker is finished", () => {
     const t = ticket("todo", [{ key: "ABC-2", stateKind: "finished" }]);
-    expect(readyState(t, false)).toEqual({ kind: "ready" });
-    expect(readyState(ticket("todo", []), false)).toEqual({ kind: "ready" });
+    expect(readyState(t)).toEqual({ kind: "ready" });
+    expect(readyState(ticket("todo", []))).toEqual({ kind: "ready" });
   });
 
-  it("calls a ticket in progress or with a worktree started", () => {
-    expect(readyState(ticket("in-progress", []), false)).toEqual({ kind: "started" });
-    expect(readyState(ticket("todo", []), true)).toEqual({ kind: "started" });
+  it("calls a ticket in progress started", () => {
+    expect(readyState(ticket("in-progress", []))).toEqual({ kind: "started" });
   });
 
   it("blocks unknown states and unknown blockers, never ready", () => {
-    expect(readyState(ticket("unknown", []), false)).toEqual({
+    expect(readyState(ticket("unknown", []))).toEqual({
       kind: "blocked",
       reason: "unknown-state",
     });
-    expect(readyState(ticket("todo", "unknown"), false)).toEqual({
+    expect(readyState(ticket("todo", "unknown"))).toEqual({
       kind: "blocked",
       reason: "unknown-blockers",
     });
     const t = ticket("todo", [{ key: "ABC-2", stateKind: "unknown" }]);
-    expect(readyState(t, false)).toEqual({
+    expect(readyState(t)).toEqual({
       kind: "blocked",
       reason: "blocked-by",
       blockers: ["ABC-2"],
@@ -56,6 +55,10 @@ describe("readyState", () => {
   });
 
   it("leaves out a finished ticket", () => {
-    expect(readyState(ticket("finished", []), true)).toEqual({ kind: "left-out" });
+    expect(readyState(ticket("finished", []))).toEqual({ kind: "left-out" });
+  });
+
+  it("takes only the ticket", () => {
+    expect(readyState.length).toBe(1);
   });
 });

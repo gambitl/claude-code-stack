@@ -44,6 +44,18 @@ Before `cstack` replaces, removes or adopts a folder, it saves the old folder in
 
 The rule only covers `cstack` commands. If no client can reach your tracker, Claude still writes to it with its own connection. The client is `gh` for GitHub, `glab` for GitLab, and Orca for Jira and Linear. The rule does not cover that connection, so Claude may ask you first.
 
+## Set up a new workspace
+
+A workspace is a second working folder of the same git repository. Orca creates one for each ticket, for example. A new workspace has no installed packages, so a command such as `npm ci` must run there before the first test.
+
+`cstack` does not run that command. Orca runs it, as the setup hook of the repository. You declare the hook in a file named `orca.yaml`, at the root of the repository. Its key `scripts.setup` holds the commands to run. Orca reads `orca.yaml` from the branch that the new workspace starts from, so a workspace that starts from a branch without the file gets no setup. With the key `setupAgentStartupPolicy: wait-for-setup`, Orca starts the agent only after the setup succeeded. When the setup fails, the agent does not start. Orca's page about [`orca.yaml`](https://github.com/stablyai/orca/blob/main/docs/site/content/docs/model/orca-yaml.mdx) describes every key.
+
+The first time, Orca asks you to trust the setup script. On one computer, that approval trusts the whole repository. After that, Orca runs the setup of any branch without asking, even when the branch changes `orca.yaml`. The setup runs `npm ci`, and `npm ci` runs the install scripts of `cstack/package.json` and of the packages in `cstack/package-lock.json`. So before you open a workspace on a pull request from someone else, read its changes to `orca.yaml`, `cstack/package.json` and `cstack/package-lock.json`. You can also create that workspace with its setup skipped. The setting **Settings → Repository** of the Orca app decides whether the setup runs by itself, asks each time, or is skipped.
+
+This repository declares `cd cstack && npm ci` as its setup hook, and its agents wait for it.
+
+The settings file `.cstack/settings.json` no longer accepts the keys `setupCommand` and `watchIntervalMinutes`. `setupCommand` named the command for a new workspace, which Orca now runs. `watchIntervalMinutes` served `cstack wave`, which left `cstack`. When your settings file still holds one of them, `cstack` refuses the file, and the message tells you to remove the line. A settings file copied from an older template holds `watchIntervalMinutes`, so remove that line after you update `cstack`.
+
 ## Commands
 
 `cstack` has eighteen commands. Run `cstack` with no argument to see how to call each one.

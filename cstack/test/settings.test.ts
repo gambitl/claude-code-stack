@@ -63,9 +63,7 @@ describe("readSettings results", () => {
       forbiddenTools: [],
       commitAttribution: [],
       testCommands: undefined,
-      setupCommand: undefined,
       review: { agent: "claude", model: "opus" },
-      watchIntervalMinutes: 5,
     });
     expect(Object.values(s.sources).every((v) => v === "default")).toBe(true);
   });
@@ -77,9 +75,7 @@ describe("readSettings results", () => {
       forbiddenTools: ["yarn"],
       commitAttribution: ["Co-Authored-By: Claude <noreply@anthropic.com>"],
       testCommands: { all: "npm test", file: "npm test -- {file}" },
-      setupCommand: "npm ci",
       review: { agent: "codex", model: "gpt-5" },
-      watchIntervalMinutes: 10,
     };
     const s = readSettings(repo(full));
     const { version: _v, ...expected } = full;
@@ -102,12 +98,12 @@ describe("readSettings refusals of shape", () => {
     refusal(root);
   });
   it("refuses wrong types with the key path", () => {
-    expect(refusal(repo({ version: 1, watchIntervalMinutes: "5" })).message).toContain("watchIntervalMinutes");
+    expect(refusal(repo({ version: 1, recordsLanguage: 5 })).message).toContain("recordsLanguage");
     expect(refusal(repo({ version: 1, review: null })).message).toContain("review");
   });
   it("lists two problems in one error", () => {
-    const e = refusal(repo({ version: 1, watchIntervalMinutes: "5", integration: 3 }));
-    expect(e.problems.map((p) => p.path)).toEqual(["integration", "watchIntervalMinutes"]);
+    const e = refusal(repo({ version: 1, recordsLanguage: 5, integration: 3 }));
+    expect(e.problems.map((p) => p.path)).toEqual(["integration", "recordsLanguage"]);
   });
 });
 
@@ -121,11 +117,6 @@ describe("readSettings value rules", () => {
     expect(e.message).toContain("integration");
     expect(e.message).toContain("merge");
     expect(e.message).toContain("rebase");
-  });
-  it.each([0, 1441, 2.5])("refuses watchIntervalMinutes %s", (n) => {
-    const e = refusal(repo({ version: 1, watchIntervalMinutes: n }));
-    expect(e.message).toContain("watchIntervalMinutes");
-    expect(e.message).toContain("1440");
   });
   it.each(["my agent", "Claude", "a;b", "1abc", "a".repeat(33)])("refuses review.agent %j", (agent) => {
     expect(problemPaths(repo({ version: 1, review: { agent, model: "opus" } }))).toEqual(["review.agent"]);
@@ -252,13 +243,13 @@ describe("readSettings JSON syntax errors", () => {
 
 describe("the example settings file", () => {
   const examplePath = new URL("../skills/resolve-issue/templates/settings.json", import.meta.url);
-  it("is accepted, equals the defaults and holds every key except testCommands, setupCommand and review", () => {
+  it("is accepted, equals the defaults and holds every key except testCommands and review", () => {
     const text = readFileSync(examplePath, "utf8");
     const s = readSettings(repo(text));
     expect(s.found).toBe(true);
     expect(s.values).toEqual(DEFAULTS);
     const keys = Object.keys(JSON.parse(text)).sort();
-    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands" && k !== "setupCommand" && k !== "review")].sort();
+    const expected = ["version", ...Object.keys(DEFAULTS).filter((k) => k !== "testCommands" && k !== "review")].sort();
     expect(keys).toEqual(expected);
   });
 });
@@ -311,25 +302,42 @@ describe("attribution line with the Cstack-Unit key", () => {
   });
 });
 
-describe("setupCommand", () => {
-  it("is read from the file and marked as from the file", () => {
-    const s = readSettings(repo({ version: 1, setupCommand: "npm ci" }));
-    expect(s.values.setupCommand).toBe("npm ci");
-    expect(s.sources.setupCommand).toBe("file");
+describe("the removed keys", () => {
+  const setupText =
+    "was removed from cstack. Remove this key. To set up a new workspace with Orca, declare the command as scripts.setup in orca.yaml at the root of the repository.";
+  const watchText = "was removed from cstack with cstack wave. Remove this key.";
+  it.each(["npm ci", "", 3, null])("refuses setupCommand %j with its own message", (value) => {
+    expect(refusal(repo({ version: 1, setupCommand: value })).problems).toEqual([{ path: "setupCommand", text: setupText }]);
   });
-  it("is undefined and marked as default when the key is missing, and nothing else changes", () => {
-    const s = readSettings(repo({ version: 1, integration: "merge" }));
-    expect(s.values.setupCommand).toBeUndefined();
-    expect(s.sources.setupCommand).toBe("default");
-    expect(s.values).toEqual({ ...DEFAULTS, integration: "merge" });
+  it.each([5, "x", 0])("refuses watchIntervalMinutes %j with its own message", (value) => {
+    expect(refusal(repo({ version: 1, watchIntervalMinutes: value })).problems).toEqual([
+      { path: "watchIntervalMinutes", text: watchText },
+    ]);
   });
-  it("refuses an empty value, a line break and a forbidden first word, on the path setupCommand", () => {
-    expect(problemPaths(repo({ version: 1, setupCommand: "" }))).toEqual(["setupCommand"]);
-    expect(problemPaths(repo({ version: 1, setupCommand: "npm ci\nrm -rf x" }))).toEqual(["setupCommand"]);
-    expect(problemPaths(repo({ version: 1, setupCommand: 3 }))).toEqual(["setupCommand"]);
-    expect(problemPaths(repo({ version: 1, forbiddenTools: ["yarn"], setupCommand: "yarn install" }))).toEqual(["setupCommand"]);
+  it("gives the usual unknown key message for setupCommand inside review", () => {
+    const e = refusal(repo({ version: 1, review: { agent: "claude", model: "opus", setupCommand: "x" } }));
+    expect(e.problems).toHaveLength(1);
+    expect(e.problems[0].path).toBe("review.setupCommand");
+    expect(e.problems[0].text.startsWith("unknown key. Allowed keys here:")).toBe(true);
   });
-  it("does not look for the {file} placeholder", () => {
-    expect(readSettings(repo({ version: 1, setupCommand: "echo {file}" })).values.setupCommand).toBe("echo {file}");
+  it("gives the usual unknown key message for watchIntervalMinutes inside testCommands", () => {
+    const e = refusal(repo({ version: 1, testCommands: { all: "npm test", watchIntervalMinutes: 5 } }));
+    expect(e.problems[0].text.startsWith("unknown key. Allowed keys here:")).toBe(true);
+  });
+  it("keeps the usual message and hint for any other unknown top level key", () => {
+    const e = refusal(repo({ version: 1, reviewer: "x" }));
+    expect(e.problems[0].text.startsWith("unknown key. Allowed keys here:")).toBe(true);
+    expect(e.problems[0].text).toContain("If this key comes from a newer cstack, update cstack.");
+    expect(e.problems[0].text).not.toContain("setupCommand");
+    expect(e.problems[0].text).not.toContain("watchIntervalMinutes");
+  });
+});
+
+describe("the settings file of this repository", () => {
+  it("holds only version and testCommands and is read without an error", () => {
+    const root = new URL("../../", import.meta.url).pathname;
+    const keys = Object.keys(JSON.parse(readFileSync(join(root, ".cstack", "settings.json"), "utf8"))).sort();
+    expect(keys).toEqual(["testCommands", "version"]);
+    expect(() => readSettings(root)).not.toThrow();
   });
 });

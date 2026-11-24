@@ -45,7 +45,7 @@ export async function trackerList(args: string[], io: Io, deps: TrackerDeps): Pr
 /** Keeps the ready tickets. A ticket left out because something is unknown gets a warning for each unknown thing, in list order. */
 function keepReady(tickets: Ticket[], warn: (message: string) => void): Ticket[] {
   return tickets.filter((ticket) => {
-    const state = readyState(ticket, false);
+    const state = readyState(ticket);
     if (state.kind === "blocked") {
       const left = `left out ${ticket.key}, because`;
       if (state.reason === "unknown-state") warn(`${left} its state is unknown.`);
