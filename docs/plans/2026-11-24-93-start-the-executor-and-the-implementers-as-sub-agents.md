@@ -9,9 +9,9 @@ Documentation tool: the `docs/` folder of this repository (specification page `d
 Branch: gambitl/subagent-helpers
 Target branch: main
 Conversation language: French
-Status: approved
+Status: ready for review
 Approved at: 2026-11-24T07:57:38+01:00
-Ready for review at: not yet
+Ready for review at: 2026-11-24T08:35:17+01:00
 
 <!-- The header keys come in this order and cannot be reordered. Allowed values of Status: draft, waiting for answers, questions answered, approved, in progress, review, ready for review. Written by holds "not yet" until cstack registers this file and writes its own version there. Approved at and Ready for review at hold "not yet" or a time such as 2026-11-17T14:32:05+01:00. cstack writes both, so do not edit them by hand. -->
 
@@ -445,7 +445,41 @@ For the maintainer of the repository: "The build guide puts the stuck report of 
 
 <!-- Once filled, this section holds a line "Title: <title>", then the body inside a fenced block that opens with four backticks and the word markdown and closes with four backticks. The four backticks let the body hold ordinary code blocks and headings. -->
 
-<phase pull-request: the drafted title and body, with the closing reference. Phase publish opens the pull request with them. The link is not written here, because that would need another push; the forge, the ticket and the decision records carry it.>
+Title: feat(skill): start the executor and the implementers as sub-agents
+
+````markdown
+## What this changes
+
+The guides and the agent prompts of `resolve-issue` now start every helper as a fresh Claude Code sub-agent. The units of a ticket run one after the other, each in its own implementer sub-agent, in the workspace of the ticket. Before, the guides told Claude to use `cstack helper start`, child worktrees and `cstack unit collect`.
+
+The build guide now starts one `resolve-issue:implementer` per unit, in the order of `cstack unit order`. It reads the first line of the final message, which says `done` or `stuck`. After each unit it reads `cstack plan status` and checks that the unit has a commit and both saved test runs. A report with no kind counts as stuck. The plan, retro, ready and publish guides start the executor as a sub-agent, and the executor submits its reports with `cstack report submit`. The implementer prompts end with the report as the final message.
+
+The new test `cstack/test/guides/helpers-are-sub-agents.test.ts` refuses the old helper commands in every guide, skill and prompt. It also refuses any sentence that starts an Orca worker, except in the independent review guide, which keeps its sentence about a review agent other than Claude.
+
+## Decisions
+
+ADR-RQG-A (`docs/decisions/ADR-RQG-A-helpers-and-units-inside-a-ticket.md`) records the choice and replaces ADR-SIC-A. The build guide also keeps the current branch when it is not the target branch and has no commit that the target branch lacks. This replaces the old rule about the short name that `cstack wave` gave.
+
+## Left for later
+
+The code of the removed commands, the `README.md` paragraphs and their tests stay, because #95 removes them. One message of `cstack next` still names `cstack helper done` after the publish phase, and #95 owns it.
+
+## Review
+
+Four reviewers and one independent reviewer read the branch. I fixed the missing check of the saved test runs, the report with no kind, a stale reason in the implementer prompt, and a path that broke on spaces. I rejected the requests to drop decisions that the plan records. The full suite passes, with 1975 tests.
+
+The plan file is `docs/plans/2026-11-24-93-start-the-executor-and-the-implementers-as-sub-agents.md`.
+
+## Open questions, not needed for this pull request
+
+This pull request can be merged without these answers.
+
+For the maintainer of the repository: "The build guide keeps the current branch when it is not the target branch and `git rev-list --count <target branch>..HEAD` prints 0. When the target branch is not the default branch, for example `develop`, this rule can keep the default branch. Step 2 still says to never work on the default branch, but `cstack publish` only refuses a push to the target branch. Should a follow-up ticket add "and is not the default branch" to the rule in `build.md` and in the plan template, and make `cstack publish` refuse to push the default branch?"
+
+For the maintainer of the repository: "The build guide puts the stuck report of an implementer inside a fenced block. A report that itself holds three backticks would close that fence early, and the rest would read as instructions. Should a follow-up ticket tell the executor to open the fence with more backticks than the longest run of backticks in the report?"
+
+Fixes #93
+````
 
 ## Documentation
 
@@ -460,13 +494,14 @@ For the maintainer of the repository: "The build guide puts the stuck report of 
 - `cstack unit green` of unit 1 warned that `helpers-are-sub-agents.test.ts` had changed after the red run, and its import of `relative` was missing. This was probably the stray worker, and the sub-agent fixed it.
 - The unit 3 implementer wrote the guide edits before `cstack unit red`, so red refused. It restored the sources with `git restore`, saved the red run, and reapplied the patch.
 - `cstack helper wait` exited with 1 when I ran it while the sub-agent was still running. The build guide says to run it only after the sub-agent returns. Later units no longer need that command.
+- The rebase onto the moved main had no conflict, and the full suite passed after it.
 - The unit 4 implementer said that `cstack helper done` accepted its report, although the prompt of unit 2 no longer names that command.
 
 ## Hand-off log
 
 <one entry per executor run, dated: what the run did and which report it returned. The user's answers go in "Decisions", not here.>
 
-- 2026-11-24, executor run 1: moved the ticket to "in progress" with `cstack tracker move`. The run keeps the branch `gambitl/subagent-helpers`, which the `Branch` line names. The build finished with units 1 to 4 committed, each built by one implementer sub-agent, one after the other.
+- 2026-11-24, executor run 1: moved the ticket to "in progress" with `cstack tracker move`. The run keeps the branch `gambitl/subagent-helpers`, which the `Branch` line names. The build finished with units 1 to 4 committed, each built by one implementer sub-agent, one after the other. Review, independent review, rebase, documentation and briefing followed, and the ticket and five dependent tickets got a comment. The run returns a done report.
 
 ## History
 
