@@ -252,41 +252,6 @@ export const COMMANDS: CommandEntry[] = [
     ticket: [25, 26],
     built: true,
   },
-  {
-    usage: "cstack helper start <executor|implementer|implementer-escalation> --plan <file> [--unit <n>] [--child-worktree]",
-    summary: "Start a helper.",
-    flags: ["--plan", "--unit", "--child-worktree"],
-    exitCodes: {
-      0: OK,
-      1: REFUSED,
-      2: USAGE,
-      3: INVALID,
-      4: NO_TOOL,
-      5: TOOL_FAILED,
-      6: "Orca workers are not available, and Claude starts a sub-agent instead.",
-    },
-    file: "helper-start.ts",
-    ticket: 27,
-    built: true,
-  },
-  {
-    usage: "cstack helper wait <helper id>",
-    summary: "Wait for the final report of a helper.",
-    flags: [],
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED, 6: "The helper is still working." },
-    file: "helper-wait.ts",
-    ticket: 27,
-    built: true,
-  },
-  planCommand({
-    usage: "cstack helper done <kind> --helper <helper id>",
-    summary: "Read the report of a helper on standard input, check it, save it and end the helper.",
-    flags: ["--helper"],
-    exitCodes: { 0: OK, 1: REFUSED, 2: USAGE, 3: INVALID, 5: TOOL_FAILED },
-    file: "helper-done.ts",
-    ticket: 27,
-    built: true,
-  }),
 ];
 
 /** The command words of an entry: its usage words, without `cstack`, before the first `<`, `[` or `(`. */

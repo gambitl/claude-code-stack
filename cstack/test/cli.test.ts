@@ -61,6 +61,39 @@ describe("run", () => {
     expect(code).toBe(2);
   });
 
+  it("answers cstack helper start as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "start", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("answers cstack helper wait as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "wait", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
+  it("answers cstack helper done as an unknown command", async () => {
+    const { out, io } = collect();
+    const code = await run(["helper", "done", "--cstack-unknown-flag"], io);
+    const [first, ...rest] = out.stderr.split("\n");
+    expect(first).toBe('cstack: unknown command "helper"');
+    expect(rest.join("\n")).toContain("Usage: cstack");
+    expect(out.stderr).not.toContain("cstack helper");
+    expect(out.stdout).toBe("");
+    expect(code).toBe(2);
+  });
+
   it("names an unknown option, prints the usage and returns 2", async () => {
     const { out, io } = collect();
     const code = await run(["--nope"], io);

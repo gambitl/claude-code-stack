@@ -141,15 +141,11 @@ describe("the flags that are not built yet", () => {
     ];
     expect(unbuiltRefusal(["frobnicate", "--later"], made)).toContain("Ticket #999 builds it.");
   });
-
-  it("names the ticket of the command while the command is not built", () => {
-    expect(unbuiltRefusal(["helper", "start", "--child-worktree"])).toBeUndefined();
-  });
 });
 
 describe("the command list", () => {
-  it("holds twenty-two built commands and none that is not built", () => {
-    expect(COMMANDS.filter((c) => c.built)).toHaveLength(22);
+  it("holds nineteen built commands and none that is not built", () => {
+    expect(COMMANDS.filter((c) => c.built)).toHaveLength(19);
     expect(COMMANDS.filter((c) => !c.built)).toHaveLength(0);
   });
 
@@ -161,13 +157,6 @@ describe("the command list", () => {
     for (const entry of COMMANDS) {
       expect(entry.file).toMatch(/^[a-z-]+\.ts$/);
       if (entry.built) expect(existsSync(join(root, "src", "commands", entry.file))).toBe(true);
-    }
-  });
-
-  it("gives --plan to the new commands that work on a run", () => {
-    for (const words of ["helper start", "helper done"]) {
-      const entry = COMMANDS.find((c) => commandWords(c).join(" ") === words);
-      expect(entry?.flags, words).toContain("--plan");
     }
   });
 
