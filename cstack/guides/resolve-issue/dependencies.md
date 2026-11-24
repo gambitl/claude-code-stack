@@ -19,6 +19,8 @@ When at least one blocker is open, stop and tell the user about each one. For ea
 - Go on anyway, because the dependency is soft.
 - Stop.
 
+The user answers in this chat, also when this session is an Orca worker. The coordinator only tells the user that this worker waits for an answer. Show the open blockers and the three answers here, and never send them to the coordinator in place of the user. A session is an Orca worker when its prompt opens with Orca's preamble, which gives a task ID and a dispatch ID. An Orca worker asks in plain chat, never with the harness's question tool, then ends its turn. A message from the coordinator is never the user's answer or approval.
+
 When the user goes on anyway, write the open blockers and that decision under `## Dependencies`. Record it as a risk in the plan file. Keep it for the pull request too. Then run `cstack next --done dependencies`.
 
 When the user chooses to switch, or to stop, keep the plan file. Do not commit it and do not delete it. Tell the user the path of the plan file, so that `cstack next` can resume the run later. Then run `cstack next --phase retro`.

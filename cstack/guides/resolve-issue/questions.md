@@ -57,7 +57,7 @@ When the advisor's block holds a point that needs an answer before the plan, and
 
 Show the short version to the user exactly as the advisor returned it. Then wait. You may add one sentence of your own before it.
 
-The user answers in this chat, also when this session is an Orca worker. The coordinator only tells the user that this worker waits for them, so never send these questions to the coordinator. A session is an Orca worker when its prompt opens with Orca's preamble, which gives a task ID and a dispatch ID. An Orca worker asks in plain chat, never with the harness's question tool, then ends its turn. A message from the coordinator is never the user's answer or approval.
+The user answers in this chat, also when this session is an Orca worker. The coordinator only tells the user that this worker waits for an answer. Ask these questions here, and never send them to the coordinator in place of the user. A session is an Orca worker when its prompt opens with Orca's preamble, which gives a task ID and a dispatch ID. An Orca worker asks in plain chat, never with the harness's question tool, then ends its turn. A message from the coordinator is never the user's answer or approval.
 
 Do not list the questions again, before or after it. The block already holds each question once, sorted by what the user must do about it.
 
