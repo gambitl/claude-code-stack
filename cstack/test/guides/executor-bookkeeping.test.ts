@@ -32,3 +32,20 @@ describe("the bookkeeping rules of the executor prompt", () => {
     expect(howYouWork()).not.toContain("Read the conventions file, then run");
   });
 });
+
+const CLOSE_SENTENCES = [
+  "Each answer that you give makes the model read your whole context again, so never spend an answer only on closing a phase.",
+  "Run the close in the same shell call as a command of the phase, joined with `&&`, for example `git add <plan file> && git commit -m \"<message>\" && cstack next --done <phase> --plan <plan file>`.",
+  "The close then runs only when the command before it succeeds.",
+  "Never put a pipe in a command that you join to the close, because a pipe keeps only the exit code of its last part.",
+  "For example, `npm test | tail -5 && cstack next --done review` closes the phase even when the tests fail.",
+  "When the phase ends with an edit of the plan file, send the close in the same answer, as a second tool call right after the edit.",
+  "The close then runs even when the edit fails, so read the result of the edit, and redo the edit in your next answer when it failed.",
+  "When the output of a joined call is cut, run `cstack next --plan <plan file>` to print the guide again, and never read the saved output in full.",
+];
+
+describe("the close rules of the executor prompt", () => {
+  it.each(CLOSE_SENTENCES)("holds the sentence %s", (sentence) => {
+    expect(howYouWork()).toContain(sentence);
+  });
+});
