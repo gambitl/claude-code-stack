@@ -283,13 +283,14 @@ none
 - Unit 2 refusals broken: any launch type proves the line (4 failed); no transcript proves the line (3 failed); a transcript naming other units proves it (5 failed); one launch serves many lines (3 failed); escalation type removed (escalation case failed); meta description printed (9 failed).
 - Unit 3 stumbled: unit 2 already accepts the escalation implementer, so all 109 cases passed at `cstack unit red 3`, which refuses to save a passing run (stuck report saved). The implementer broke the escalation type filter and the each-stuck-unit condition, and the new case failed both times. I did not escalate and marked the unit Blocked. The test diff is kept outside the repository.
 - Unit 4 refusals broken: build-phase gate (failed the not-over case); type filter and transcript check (failed the another-type and every-launch-has-transcript cases); exit code tied to the sentence (failed the exit 0 case); sentence order (failed the two order cases). Three no-sentence cases cannot fail first, because they check an absence.
-- Unit 6 was not started: it depends on blocked unit 3. A unit with only documentation has no refusal.
+- Unit 6 has no refusal: it is documentation only (README.md and the ADR), so the implementer broke nothing and ran no test.
 - Unit 3 `Blocked` line first went before `Depends on`, and `cstack helper start` exited 3 until I moved it after it.
 
 ## Hand-off log
 
 - 2026-11-24, executor run 1: moved #108 to "in progress" with cstack tracker move. Started the build on the branch gambitl/audit-unit-implementer.
 - 2026-11-24, executor run 1, later: units 1, 5, 2 and 4 built and committed. Unit 3 is blocked (already built by unit 2). Unit 6 waits on unit 3. Stopped with a needs-decision report.
+- 2026-11-24, executor run 2: committed the user's answer, built unit 6 (3af1e47). Unit 3 stays blocked by decision. Build phase finished.
 
 ## History
 
