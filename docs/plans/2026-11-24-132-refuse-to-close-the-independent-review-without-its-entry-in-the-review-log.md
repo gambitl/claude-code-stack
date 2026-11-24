@@ -264,6 +264,9 @@ Impact notes (phase review). `contentLines` is read only in `cstack/src/phases.t
 
 Four reviewers (phase review). Correctness: no problem. It ran the full `npm test` (106 files, 1842 tests) and `npm run typecheck`, and both passed. Security: no issue, because this is a local check that writes nothing. Conventions: no issue. Simplicity: nothing to cut. Two notes without a fix: a line inside a code fence counts as content, so a fenced `Independent review:` line would satisfy the check, and the plan already calls this harmless. The Decisions block says the line starts at its first character, and the code follows it. No code changed in this phase.
 
+Independent review: none
+The independent reviewer changed nothing and made no commit. Typecheck and the full `npm test` passed (106 files, 1842 tests), and its own deliberate break of the check made all six new cases fail. Judgment calls for the pull request body, none needing a fix: a bare `Independent review:` line with nothing after it also closes the phase, because the check proves the entry was started and does not test its meaning, as Decisions accepts. A line inside a code block would also pass, which is harmless. The plan template placeholder does not mention the fixed first line, and Decisions keep the template unchanged on purpose.
+
 ## Briefing
 
 <CTO advisor, moment after-build: the short version shown to the user, then "Details">
